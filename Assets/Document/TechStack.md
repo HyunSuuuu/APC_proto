@@ -1,0 +1,158 @@
+# 앙팡물류센터 — 기술 스택
+
+> 프로토타입 구현 기준. 게임 규칙은 [GDD.md](GDD.md) 참고.
+
+## 1. 환경
+
+| 항목 | 내용 |
+|---|---|
+| 엔진 | Unity **6000.3.26f1** |
+| 렌더 파이프라인 | URP 17.3.0 — 모바일은 `Assets/Settings/Mobile_RPAsset` |
+| 타깃 | Android / iOS, **가로 고정** (현재 Player 설정은 자동 회전 → 변경 필요) |
+| 입력 처리 | Input System 전용 (`Active Input Handling = Input System Package`) |
+| IDE | VS Code (`com.unity.ide.visualstudio`로 csproj 생성) |
+
+## 2. 패키지
+
+| 패키지 | 버전 | 설치 방식 | 용도 |
+|---|---|---|---|
+| DOTween **Pro** (+ DemiLib) | - | `Assets/Plugins/Demigiant` (에셋 스토어) | 오브젝트·UI 연출, 인스펙터 연출(`DOTweenAnimation`), 경로 편집(`DOTweenPath`) |
+| R3 | 1.3.1 | 코어: NuGetForUnity (`Assets/packages.config`) / Unity 확장: Git UPM | 상태 바인딩, 게임 이벤트 |
+| NuGetForUnity | 4.5.0 | Git UPM | R3 코어 DLL 설치·복원 |
+| MCP for Unity (UnityMCP) | 10.3.0 | Git UPM | AI(Claude Code)의 에디터 조작 — **개발 전용** |
+| Universal RP | 17.3.0 | Unity 레지스트리 | 렌더링 |
+| Input System | 1.20.0 | Unity 레지스트리 | 조이스틱, 드래그, 핀치 |
+| uGUI (TextMeshPro 포함) | 2.0.0 | Unity 레지스트리 | HUD, 팝업 |
+| AI Navigation | 2.0.14 | Unity 레지스트리 | `NavMeshSurface` 런타임 재굽기, 알바 경로 탐색 |
+| Visual Studio Editor | 2.0.26 | Unity 레지스트리 | VS Code 연동 |
+
+Git UPM 패키지는 모두 **태그로 버전을 고정**했다 (`Packages/manifest.json`). 업데이트할 때는 태그를 바꾼다.
+
+### 2.1 함께 넣은 설정
+
+| 설정 | 위치 | 이유 |
+|---|---|---|
+| `NuGet.config`, `packages.config` | `Assets/` | R3 코어와 의존 DLL 6개를 `Assets/Packages/`에 복원 |
+
+## 3. 처음 열 때 확인할 것
+
+1. 프로젝트를 열면 Package Manager가 Git 패키지를 받는다 (**Git 설치 필요**).
+2. NuGetForUnity가 `packages.config`를 읽어 R3 DLL을 자동 복원한다. 복원 전에는 R3 관련 컴파일 에러가 잠깐 뜰 수 있다 → 복원 후 재컴파일되면 사라짐. 복원이 안 되면 `NuGet > Restore Packages`를 실행한다.
+   - **안전 모드(Safe Mode) 주의:** 첫 실행 때 이 에러 때문에 안전 모드를 띄우라는 창이 나오면 **Ignore**를 고른다. 안전 모드에서는 NuGetForUnity가 실행되지 않아 복원도 되지 않는다. 그러면 에러가 풀리지 않아 안전 모드를 계속 빠져나오지 못한다.
+   - 이미 안전 모드에 들어갔다면, 같은 버전의 `Assets/Packages/`를 다른 프로젝트(예: BPCP)에서 `.meta` 파일까지 통째로 복사한다. 그 뒤 `Ctrl+R`로 다시 불러오고 안전 모드를 종료한다.
+3. `Tools > Demigiant > DOTween Utility Panel`에서 아래를 1회 실행한다.
+   - **Setup DOTween**: 모듈 활성화. **TextMeshPro** 모듈을 반드시 체크한다 (Pro의 `DOTweenTextMeshPro` — HUD 숫자·MAX 텍스트 연출).
+   - **Create ASMDEF** (선택): 우리 코드를 asmdef로 나눠 DOTween 모듈·Pro 스크립트를 참조해야 할 때만 실행한다. 기본 `Assembly-CSharp`에서 쓰면 필요 없다. 만들 때는 수동으로 만들지 말고 이 버튼을 쓴다 (Pro용 asmdef가 빠지지 않게).
+4. UnityMCP: `Window > MCP for Unity`에서 서버를 시작한다 (HTTP `localhost:8080/mcp`). Claude Code의 `UnityMCP` 서버가 여기에 연결된다.
+
+## 4. 도구별 사용처
+
+### 4.1 DOTween — 연출
+
+| 사용처 | GDD | 연출 |
+|---|---|---|
+| 자동 집기 / 내려놓기 | 5.3 | `DOJump`로 상자가 포물선을 그리며 스택에 안착, 스택 흔들림 |
+| 시설 팝 · 부지 확장 | 9.2, 9.3 | `DOPunchScale`, 바닥·벽 모듈이 순서대로 이어 붙는 `Sequence` |
+| 현금 흡수 | 7.6 | 현금 → 플레이어로 이동하며 축소 |
+| 트럭 진입 · 출발 | 7.1, 8.3 | **`DOTweenPath`(Pro)** 로 씬에서 도로 경로를 직접 그림 → 입고/출고 경로별 컴포넌트, 코드에서 재생 (트럭은 네비메시 사용 안 함) |
+| UI | 12 | 주문 카드 슬라이드·재정렬, 게이지 링, 재화 카운트업, 팝업 열기/닫기, MAX 바운스 |
+| 텍스트 | 12 | **`DOTweenTextMeshPro`(Pro)** — 재화·XP 숫자 카운트업, 레벨업·MAX 텍스트 펀치 |
+
+**Pro 기능 사용 기준**
+
+| 기능 | 쓰는 곳 | 쓰지 않는 곳 |
+|---|---|---|
+| `DOTweenAnimation` (인스펙터 연출) | 고정된 UI 연출 — 팝업 열기/닫기, 버튼 반응, 배지 깜빡임. 기획·아트가 코드 수정 없이 조정 | 풀링 오브젝트(상자·현금), 대상·값이 런타임에 정해지는 연출 → 코드 트윈 |
+| `DOTweenPath` | 트럭 경로처럼 씬에 고정된 경로 | 알바 이동 (네비메시) |
+| 에디터 미리보기 (`DOTweenPreviewManager`) | 플레이 모드 없이 연출 확인 | - |
+
+- `DOTweenPro Examples` 폴더는 예제 씬이다. 빌드에 들어가지 않지만 필요 없으면 삭제해도 된다.
+
+### 4.2 R3 — 상태 바인딩 · 이벤트
+
+| 사용처 | GDD |
+|---|---|
+| 재화 · XP · 레벨 · 하루 시계 `ReactiveProperty` → HUD | 12.1 |
+| 선반 재고 → 외형 3단계 + 수량 표시 | 7.3 |
+| 알바 스탯 → 파생값(적재, 속도, 작업 배율), 미지급 상태 → 💸 아이콘 | 11.2, 11.7 |
+| 게임 이벤트: 주문 완료 → XP·현금, 레벨업 → 해금, 구매 → 저장 | 8.5, 10.2 |
+| 튜토리얼 단계 완료 조건 | 13 |
+| 자동 저장 묶기 (`Debounce`) | 14.1 |
+
+### 4.3 순서형 흐름 — 코루틴 / Awaitable (별도 패키지 없음)
+
+| 사용처 | GDD | 방식 |
+|---|---|---|
+| 트럭: 진입 → 정차 → 하차 완료 대기 → 출발 | 7.1, 7.6 | 상태 머신 (알바 AI와 같은 방식) |
+| 하루 마감: 시급 정산 → 정산 팝업 닫힘 대기 → 이력서 갱신 | 11.7 | 코루틴 (`WaitUntil(팝업 닫힘)`) |
+| 레벨업: 축하 연출 → 팝업 → 해금 패드 등장 | 10.2 | DOTween `Sequence` + `OnComplete` |
+| 튜토리얼 단계 진행 | 13 | 단계 매니저 + R3 조건 감지 |
+| 시설 생성 → 네비메시 재굽기 | 11.5 | `NavMeshSurface.UpdateNavMesh` + 코루틴 또는 `Awaitable.FromAsyncOperation` |
+| 저장 / 불러오기 파일 입출력 | 14.1 | 동기 처리로 시작 (데이터가 작음), 끊김이 보이면 `Awaitable.BackgroundThreadAsync` |
+
+### 4.4 UnityMCP — 개발 보조
+
+- GDD의 수치표(레벨, 비용, 회사·품목, 확장 칸)를 ScriptableObject 데이터로 생성·입력
+- 임시 프리미티브 프리팹 생성, 부지 그리드(GDD 4.2) 배치
+- 콘솔 에러 확인, 플레이 모드 실행 확인
+- 빌드에는 영향 없음 (에디터 전용 패키지)
+
+## 5. 사용 규칙
+
+### 5.1 역할 분담
+
+| 상황 | 사용 |
+|---|---|
+| 값이 바뀌면 다른 곳이 반응해야 함 (HUD, 외형, 저장) | **R3** |
+| 순서가 있고 끝이 있는 흐름 (연출 → 대기 → 다음 단계) | **코루틴 / Awaitable** (또는 DOTween `Sequence` 콜백) |
+| 매 프레임 판단하는 로직 (알바 상태 머신, 플레이어 이동, 존 감지 타이머) | **일반 `Update` + 상태 머신** — Rx/async로 짜지 않는다 |
+| 눈에 보이는 움직임 | **DOTween** |
+
+### 5.2 수명 관리
+
+- R3 구독은 `.AddTo(this)`로 오브젝트 수명에 묶는다.
+- 코루틴은 실행한 오브젝트가 꺼지면 함께 멈춘다. `Awaitable`을 쓸 때는 `destroyCancellationToken`을 넘겨서 오브젝트가 사라지면 취소되게 한다.
+- 풀링하는 오브젝트(상자, 현금)의 트윈은 반환할 때 `Kill()`, 일반 오브젝트는 `SetLink(gameObject)`.
+
+### 5.3 일시정지
+
+GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
+
+| 대상 | 처리 |
+|---|---|
+| 게임 일시정지 | `Time.timeScale = 0` (게임 매니저 상태와 함께 변경) |
+| UI 트윈 | `SetUpdate(true)` — 일시정지 중에도 재생 |
+| UI 쪽 코루틴 대기 | `WaitForSecondsRealtime` — 일시정지 중에도 진행 |
+| 하루 타이머 (10분) | `Time.deltaTime` 누적 — 일시정지·앱 종료 시 자동으로 멈춤. `WaitForSecondsRealtime(600)` 같은 실시간 대기는 쓰지 않는다 |
+
+### 5.4 데이터
+
+- 밸런스 수치는 모두 ScriptableObject로 뺀다 (GDD `임시` 값 = 조정 대상).
+- 테이블: 회사·품목, 레벨·해금, 비용, 주문 생성 규칙, 확장 칸, 알바 스탯 생성 규칙, 플레이어, 조작·카메라.
+- 진입점은 `Assets/Data/GameDatabase.asset` 하나. 새 테이블은 여기에 연결한다.
+
+### 5.5 입력
+
+- 터치와 마우스는 `PointerInput`으로만 읽는다. 터치스크린이 있으면 터치, 없으면 마우스 왼쪽 버튼을 손가락 1개로 본다.
+- Input System의 `TouchSimulation`은 쓰지 않는다. 에디터 개인 설정(Input Debugger)에 따라 플레이 시작 시 강제로 꺼지기 때문이다.
+- UI 위 터치 판정은 `UiHitTest` (uGUI 레이캐스트 + 디버그 메뉴 영역).
+
+### 5.6 폰트 (TextMeshPro)
+
+| 용도 | 폰트 에셋 |
+|---|---|
+| 기본 (본문 — 이력서, 정산 내역, 설명) — **TMP 기본 폰트** | `Fonts/SUITE-Medium SDF` |
+| 숫자 · 제목 (HUD 현금·레벨, MAX, 팝업 제목) | `Fonts/TmoneyRoundWindExtraBold SDF` |
+| 보조 | `Fonts/TmoneyRoundWindRegular SDF` |
+
+- 세 에셋 모두 정적 아틀라스(4096², 한글 11,000자 이상)라 하나에 약 37MB → **Git LFS로 관리**한다 (`.gitattributes`).
+- 처음 받을 때 `git lfs install`이 필요하다.
+
+## 6. 검토 중
+
+| 항목 | 메모 |
+|---|---|
+| Cinemachine | 쿼터뷰 추적 + 부지 경계 제한(`CinemachineConfiner`)을 직접 구현하지 않아도 됨. 자유 이동 모드와 카메라 전환 구조 필요 |
+| UniTask | 프로토타입에서 제외. 본 개발에서 비동기 흐름(서버 통신, 에셋 로딩, `WhenAll`)이 많아지면 재검토 |
+| ObservableCollections.R3 | 주문 큐처럼 목록 변화를 UI에 바인딩할 때 |
+| `Assets/Packages/` 커밋 여부 | NuGet 복원 결과물. 오프라인·CI 안정성을 위해 커밋 권장 |

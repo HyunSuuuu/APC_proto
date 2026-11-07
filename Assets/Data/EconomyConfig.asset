@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2feb9b6c430e29a4c945e6290203184b, type: 3}
+  m_Name: EconomyConfig
+  m_EditorClassIdentifier: Assembly-CSharp::APC.Data.EconomyConfig
+  startingCash: 0
+  padFillDuration: 1.5
+  extraShelfCost: 60
+  inboundBay3Cost: 300
+  outboundBay3Cost: 300
+  packingTable2Cost: 400
+  playerCarryUpgradeCosts: 64000000c80000005e010000
+  playerSpeedUpgradeCosts: 64000000c80000005e010000
+  shelfCapacityUpgradeCosts: 5000000096000000fa0000007c01000026020000
+  storageCapacityUpgradeCosts: 960000002c010000
+  compoundOrderMultiplier: 1.3
+  xpSingleOrder: 10
+  xpCompoundOrder: 20
+  xpPurchase: 5
+  xpReturnInspection: 2

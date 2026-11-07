@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9d51e98bdfb837a4596fa41d5cf3973f, type: 3}
+  m_Name: Company_B
+  m_EditorClassIdentifier: Assembly-CSharp::APC.Data.CompanyDefinition
+  id: B
+  displayName: "\uD68C\uC0AC B"
+  unlockLevel: 7
+  items:
+  - {fileID: 11400000, guid: dead8f60eb668074498a6a352e3a3862, type: 2}
+  - {fileID: 11400000, guid: 7d1b4f5014dbe764d9ada71eca9b2e1b, type: 2}
+  - {fileID: 11400000, guid: db61c0712c7596a4aa02d27ef043dcc5, type: 2}
+  inboundTruckCapacity: 10
+  shelvesOnContract:
+  - {fileID: 11400000, guid: dead8f60eb668074498a6a352e3a3862, type: 2}
+  - {fileID: 11400000, guid: 7d1b4f5014dbe764d9ada71eca9b2e1b, type: 2}
+  - {fileID: 11400000, guid: db61c0712c7596a4aa02d27ef043dcc5, type: 2}
