@@ -15,10 +15,28 @@ namespace APC.Data
         [SerializeField] StaffRules staff;
         [SerializeField] PlayerConfig player;
         [SerializeField] ControlsConfig controls;
+        [SerializeField] CarryConfig carry;
+        [SerializeField] LogisticsConfig logistics;
 
         public IReadOnlyList<CompanyDefinition> Companies => companies;
+        public LogisticsConfig Logistics => logistics;
         public PlayerConfig Player => player;
         public ControlsConfig Controls => controls;
+        public CarryConfig Carry => carry;
+
+        /// <summary>품목이 속한 회사. 없으면 null.</summary>
+        public CompanyDefinition GetCompanyOf(ItemDefinition item)
+        {
+            foreach (var company in companies)
+            {
+                if (company == null) continue;
+                foreach (var candidate in company.Items)
+                {
+                    if (candidate == item) return company;
+                }
+            }
+            return null;
+        }
         public LevelTable Levels => levels;
         public EconomyConfig Economy => economy;
         public OrderRules Orders => orders;
@@ -35,6 +53,8 @@ namespace APC.Data
                 : staff == null ? nameof(staff)
                 : player == null ? nameof(player)
                 : controls == null ? nameof(controls)
+                : carry == null ? nameof(carry)
+                : logistics == null ? nameof(logistics)
                 : companies.Count == 0 || companies.Contains(null) ? nameof(companies)
                 : null;
             return error == null;

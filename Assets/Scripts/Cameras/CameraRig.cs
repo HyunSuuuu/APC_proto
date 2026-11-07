@@ -21,8 +21,10 @@ namespace APC.Cameras
 
     /// <summary>
     /// 쿼터뷰 카메라 (GDD 3.2). 바닥 위의 초점(focus)을 기준으로 고정 각도·거리에 카메라를 둔다.
-    /// Main Camera에 붙인다.
+    /// 각도 · 거리 · 렌즈는 모두 ControlsConfig에서 매 프레임 읽으므로 Play 중 수정이 바로 반영된다.
+    /// Play 전 에디터에서도 config대로 플레이어를 비춰 미리 볼 수 있다. Main Camera에 붙인다.
     /// </summary>
+    [ExecuteAlways]
     [RequireComponent(typeof(Camera))]
     public sealed class CameraRig : MonoBehaviour
     {
@@ -48,23 +50,63 @@ namespace APC.Cameras
 
         void Start()
         {
+            if (!Application.isPlaying) return;
             config = GameManager.Instance.Database.Controls;
             distance = config.DefaultDistance;
             focus = target != null ? target.position : Vector3.zero;
-            ApplyTransform();
+            ApplyCamera();
         }
 
         void OnDestroy() => mode.Dispose();
 
+#if UNITY_EDITOR
+        void OnEnable() => ControlsConfig.EditorValuesChanged += OnConfigEdited;
+
+        void OnDisable() => ControlsConfig.EditorValuesChanged -= OnConfigEdited;
+
+        void OnConfigEdited()
+        {
+            if (Application.isPlaying || this == null) return;
+            PreviewInEditor();
+            UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
+        }
+#endif
+
         void LateUpdate()
         {
+            if (!Application.isPlaying)
+            {
+                PreviewInEditor();
+                return;
+            }
             if (config == null) return;
 
-            if (mode.Value == CameraMode.Free) HandleFreeInput();
-            else if (returnTween == null && target != null)
-                focus = Vector3.SmoothDamp(focus, target.position, ref focusVelocity, config.FollowDamping);
+            if (mode.Value == CameraMode.Free)
+            {
+                HandleFreeInput();
+            }
+            else if (returnTween == null)
+            {
+                distance = config.DefaultDistance;
+                if (target != null) focus = Vector3.SmoothDamp(focus, target.position, ref focusVelocity, config.FollowDamping);
+            }
 
-            ApplyTransform();
+            ApplyCamera();
+        }
+
+        /// <summary>에디터(Play 전): config대로 플레이어를 비춘다. 값이 같으면 건드리지 않아 씬이 바뀐 것으로 표시되지 않는다.</summary>
+        void PreviewInEditor()
+        {
+            if (target == null) return;
+            var manager = FindFirstObjectByType<GameManager>();
+            var controls = manager != null && manager.Database != null ? manager.Database.Controls : null;
+            if (controls == null) return;
+
+            if (cam == null) cam = GetComponent<Camera>();
+            config = controls;
+            focus = target.position;
+            distance = controls.DefaultDistance;
+            ApplyCamera();
         }
 
         /// <summary>HUD 카메라 버튼. 추적 ↔ 자유 전환.</summary>
@@ -170,10 +212,24 @@ namespace APC.Cameras
             return false;
         }
 
-        void ApplyTransform()
+        void ApplyCamera()
         {
-            var rotation = Quaternion.Euler(config != null ? config.Pitch : 45f, Yaw, 0f);
-            transform.SetPositionAndRotation(focus + rotation * new Vector3(0f, 0f, -distance), rotation);
+            var rotation = Quaternion.Euler(config.Pitch, config.Yaw, 0f);
+            var position = focus + Vector3.up * config.FocusHeight + rotation * new Vector3(0f, 0f, -distance);
+            if (transform.position != position || transform.rotation != rotation)
+                transform.SetPositionAndRotation(position, rotation);
+
+            if (cam.orthographic != config.Orthographic) cam.orthographic = config.Orthographic;
+            if (config.Orthographic)
+            {
+                // 직교 투영은 거리로 크기가 안 바뀌므로, 줌(거리)에 비례해 화면 크기를 바꾼다.
+                var size = config.OrthographicSize * distance / config.DefaultDistance;
+                if (!Mathf.Approximately(cam.orthographicSize, size)) cam.orthographicSize = size;
+            }
+            else if (!Mathf.Approximately(cam.fieldOfView, config.FieldOfView))
+            {
+                cam.fieldOfView = config.FieldOfView;
+            }
         }
     }
 }

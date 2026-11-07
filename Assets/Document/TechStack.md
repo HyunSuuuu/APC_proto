@@ -146,6 +146,8 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 | 보조 | `Fonts/TmoneyRoundWindRegular SDF` |
 
 - 세 에셋 모두 정적 아틀라스(4096², 한글 11,000자 이상)라 하나에 약 37MB → **Git LFS로 관리**한다 (`.gitattributes`).
+- 정적 아틀라스에 없는 기호(`·`, `→` 등)는 TMP 전역 대체 폰트 `LiberationSans SDF - Fallback`(동적)에서 가져온다 (`TMP Settings`).
+- 월드 글자에 외곽선이 필요하면 `tmp.outlineWidth`를 코드로 바꾸지 말고 외곽선 재질 에셋(`Fonts/... Outline.mat`)을 `fontSharedMaterial`로 쓴다. 코드로 바꾸면 재질 복사본이 생겨 프리팹에 저장되지 않는다.
 - 처음 받을 때 `git lfs install`이 필요하다.
 
 ## 6. 검토 중

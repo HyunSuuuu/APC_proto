@@ -1,0 +1,99 @@
+using System.Collections.Generic;
+using APC.Logistics;
+using UnityEngine;
+
+namespace APC.Interaction
+{
+    /// <summary>
+    /// 존과 상호작용하는 주체 (플레이어, 알바). 자기 위치의 존을 찾아 매 프레임 진행시킨다.
+    /// 존 안에서 readyDelay 이상 가만히 있어야 상호작용이 시작된다 (GDD 5.2).
+    /// </summary>
+    public sealed class Interactor : MonoBehaviour
+    {
+        // 이 속도(m/s) 이하면 가만히 있는 것으로 본다. 이동 방식(조이스틱·네비메시)과 무관하게 위치 변화로 판단한다.
+        const float StillSpeed = 0.05f;
+
+        static readonly List<Interactor> AllInteractors = new();
+
+        [SerializeField] CarryStack stack;
+
+        float readyDelay = 0.5f;
+        float transferInterval = 0.15f;
+        float stillTime;
+        Vector3 lastPosition;
+        InteractionZone zone;
+
+        /// <summary>활성화된 모든 interactor (들고 있는 화물 수 집계용).</summary>
+        public static IReadOnlyList<Interactor> All => AllInteractors;
+
+        public CarryStack Stack => stack;
+        public InteractionZone CurrentZone => zone;
+
+        /// <summary>이번 프레임에 멈춰 있는가.</summary>
+        public bool IsStill => stillTime > 0f;
+
+        /// <summary>운반 존 상호작용 가능 상태 (존 안에서 readyDelay 이상 멈춰 있음).</summary>
+        public bool IsReady => stillTime >= readyDelay;
+
+        /// <summary>대기 진행도 0~1 (존 바닥 표시용).</summary>
+        public float ReadyProgress => readyDelay <= 0f ? 1f : Mathf.Clamp01(stillTime / readyDelay);
+
+        /// <summary>집기/내려놓기 간격 (초). 플레이어 = PlayerConfig, 알바 = 기본 간격 ÷ 지능 배율.</summary>
+        public float TransferInterval => transferInterval;
+
+        /// <summary>CargoZone이 간격을 재는 타이머. 상호작용이 막 시작되면 간격만큼 차 있어 첫 1개는 바로 옮긴다.</summary>
+        internal float TransferTimer { get; set; }
+
+        public void Configure(float interval, float delay)
+        {
+            transferInterval = Mathf.Max(0.01f, interval);
+            readyDelay = Mathf.Max(0f, delay);
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics() => AllInteractors.Clear();
+
+        void OnEnable()
+        {
+            AllInteractors.Add(this);
+            lastPosition = transform.position;
+            stillTime = 0f;
+        }
+
+        void OnDisable()
+        {
+            AllInteractors.Remove(this);
+            SetZone(null);
+        }
+
+        void Update()
+        {
+            var deltaTime = Time.deltaTime;
+            if (deltaTime <= 0f) return;
+
+            var position = transform.position;
+            var moved = position - lastPosition;
+            moved.y = 0f;
+            lastPosition = position;
+            stillTime = moved.magnitude / deltaTime <= StillSpeed ? stillTime + deltaTime : 0f;
+
+            SetZone(InteractionZone.FindAt(position));
+
+            if (zone == null || !(zone.WaitsForReadyDelay ? IsReady : IsStill))
+            {
+                TransferTimer = transferInterval;
+                return;
+            }
+            zone.Tick(this, deltaTime);
+        }
+
+        void SetZone(InteractionZone next)
+        {
+            if (next == zone) return;
+            var previous = zone;
+            zone = next;
+            if (previous != null) previous.Exit(this);
+            if (next != null) next.Enter(this);
+        }
+    }
+}

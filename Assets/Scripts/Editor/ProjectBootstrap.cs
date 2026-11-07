@@ -79,6 +79,8 @@ namespace APC.EditorTools
             var staff = LoadOrCreate<StaffRules>($"{DataRoot}/StaffRules.asset", out _);
             var player = LoadOrCreate<PlayerConfig>($"{DataRoot}/PlayerConfig.asset", out _);
             var controls = LoadOrCreate<ControlsConfig>($"{DataRoot}/ControlsConfig.asset", out _);
+            var carry = LoadOrCreate<CarryConfig>($"{DataRoot}/CarryConfig.asset", out _);
+            var logistics = LoadOrCreate<LogisticsConfig>($"{DataRoot}/LogisticsConfig.asset", out _);
 
             // 비어 있는 참조만 채운다 (나중에 추가된 테이블도 기존 GameDatabase에 연결되도록).
             var database = LoadOrCreate<GameDatabase>($"{DataRoot}/GameDatabase.asset", out _);
@@ -92,6 +94,8 @@ namespace APC.EditorTools
             FillIfEmpty(so, "staff", staff);
             FillIfEmpty(so, "player", player);
             FillIfEmpty(so, "controls", controls);
+            FillIfEmpty(so, "carry", carry);
+            FillIfEmpty(so, "logistics", logistics);
             so.ApplyModifiedPropertiesWithoutUndo();
             return database;
         }

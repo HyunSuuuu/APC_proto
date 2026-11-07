@@ -20,7 +20,7 @@ namespace APC.Data
             public string content;
         }
 
-        [SerializeField, Min(1f), Tooltip("칸 한 변의 길이 (m) — 임시")] float cellSize = 12f;
+        [SerializeField, Min(1f), Tooltip("칸 한 변의 길이 (m) — 임시")] float cellSize = 10f;
 
         [SerializeField]
         List<Cell> cells = new()
