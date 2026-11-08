@@ -159,6 +159,8 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 | `SiteModule` (모듈 프리팹 루트) | 크기(칸), 칸 경계 기즈모. 안에 바닥 · 존 · 시설을 담는다. 루트 = 차지하는 칸들의 중심 |
 | `SiteLayout` (config, `Assets/Data`) | 배치 목록: id, 모듈 프리팹, 행 · 열(왼쪽 위 칸), 회전(0/90/180/270), 시작 여부, **해금 레벨 · 비용**, **같이 해금(`unlockWith`)** |
 | `SiteGrid` (씬) | 붙은 모듈 목록 + 열린 칸 집합. `Unlock(id)` = 모듈을 팝 연출로 붙이고 칸을 엶, `OnUnlocked` 이벤트, `IsAreaWalkable` = 열린 칸 안인지 |
+| `ExpansionPads` (SiteGrid 오브젝트) | 잠긴 대표 배치마다 레벨이 되고 열린 칸과 맞닿으면 **해금 패드**를 맞닿은 열린 칸 경계 안쪽에 놓는다 (`padCell`로 칸 지정 가능) |
+| `SiteNavMesh` (Site 루트, `NavMeshSurface`) | 열린 모듈 바닥 충돌체에만 네비메시를 굽고, 해금마다 다시 굽는다 (임시 Ground는 `NavMeshModifier`로 제외) |
 | `Build Site` (메뉴 `APC > Setup`) | config대로 시작 모듈을 **프리팹 인스턴스로** 씬에 굽는다. 잠긴 칸에는 아무것도 두지 않는다 |
 | `New Module` (메뉴 `APC > Module`) | 빈 n × m 모듈 틀(바닥 + `Content`)을 `Assets/Prefabs/Modules`에 만든다 |
 | `Rebuild Standard Modules` | 기본 모듈 프리팹을 코드 기준으로 다시 만든다 (덮어쓰기 — 프리팹에서 고친 내용은 사라짐) |
@@ -180,7 +182,8 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 - 모듈 내용은 씬이 아니라 **프리팹**에서 고친다. 씬의 모듈은 프리팹 인스턴스라 자동으로 반영된다.
 - 같은 모듈을 여러 칸에 재사용한다 (예: 하차 주차장 = R1C0 · E1, 상차 주차장 = 하차 주차장 모양을 180° 돌린 것).
 - 회전해서 붙는 모듈의 바닥 글자는 `FlatLabelAligner`가 카메라 쪽으로 돌려 놓는다.
-- 이동 제한은 물리 벽이 아니라 **칸 판정**(`SiteGrid.IsAreaWalkable`)으로 한다. 플레이어는 `PlayerMover`가 이동 전에 확인하고, 알바(M6)는 열린 모듈 바닥에만 네비메시를 구워 같은 효과를 낸다.
+- 이동 제한은 물리 벽이 아니라 **칸 판정**(`SiteGrid.IsAreaWalkable`)으로 한다. 플레이어는 `PlayerMover`가 이동 전에 확인하고, 알바(M6)는 열린 모듈 바닥에만 네비메시를 구워 같은 효과를 낸다 (`SiteNavMesh`).
+- 모듈 바닥(`Floor`)만 충돌체를 가진다. 네비메시가 바닥 충돌체로 구워지므로, 걸을 수 있는 면을 새로 만들면 충돌체를 남기고(`BuildKit.Cube(..., keepCollider: true)`), 장식에는 충돌체를 두지 않는다.
 
 ### 5.8 문서
 

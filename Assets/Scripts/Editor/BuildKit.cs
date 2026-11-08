@@ -89,7 +89,7 @@ namespace APC.EditorTools
         }
 
         /// <summary>바닥에 눕힌 글자. 모듈이 회전해도 카메라 쪽으로 읽히게 FlatLabelAligner를 붙인다.</summary>
-        public static void FlatLabel(Transform parent, string text, Vector3 position, float fontSize, Color color)
+        public static TMP_Text FlatLabel(Transform parent, string text, Vector3 position, float fontSize, Color color)
         {
             var go = new GameObject("FloorLabel", typeof(TextMeshPro));
             go.transform.SetParent(parent, false);
@@ -102,6 +102,18 @@ namespace APC.EditorTools
             tmp.color = color;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.rectTransform.sizeDelta = new Vector2(10f, 3f);
+            return tmp;
+        }
+
+        /// <summary>파티클용 재질 (URP Particles/Unlit, 텍스처 없음 = 네모 조각). 색은 파티클 색을 따른다.</summary>
+        public static Material ParticleMat(string name)
+        {
+            var path = $"{MaterialRoot}/{name}.mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material != null) return material;
+            material = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit"));
+            AssetDatabase.CreateAsset(material, path);
+            return material;
         }
 
         /// <summary>

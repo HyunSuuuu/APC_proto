@@ -37,6 +37,27 @@ namespace APC.Interaction
             return null;
         }
 
+        /// <summary>바닥에서 차지하는 사각형 (x = 월드 x, y = 월드 z).</summary>
+        public Rect WorldRect => FootprintRect(transform, size * 0.5f);
+
+        /// <summary>어떤 존과든 겹치는가 (패드처럼 나중에 놓는 존의 자리 찾기용).</summary>
+        public static bool AnyOverlap(Rect worldRect)
+        {
+            foreach (var zone in All)
+            {
+                if (zone.WorldRect.Overlaps(worldRect)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>로컬 XZ 사각형(중심 0, 반 크기 half)을 월드 사각형으로. 회전은 90° 단위라고 본다.</summary>
+        public static Rect FootprintRect(Transform t, Vector2 half)
+        {
+            var a = t.TransformPoint(new Vector3(-half.x, 0f, -half.y));
+            var b = t.TransformPoint(new Vector3(half.x, 0f, half.y));
+            return Rect.MinMaxRect(Mathf.Min(a.x, b.x), Mathf.Min(a.z, b.z), Mathf.Max(a.x, b.x), Mathf.Max(a.z, b.z));
+        }
+
         public bool Contains(Vector3 worldPosition)
         {
             var local = transform.InverseTransformPoint(worldPosition);

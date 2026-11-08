@@ -116,12 +116,12 @@ namespace APC.Site
         /// <summary>에디터 Build Site 전용.</summary>
         public void SetEntries(List<Entry> baked) => entries = baked;
 
+        /// <summary>칸 (x = 열, y = 행)이 열려 있는가.</summary>
+        public bool IsCellOpen(Vector2Int cell) => openCells.Contains(cell);
+
         void OpenCells(SiteLayout.ModulePlacement placement)
         {
-            var size = SiteLayout.RotatedSize(placement.module != null ? placement.module.Size : Vector2Int.one, placement.rotation);
-            for (var r = 0; r < size.y; r++)
-            for (var c = 0; c < size.x; c++)
-                openCells.Add(new Vector2Int(placement.column + c, placement.row + r));
+            foreach (var cell in SiteLayout.GetCells(placement)) openCells.Add(cell);
         }
 
         Entry Find(string id)

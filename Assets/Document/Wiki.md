@@ -76,11 +76,12 @@ Editor ─→ 전부   (런타임 코드는 Editor를 참조하지 않는다)
 | `Player` | PlayerMover, PlayerSetup, Interactor, CarryStack, CarryMaxIndicator, CashCollector | M1 · M2 · Build Site |
 | `CargoPool` | CargoPool | M2 |
 | `HUD Canvas` | 자식 `Joystick`(FloatingJoystick), `CameraButton`(CameraModeButton) | M0 · M1 |
-| └ `CashHud` · `OrderQueue` · `ContractPopup` | CashView · OrderQueueView · ContractPopup | Build Site (지우고 다시 만듦) |
-| `Site` | 아래 참고 | **Build Site** (지우고 다시 만듦) |
-| └ `Ground` | 초록 바닥 (임시 — 모듈 바닥으로 충분해지면 삭제 예정) | Build Site |
+| └ `LevelHud` · `CashHud` · `LevelUpBanner` · `OrderQueue` · `ContractPopup` | LevelView · CashView · LevelUpBanner · OrderQueueView · ContractPopup | Build Site (지우고 다시 만듦) |
+| └ Player 자식 `LevelUpConfetti` | ParticleSystem (레벨업 색종이) | Build Site |
+| `Site` | NavMeshSurface, SiteNavMesh + 아래 참고 | **Build Site** (지우고 다시 만듦) |
+| └ `Ground` | 초록 바닥 (임시 — 모듈 바닥으로 충분해지면 삭제 예정). NavMeshModifier로 네비메시에서 제외 | Build Site |
 | └ `Logistics` | Warehouse, ContractService, OrderService | Build Site |
-| └ `SiteGrid` | SiteGrid + 시작 모듈 프리팹 인스턴스 6개 | Build Site |
+| └ `SiteGrid` | SiteGrid, ExpansionPads + 시작 모듈 프리팹 인스턴스 6개 (실행 중 해금 패드 · 모듈이 여기 붙음) | Build Site |
 
 ---
 
@@ -205,10 +206,15 @@ OrderService.Update: 이후 레벨 구간 간격(Lv.1~3 15초)마다 주문 1건
 SiteLayout(config) : 어떤 모듈을 어디(행·열·회전)에, 언제(레벨·비용) 붙일지
    │  에디터 Build Site → 시작 모듈만 프리팹 인스턴스로 씬에 굽기
    ▼
+ExpansionPads : 레벨업 · 해금마다 확인 → 레벨이 됐고 열린 칸과 맞닿은 잠긴 배치에 해금 패드 (팝)
+   │  플레이어가 패드 위에 멈춤 → 현금이 1.5초에 걸쳐 들어감 (모자라면 멈춤 · 유지)
+   ▼  다 내면 ExpansionPad → SiteGrid.Unlock + XP +5, 패드 사라짐
 SiteGrid(씬) : 붙은 모듈 목록 + 열린 칸 집합
    │  Unlock(id) → 모듈 Instantiate → 칸 열기 → 팝 연출 → OnUnlocked
    ▼
 PlayerMover : 이동 전에 SiteGrid.IsAreaWalkable로 열린 칸 안인지 확인
+SiteNavMesh : 팝 연출이 끝나면 네비메시 다시 굽기 (알바용)
+ExpansionPads : 새로 맞닿게 된 칸의 패드를 놓음
 ```
 
 잠긴 칸에는 아무것도 없다 (보이지 않고 들어갈 수 없음). 해금하면 그 모듈 안의 `ShelfSlot`, `InboundBay` 등이 켜지면서 스스로 동작을 시작한다.
@@ -298,10 +304,12 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
   | `isStartArea` | 처음부터 열림 |
   | `unlockLevel`, `cost` | 해금 조건 (M5 구매 패드가 확인) |
   | `unlockWith` | 다른 배치 id를 적으면 그 배치와 **같이 해금**된다 (ㄱ자 구역 등). 이때 자기 시작 여부 · 레벨 · 비용은 무시 |
+  | `padCell` | 해금 패드를 둘 열린 칸 (x = 열, y = 행). y가 0이면 자동 |
   | `content` | 메모 (화면에는 안 나옴) |
 
 - **동작**: `CellCenter(row, col)`, `GetModuleCenter(placement, size)`(여러 칸 모듈의 중심), `RotatedSize`(90°/270°면 가로세로 교체).
-  - `GetDisplayName(id)`: content의 괄호 앞부분 (예: "선반 구역 B") — 계약 카드 문구용.
+  - `GetDisplayName(id)`: content의 괄호 앞부분 (예: "선반 구역 B") — 계약 카드 · 패드 이름용.
+  - `GetCells(placement)`: 배치가 차지하는 칸들 (회전 반영).
   - 같이 해금: `GetUnlockRoot(id)`(사슬을 따라 대표 id), `GetUnlockGroup(rootId)`(대표 + 묶인 배치 전부), `IsStartOpen(placement)`(묶인 배치는 대표의 시작 여부를 따름). 에디터에서 없는 id · 자기 자신을 적으면 경고한다.
 - **주의**: 인스펙터 우클릭 메뉴 "배치 목록을 GDD 기본값으로 되돌리기"는 목록을 덮어쓴다.
 
@@ -360,6 +368,7 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 - **역할**: 모든 존의 바탕. 영역(`size`, 루트 기준 XZ 사각형), 안에 있는 interactor 목록, 바닥 색 표시.
 - **동작**: `FindAt(위치)`는 등록된 존을 순서대로 보고 처음 맞는 것을 돌려준다. 바닥 색은 `FloorProgress`에 따라 idle → active로 바뀐다 (`MaterialPropertyBlock`으로 재질 복사 없이).
 - **하위 클래스가 정하는 것**: `Tick`(필수), `WaitsForReadyDelay`, `FloorProgress`, `OnEnter`/`OnExit`.
+- **겹침 확인**: `WorldRect`(바닥 사각형), `AnyOverlap(rect)`(어떤 존과든 겹치나 — 해금 패드 자리 찾기), `FootprintRect(transform, half)`(로컬 사각형 → 월드).
 - **주의**: 루트 크기(scale)는 1로 둔다. `OnEnable`/`OnDisable`/`Update`를 덮어쓸 때는 `base.` 호출을 잊지 않는다.
 
 #### CargoZone (추상)
@@ -374,6 +383,13 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 - **동작**: `Progress`(0~1, R3). 움직이거나 나가면 멈추고 진행도는 유지된다. 처음부터 다시 하려면 `ResetGauge()`.
 - **덮어쓸 수 있는 것**: `Advance`(진행 계산 — 구매 패드는 넣은 돈만큼 진행), `CanProgress`, `Duration`(코드에서 config 값으로 설정).
 - **주의**: 다 찬 뒤에는 `ResetGauge` 전까지 다시 완료되지 않는다. `ContractPC`는 `OnExit`에서 되돌려, 존을 나갔다 들어오면 다시 열린다.
+
+#### PurchasePad (추상)
+[Interaction/PurchasePad.cs](../Scripts/Interaction/PurchasePad.cs)
+- **역할**: 구매 / 해금 패드의 바탕 (GDD 9.2). `GaugeZone`을 상속해 **진행도 = 낸 금액 / 비용**으로 바꾼 것.
+- **동작**: 멈춰 서 있으면 `비용 × deltaTime / padFillDuration(1.5초)`씩 `Wallet.SpendUpTo`로 낸다. 모자라면 가진 만큼만 내고 멈추며 낸 금액은 유지된다. 다 차면 `OnPurchased` → XP(`xpPurchase`) → 작아지며 사라짐. 남은 금액은 `costLabel`에 표시.
+- **하위 클래스가 정하는 것**: `SetupPad(이름, 비용)` 호출, `OnPurchased`(시설 생성 · 해금 등).
+- **주의**: `CashCollector`가 있는 대상(플레이어)만 돈을 낸다. 업그레이드 · 시설 구매 패드(M8, M10)도 이걸 상속한다.
 
 #### GaugeRingView
 [Interaction/GaugeRingView.cs](../Scripts/Interaction/GaugeRingView.cs)
@@ -444,7 +460,7 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 #### ShelfSlot
 [Logistics/ShelfSlot.cs](../Scripts/Logistics/ShelfSlot.cs)
 - **역할**: 선반 구역 모듈 안의 "선반을 세울 자리". 켜질 때 `ShelfSlot.All`에 스스로 등록한다.
-- **동작**: `unlockLevel`(이 레벨부터 사용 가능), `order`(모듈 안에서 세우는 순서), `Occupant`(세워진 선반).
+- **동작**: `unlockLevel`(이 레벨부터 사용 가능), `order`(모듈 안에서 세우는 순서), `Occupant`(세워진 선반), `WorldFootprint`(선반 + 앞뒤 존이 차지하는 바닥 — 패드가 피함).
 - **주의**: `OnEnable` 순서는 보장되지 않으므로, 순서가 중요하면 `order`를 쓴다.
 
 #### Warehouse
@@ -551,13 +567,39 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
   - `Awake`: Build Site가 구운 시작 모듈들의 칸을 연다.
   - `Unlock(id)`: **같이 해금되는 묶음 전체**를 연다 — 묶음 안 어느 id를 넘겨도 같다. 모듈마다 config에서 배치를 찾아 만들고, 칸을 열고, 팝 연출 후 `OnUnlocked`를 보낸다(모듈마다 한 번). 새로 붙은 모듈이 없으면 false.
   - `IsWalkable(위치)` / `IsAreaWalkable(중심, 반지름)`: 열린 칸 안인지 (반지름은 네 모서리로 검사).
-- **주의**: `Unlock`은 비용 · 레벨 · 인접 조건을 확인하지 않는다. 부르는 쪽(M5 구매 패드)이 확인한다.
+  - `IsCellOpen(cell)`: 칸 (열, 행)이 열렸나 (패드 인접 확인용).
+- **주의**: `Unlock`은 비용 · 레벨 · 인접 조건을 확인하지 않는다. 그 조건은 `ExpansionPads`가 패드를 놓을 때 확인한다 (디버그 메뉴는 조건 없이 연다).
+
+#### ExpansionPads
+[Site/ExpansionPads.cs](../Scripts/Site/ExpansionPads.cs)
+- **역할**: 확장 칸 해금 패드 관리 (SiteGrid 오브젝트). 잠긴 **대표 배치**마다 ① 해금 레벨이 됐고 ② 묶음이 열린 칸과 맞닿아 있으면(섬 금지) 패드를 팝 연출로 놓는다. 레벨 전에는 패드가 없다.
+- **동작**: 시작 · 레벨업 · 해금마다 `Refresh`. 자리: 맞닿은 열린 칸(host)을 위 · 왼쪽 · 오른쪽 · 아래 순으로 보고, host의 잠긴 칸 쪽 경계에서 `edgeInset`(1.4m) 안쪽, 경계를 따라 0 / ±2.5 / ±3.5m 중 **다른 존 · 선반이 선 자리와 안 겹치는 곳**. config `padCell`이 있으면 그 칸만.
+- **주의**: 디버그 메뉴로 바로 해금하면 남은 패드를 여기서 지운다.
+
+#### ExpansionPad
+[Site/ExpansionPad.cs](../Scripts/Site/ExpansionPad.cs)
+- **역할**: `PurchasePad` 하나. 다 내면 `SiteGrid.Unlock(placementId)` (묶음 전체). 프리팹 `Assets/Prefabs/ExpansionPad.prefab`.
+
+#### SiteNavMesh
+[Site/SiteNavMesh.cs](../Scripts/Site/SiteNavMesh.cs)
+- **역할**: 부지 네비메시 (M6 알바 대비). Site 루트의 `NavMeshSurface`가 **자식 충돌체 = 열린 모듈 바닥**에만 굽는다. 잠긴 칸엔 바닥이 없으니 알바도 열린 칸 안에서만 다닌다.
+- **동작**: 시작 시 한 번, `OnUnlocked`마다 팝 연출(`facilityPopDuration`)이 끝난 뒤 다시 굽는다 (묶음 해금이어도 한 번).
+- **주의**: 초록 Ground는 `NavMeshModifier.ignoreFromBuild`로 제외. 선반 · 트럭 등은 충돌체가 없어 아직 장애물이 아니다 (M6에서 처리).
 
 ### 4.9 UI
 
+#### LevelView
+[UI/LevelView.cs](../Scripts/UI/LevelView.cs)
+- **역할**: HUD 좌상단 `Lv.N` + 경험치 바 + `xp/필요`. 바는 부드럽게 차고, 레벨이 오르면 패널이 튄다.
+
+#### LevelUpBanner
+[UI/LevelUpBanner.cs](../Scripts/UI/LevelUpBanner.cs)
+- **역할**: 레벨업 연출 v1 — 화면 중앙 `LEVEL UP! Lv.N` + 해금 한 줄(`LevelTable.GetUnlockNote`)이 약 2초 떴다 사라지고, 플레이어 위 색종이 파티클(`LevelUpConfetti`)이 터진다.
+- **주의**: 게임을 멈추지 않고 입력도 막지 않는다 (CanvasGroup `blocksRaycasts = false`). 여러 레벨이 한꺼번에 오르면 차례로 보여준다.
+
 #### CashView
 [UI/CashView.cs](../Scripts/UI/CashView.cs)
-- **역할**: HUD 왼쪽 위 현금 표시. `Wallet.Cash`를 구독해 숫자가 굴러가듯 바뀌고(`DOVirtual.Float`), 오를 때 패널이 튄다.
+- **역할**: HUD 왼쪽 위(레벨 패널 오른쪽) 현금 표시. `Wallet.Cash`를 구독해 숫자가 굴러가듯 바뀌고(`DOVirtual.Float`), 오를 때 패널이 튄다.
 
 #### OrderQueueView
 [UI/OrderQueueView.cs](../Scripts/UI/OrderQueueView.cs)
@@ -608,12 +650,12 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 | 메뉴 | 스크립트 | 하는 일 |
 |---|---|---|
 | `APC > Setup > Run M0 Setup` | [ProjectBootstrap](../Scripts/Editor/ProjectBootstrap.cs) | 폴더, 가로 화면 설정, 데이터 에셋(GDD 수치), Game 씬. **이미 있는 에셋 · 씬은 건드리지 않고** 빈 참조만 채운다 |
-| `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground · Logistics(Warehouse · ContractService · OrderService) → 시작 모듈 인스턴스 → HUD(현금 · 주문서 큐 · 계약 팝업) → 플레이어 위치 + CashCollector → 씬 저장 |
+| `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground(네비메시 제외) · NavMeshSurface · Logistics(Warehouse · ContractService · OrderService) → 시작 모듈 인스턴스 + ExpansionPads → HUD(레벨 · 현금 · 레벨업 배너 + 색종이 · 주문서 큐 · 계약 팝업) → 플레이어 위치 + CashCollector → 씬 저장 |
 | `APC > Module > New Module...` | [ModuleFactory](../Scripts/Editor/ModuleFactory.cs) (`ModuleCreatorWindow`) | 빈 n × m 모듈 틀을 `Assets/Prefabs/Modules/Module_이름.prefab`으로 만든다 |
 | `APC > Module > Rebuild Standard Modules` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 10종(빈 타일 `Module_Empty` 포함)을 코드 기준으로 **덮어써서** 다시 만든다 |
 
 #### StandardModules
-- **역할**: 기본 모듈 프리팹의 내용을 코드로 정의한다. `DefaultAssignments`(SiteLayout id → 기본 모듈 · 회전)와 `Builders`(모듈 이름 → 만드는 함수) 두 표가 핵심이다. 시설 프리팹(`Shelf`, `InboundTruck`, `OutboundTruck`, `CashBundle`)도 여기서 만든다.
+- **역할**: 기본 모듈 프리팹의 내용을 코드로 정의한다. `DefaultAssignments`(SiteLayout id → 기본 모듈 · 회전)와 `Builders`(모듈 이름 → 만드는 함수) 두 표가 핵심이다. 시설 프리팹(`Shelf`, `InboundTruck`, `OutboundTruck`, `CashBundle`, `ExpansionPad`)도 여기서 만든다.
 - **동작**: `EnsureAll(overwrite)`, `Rebuild(asset)`(모듈 하나만 다시), `ShelfPrefab(overwrite)` · `OutboundTruckPrefab(overwrite)`. 같은 경로에 덮어쓰므로 GUID와 참조는 유지된다.
 - **주의**: 평소에는 **없는 프리팹만** 만든다. 프리팹을 손으로 고쳤다면 Rebuild를 누르지 않는다 (덮어씀). 좌표는 모듈 중심 기준(1칸 = −5 ~ +5)이고, 주차장의 바깥쪽은 −x다. 코드를 바꿨는데 프리팹이 이미 있으면 해당 프리팹만 `Rebuild`/`overwrite: true`로 다시 만든다.
 
@@ -627,7 +669,8 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
   | `Cube(...)` | 박스 생성 (기본은 충돌체 제거) |
   | `Zone<T>(...)` | 존 + 바닥 판 + 바닥 글자를 한 번에 생성 |
   | `GaugeRing(zone, parent)` | 게이지 존 바닥 원형 게이지 |
-  | `BillboardLabel` / `FlatLabel` | 카메라를 보는 글자 / 바닥에 눕힌 글자 (외곽선 재질 공유) |
+  | `BillboardLabel` / `FlatLabel` | 카메라를 보는 글자 / 바닥에 눕힌 글자 (외곽선 재질 공유). 둘 다 TMP를 돌려준다 |
+  | `ParticleMat(name)` | URP Particles/Unlit 재질 (색종이 등) |
   | `UIRect` · `UIImage` · `UIText` · `BuiltinSprite` | uGUI 생성 |
   | `SetRef` · `SetInt` · `SetList` | `[SerializeField]` private 필드에 값 넣기 (SerializedObject) |
   | `Database`, `TitleFont`, `BodyFont`, `DestroyIfExists` | 에셋 · 씬 정리 |

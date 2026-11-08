@@ -298,6 +298,37 @@ namespace APC.EditorTools
             return AssetDatabase.LoadAssetAtPath<OutboundTruck>(path);
         }
 
+        /// <summary>
+        /// 확장 해금 패드: 초록 바닥 + 원형 게이지 + 가운데 남은 비용 + 아래 칸 이름 (GDD 9.2 구매 = 초록).
+        /// 위치 · 이름 · 비용은 실행 중 ExpansionPads가 정한다.
+        /// </summary>
+        public static ExpansionPad ExpansionPadPrefab(bool overwrite = false)
+        {
+            var path = $"{PrefabRoot}/ExpansionPad.prefab";
+            var existing = AssetDatabase.LoadAssetAtPath<ExpansionPad>(path);
+            if (existing != null && !overwrite) return existing;
+
+            var holder = new GameObject("Holder");
+            var pad = BuildKit.Zone<ExpansionPad>(holder.transform, "ExpansionPad", Vector3.zero, new Vector2(2.2f, 2.2f),
+                new Color(0.45f, 0.75f, 0.45f), new Color(0.35f, 0.95f, 0.4f), null);
+            var root = pad.gameObject;
+            root.transform.SetParent(null, false);
+            UnityEngine.Object.DestroyImmediate(holder);
+
+            BuildKit.GaugeRing(pad, root.transform);
+            var cost = BuildKit.FlatLabel(root.transform, "100", new Vector3(0f, 0.08f, 0f), 4.2f, Color.white);
+            cost.name = "CostLabel";
+            cost.font = BuildKit.TitleFont;
+            var title = BuildKit.FlatLabel(root.transform, "확장", new Vector3(0f, 0.03f, -1.7f), 3.2f, Color.white);
+            title.name = "NameLabel";
+            BuildKit.SetRef(pad, "costLabel", cost);
+            BuildKit.SetRef(pad, "nameLabel", title);
+
+            PrefabUtility.SaveAsPrefabAsset(root, path);
+            UnityEngine.Object.DestroyImmediate(root);
+            return AssetDatabase.LoadAssetAtPath<ExpansionPad>(path);
+        }
+
         /// <summary>현금 뭉치 1개 (초록 지폐 다발 + 띠).</summary>
         public static Transform CashBundlePrefab()
         {

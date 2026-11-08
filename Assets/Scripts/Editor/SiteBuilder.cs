@@ -5,6 +5,7 @@ using APC.Logistics;
 using APC.Orders;
 using APC.Site;
 using APC.UI;
+using Unity.AI.Navigation;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -38,6 +39,7 @@ namespace APC.EditorTools
             StandardModules.TruckPrefab();
             StandardModules.OutboundTruckPrefab();
             StandardModules.CashBundlePrefab();
+            var padPrefab = StandardModules.ExpansionPadPrefab();
             StandardModules.EnsureAll(overwrite: false);
             AssignDefaultModules(layout);
 
@@ -51,6 +53,13 @@ namespace APC.EditorTools
             ground.transform.localPosition = new Vector3(2f * size, -0.05f, -1f * size);
             ground.transform.localScale = new Vector3(14f * size / 10f, 1f, 9f * size / 10f);
             ground.GetComponent<Renderer>().sharedMaterial = Mat("M_Ground", new Color(0.36f, 0.42f, 0.36f));
+            ground.AddComponent<NavMeshModifier>().ignoreFromBuild = true; // 임시 바닥은 네비메시에서 뺀다
+
+            // 네비메시: 열린 모듈 바닥(충돌체)에만 굽는다 (M5-5)
+            var surface = site.gameObject.AddComponent<NavMeshSurface>();
+            surface.collectObjects = CollectObjects.Children;
+            surface.useGeometry = UnityEngine.AI.NavMeshCollectGeometry.PhysicsColliders;
+            site.gameObject.AddComponent<SiteNavMesh>();
 
             var services = new GameObject("Logistics").transform;
             services.SetParent(site, false);
@@ -58,8 +67,11 @@ namespace APC.EditorTools
             services.gameObject.AddComponent<ContractService>();
             services.gameObject.AddComponent<OrderService>();
 
-            BakeGrid(site, layout);
+            var grid = BakeGrid(site, layout);
+            SetRef(grid.gameObject.AddComponent<ExpansionPads>(), "padPrefab", padPrefab);
+            BuildLevelHud();
             BuildCashHud();
+            BuildLevelUpBanner();
             BuildOrderQueue();
             BuildContractPopup();
             RemoveTestZones();
@@ -92,7 +104,7 @@ namespace APC.EditorTools
             AssetDatabase.SaveAssets();
         }
 
-        static void BakeGrid(Transform site, SiteLayout layout)
+        static SiteGrid BakeGrid(Transform site, SiteLayout layout)
         {
             var gridGo = new GameObject("SiteGrid");
             gridGo.transform.SetParent(site, false);
@@ -123,6 +135,7 @@ namespace APC.EditorTools
 
             grid.SetEntries(entries);
             EditorUtility.SetDirty(grid);
+            return grid;
         }
 
         /// <summary>M2 손맛 테스트 존 정리 (부지 밖이라 이제 들어갈 수 없다).</summary>
@@ -141,6 +154,114 @@ namespace APC.EditorTools
             if (player.GetComponent<CashCollector>() == null) player.AddComponent<CashCollector>();
         }
 
+        // ── HUD: 레벨 · 경험치 (좌상단) ──────────────────────────────────
+
+        static void BuildLevelHud()
+        {
+            var canvas = GameObject.Find("HUD Canvas").transform;
+            var old = canvas.Find("LevelHud");
+            if (old != null) DestroyIfExists(old.gameObject);
+
+            var sprite = BuiltinSprite("UI/Skin/UISprite.psd");
+            var panel = UIImage("LevelHud", canvas, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -20f), new Vector2(330f, 84f),
+                new Color(0f, 0f, 0f, 0.45f), sprite);
+            panel.type = Image.Type.Sliced;
+            var rect = panel.rectTransform;
+            rect.pivot = new Vector2(0f, 1f);
+
+            var level = UIText("Level", rect, new Vector2(0f, 0.5f), new Vector2(66f, 0f), new Vector2(110f, 84f), "Lv.1", 40f, TitleFont, Color.white);
+            var barBack = UIImage("XpBack", rect, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(222f, 8f), new Vector2(190f, 22f),
+                new Color(1f, 1f, 1f, 0.2f), sprite);
+            barBack.type = Image.Type.Sliced;
+            var fill = UIImage("XpFill", barBack.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, new Color(1f, 0.82f, 0.3f), sprite);
+            fill.type = Image.Type.Filled;
+            fill.fillMethod = Image.FillMethod.Horizontal;
+            fill.fillAmount = 0f;
+            var xp = UIText("Xp", rect, new Vector2(0f, 0.5f), new Vector2(222f, -22f), new Vector2(190f, 26f), "0/30", 22f, BodyFont, new Color(1f, 1f, 1f, 0.85f));
+
+            var view = panel.gameObject.AddComponent<LevelView>();
+            SetRef(view, "levelLabel", level);
+            SetRef(view, "xpFill", fill);
+            SetRef(view, "xpLabel", xp);
+            SetRef(view, "punchTarget", rect);
+        }
+
+        // ── 레벨업 배너 (중앙) + 플레이어 위 파티클 ───────────────────────
+
+        static void BuildLevelUpBanner()
+        {
+            var canvas = GameObject.Find("HUD Canvas").transform;
+            var old = canvas.Find("LevelUpBanner");
+            if (old != null) DestroyIfExists(old.gameObject);
+
+            var root = UIRect("LevelUpBanner", canvas, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var group = root.gameObject.AddComponent<CanvasGroup>();
+            var band = UIImage("Panel", root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 180f), new Vector2(1000f, 190f),
+                new Color(0.1f, 0.08f, 0.05f, 0.7f), BuiltinSprite("UI/Skin/UISprite.psd"));
+            band.type = Image.Type.Sliced;
+            var title = UIText("Title", band.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 30f), new Vector2(980f, 110f), "LEVEL UP!  Lv.2", 84f, TitleFont, new Color(1f, 0.85f, 0.3f));
+            var note = UIText("Note", band.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, -55f), new Vector2(960f, 50f), "해금 내용", 32f, BodyFont, Color.white);
+
+            var banner = root.gameObject.AddComponent<LevelUpBanner>();
+            SetRef(banner, "group", group);
+            SetRef(banner, "panel", band.rectTransform);
+            SetRef(banner, "titleLabel", title);
+            SetRef(banner, "noteLabel", note);
+            SetRef(banner, "burst", BuildConfetti());
+        }
+
+        /// <summary>플레이어 머리 위 축하 파티클 (색종이 조각이 위로 터졌다가 떨어짐).</summary>
+        static ParticleSystem BuildConfetti()
+        {
+            var player = GameObject.Find("Player");
+            if (player == null) return null;
+            var old = player.transform.Find("LevelUpConfetti");
+            if (old != null) DestroyIfExists(old.gameObject);
+
+            var go = new GameObject("LevelUpConfetti");
+            go.transform.SetParent(player.transform, false);
+            go.transform.localPosition = new Vector3(0f, 2.2f, 0f);
+            var ps = go.AddComponent<ParticleSystem>();
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+            var main = ps.main;
+            main.duration = 1f;
+            main.loop = false;
+            main.playOnAwake = false;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(1f, 1.6f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(5f, 9f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.12f, 0.25f);
+            main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+            main.gravityModifier = 1.2f;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 120;
+            var colors = new Gradient();
+            colors.SetKeys(
+                new[] { new GradientColorKey(new Color(1f, 0.3f, 0.3f), 0f), new GradientColorKey(new Color(1f, 0.85f, 0.2f), 0.33f),
+                        new GradientColorKey(new Color(0.3f, 0.8f, 1f), 0.66f), new GradientColorKey(new Color(0.4f, 0.9f, 0.4f), 1f) },
+                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) });
+            main.startColor = new ParticleSystem.MinMaxGradient(colors) { mode = ParticleSystemGradientMode.RandomColor };
+
+            var emission = ps.emission;
+            emission.rateOverTime = 0f;
+            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 70) });
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Cone;
+            shape.angle = 35f;
+            shape.radius = 0.2f;
+            shape.rotation = new Vector3(-90f, 0f, 0f); // 위로
+
+            var spin = ps.rotationOverLifetime;
+            spin.enabled = true;
+            spin.z = new ParticleSystem.MinMaxCurve(-6f, 6f);
+
+            var renderer = go.GetComponent<ParticleSystemRenderer>();
+            renderer.sharedMaterial = ParticleMat("M_Confetti");
+            renderer.renderMode = ParticleSystemRenderMode.Billboard;
+            return ps;
+        }
+
         // ── HUD: 현금 (좌상단) ───────────────────────────────────────────
 
         static void BuildCashHud()
@@ -149,7 +270,8 @@ namespace APC.EditorTools
             var old = canvas.Find("CashHud");
             if (old != null) DestroyIfExists(old.gameObject);
 
-            var panel = UIImage("CashHud", canvas, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -20f), new Vector2(300f, 84f),
+            // 레벨 패널(330) 오른쪽 — GDD 12.1 [Lv.3 ■■■□ 42/80] 💰 1,250
+            var panel = UIImage("CashHud", canvas, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(370f, -20f), new Vector2(300f, 84f),
                 new Color(0f, 0f, 0f, 0.45f), BuiltinSprite("UI/Skin/UISprite.psd"));
             panel.type = Image.Type.Sliced;
             var rect = panel.rectTransform;

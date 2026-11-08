@@ -27,6 +27,8 @@ namespace APC.Data
             [Min(0)] public int cost;
             [Tooltip("다른 배치의 id를 적으면 그 배치가 해금될 때 같이 해금된다 (ㄱ자 구역 등). 이때 이 배치의 시작 여부 · 레벨 · 비용은 쓰지 않고 패드도 없다. 비워 두면 자기 조건으로 해금")]
             public string unlockWith;
+            [Tooltip("해금 패드를 둘 열린 칸 (x = 열, y = 행). y가 0이면 자동 — 맞닿은 열린 칸 중 위 · 왼쪽 · 오른쪽 · 아래 순으로, 다른 존과 겹치지 않는 자리")]
+            public Vector2Int padCell;
             public string content;
 
             /// <summary>다른 배치와 같이 해금되는 배치인가.</summary>
@@ -93,6 +95,17 @@ namespace APC.Data
         /// <summary>처음부터 열려 있는가 (묶인 배치는 대표를 따른다).</summary>
         public bool IsStartOpen(ModulePlacement placement)
             => TryGetPlacement(GetUnlockRoot(placement.id), out var root) && root.isStartArea;
+
+        /// <summary>배치가 차지하는 칸들 (x = 열, y = 행). 회전을 반영한다.</summary>
+        public static List<Vector2Int> GetCells(ModulePlacement placement)
+        {
+            var size = RotatedSize(placement.module != null ? placement.module.Size : Vector2Int.one, placement.rotation);
+            var cells = new List<Vector2Int>(size.x * size.y);
+            for (var r = 0; r < size.y; r++)
+            for (var c = 0; c < size.x; c++)
+                cells.Add(new Vector2Int(placement.column + c, placement.row + r));
+            return cells;
+        }
 
         /// <summary>칸 (행, 열)의 중심 월드 좌표.</summary>
         public Vector3 CellCenter(int row, int column) => new(column * cellSize, 0f, -(row - 1) * cellSize);
