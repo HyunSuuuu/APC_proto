@@ -180,7 +180,7 @@ GaugeZone.Tick → 진행도 += deltaTime / duration → 1이 되면 OnCompleted
 ```
 ContractPC (게이지 0.5초) → ContractPopup.Open → GameManager.OpenPopup (timeScale 0)
   → 카드 [계약] → ContractService.TryContract
-       ├ Warehouse.BuildShelf × 회사의 shelvesOnContract (선반 팝)
+       ├ Warehouse.BuildShelf × 회사 품목마다 1개, 회사 선반 구역(shelfAreaId) 안에 (선반 팝)
        └ OnContracted 이벤트 → OrderService가 첫 주문 1건 생성
   → 팝업 닫힘 → ClosePopup (timeScale 복구)
 InboundBay 코루틴: HasAnyContract가 true가 되면 트럭을 부르기 시작
@@ -212,6 +212,8 @@ PlayerMover : 이동 전에 SiteGrid.IsAreaWalkable로 열린 칸 안인지 확�
 ```
 
 잠긴 칸에는 아무것도 없다 (보이지 않고 들어갈 수 없음). 해금하면 그 모듈 안의 `ShelfSlot`, `InboundBay` 등이 켜지면서 스스로 동작을 시작한다.
+
+**같이 해금 묶음** — 배치의 `unlockWith`에 대표 id를 적으면 대표와 한꺼번에 열린다. 빈 타일 `Module_Empty`와 묶으면 ㄱ자처럼 직사각형이 아닌 구역을 만들 수 있다 (절차는 TechStack 5.7).
 
 **칸 좌표** — 칸 한 변 10m. (행 R, 열 C)의 중심 = `(C × 10, 0, −(R − 1) × 10)`. R1이 맨 위, 아래로 갈수록 R이 커진다.
 
@@ -272,7 +274,7 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 |---|---|---|
 | [GameDatabase](../Scripts/Data/GameDatabase.cs) | `GameDatabase` | 아래 테이블 전부의 참조. `Validate`(빠진 참조 검사), `GetCompanyOf(item)` |
 | [ItemDefinition](../Scripts/Data/ItemDefinition.cs) | `Items/Item_A1` 등 | 품목 id, 이름, **테이프 색**, 아이콘, 단가 |
-| [CompanyDefinition](../Scripts/Data/CompanyDefinition.cs) | `Companies/Company_A` 등 | 해금 레벨, 품목 목록, 입고 트럭 적재량, **계약 시 생기는 선반 목록** (항목 1개 = 선반 1개) |
+| [CompanyDefinition](../Scripts/Data/CompanyDefinition.cs) | `Companies/Company_A` 등 | 해금 레벨, 품목 목록(**품목마다 선반 1개**), 입고 트럭 적재량, **선반 구역**(`shelfAreaId` = SiteLayout 배치 id) |
 | [LevelTable](../Scripts/Data/LevelTable.cs) | `LevelTable` | 레벨별 필요 XP · 최대 알바 · 해금 메모. 목록 이후 레벨은 공식으로 계산 |
 | [EconomyConfig](../Scripts/Data/EconomyConfig.cs) | `EconomyConfig` | 시작 현금, 구매 패드 시간, 시설 · 업그레이드 비용, 복합 주문 배율, **현금 더미**(뭉치 금액 · 흡수 반경 · 날아가는 간격/시간), 경험치 |
 | [OrderRules](../Scripts/Data/OrderRules.cs) | `OrderRules` | 레벨 구간별 주문 간격 · 복합 확률 · 수량, 큐 최대 수, 교착 방지 최소 가중치 |
@@ -295,9 +297,12 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
   | `rotation` | 0 / 90 / 180 / 270. 상차 주차장은 하차 주차장을 180° 돌린 것 |
   | `isStartArea` | 처음부터 열림 |
   | `unlockLevel`, `cost` | 해금 조건 (M5 구매 패드가 확인) |
+  | `unlockWith` | 다른 배치 id를 적으면 그 배치와 **같이 해금**된다 (ㄱ자 구역 등). 이때 자기 시작 여부 · 레벨 · 비용은 무시 |
   | `content` | 메모 (화면에는 안 나옴) |
 
 - **동작**: `CellCenter(row, col)`, `GetModuleCenter(placement, size)`(여러 칸 모듈의 중심), `RotatedSize`(90°/270°면 가로세로 교체).
+  - `GetDisplayName(id)`: content의 괄호 앞부분 (예: "선반 구역 B") — 계약 카드 문구용.
+  - 같이 해금: `GetUnlockRoot(id)`(사슬을 따라 대표 id), `GetUnlockGroup(rootId)`(대표 + 묶인 배치 전부), `IsStartOpen(placement)`(묶인 배치는 대표의 시작 여부를 따름). 에디터에서 없는 id · 자기 자신을 적으면 경고한다.
 - **주의**: 인스펙터 우클릭 메뉴 "배치 목록을 GDD 기본값으로 되돌리기"는 목록을 덮어쓴다.
 
 #### ControlsConfig
@@ -446,7 +451,8 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 [Logistics/Warehouse.cs](../Scripts/Logistics/Warehouse.cs)
 - **역할**: 창고 전체의 선반 목록과 재고 집계. 씬에 하나 (`Site/Logistics`).
 - **동작**:
-  - `BuildShelf(item)`: 비어 있고 현재 레벨로 열린 `ShelfSlot` 중 `order`가 가장 작은 곳에 선반을 세운다 (팝 연출). 같은 순서면 먼저 붙은 모듈.
+  - `BuildShelf(item, areaId)`: 그 선반 구역(배치 id의 모듈) 안에서 비어 있고 현재 레벨로 열린 `ShelfSlot` 중 `order`가 가장 작은 곳에 선반을 세운다 (팝 연출). **품목당 1개** — 이미 있으면 그 선반을 돌려준다.
+  - `HasShelf(item)` / `FindShelf(item)`, `CountFreeSlots(areaId)`(계약 가능 확인용)
   - `GetShelfFreeSpace(item)`: 그 품목 선반들의 빈자리 합
   - `GetStock(item)`: 선반 + 공용 보관소의 그 품목 수 (교착 방지 가중치용)
   - `CountCarried(item, origin)`: 모든 interactor가 들고 있는 수 (중복 운반 방지, 수요 계산)
@@ -495,7 +501,7 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 #### ContractService
 [Contracts/ContractService.cs](../Scripts/Contracts/ContractService.cs)
 - **역할**: 회사 계약 상태. 씬에 하나 (`Site/Logistics`).
-- **동작**: `TryContract(company)` — 이미 계약했거나 레벨이 모자라면 실패. 성공하면 선반을 세우고 `OnContracted`를 보낸다. `Contracted`(계약한 회사 목록), `HasAnyContract`.
+- **동작**: `GetBlock(company)` — 계약할 수 없는 이유(`ContractBlock`: Contracted / Level / ShelfArea(회사 선반 구역이 잠김) / ShelfSlots(빈 자리 부족) / None). `TryContract(company)` — 막혀 있으면 실패, 성공하면 회사 선반 구역에 품목마다 선반을 세우고 `OnContracted`를 보낸다. `Contracted`(계약한 회사 목록), `HasAnyContract`.
 - **연결**: `ContractPopup`(UI), `InboundBay`(트럭), `OrderService`(`OnContracted` 구독 → 첫 주문).
 
 #### ContractPC
@@ -543,7 +549,7 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 - **역할**: 씬의 부지. 붙은 모듈 목록(`Entries`)과 열린 칸 집합을 관리한다.
 - **동작**:
   - `Awake`: Build Site가 구운 시작 모듈들의 칸을 연다.
-  - `Unlock(id)`: config에서 배치를 찾아 모듈을 만들고 칸을 열고 팝 연출 후 `OnUnlocked`를 보낸다. 이미 열렸거나 config에 없으면 false.
+  - `Unlock(id)`: **같이 해금되는 묶음 전체**를 연다 — 묶음 안 어느 id를 넘겨도 같다. 모듈마다 config에서 배치를 찾아 만들고, 칸을 열고, 팝 연출 후 `OnUnlocked`를 보낸다(모듈마다 한 번). 새로 붙은 모듈이 없으면 false.
   - `IsWalkable(위치)` / `IsAreaWalkable(중심, 반지름)`: 열린 칸 안인지 (반지름은 네 모서리로 검사).
 - **주의**: `Unlock`은 비용 · 레벨 · 인접 조건을 확인하지 않는다. 부르는 쪽(M5 구매 패드)이 확인한다.
 
@@ -572,7 +578,7 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 
 #### ContractCard
 [UI/ContractCard.cs](../Scripts/UI/ContractCard.cs)
-- **역할**: 회사 카드 1장. 이름, 품목 색 아이콘, 입고 물량, 버튼(계약 / 계약 완료 / Lv.N 해금).
+- **역할**: 회사 카드 1장. 이름, 품목 색 아이콘, 입고 물량, 버튼(계약 / 계약 완료 / Lv.N 해금 / 선반 구역 B 필요 / 선반 자리 부족). 긴 문구는 글자 크기를 자동으로 줄인다.
 
 #### CameraModeButton
 [UI/CameraModeButton.cs](../Scripts/UI/CameraModeButton.cs)
@@ -592,7 +598,7 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 #### DebugMenu
 [Debugging/DebugMenu.cs](../Scripts/Debugging/DebugMenu.cs)
 - **역할**: 치트 메뉴 (IMGUI). 에디터와 Development 빌드에서만 동작한다. **왼쪽 아래** `DEBUG` 버튼 또는 F1 (오른쪽 위는 주문서 큐 자리).
-- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / 레벨업 · XP +10 / 배속 ×1 · ×2 · ×4 / 일시정지 / 큐 수 · **주문 1건 추가** / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 모듈).
+- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / 레벨업 · XP +10 / 배속 ×1 · ×2 · ×4 / 일시정지 / 큐 수 · **주문 1건 추가** / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림).
 - **주의**: IMGUI는 EventSystem에 안 잡히므로 `ContainsScreenPoint`로 `UiHitTest`에 영역을 알려 준다. 새 치트는 `DrawContent`에 추가한다.
 
 ### 4.11 Editor — 에디터 도구
@@ -604,7 +610,7 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 | `APC > Setup > Run M0 Setup` | [ProjectBootstrap](../Scripts/Editor/ProjectBootstrap.cs) | 폴더, 가로 화면 설정, 데이터 에셋(GDD 수치), Game 씬. **이미 있는 에셋 · 씬은 건드리지 않고** 빈 참조만 채운다 |
 | `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground · Logistics(Warehouse · ContractService · OrderService) → 시작 모듈 인스턴스 → HUD(현금 · 주문서 큐 · 계약 팝업) → 플레이어 위치 + CashCollector → 씬 저장 |
 | `APC > Module > New Module...` | [ModuleFactory](../Scripts/Editor/ModuleFactory.cs) (`ModuleCreatorWindow`) | 빈 n × m 모듈 틀을 `Assets/Prefabs/Modules/Module_이름.prefab`으로 만든다 |
-| `APC > Module > Rebuild Standard Modules` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 9종을 코드 기준으로 **덮어써서** 다시 만든다 |
+| `APC > Module > Rebuild Standard Modules` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 10종(빈 타일 `Module_Empty` 포함)을 코드 기준으로 **덮어써서** 다시 만든다 |
 
 #### StandardModules
 - **역할**: 기본 모듈 프리팹의 내용을 코드로 정의한다. `DefaultAssignments`(SiteLayout id → 기본 모듈 · 회전)와 `Builders`(모듈 이름 → 만드는 함수) 두 표가 핵심이다. 시설 프리팹(`Shelf`, `InboundTruck`, `OutboundTruck`, `CashBundle`)도 여기서 만든다.

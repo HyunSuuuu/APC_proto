@@ -25,7 +25,12 @@ namespace APC.Data
             [Tooltip("처음부터 열려 있는 모듈")] public bool isStartArea;
             [Min(1)] public int unlockLevel;
             [Min(0)] public int cost;
+            [Tooltip("다른 배치의 id를 적으면 그 배치가 해금될 때 같이 해금된다 (ㄱ자 구역 등). 이때 이 배치의 시작 여부 · 레벨 · 비용은 쓰지 않고 패드도 없다. 비워 두면 자기 조건으로 해금")]
+            public string unlockWith;
             public string content;
+
+            /// <summary>다른 배치와 같이 해금되는 배치인가.</summary>
+            public bool IsLinked => !string.IsNullOrEmpty(unlockWith);
         }
 
         [SerializeField, Min(1f), Tooltip("칸 한 변의 길이 (m). 모듈 프리팹이 이 크기로 만들어지므로 바꾸면 모듈도 다시 만들어야 한다")] float cellSize = 10f;
@@ -47,6 +52,48 @@ namespace APC.Data
             return false;
         }
 
+        /// <summary>
+        /// 같이 해금되는 묶음의 대표 id (자기 조건으로 해금되는 배치). unlockWith 사슬을 따라 올라간다.
+        /// 대표 배치의 isStartArea · unlockLevel · cost가 묶음 전체에 적용된다.
+        /// </summary>
+        public string GetUnlockRoot(string id)
+        {
+            var current = id;
+            for (var guard = 0; guard <= modules.Count; guard++)
+            {
+                if (!TryGetPlacement(current, out var placement) || !placement.IsLinked) return current;
+                current = placement.unlockWith;
+            }
+            Debug.LogWarning($"[SiteLayout] '{id}'의 unlockWith가 순환합니다.", this);
+            return id;
+        }
+
+        /// <summary>대표 id와 같이 해금되는 배치 id 전부 (대표 포함). 묶인 배치에 또 묶인 배치도 포함한다.</summary>
+        public List<string> GetUnlockGroup(string rootId)
+        {
+            var group = new List<string> { rootId };
+            for (var i = 0; i < group.Count; i++)
+            {
+                foreach (var m in modules)
+                {
+                    if (m.unlockWith == group[i] && !group.Contains(m.id)) group.Add(m.id);
+                }
+            }
+            return group;
+        }
+
+        /// <summary>화면에 보일 배치 이름 = content의 괄호 앞부분 (예: "선반 구역 B"). 없으면 id.</summary>
+        public string GetDisplayName(string id)
+        {
+            if (!TryGetPlacement(id, out var placement) || string.IsNullOrEmpty(placement.content)) return id;
+            var paren = placement.content.IndexOf('(');
+            return paren > 0 ? placement.content.Substring(0, paren).Trim() : placement.content;
+        }
+
+        /// <summary>처음부터 열려 있는가 (묶인 배치는 대표를 따른다).</summary>
+        public bool IsStartOpen(ModulePlacement placement)
+            => TryGetPlacement(GetUnlockRoot(placement.id), out var root) && root.isStartArea;
+
         /// <summary>칸 (행, 열)의 중심 월드 좌표.</summary>
         public Vector3 CellCenter(int row, int column) => new(column * cellSize, 0f, -(row - 1) * cellSize);
 
@@ -64,6 +111,19 @@ namespace APC.Data
                    + new Vector3((size.x - 1) * 0.5f * cellSize, 0f, -(size.y - 1) * 0.5f * cellSize);
         }
 
+#if UNITY_EDITOR
+        /// <summary>unlockWith에 없는 id나 자기 자신을 적으면 알린다.</summary>
+        void OnValidate()
+        {
+            foreach (var m in modules)
+            {
+                if (!m.IsLinked) continue;
+                if (m.unlockWith == m.id) Debug.LogWarning($"[SiteLayout] '{m.id}'의 unlockWith가 자기 자신입니다.", this);
+                else if (!TryGetPlacement(m.unlockWith, out _)) Debug.LogWarning($"[SiteLayout] '{m.id}'의 unlockWith '{m.unlockWith}' 배치가 없습니다.", this);
+            }
+        }
+#endif
+
         [ContextMenu("배치 목록을 GDD 기본값으로 되돌리기 (모듈 참조는 Build Site가 채움)")]
         void ResetModules() => modules = DefaultModules();
 
@@ -72,7 +132,7 @@ namespace APC.Data
             // 시작 부지
             new ModulePlacement { id = "R1C0", row = 1, column = 0, isStartArea = true, unlockLevel = 1, content = "하차 주차장 (하차 베이 1)" },
             new ModulePlacement { id = "R1C1", row = 1, column = 1, isStartArea = true, unlockLevel = 1, content = "공용 보관소" },
-            new ModulePlacement { id = "R1C2", row = 1, column = 2, isStartArea = true, unlockLevel = 1, content = "선반 구역 A (선반 4개)" },
+            new ModulePlacement { id = "R1C2", row = 1, column = 2, isStartArea = true, unlockLevel = 1, content = "선반 구역 A (회사 A 선반, 품목당 1개)" },
             new ModulePlacement { id = "R1C3", row = 1, column = 3, isStartArea = true, unlockLevel = 1, content = "출고 구역 (통로, Lv.4 포장 완료 존 자리)" },
             new ModulePlacement { id = "R1C4", row = 1, column = 4, rotation = 180, isStartArea = true, unlockLevel = 1, content = "상차 주차장 (상차 베이 1, 현금 존)" },
             new ModulePlacement { id = "R2C1", row = 2, column = 1, isStartArea = true, unlockLevel = 1, content = "사무실 (계약 PC, 고용 데스크, 배치 현황판)" },
@@ -80,8 +140,8 @@ namespace APC.Data
             new ModulePlacement { id = "E1", row = 2, column = 0, unlockLevel = 2, cost = 100, content = "하차 베이 2 (Lv.10에 베이 3 구매 패드)" },
             new ModulePlacement { id = "E5", row = 2, column = 4, rotation = 180, unlockLevel = 3, cost = 150, content = "상차 베이 2 (Lv.8에 베이 3 구매 패드)" },
             new ModulePlacement { id = "E3", row = 2, column = 3, unlockLevel = 4, cost = 250, content = "포장 구역 (포장대 1, Lv.8에 포장대 2)" },
-            new ModulePlacement { id = "E2", row = 2, column = 2, unlockLevel = 6, cost = 350, content = "선반 구역 B" },
-            new ModulePlacement { id = "E4", row = 3, column = 2, unlockLevel = 9, cost = 500, content = "선반 구역 C" },
+            new ModulePlacement { id = "E2", row = 2, column = 2, unlockLevel = 6, cost = 350, content = "선반 구역 B (회사 B 선반)" },
+            new ModulePlacement { id = "E4", row = 3, column = 2, unlockLevel = 9, cost = 500, content = "선반 구역 C (이후 회사 선반 자리)" },
             new ModulePlacement { id = "E6", row = 3, column = 1, unlockLevel = 11, cost = 600, content = "반품 구역 (검수 테이블, 반품 랙)" },
         };
     }

@@ -105,14 +105,15 @@ namespace APC.EditorTools
                 var moduleSize = placement.module != null ? placement.module.Size : Vector2Int.one;
                 var center = layout.GetModuleCenter(placement, moduleSize);
 
-                if (placement.isStartArea && placement.module != null)
+                var startOpen = layout.IsStartOpen(placement); // 묶인 배치는 대표를 따른다
+                if (startOpen && placement.module != null)
                 {
                     var instance = (SiteModule)PrefabUtility.InstantiatePrefab(placement.module, gridGo.transform);
                     instance.transform.SetPositionAndRotation(center, SiteLayout.GetRotation(placement));
                     instance.name = $"Module_{placement.id}";
                     entry.instance = instance;
                 }
-                else if (placement.isStartArea)
+                else if (startOpen)
                 {
                     Debug.LogWarning($"[SiteBuilder] 시작 칸 '{placement.id}'에 모듈이 없습니다.");
                 }

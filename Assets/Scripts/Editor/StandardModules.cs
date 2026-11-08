@@ -41,12 +41,14 @@ namespace APC.EditorTools
             ("Module_LotInbound", root => BuildLot(root, inbound: true)),
             ("Module_LotOutbound", root => BuildLot(root, inbound: false)),
             ("Module_Storage", BuildStorage),
-            ("Module_ShelfArea_A", root => BuildShelfArea(root, "선반 구역 A", extraSlotLevel: 5)),
-            ("Module_ShelfArea", root => BuildShelfArea(root, "선반 구역", extraSlotLevel: 1)),
+            ("Module_ShelfArea_A", root => BuildShelfArea(root, "선반 구역 A")),
+            ("Module_ShelfArea", root => BuildShelfArea(root, "선반 구역")),
             ("Module_Office", BuildOffice),
             ("Module_OutboundArea", root => Label(root, "출고 구역 (통로)")),
             ("Module_Packing", root => Label(root, "포장 구역 (M7)")),
             ("Module_Returns", root => Label(root, "반품 구역 (M9)")),
+            // 빈 타일 (바닥만). 다른 배치와 같이 해금되게 묶어 ㄱ자 같은 구역을 만든다 (SiteLayout.unlockWith).
+            ("Module_Empty", _ => { }),
         };
 
         [MenuItem("APC/Module/Rebuild Standard Modules (덮어쓰기)")]
@@ -172,8 +174,8 @@ namespace APC.EditorTools
             Label(root, "공용 보관소");
         }
 
-        /// <summary>선반 자리 6개 (2열 × 3행). 앞(−x)이 적재 존, 뒤(+x)가 수거 존.</summary>
-        static void BuildShelfArea(GameObject root, string title, int extraSlotLevel)
+        /// <summary>선반 자리 6개 (2열 × 3행). 앞(−x)이 적재 존, 뒤(+x)가 수거 존. 회사 하나의 선반(품목당 1개)이 들어간다.</summary>
+        static void BuildShelfArea(GameObject root, string title)
         {
             var content = ModuleFactory.Content(root);
             var offsets = new[]
@@ -187,7 +189,7 @@ namespace APC.EditorTools
                 slotGo.transform.SetParent(content, false);
                 slotGo.transform.localPosition = offsets[i];
                 var slot = slotGo.AddComponent<ShelfSlot>();
-                BuildKit.SetInt(slot, "unlockLevel", i < 4 ? 1 : extraSlotLevel);
+                BuildKit.SetInt(slot, "unlockLevel", 1);
                 BuildKit.SetInt(slot, "order", i);
             }
             Label(root, title);

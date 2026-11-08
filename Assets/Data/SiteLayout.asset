@@ -22,6 +22,7 @@ MonoBehaviour:
     isStartArea: 1
     unlockLevel: 1
     cost: 0
+    unlockWith: 
     content: "\uD558\uCC28 \uC8FC\uCC28\uC7A5 (\uD558\uCC28 \uBCA0\uC774 1)"
   - id: R1C1
     module: {fileID: 6490789753276519821, guid: bc753d0564607404fbb84b653464ee1d, type: 3}
@@ -31,6 +32,7 @@ MonoBehaviour:
     isStartArea: 1
     unlockLevel: 1
     cost: 0
+    unlockWith: 
     content: "\uACF5\uC6A9 \uBCF4\uAD00\uC18C (\uD558\uCC28 \uC874)"
   - id: R1C2
     module: {fileID: 2131418914713283060, guid: dce0a5745f7d609498d2c3c29d485dbf, type: 3}
@@ -40,7 +42,9 @@ MonoBehaviour:
     isStartArea: 1
     unlockLevel: 1
     cost: 0
-    content: "\uC120\uBC18 \uAD6C\uC5ED A (\uC120\uBC18 4\uAC1C)"
+    unlockWith: 
+    content: "\uC120\uBC18 \uAD6C\uC5ED A (\uD68C\uC0AC A \uC120\uBC18, \uD488\uBAA9\uB2F9
+      1\uAC1C)"
   - id: R1C3
     module: {fileID: 444551279029080786, guid: 1637592247ddfdc48bf0fe1be99d3a6a, type: 3}
     row: 1
@@ -49,6 +53,7 @@ MonoBehaviour:
     isStartArea: 1
     unlockLevel: 1
     cost: 0
+    unlockWith: 
     content: "\uCD9C\uACE0 \uAD6C\uC5ED (\uD1B5\uB85C, Lv.4 \uD3EC\uC7A5 \uC644\uB8CC
       \uC874 \uC790\uB9AC)"
   - id: R1C4
@@ -59,6 +64,7 @@ MonoBehaviour:
     isStartArea: 1
     unlockLevel: 1
     cost: 0
+    unlockWith: 
     content: "\uC0C1\uCC28 \uC8FC\uCC28\uC7A5 (\uC0C1\uCC28 \uBCA0\uC774 1, \uD604\uAE08
       \uC874)"
   - id: R2C1
@@ -69,6 +75,7 @@ MonoBehaviour:
     isStartArea: 1
     unlockLevel: 1
     cost: 0
+    unlockWith: 
     content: "\uC0AC\uBB34\uC2E4 (\uACC4\uC57D PC, \uACE0\uC6A9 \uB370\uC2A4\uD06C,
       \uBC30\uCE58 \uD604\uD669\uD310)"
   - id: E1
@@ -79,6 +86,7 @@ MonoBehaviour:
     isStartArea: 0
     unlockLevel: 2
     cost: 100
+    unlockWith: 
     content: "\uD558\uCC28 \uBCA0\uC774 2 (Lv.10\uC5D0 \uBCA0\uC774 3 \uAD6C\uB9E4
       \uD328\uB4DC)"
   - id: E5
@@ -89,6 +97,7 @@ MonoBehaviour:
     isStartArea: 0
     unlockLevel: 3
     cost: 150
+    unlockWith: 
     content: "\uC0C1\uCC28 \uBCA0\uC774 2 (Lv.8\uC5D0 \uBCA0\uC774 3 \uAD6C\uB9E4
       \uD328\uB4DC)"
   - id: E3
@@ -99,6 +108,7 @@ MonoBehaviour:
     isStartArea: 0
     unlockLevel: 4
     cost: 250
+    unlockWith: 
     content: "\uD3EC\uC7A5 \uAD6C\uC5ED (\uD3EC\uC7A5\uB300 1, Lv.8\uC5D0 \uD3EC\uC7A5\uB300
       2)"
   - id: E2
@@ -109,7 +119,8 @@ MonoBehaviour:
     isStartArea: 0
     unlockLevel: 6
     cost: 350
-    content: "\uC120\uBC18 \uAD6C\uC5ED B"
+    unlockWith: 
+    content: "\uC120\uBC18 \uAD6C\uC5ED B (\uD68C\uC0AC B \uC120\uBC18)"
   - id: E4
     module: {fileID: 4011912614253167164, guid: 1fb38086570b51240937484a8f2fa059, type: 3}
     row: 3
@@ -118,7 +129,9 @@ MonoBehaviour:
     isStartArea: 0
     unlockLevel: 9
     cost: 500
-    content: "\uC120\uBC18 \uAD6C\uC5ED C"
+    unlockWith: 
+    content: "\uC120\uBC18 \uAD6C\uC5ED C (\uC774\uD6C4 \uD68C\uC0AC \uC120\uBC18
+      \uC790\uB9AC)"
   - id: E6
     module: {fileID: 3080453124129573179, guid: aa607e879dcaf664eb00ce8ef069554c, type: 3}
     row: 3
@@ -127,5 +140,6 @@ MonoBehaviour:
     isStartArea: 0
     unlockLevel: 11
     cost: 600
+    unlockWith: 
     content: "\uBC18\uD488 \uAD6C\uC5ED (\uAC80\uC218 \uD14C\uC774\uBE14, \uBC18\uD488
       \uB799)"

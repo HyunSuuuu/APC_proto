@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using APC.Core;
 using APC.Data;
 using APC.Interaction;
+using APC.Site;
 using UnityEngine;
 
 namespace APC.Logistics
@@ -36,17 +37,32 @@ namespace APC.Logistics
             if (Instance == this) Instance = null;
         }
 
-        /// <summary>붙어 있는 선반 구역 모듈의 열린 빈 자리 중 첫 자리에 선반을 세운다 (팝 연출). 자리가 없으면 null.</summary>
-        public Shelf BuildShelf(ItemDefinition item)
+        public bool HasShelf(ItemDefinition item) => FindShelf(item) != null;
+
+        public Shelf FindShelf(ItemDefinition item)
         {
-            var level = GameManager.Instance.Level.Level.CurrentValue;
-            ShelfSlot slot = null;
-            foreach (var candidate in ShelfSlot.All)
+            foreach (var shelf in shelves)
             {
-                if (candidate.Occupant != null || candidate.UnlockLevel > level) continue;
-                if (slot == null || candidate.Order < slot.Order) slot = candidate; // 같은 순서면 먼저 붙은 모듈
+                if (shelf.Item == item) return shelf;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 선반 구역(areaId = SiteLayout 배치 id)의 열린 빈 자리 중 순서가 가장 빠른 자리에 선반을 세운다 (팝 연출).
+        /// areaId가 비어 있으면 아무 구역이나. 자리가 없으면 null.
+        /// 품목당 선반은 1개뿐이다 — 이미 있으면 새로 만들지 않고 그 선반을 돌려준다.
+        /// </summary>
+        public Shelf BuildShelf(ItemDefinition item, string areaId)
+        {
+            var existing = FindShelf(item);
+            if (existing != null)
+            {
+                Debug.LogWarning($"[Warehouse] {item.Id} 선반이 이미 있습니다 (품목당 1개).", this);
+                return existing;
             }
 
+            var slot = FindFreeSlot(areaId);
             if (slot != null)
             {
                 var shelf = Instantiate(shelfPrefab, slot.transform.position, slot.transform.rotation, slot.transform);
@@ -58,8 +74,45 @@ namespace APC.Logistics
                 return shelf;
             }
 
-            Debug.LogWarning($"[Warehouse] {item.Id} 선반을 세울 빈 자리가 없습니다.", this);
+            Debug.LogWarning($"[Warehouse] {item.Id} 선반을 세울 빈 자리가 '{areaId}'에 없습니다.", this);
             return null;
+        }
+
+        /// <summary>그 선반 구역의 지금 쓸 수 있는 빈 자리 수 (계약 가능 여부 확인용).</summary>
+        public int CountFreeSlots(string areaId)
+        {
+            var level = GameManager.Instance.Level.Level.CurrentValue;
+            var count = 0;
+            foreach (var slot in ShelfSlot.All)
+            {
+                if (slot.Occupant == null && slot.UnlockLevel <= level && InArea(slot, areaId)) count++;
+            }
+            return count;
+        }
+
+        ShelfSlot FindFreeSlot(string areaId)
+        {
+            var level = GameManager.Instance.Level.Level.CurrentValue;
+            ShelfSlot best = null;
+            foreach (var candidate in ShelfSlot.All)
+            {
+                if (candidate.Occupant != null || candidate.UnlockLevel > level || !InArea(candidate, areaId)) continue;
+                if (best == null || candidate.Order < best.Order) best = candidate; // 같은 순서면 먼저 붙은 모듈
+            }
+            return best;
+        }
+
+        /// <summary>자리가 그 배치(모듈) 안에 있는가. areaId가 비어 있으면 어디든 된다.</summary>
+        static bool InArea(ShelfSlot slot, string areaId)
+        {
+            if (string.IsNullOrEmpty(areaId)) return true;
+            var grid = SiteGrid.Instance;
+            if (grid == null) return false;
+            foreach (var entry in grid.Entries)
+            {
+                if (entry.id == areaId) return entry.instance != null && slot.transform.IsChildOf(entry.instance.transform);
+            }
+            return false;
         }
 
         /// <summary>그 품목 선반들의 빈자리 합.</summary>

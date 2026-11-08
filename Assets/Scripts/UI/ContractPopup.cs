@@ -100,10 +100,8 @@ namespace APC.UI
                 if (!visible) continue;
 
                 var company = companies[i];
-                var state = service.IsContracted(company) ? ContractCard.CardState.Contracted
-                    : service.IsUnlocked(company) ? ContractCard.CardState.Available
-                    : ContractCard.CardState.Locked;
-                cards[i].Bind(company, state, () => Contract(company));
+                var areaName = GameManager.Instance.Database.Site.GetDisplayName(company.ShelfAreaId);
+                cards[i].Bind(company, service.GetBlock(company), areaName, () => Contract(company));
             }
         }
 

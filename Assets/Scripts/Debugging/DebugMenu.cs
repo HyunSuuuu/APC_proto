@@ -157,7 +157,8 @@ namespace APC.Debugging
             var nextLevel = int.MaxValue;
             foreach (var placement in gm.Database.Site.Modules)
             {
-                if (grid.IsUnlocked(placement.id) || placement.unlockLevel >= nextLevel) continue;
+                // 묶인 배치는 대표와 같이 열리므로 따로 고르지 않는다
+                if (placement.IsLinked || grid.IsUnlocked(placement.id) || placement.unlockLevel >= nextLevel) continue;
                 next = placement.id;
                 nextLevel = placement.unlockLevel;
             }

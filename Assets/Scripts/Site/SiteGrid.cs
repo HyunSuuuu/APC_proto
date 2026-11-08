@@ -31,7 +31,7 @@ namespace APC.Site
 
         public IReadOnlyList<Entry> Entries => entries;
 
-        /// <summary>모듈이 해금될 때마다 그 id를 보낸다 (네비메시 재굽기 · 저장 등).</summary>
+        /// <summary>모듈이 붙을 때마다 그 id를 보낸다 (네비메시 재굽기 · 저장 등). 묶음 해금이면 모듈마다 한 번씩.</summary>
         public Observable<string> OnUnlocked => unlocked;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -63,10 +63,20 @@ namespace APC.Site
         public bool IsUnlocked(string id) => Find(id)?.instance != null;
 
         /// <summary>
-        /// 잠긴 모듈을 붙인다 (팝 연출). 비용 · 레벨 · 인접 조건은 부르는 쪽(구매 패드, M5)이 확인한다.
-        /// 이미 열려 있거나 config에 없으면 false.
+        /// 잠긴 모듈을 붙인다 (팝 연출). **같이 해금되는 묶음 전체**(SiteLayout.unlockWith)가 한꺼번에 열린다 —
+        /// 묶음 안의 어느 id를 넘겨도 같다. 비용 · 레벨 · 인접 조건은 부르는 쪽(구매 패드, M5)이 대표 배치 기준으로 확인한다.
+        /// 새로 붙은 모듈이 없으면 false.
         /// </summary>
         public bool Unlock(string id)
+        {
+            var attached = false;
+            foreach (var member in layout.GetUnlockGroup(layout.GetUnlockRoot(id)))
+                attached |= Attach(member);
+            return attached;
+        }
+
+        /// <summary>모듈 하나를 붙이고 칸을 연다. 이미 열려 있거나 config에 없으면 false.</summary>
+        bool Attach(string id)
         {
             var entry = Find(id);
             if (entry == null || entry.instance != null) return false;
