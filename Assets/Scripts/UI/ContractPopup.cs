@@ -24,10 +24,22 @@ namespace APC.UI
         readonly List<ContractCard> cards = new();
         Sequence transition;
 
+        /// <summary>계약 PC(사무실 모듈 프리팹 안)가 씬의 팝업을 찾을 때 쓴다.</summary>
+        public static ContractPopup Instance { get; private set; }
+
         public bool IsOpen { get; private set; }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics() => Instance = null;
+
+        void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+        }
 
         void Awake()
         {
+            Instance = this;
             closeButton.onClick.AddListener(Close);
             cardTemplate.gameObject.SetActive(false);
             body.SetActive(false);

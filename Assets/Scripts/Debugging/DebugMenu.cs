@@ -1,4 +1,5 @@
 using APC.Core;
+using APC.Site;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -124,6 +125,29 @@ namespace APC.Debugging
             }
             GUILayout.EndHorizontal();
             if (GUILayout.Button(gm.IsPaused ? "Resume" : "Pause", buttonStyle)) gm.SetPaused(!gm.IsPaused);
+
+            DrawSite(gm);
+        }
+
+        /// <summary>모듈 해금 테스트 (구매 패드 M5 전까지). 해금 레벨이 낮은 잠긴 모듈부터 연다.</summary>
+        void DrawSite(GameManager gm)
+        {
+            var grid = SiteGrid.Instance;
+            if (grid == null) return;
+
+            string next = null;
+            var nextLevel = int.MaxValue;
+            foreach (var placement in gm.Database.Site.Modules)
+            {
+                if (grid.IsUnlocked(placement.id) || placement.unlockLevel >= nextLevel) continue;
+                next = placement.id;
+                nextLevel = placement.unlockLevel;
+            }
+
+            Header("Site");
+            GUI.enabled = next != null;
+            if (GUILayout.Button(next != null ? $"Unlock {next} (Lv.{nextLevel})" : "All unlocked", buttonStyle)) grid.Unlock(next);
+            GUI.enabled = true;
         }
 
         void Header(string text)

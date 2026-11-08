@@ -12,7 +12,6 @@ namespace APC.Logistics
         public static Warehouse Instance { get; private set; }
 
         [SerializeField] Shelf shelfPrefab;
-        [SerializeField, Tooltip("선반을 세울 순서대로")] List<ShelfSlot> shelfSlots = new();
 
         readonly List<Shelf> shelves = new();
 
@@ -37,14 +36,19 @@ namespace APC.Logistics
             if (Instance == this) Instance = null;
         }
 
-        /// <summary>열린 빈 자리 중 첫 자리에 선반을 세운다 (팝 연출). 자리가 없으면 null.</summary>
+        /// <summary>붙어 있는 선반 구역 모듈의 열린 빈 자리 중 첫 자리에 선반을 세운다 (팝 연출). 자리가 없으면 null.</summary>
         public Shelf BuildShelf(ItemDefinition item)
         {
             var level = GameManager.Instance.Level.Level.CurrentValue;
-            foreach (var slot in shelfSlots)
+            ShelfSlot slot = null;
+            foreach (var candidate in ShelfSlot.All)
             {
-                if (slot.Occupant != null || slot.UnlockLevel > level) continue;
+                if (candidate.Occupant != null || candidate.UnlockLevel > level) continue;
+                if (slot == null || candidate.Order < slot.Order) slot = candidate; // 같은 순서면 먼저 붙은 모듈
+            }
 
+            if (slot != null)
+            {
                 var shelf = Instantiate(shelfPrefab, slot.transform.position, slot.transform.rotation, slot.transform);
                 shelf.name = $"Shelf_{item.Id}";
                 shelf.Setup(item, GameManager.Instance.Database.Logistics.ShelfCapacity);

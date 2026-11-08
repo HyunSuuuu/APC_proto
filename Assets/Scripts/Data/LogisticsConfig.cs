@@ -11,8 +11,8 @@ namespace APC.Data
         [SerializeField, Min(1)] int shelfCapacity = 10;
 
         [Header("입고 트럭")]
-        [SerializeField, Min(0.1f), Tooltip("도로에서 베이까지 들어오는 시간 (초)")] float truckArriveDuration = 3f;
-        [SerializeField, Min(0.1f)] float truckLeaveDuration = 3f;
+        [SerializeField, Min(0.1f), Tooltip("나타난 자리에서 주차 칸까지 후진으로 들어오는 시간 (초)")] float truckReverseDuration = 2f;
+        [SerializeField, Min(0.1f), Tooltip("주차 칸에서 앞으로 나가 사라지는 시간 (초)")] float truckLeaveDuration = 1.5f;
         [SerializeField, Min(0f), Tooltip("트럭이 출발하고 다음 트럭이 들어오기까지 (초)")] float inboundRespawnDelay = 4f;
 
         [Header("사무실")]
@@ -23,7 +23,7 @@ namespace APC.Data
 
         public int SharedStorageCapacity => sharedStorageCapacity;
         public int ShelfCapacity => shelfCapacity;
-        public float TruckArriveDuration => truckArriveDuration;
+        public float TruckReverseDuration => truckReverseDuration;
         public float TruckLeaveDuration => truckLeaveDuration;
         public float InboundRespawnDelay => inboundRespawnDelay;
         public float OfficeGaugeDuration => officeGaugeDuration;
