@@ -44,7 +44,7 @@ namespace APC.EditorTools
             ("Module_ShelfArea_A", root => BuildShelfArea(root, "선반 구역 A", extraSlotLevel: 5)),
             ("Module_ShelfArea", root => BuildShelfArea(root, "선반 구역", extraSlotLevel: 1)),
             ("Module_Office", BuildOffice),
-            ("Module_OutboundArea", root => Label(root, "출고 구역 (M4)")),
+            ("Module_OutboundArea", root => Label(root, "출고 구역 (통로)")),
             ("Module_Packing", root => Label(root, "포장 구역 (M7)")),
             ("Module_Returns", root => Label(root, "반품 구역 (M9)")),
         };
@@ -58,14 +58,25 @@ namespace APC.EditorTools
 
         public static void EnsureAll(bool overwrite)
         {
-            var cellSize = BuildKit.Database.Site.CellSize;
-            foreach (var (asset, build) in Builders)
+            foreach (var (asset, _) in Builders)
             {
                 if (!overwrite && ModuleFactory.Load(asset) != null) continue;
-                var root = ModuleFactory.CreateEmpty(asset, Vector2Int.one, cellSize);
+                Rebuild(asset);
+            }
+        }
+
+        /// <summary>기본 모듈 하나를 코드 기준으로 다시 만든다 (같은 경로에 덮어써서 참조는 유지된다).</summary>
+        public static void Rebuild(string asset)
+        {
+            foreach (var (name, build) in Builders)
+            {
+                if (name != asset) continue;
+                var root = ModuleFactory.CreateEmpty(asset, Vector2Int.one, BuildKit.Database.Site.CellSize);
                 build(root);
                 ModuleFactory.Save(root, asset);
+                return;
             }
+            Debug.LogWarning($"[StandardModules] 기본 모듈 '{asset}'이 없습니다.");
         }
 
         // ── 모듈 ────────────────────────────────────────────────────────
@@ -85,7 +96,7 @@ namespace APC.EditorTools
             foreach (var side in new[] { -1.85f, 1.85f })
                 BuildKit.Cube("Line", content, new Vector3(-1.7f, 0.014f, side), new Vector3(6.6f, 0.012f, 0.12f), BuildKit.Mat("M_Line", Color.white));
 
-            var bayGo = new GameObject(inbound ? "InboundBay" : "OutboundBay (M4)");
+            var bayGo = new GameObject(inbound ? "InboundBay" : "OutboundBay");
             bayGo.transform.SetParent(content, false);
             var parkPoint = new GameObject("ParkPoint").transform;
             parkPoint.SetParent(bayGo.transform, false);
@@ -107,10 +118,35 @@ namespace APC.EditorTools
             }
             else
             {
-                BuildKit.Cube("LoadZone (M4)", content, dock + new Vector3(0f, 0.01f, 0f), new Vector3(2.2f, 0.02f, 3f), BuildKit.Mat("M_ZoneFloor", Color.white));
-                BuildKit.FlatLabel(content, "상차", dock + new Vector3(0f, 0.03f, -2.2f), 3.6f, Color.white);
+                var bay = bayGo.AddComponent<OutboundBay>();
+                BuildKit.SetRef(bay, "truckPrefab", OutboundTruckPrefab());
+                BuildKit.SetRef(bay, "parkPoint", parkPoint);
+                BuildKit.SetRef(bay, "spawnPoint", spawnPoint);
+                var zone = BuildKit.Zone<TruckLoadZone>(content, "LoadZone", dock, new Vector2(2.2f, 3f),
+                    new Color(0.85f, 0.65f, 0.45f), new Color(1f, 0.6f, 0.25f), "상차");
+                BuildKit.SetRef(zone, "bay", bay);
+                // 현금 존: 상차 존 바로 옆 (GDD 7.6 확정). 상차 존 글자(−z)의 반대쪽.
+                BuildKit.SetRef(bay, "cashZone", BuildCashZone(content, dock + new Vector3(0f, 0f, 3.3f)));
                 Label(root, "상차 주차장");
             }
+        }
+
+        /// <summary>현금 존: 바닥 + 뭉치가 쌓이는 자리. 흡수 반경은 EconomyConfig.</summary>
+        static CashZone BuildCashZone(Transform parent, Vector3 position)
+        {
+            var go = new GameObject("CashZone");
+            go.transform.SetParent(parent, false);
+            go.transform.position = position;
+            BuildKit.Cube("Floor", go.transform, position + new Vector3(0f, 0.01f, 0f), new Vector3(2f, 0.02f, 1.8f), BuildKit.Mat("M_CashFloor", new Color(0.55f, 0.8f, 0.55f)));
+            var pile = new GameObject("Pile").transform;
+            pile.SetParent(go.transform, false);
+            pile.position = position + new Vector3(0f, 0.02f, 0f);
+            BuildKit.FlatLabel(go.transform, "현금", position + new Vector3(0f, 0.03f, 1.6f), 3.6f, Color.white);
+
+            var zone = go.AddComponent<CashZone>();
+            BuildKit.SetRef(zone, "pileRoot", pile);
+            BuildKit.SetRef(zone, "bundlePrefab", CashBundlePrefab());
+            return zone;
         }
 
         /// <summary>공용 보관소: [내려놓기] [팔레트] [집기 (선반 쪽, +x)].</summary>
@@ -175,11 +211,11 @@ namespace APC.EditorTools
 
         // ── 시설 프리팹 ─────────────────────────────────────────────────
 
-        public static Shelf ShelfPrefab()
+        public static Shelf ShelfPrefab(bool overwrite = false)
         {
             var path = $"{PrefabRoot}/Shelf.prefab";
             var existing = AssetDatabase.LoadAssetAtPath<Shelf>(path);
-            if (existing != null) return existing;
+            if (existing != null && !overwrite) return existing;
 
             var root = new GameObject("Shelf");
             var metal = BuildKit.Mat("M_Shelf", new Color(0.35f, 0.45f, 0.6f));
@@ -195,13 +231,15 @@ namespace APC.EditorTools
 
             var zone = BuildKit.Zone<ShelfLoadZone>(root.transform, "LoadZone", new Vector3(-1.25f, 0f, 0f), new Vector2(1.6f, 2.6f),
                 new Color(0.5f, 0.62f, 0.8f), new Color(0.35f, 0.7f, 1f), null);
-            BuildKit.Cube("PickZone (M4)", root.transform, new Vector3(1.25f, 0.01f, 0f), new Vector3(1.6f, 0.02f, 2.6f), BuildKit.Mat("M_ZoneFloor", Color.white));
+            var pick = BuildKit.Zone<ShelfPickZone>(root.transform, "PickZone", new Vector3(1.25f, 0f, 0f), new Vector2(1.6f, 2.6f),
+                new Color(0.85f, 0.65f, 0.45f), new Color(1f, 0.6f, 0.25f), null);
 
             var shelf = root.AddComponent<Shelf>();
             BuildKit.SetRef(shelf, "boxRoot", boxRoot);
             BuildKit.SetRef(shelf, "iconRenderer", icon.GetComponent<Renderer>());
             BuildKit.SetRef(shelf, "countLabel", label);
             BuildKit.SetRef(zone, "shelf", shelf);
+            BuildKit.SetRef(pick, "shelf", shelf);
 
             PrefabUtility.SaveAsPrefabAsset(root, path);
             UnityEngine.Object.DestroyImmediate(root);
@@ -229,6 +267,49 @@ namespace APC.EditorTools
             PrefabUtility.SaveAsPrefabAsset(root, path);
             UnityEngine.Object.DestroyImmediate(root);
             return AssetDatabase.LoadAssetAtPath<InboundTruck>(path);
+        }
+
+        /// <summary>출고 트럭: 입고 트럭과 같은 크기, 주황 운전석. 위에 주문 카드(품목 실은 수/필요 수).</summary>
+        public static OutboundTruck OutboundTruckPrefab(bool overwrite = false)
+        {
+            var path = $"{PrefabRoot}/OutboundTruck.prefab";
+            var existing = AssetDatabase.LoadAssetAtPath<OutboundTruck>(path);
+            if (existing != null && !overwrite) return existing;
+
+            var root = new GameObject("OutboundTruck");
+            BuildKit.Cube("Cargo", root.transform, new Vector3(0f, 1.5f, -0.5f), new Vector3(2.2f, 2.2f, 3.4f), BuildKit.Mat("M_TruckBody", new Color(0.92f, 0.92f, 0.9f)));
+            BuildKit.Cube("Cab", root.transform, new Vector3(0f, 1.15f, 1.9f), new Vector3(2.2f, 1.8f, 1.4f), BuildKit.Mat("M_TruckCabOut", new Color(0.95f, 0.55f, 0.2f)));
+            var entry = new GameObject("CargoEntry").transform;
+            entry.SetParent(root.transform, false);
+            entry.localPosition = new Vector3(0f, 1.2f, -2.3f); // 뒷문 (후진 주차하면 물류센터 쪽)
+            var label = BuildKit.BillboardLabel(root.transform, "A1 0/3", new Vector3(0f, 4.4f, -0.5f), 8f);
+            label.alignment = TMPro.TextAlignmentOptions.Bottom; // 줄이 늘면 위로 쌓인다
+            label.rectTransform.sizeDelta = new Vector2(5f, 3f);
+            label.name = "OrderLabel";
+
+            var truck = root.AddComponent<OutboundTruck>();
+            BuildKit.SetRef(truck, "cargoEntry", entry);
+            BuildKit.SetRef(truck, "orderLabel", label);
+
+            PrefabUtility.SaveAsPrefabAsset(root, path);
+            UnityEngine.Object.DestroyImmediate(root);
+            return AssetDatabase.LoadAssetAtPath<OutboundTruck>(path);
+        }
+
+        /// <summary>현금 뭉치 1개 (초록 지폐 다발 + 띠).</summary>
+        public static Transform CashBundlePrefab()
+        {
+            var path = $"{PrefabRoot}/CashBundle.prefab";
+            var existing = AssetDatabase.LoadAssetAtPath<Transform>(path);
+            if (existing != null) return existing;
+
+            var root = new GameObject("CashBundle");
+            BuildKit.Cube("Bills", root.transform, new Vector3(0f, 0.07f, 0f), new Vector3(0.5f, 0.14f, 0.28f), BuildKit.Mat("M_Cash", new Color(0.35f, 0.72f, 0.38f)));
+            BuildKit.Cube("Band", root.transform, new Vector3(0f, 0.07f, 0f), new Vector3(0.1f, 0.15f, 0.29f), BuildKit.Mat("M_CashBand", new Color(0.95f, 0.9f, 0.6f)));
+
+            PrefabUtility.SaveAsPrefabAsset(root, path);
+            UnityEngine.Object.DestroyImmediate(root);
+            return AssetDatabase.LoadAssetAtPath<Transform>(path);
         }
     }
 }

@@ -1,0 +1,64 @@
+using System.Text;
+using APC.Core;
+using APC.Orders;
+using DG.Tweening;
+using R3;
+using TMPro;
+using UnityEngine;
+
+namespace APC.Logistics
+{
+    /// <summary>
+    /// 출고 트럭 1대 (GDD 7.6). 주문 1건을 맡고, 위에 주문 카드(품목별 실은 수 / 필요 수)를 띄운다.
+    /// 이동은 OutboundBay가 한다.
+    /// </summary>
+    public sealed class OutboundTruck : MonoBehaviour
+    {
+        [SerializeField, Tooltip("상자가 들어가는 위치 (뒷문)")] Transform cargoEntry;
+        [SerializeField] TMP_Text orderLabel;
+
+        readonly StringBuilder text = new();
+
+        public Order Order { get; private set; }
+
+        public void Assign(Order order)
+        {
+            Order = order;
+            order.Changed.Subscribe(_ => Refresh()).AddTo(this);
+            Refresh();
+        }
+
+        /// <summary>상자 1개를 싣는다: 주문에 기록하고, 상자는 뒷문으로 날아 들어가 풀로 돌아간다.</summary>
+        public void Receive(Cargo cargo)
+        {
+            if (!Order.TryLoad(cargo.Item))
+            {
+                Debug.LogWarning($"[OutboundTruck] 주문 #{Order.Number}에 필요 없는 {cargo.Item.Id}가 들어왔습니다.", this);
+            }
+
+            var config = GameManager.Instance.Database.Carry;
+            var t = cargo.transform;
+            t.DOKill();
+            t.SetParent(null, true);
+            t.DOJump(cargoEntry.position, config.JumpPower, 1, config.FlyDuration)
+                .OnComplete(cargo.Release);
+            t.DOScale(0.6f, config.FlyDuration).SetEase(Ease.InQuad);
+
+            orderLabel.transform.DOKill(true);
+            orderLabel.transform.DOPunchScale(Vector3.one * 0.2f, 0.2f, 6, 0.5f);
+        }
+
+        void Refresh()
+        {
+            text.Clear();
+            foreach (var line in Order.Lines)
+            {
+                if (text.Length > 0) text.Append('\n');
+                var color = ColorUtility.ToHtmlStringRGB(line.Item.TapeColor);
+                text.Append("<color=#").Append(color).Append('>').Append(line.Item.Id).Append("</color> ")
+                    .Append(line.Loaded).Append('/').Append(line.Quantity);
+            }
+            orderLabel.text = text.ToString();
+        }
+    }
+}

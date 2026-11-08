@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using APC.Contracts;
 using APC.Data;
 using APC.Logistics;
+using APC.Orders;
 using APC.Site;
 using APC.UI;
 using UnityEditor;
@@ -35,6 +36,8 @@ namespace APC.EditorTools
 
             var shelfPrefab = StandardModules.ShelfPrefab();
             StandardModules.TruckPrefab();
+            StandardModules.OutboundTruckPrefab();
+            StandardModules.CashBundlePrefab();
             StandardModules.EnsureAll(overwrite: false);
             AssignDefaultModules(layout);
 
@@ -53,11 +56,14 @@ namespace APC.EditorTools
             services.SetParent(site, false);
             SetRef(services.gameObject.AddComponent<Warehouse>(), "shelfPrefab", shelfPrefab);
             services.gameObject.AddComponent<ContractService>();
+            services.gameObject.AddComponent<OrderService>();
 
             BakeGrid(site, layout);
+            BuildCashHud();
+            BuildOrderQueue();
             BuildContractPopup();
             RemoveTestZones();
-            PlacePlayer(layout.CellCenter(2, 1) + new Vector3(1f, 0f, -1f));
+            SetupPlayer(layout.CellCenter(2, 1) + new Vector3(1f, 0f, -1f));
 
             var scene = EditorSceneManager.GetActiveScene();
             EditorSceneManager.MarkSceneDirty(scene);
@@ -125,10 +131,100 @@ namespace APC.EditorTools
                 DestroyIfExists(GameObject.Find(name));
         }
 
-        static void PlacePlayer(Vector3 position)
+        /// <summary>플레이어 위치 + 현금 흡수 대상 등록.</summary>
+        static void SetupPlayer(Vector3 position)
         {
             var player = GameObject.Find("Player");
-            if (player != null) player.transform.position = position;
+            if (player == null) return;
+            player.transform.position = position;
+            if (player.GetComponent<CashCollector>() == null) player.AddComponent<CashCollector>();
+        }
+
+        // ── HUD: 현금 (좌상단) ───────────────────────────────────────────
+
+        static void BuildCashHud()
+        {
+            var canvas = GameObject.Find("HUD Canvas").transform;
+            var old = canvas.Find("CashHud");
+            if (old != null) DestroyIfExists(old.gameObject);
+
+            var panel = UIImage("CashHud", canvas, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -20f), new Vector2(300f, 84f),
+                new Color(0f, 0f, 0f, 0.45f), BuiltinSprite("UI/Skin/UISprite.psd"));
+            panel.type = Image.Type.Sliced;
+            var rect = panel.rectTransform;
+            rect.pivot = new Vector2(0f, 1f);
+
+            UIImage("Icon", rect, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(46f, 0f), new Vector2(52f, 34f),
+                new Color(0.35f, 0.75f, 0.4f), BuiltinSprite("UI/Skin/UISprite.psd")).type = Image.Type.Sliced;
+            var label = UIText("Amount", rect, new Vector2(0f, 0.5f), new Vector2(190f, 0f), new Vector2(200f, 84f), "0", 52f, TitleFont, Color.white);
+            label.alignment = TMPro.TextAlignmentOptions.Left;
+
+            var view = panel.gameObject.AddComponent<CashView>();
+            SetRef(view, "label", label);
+            SetRef(view, "punchTarget", rect);
+        }
+
+        // ── HUD: 주문서 큐 (상단 오른쪽) ─────────────────────────────────
+
+        static void BuildOrderQueue()
+        {
+            var canvas = GameObject.Find("HUD Canvas").transform;
+            var old = canvas.Find("OrderQueue");
+            if (old != null) DestroyIfExists(old.gameObject);
+
+            var dark = new Color(0.25f, 0.22f, 0.2f);
+            var sprite = BuiltinSprite("UI/Skin/UISprite.psd");
+
+            var root = UIRect("OrderQueue", canvas, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -20f), Vector2.zero);
+            root.pivot = new Vector2(1f, 1f);
+
+            // 카드 템플릿 (오른쪽 위 기준)
+            var cardImage = UIImage("CardTemplate", root, new Vector2(1f, 1f), new Vector2(1f, 1f), Vector2.zero, new Vector2(170f, 150f),
+                new Color(0.97f, 0.96f, 0.93f), sprite);
+            cardImage.type = Image.Type.Sliced;
+            var card = cardImage.rectTransform;
+            card.pivot = new Vector2(1f, 1f);
+            var group = card.gameObject.AddComponent<CanvasGroup>();
+
+            var number = UIText("Number", card, new Vector2(0f, 1f), new Vector2(42f, -24f), new Vector2(64f, 36f), "#1", 26f, TitleFont, dark);
+            number.alignment = TMPro.TextAlignmentOptions.Left;
+
+            var badge = UIImage("Badge", card, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-50f, -24f), new Vector2(84f, 34f),
+                new Color(0.55f, 0.55f, 0.58f), sprite);
+            badge.type = Image.Type.Sliced;
+            var badgeLabel = UIText("Label", badge.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(84f, 34f), "대기", 24f, TitleFont, Color.white);
+
+            var lines = UIRect("Lines", card, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -46f), new Vector2(150f, 100f));
+            lines.pivot = new Vector2(0.5f, 1f);
+            var layout = lines.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.spacing = 3f;
+            layout.padding = new RectOffset(16, 0, 0, 0);
+            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+
+            var lineIcon = UIImage("LineTemplate", lines, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(30f, 30f), Color.white, sprite);
+            lineIcon.type = Image.Type.Sliced;
+            var count = UIText("Count", lineIcon.rectTransform, new Vector2(1f, 0.5f), new Vector2(52f, 0f), new Vector2(90f, 32f), "0/3", 28f, TitleFont, dark);
+            count.alignment = TMPro.TextAlignmentOptions.Left;
+
+            var cardView = card.gameObject.AddComponent<OrderCardView>();
+            SetRef(cardView, "group", group);
+            SetRef(cardView, "numberLabel", number);
+            SetRef(cardView, "badge", badge);
+            SetRef(cardView, "badgeLabel", badgeLabel);
+            SetRef(cardView, "lineRoot", lines);
+            SetRef(cardView, "lineTemplate", lineIcon);
+
+            var overflow = UIText("Overflow", root, new Vector2(1f, 1f), Vector2.zero, new Vector2(80f, 56f), "+1", 44f, TitleFont, dark);
+            overflow.rectTransform.pivot = new Vector2(1f, 1f);
+
+            var view = root.gameObject.AddComponent<OrderQueueView>();
+            SetRef(view, "container", root);
+            SetRef(view, "cardTemplate", cardView);
+            SetRef(view, "overflowLabel", overflow);
         }
 
         // ── 계약 팝업 UI ────────────────────────────────────────────────

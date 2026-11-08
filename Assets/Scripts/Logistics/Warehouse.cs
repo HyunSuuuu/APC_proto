@@ -73,6 +73,18 @@ namespace APC.Logistics
             return free;
         }
 
+        /// <summary>재고 = 선반 + 공용 보관소에 있는 그 품목 수 (교착 방지 가중치용, GDD 7.8).</summary>
+        public int GetStock(ItemDefinition item)
+        {
+            var stock = 0;
+            foreach (var shelf in shelves)
+            {
+                if (shelf.Item == item) stock += shelf.Count.CurrentValue;
+            }
+            foreach (var storage in SharedStorage.All) stock += storage.CountOf(item);
+            return stock;
+        }
+
         /// <summary>플레이어 · 알바가 지금 들고 있는 화물 중 조건에 맞는 수.</summary>
         public static int CountCarried(ItemDefinition item, CargoOrigin origin)
         {

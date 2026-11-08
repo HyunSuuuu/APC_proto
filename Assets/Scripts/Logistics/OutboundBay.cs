@@ -1,0 +1,77 @@
+using System.Collections;
+using APC.Core;
+using APC.Orders;
+using DG.Tweening;
+using UnityEngine;
+
+namespace APC.Logistics
+{
+    /// <summary>
+    /// 상차 베이 1곳 (GDD 7.6, 8.3). 상차 주차장 모듈 안에 있다.
+    /// 대기 주문이 있으면 가장 오래된 주문의 트럭이 주차 칸 바깥쪽에 나타나 **후진으로 곧장** 주차하고,
+    /// 주문을 다 실으면 앞으로 나가 사라지며 옆 현금 존에 보상이 쌓인다. InboundBay와 같은 방식이라 모듈이 어디에 붙든 혼자 동작한다.
+    /// </summary>
+    public sealed class OutboundBay : MonoBehaviour
+    {
+        const float AppearDuration = 0.25f;
+
+        [SerializeField] OutboundTruck truckPrefab;
+        [SerializeField, Tooltip("주차 위치 · 방향. 앞(+z) = 바깥쪽, 뒷문은 물류센터 쪽")] Transform parkPoint;
+        [SerializeField, Tooltip("트럭이 나타나고 사라지는 위치 (주차 위치에서 바깥쪽)")] Transform spawnPoint;
+        [SerializeField, Tooltip("주문 보상 현금이 쌓이는 곳 (상차 존 옆)")] CashZone cashZone;
+
+        /// <summary>정차해서 상차를 받는 중인 트럭. 없으면 null.</summary>
+        public OutboundTruck DockedTruck { get; private set; }
+
+        IEnumerator Start()
+        {
+            var gm = GameManager.Instance;
+            var config = gm.Database.Logistics;
+
+            while (true)
+            {
+                yield return new WaitUntil(() => OrderService.Instance != null && OrderService.Instance.HasWaiting);
+
+                var orders = OrderService.Instance;
+                var order = orders.AssignOldestWaiting();
+                if (order == null) continue; // 같은 프레임에 다른 베이가 가져감
+
+                var truck = Instantiate(truckPrefab, spawnPoint.position, parkPoint.rotation, transform);
+                truck.Assign(order);
+
+                var t = truck.transform;
+                t.localScale = Vector3.zero;
+                yield return DOTween.Sequence()
+                    .Append(t.DOScale(1f, AppearDuration).SetEase(Ease.OutBack))
+                    .Append(t.DOMove(parkPoint.position, config.OutboundReverseDuration).SetEase(Ease.OutCubic))
+                    .SetLink(truck.gameObject)
+                    .WaitForCompletion();
+                DockedTruck = truck;
+                orders.MarkDocked(order);
+
+                yield return new WaitUntil(() => order.IsFulfilled);
+                DockedTruck = null;
+
+                var reward = orders.Complete(order);
+                if (cashZone != null) cashZone.AddCash(reward);
+
+                // 마지막 상자가 뒷문에 들어갈 때까지 기다렸다가 출발한다.
+                yield return new WaitForSeconds(gm.Database.Carry.FlyDuration);
+                DOTween.Sequence()
+                    .Append(t.DOMove(spawnPoint.position, config.OutboundLeaveDuration).SetEase(Ease.InCubic))
+                    .Append(t.DOScale(0f, AppearDuration).SetEase(Ease.InBack))
+                    .SetLink(truck.gameObject)
+                    .OnComplete(() => Destroy(truck.gameObject));
+                yield return new WaitForSeconds(config.OutboundRespawnDelay);
+            }
+        }
+
+        void OnDrawGizmos()
+        {
+            if (parkPoint == null || spawnPoint == null) return;
+            Gizmos.color = new Color(0.3f, 0.8f, 1f, 0.9f);
+            Gizmos.DrawLine(spawnPoint.position + Vector3.up * 0.5f, parkPoint.position + Vector3.up * 0.5f);
+            Gizmos.DrawWireSphere(spawnPoint.position + Vector3.up * 0.5f, 0.4f);
+        }
+    }
+}

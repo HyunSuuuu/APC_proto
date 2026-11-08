@@ -1,4 +1,6 @@
+using APC.Contracts;
 using APC.Core;
+using APC.Orders;
 using APC.Site;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -7,7 +9,7 @@ namespace APC.Debugging
 {
     /// <summary>
     /// 테스트용 치트 메뉴 (GDD 14.5). 에디터와 Development 빌드에서만 동작한다.
-    /// 화면 오른쪽 위 [DEBUG] 버튼 또는 F1로 연다. 마일스톤마다 항목을 추가한다.
+    /// 화면 왼쪽 아래 [DEBUG] 버튼 또는 F1로 연다. 마일스톤마다 항목을 추가한다.
     /// </summary>
     public sealed class DebugMenu : MonoBehaviour
     {
@@ -68,14 +70,14 @@ namespace APC.Debugging
             EnsureStyles();
             var scale = Screen.height / ReferenceHeight;
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
-            var screenWidth = Screen.width / scale;
 
-            var toggleRect = new Rect(screenWidth - 140f, 12f, 128f, 56f);
+            // 왼쪽 아래 (오른쪽 위는 주문서 큐, 왼쪽 위는 현금, 오른쪽 아래는 카메라 버튼)
+            var toggleRect = new Rect(12f, ReferenceHeight - 68f, 128f, 56f);
             if (Event.current.type == EventType.Repaint) toggleScreenRect = ToScreenRect(toggleRect, scale);
             if (GUI.Button(toggleRect, open ? "CLOSE" : "DEBUG", buttonStyle)) open = !open;
             if (!open) return;
 
-            var area = new Rect(screenWidth - PanelWidth - 12f, 80f, PanelWidth, ReferenceHeight - 92f);
+            var area = new Rect(12f, 130f, PanelWidth, ReferenceHeight - 210f);
             GUILayout.BeginArea(area);
             GUILayout.BeginVertical(GUI.skin.box);
             var gm = GameManager.Instance;
@@ -126,7 +128,23 @@ namespace APC.Debugging
             GUILayout.EndHorizontal();
             if (GUILayout.Button(gm.IsPaused ? "Resume" : "Pause", buttonStyle)) gm.SetPaused(!gm.IsPaused);
 
+            DrawOrders();
             DrawSite(gm);
+        }
+
+        /// <summary>주문 테스트: 계약한 회사 중 하나로 주문 1건 추가 (큐 최대 수는 지킨다).</summary>
+        void DrawOrders()
+        {
+            var orders = OrderService.Instance;
+            var contracts = ContractService.Instance;
+            if (orders == null || contracts == null) return;
+
+            Header("Orders");
+            GUILayout.Label($"Queue {orders.Orders.Count}", labelStyle);
+            GUI.enabled = contracts.HasAnyContract;
+            if (GUILayout.Button("Add Order", buttonStyle))
+                orders.TryGenerate(contracts.Contracted[Random.Range(0, contracts.Contracted.Count)]);
+            GUI.enabled = true;
         }
 
         /// <summary>모듈 해금 테스트 (구매 패드 M5 전까지). 해금 레벨이 낮은 잠긴 모듈부터 연다.</summary>

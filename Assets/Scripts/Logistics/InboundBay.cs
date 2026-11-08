@@ -1,8 +1,7 @@
 using System.Collections;
-using System.Collections.Generic;
 using APC.Contracts;
 using APC.Core;
-using APC.Data;
+using APC.Orders;
 using DG.Tweening;
 using UnityEngine;
 
@@ -33,9 +32,9 @@ namespace APC.Logistics
             {
                 yield return new WaitUntil(() => contracts.HasAnyContract);
 
-                var company = contracts.PickInboundCompany();
+                var company = StockBalancer.PickInboundCompany(contracts.Contracted);
                 var truck = Instantiate(truckPrefab, spawnPoint.position, parkPoint.rotation, transform);
-                truck.Load(company, ComposeLoad(company));
+                truck.Load(company, StockBalancer.ComposeInboundLoad(company));
 
                 var t = truck.transform;
                 t.localScale = Vector3.zero;
@@ -56,15 +55,6 @@ namespace APC.Logistics
                     .OnComplete(() => Destroy(truck.gameObject));
                 yield return new WaitForSeconds(config.InboundRespawnDelay);
             }
-        }
-
-        /// <summary>트럭에 실을 품목. M4에서 교착 방지 가중치(GDD 7.8)로 바꾼다.</summary>
-        static List<ItemDefinition> ComposeLoad(CompanyDefinition company)
-        {
-            var load = new List<ItemDefinition>(company.InboundTruckCapacity);
-            for (var i = 0; i < company.InboundTruckCapacity; i++)
-                load.Add(company.Items[Random.Range(0, company.Items.Count)]);
-            return load;
         }
 
         void OnDrawGizmos()

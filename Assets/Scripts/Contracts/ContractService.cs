@@ -9,7 +9,7 @@ namespace APC.Contracts
 {
     /// <summary>
     /// 회사 계약 (GDD 6.3). 계약하면 ① 그 회사 선반이 팝 연출과 함께 생기고 ② 입고 트럭이 오기 시작하고
-    /// ③ (M4) 그 회사 주문이 생기기 시작한다. 계약 비용은 없고 레벨로만 제한한다. 씬에 하나 둔다.
+    /// ③ 그 회사 주문이 생기기 시작한다 (OrderService가 OnContracted를 구독). 계약 비용은 없고 레벨로만 제한한다. 씬에 하나 둔다.
     /// </summary>
     public sealed class ContractService : MonoBehaviour
     {
@@ -58,8 +58,5 @@ namespace APC.Contracts
             contractedSubject.OnNext(company);
             return true;
         }
-
-        /// <summary>다음 입고 트럭의 회사. M4에서 교착 방지 가중치(GDD 7.8)로 바꾼다.</summary>
-        public CompanyDefinition PickInboundCompany() => contracted[Random.Range(0, contracted.Count)];
     }
 }

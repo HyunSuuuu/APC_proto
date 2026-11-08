@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using APC.Core;
+using APC.Data;
 using R3;
 using TMPro;
 using UnityEngine;
@@ -16,15 +17,38 @@ namespace APC.Logistics
         [SerializeField] CargoGridLayout layout = new(5, 4, 0.6f, 0.5f);
         [SerializeField] TMP_Text countLabel;
 
+        static readonly List<SharedStorage> Registered = new();
+
         readonly ReactiveProperty<int> count = new(0);
         CargoPile pile;
         int capacity;
+
+        /// <summary>붙어 있는 모든 공용 보관소 (재고 집계용). 모듈 안에 있으므로 스스로 등록한다.</summary>
+        public static IReadOnlyList<SharedStorage> All => Registered;
 
         public ReadOnlyReactiveProperty<int> Count => count;
         public int Capacity => capacity;
         public IReadOnlyList<Cargo> Items => pile.Items;
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics() => Registered.Clear();
+
         void Awake() => pile = new CargoPile(pileRoot, layout.GetLocalPosition);
+
+        void OnEnable() => Registered.Add(this);
+
+        void OnDisable() => Registered.Remove(this);
+
+        /// <summary>그 품목 보관 수.</summary>
+        public int CountOf(ItemDefinition item)
+        {
+            var n = 0;
+            foreach (var cargo in pile.Items)
+            {
+                if (cargo.Item == item) n++;
+            }
+            return n;
+        }
 
         void Start()
         {

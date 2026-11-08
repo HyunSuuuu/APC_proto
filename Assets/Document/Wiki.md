@@ -26,10 +26,11 @@
    - [Interaction](#44-interaction--상호작용-존)
    - [Logistics](#45-logistics--물류)
    - [Contracts](#46-contracts--계약)
-   - [Site](#47-site--부지-모듈)
-   - [UI](#48-ui)
-   - [Debugging](#49-debugging)
-   - [Editor](#410-editor--에디터-도구)
+   - [Orders](#47-orders--주문)
+   - [Site](#48-site--부지-모듈)
+   - [UI](#49-ui)
+   - [Debugging](#410-debugging)
+   - [Editor](#411-editor--에디터-도구)
 5. [자주 하는 작업](#5-자주-하는-작업)
 6. [항목 양식](#항목-양식)
 
@@ -47,8 +48,9 @@
 | `Cameras` | 쿼터뷰 카메라 (추적 · 자유 모드) |
 | `Characters` | 플레이어 이동과 초기 설정 |
 | `Interaction` | 바닥 존 상호작용의 틀 (운반 존 · 게이지 존) |
-| `Logistics` | 화물, 운반 스택, 트럭, 보관소, 선반 |
+| `Logistics` | 화물, 운반 스택, 입고 · 출고 트럭, 보관소, 선반, 현금 존 |
 | `Contracts` | 회사 계약 |
+| `Orders` | 주문 데이터 · 주문 큐 · 수요 계산 · 교착 방지 가중치 |
 | `Site` | 부지 격자와 모듈 해금 |
 | `UI` | 팝업, 월드 글자 정렬 |
 | `Debugging` | 치트 메뉴 (에디터 · 개발 빌드 전용) |
@@ -57,8 +59,8 @@
 **의존 방향** (화살표 = "참조한다")
 
 ```
-UI ─→ Contracts ⇄ Logistics ⇄ Interaction
-      (계약 → 선반 생성 / 하차 베이 → 계약 확인, 존은 CarryStack·Cargo를 쓰고 물류 존은 CargoZone을 상속)
+UI ─→ Orders ⇄ Contracts ⇄ Logistics ⇄ Interaction
+      (계약 → 선반 생성 · 첫 주문 / 베이 → 계약 · 주문 확인, 존은 CarryStack·Cargo를 쓰고 물류 존은 CargoZone을 상속)
 Characters    ─→ Controls, Cameras, Site, Interaction, Logistics
 모든 런타임 코드 ─→ Core ─→ Data
 Editor ─→ 전부   (런타임 코드는 Editor를 참조하지 않는다)
@@ -71,12 +73,13 @@ Editor ─→ 전부   (런타임 코드는 Editor를 참조하지 않는다)
 | `GameManager` | GameManager | M0 Setup |
 | `DebugMenu` | DebugMenu | M0 Setup |
 | `Main Camera` | CameraRig | M1 |
-| `Player` | PlayerMover, PlayerSetup, Interactor, CarryStack, CarryMaxIndicator | M1 · M2 |
+| `Player` | PlayerMover, PlayerSetup, Interactor, CarryStack, CarryMaxIndicator, CashCollector | M1 · M2 · Build Site |
 | `CargoPool` | CargoPool | M2 |
-| `HUD Canvas` | 자식 `Joystick`(FloatingJoystick), `CameraButton`(CameraModeButton), `ContractPopup` | M0 · M1 · Build Site |
+| `HUD Canvas` | 자식 `Joystick`(FloatingJoystick), `CameraButton`(CameraModeButton) | M0 · M1 |
+| └ `CashHud` · `OrderQueue` · `ContractPopup` | CashView · OrderQueueView · ContractPopup | Build Site (지우고 다시 만듦) |
 | `Site` | 아래 참고 | **Build Site** (지우고 다시 만듦) |
 | └ `Ground` | 초록 바닥 (임시 — 모듈 바닥으로 충분해지면 삭제 예정) | Build Site |
-| └ `Logistics` | Warehouse, ContractService | Build Site |
+| └ `Logistics` | Warehouse, ContractService, OrderService | Build Site |
 | └ `SiteGrid` | SiteGrid + 시작 모듈 프리팹 인스턴스 6개 | Build Site |
 
 ---
@@ -87,7 +90,7 @@ Editor ─→ 전부   (런타임 코드는 Editor를 참조하지 않는다)
 
 ### 2.1 씬에 하나뿐인 서비스 — `Instance`
 
-`GameManager`, `CargoPool`, `Warehouse`, `ContractService`, `SiteGrid`, `ContractPopup`이 이 형태다.
+`GameManager`, `CargoPool`, `Warehouse`, `ContractService`, `OrderService`, `SiteGrid`, `ContractPopup`이 이 형태다.
 
 ```csharp
 public static Foo Instance { get; private set; }
@@ -111,6 +114,8 @@ void OnDestroy() { if (Instance == this) Instance = null; }
 | `InteractionZone.All` (private) | `InteractionZone.FindAt` — 위치로 존 찾기 |
 | `Interactor.All` | `Warehouse.CountCarried` — 들고 있는 화물 집계 |
 | `ShelfSlot.All` | `Warehouse.BuildShelf` — 선반 세울 자리 찾기 |
+| `SharedStorage.All` | `Warehouse.GetStock` — 재고 집계 |
+| `CashCollector.All` | `CashZone` — 현금을 흡수할 대상 찾기 |
 
 ### 2.3 설정값 읽기
 
@@ -157,7 +162,7 @@ GaugeZone.Tick → 진행도 += deltaTime / duration → 1이 되면 OnCompleted
 
 존은 물리 충돌체가 아니라 **바닥 사각형 판정**이다 (`InteractionZone.Contains`, 루트 기준 XZ). 존끼리 겹치지 않게 배치한다.
 
-### 3.2 화물이 흘러가는 길 (M3까지)
+### 3.2 화물이 흘러가는 길
 
 화물은 `CargoOrigin`(마지막으로 꺼낸 곳)으로 갈 수 있는 곳이 정해진다. 트럭 화물을 선반에 바로 넣는 것을 막는 장치다.
 
@@ -167,7 +172,8 @@ GaugeZone.Tick → 진행도 += deltaTime / duration → 1이 되면 OnCompleted
 | 보관소에 내려놓음 | `StorageDropZone` → `SharedStorage.Store` | 유지 | Origin = `Truck`, 빈자리 있음 |
 | 보관소에서 집음 | `StoragePickZone` → `SharedStorage.TakeForShelves` | → `Storage` | 그 품목 선반에 빈자리(− 이미 들고 가는 수)가 있을 때만 |
 | 선반에 넣음 | `ShelfLoadZone` → `Shelf.Store` | → `Shelf` | 같은 품목, Origin = `Storage`, 빈자리 있음 |
-| 선반에서 꺼냄 → 출고 | (M4 예정) | | |
+| 선반에서 꺼냄 | `ShelfPickZone` → `Shelf.TakeOne` | 유지 (`Shelf`) | 그 품목의 **수요**(정차 트럭 남은 수 − 이미 들고 있는 수)가 있을 때만 |
+| 트럭에 실음 | `TruckLoadZone` → `OutboundTruck.Receive` | 풀로 반환 | Origin = `Shelf`, 정차한 트럭 주문에 그 품목이 남아 있음 |
 
 ### 3.3 계약
 
@@ -175,9 +181,10 @@ GaugeZone.Tick → 진행도 += deltaTime / duration → 1이 되면 OnCompleted
 ContractPC (게이지 0.5초) → ContractPopup.Open → GameManager.OpenPopup (timeScale 0)
   → 카드 [계약] → ContractService.TryContract
        ├ Warehouse.BuildShelf × 회사의 shelvesOnContract (선반 팝)
-       └ OnContracted 이벤트
+       └ OnContracted 이벤트 → OrderService가 첫 주문 1건 생성
   → 팝업 닫힘 → ClosePopup (timeScale 복구)
 InboundBay 코루틴: HasAnyContract가 true가 되면 트럭을 부르기 시작
+OrderService.Update: 이후 레벨 구간 간격(Lv.1~3 15초)마다 주문 1건 (큐 8건이면 멈춤)
 ```
 
 ### 3.4 입고 트럭 한 대
@@ -207,6 +214,23 @@ PlayerMover : 이동 전에 SiteGrid.IsAreaWalkable로 열린 칸 안인지 확�
 잠긴 칸에는 아무것도 없다 (보이지 않고 들어갈 수 없음). 해금하면 그 모듈 안의 `ShelfSlot`, `InboundBay` 등이 켜지면서 스스로 동작을 시작한다.
 
 **칸 좌표** — 칸 한 변 10m. (행 R, 열 C)의 중심 = `(C × 10, 0, −(R − 1) × 10)`. R1이 맨 위, 아래로 갈수록 R이 커진다.
+
+### 3.6 주문 한 건
+
+```
+OrderService.TryGenerate ─ 상태 Waiting ("대기" 카드가 큐 왼쪽에 추가)
+   │  OutboundBay: 대기 주문이 있으면 AssignOldestWaiting → Arriving
+   ▼  출고 트럭이 나타나 후진 주차 (outboundReverseDuration 3초)
+MarkDocked ─ 상태 Docked ("도착") → 이때부터 수요(GetDemand)에 잡힌다
+   │  플레이어: 선반 수거 존에서 수요만큼 집음 → 상차 존에 내려놓음 → Order.TryLoad
+   ▼  주문 품목이 다 차면 (IsFulfilled)
+Complete ─ 상태 Departed ("출발") → 큐에서 빠짐, XP 지급, 보상 금액 반환
+   │  OutboundBay: CashZone.AddCash(보상) → 트럭이 앞으로 나가 사라짐 → 1초 뒤 다음 주문
+   ▼
+CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날아와 Wallet.Add
+```
+
+**교착 방지** (`StockBalancer`, GDD 7.8): 입고 트럭은 큐 주문이 부족한 품목을 더 많이 싣고(품목마다 최소 10%), 새 주문은 재고가 많은 품목으로 더 잘 나온다. 그래서 한 품목만 쌓여 흐름이 멈추는 일이 없다.
 
 ---
 
@@ -250,13 +274,13 @@ PlayerMover : 이동 전에 SiteGrid.IsAreaWalkable로 열린 칸 안인지 확�
 | [ItemDefinition](../Scripts/Data/ItemDefinition.cs) | `Items/Item_A1` 등 | 품목 id, 이름, **테이프 색**, 아이콘, 단가 |
 | [CompanyDefinition](../Scripts/Data/CompanyDefinition.cs) | `Companies/Company_A` 등 | 해금 레벨, 품목 목록, 입고 트럭 적재량, **계약 시 생기는 선반 목록** (항목 1개 = 선반 1개) |
 | [LevelTable](../Scripts/Data/LevelTable.cs) | `LevelTable` | 레벨별 필요 XP · 최대 알바 · 해금 메모. 목록 이후 레벨은 공식으로 계산 |
-| [EconomyConfig](../Scripts/Data/EconomyConfig.cs) | `EconomyConfig` | 시작 현금, 구매 패드 시간, 시설 · 업그레이드 비용, 복합 주문 배율, 경험치 |
-| [OrderRules](../Scripts/Data/OrderRules.cs) | `OrderRules` | 레벨 구간별 주문 간격 · 복합 확률 · 수량, 큐 최대 수, 교착 방지 최소 가중치 (M4에서 사용) |
+| [EconomyConfig](../Scripts/Data/EconomyConfig.cs) | `EconomyConfig` | 시작 현금, 구매 패드 시간, 시설 · 업그레이드 비용, 복합 주문 배율, **현금 더미**(뭉치 금액 · 흡수 반경 · 날아가는 간격/시간), 경험치 |
+| [OrderRules](../Scripts/Data/OrderRules.cs) | `OrderRules` | 레벨 구간별 주문 간격 · 복합 확률 · 수량, 큐 최대 수, 교착 방지 최소 가중치 |
 | [StaffRules](../Scripts/Data/StaffRules.cs) | `StaffRules` | 알바 이력서 · 스탯 효과 · 고용금 · 시급 · 하루 길이 (M6에서 사용) |
 | [PlayerConfig](../Scripts/Data/PlayerConfig.cs) | `PlayerConfig` | 이동 속도 · 회전 속도 · 뛰기 기준, 최대 적재, 집기 간격, **상호작용 대기 시간** |
 | [ControlsConfig](../Scripts/Data/ControlsConfig.cs) | `ControlsConfig` | 조이스틱 반경, 카메라 각도 · 렌즈 · 줌 · 복귀 시간 |
 | [CarryConfig](../Scripts/Data/CarryConfig.cs) | `CarryConfig` | 상자 높이, 비행 · 착지 연출, 스택 흔들림 스프링, MAX 표시 |
-| [LogisticsConfig](../Scripts/Data/LogisticsConfig.cs) | `LogisticsConfig` | 보관소 · 선반 용량, 트럭 후진 · 출발 · 재등장 시간, 사무실 게이지, 팝 연출 시간 |
+| [LogisticsConfig](../Scripts/Data/LogisticsConfig.cs) | `LogisticsConfig` | 보관소 · 선반 용량, 입고 · 출고 트럭 후진 · 출발 · 재등장 시간, 사무실 게이지, 팝 연출 시간 |
 | [SiteLayout](../Scripts/Data/SiteLayout.cs) | `SiteLayout` | 칸 크기, **모듈 배치 목록** (아래 설명) |
 | [DataTypes](../Scripts/Data/DataTypes.cs) | — | 공용 구조체 `IntRange`(`Roll()`로 무작위), `WeightedInt` |
 
@@ -390,7 +414,7 @@ PlayerMover : 이동 전에 SiteGrid.IsAreaWalkable로 열린 칸 안인지 확�
 #### SharedStorage
 [Logistics/SharedStorage.cs](../Scripts/Logistics/SharedStorage.cs)
 - **역할**: 공용 보관소 본체. 트럭 화물만 받아 품목을 섞어 팔레트에 쌓는다. 용량은 `LogisticsConfig`.
-- **동작**: `CanAccept`(Origin = Truck이고 빈자리 있음), `Store`, `TakeForShelves`(선반에 갈 자리가 있는 품목만, 최근에 들어온 것부터 꺼내고 Origin을 Storage로 바꿈).
+- **동작**: `CanAccept`(Origin = Truck이고 빈자리 있음), `Store`, `TakeForShelves`(선반에 갈 자리가 있는 품목만, 최근에 들어온 것부터 꺼내고 Origin을 Storage로 바꿈), `CountOf(item)`. 모듈 안에 있으므로 `SharedStorage.All`에 스스로 등록한다.
 - **연결**: 존이 두 개로 나뉘어 있다 — `StorageDropZone`(트럭 쪽, 받기만) / `StoragePickZone`(선반 쪽, 집기만).
 
 #### StorageDropZone · StoragePickZone
@@ -400,12 +424,17 @@ PlayerMover : 이동 전에 SiteGrid.IsAreaWalkable로 열린 칸 안인지 확�
 #### Shelf
 [Logistics/Shelf.cs](../Scripts/Logistics/Shelf.cs)
 - **역할**: 품목 1종 전용 분류 선반. 칸에 실제 상자가 올라가고 위에 수량(`7/10`)이 뜬다.
-- **동작**: `Setup(item, capacity)`, `Store`, `TakeOne`(M4 수거 존용), `HasSpace` · `FreeSpace`. 앞(−x)에 적재 존, 뒤(+x)에 수거 존 자리(M4).
+- **동작**: `Setup(item, capacity)`, `Store`, `TakeOne`(수거 존용, 마지막에 넣은 상자), `HasSpace` · `FreeSpace`. 앞(−x)에 적재 존(파랑), 뒤(+x)에 수거 존(주황).
 - **연결**: `Warehouse.BuildShelf`가 `Shelf.prefab`으로 만든다.
 
 #### ShelfLoadZone
 [Logistics/ShelfLoadZone.cs](../Scripts/Logistics/ShelfLoadZone.cs)
 - **역할**: 선반 앞 적재 존. 같은 품목, Origin = Storage, Normal 상태 화물만 받고 Origin을 Shelf로 바꾼다.
+
+#### ShelfPickZone
+[Logistics/ShelfPickZone.cs](../Scripts/Logistics/ShelfPickZone.cs)
+- **역할**: 선반 뒤 수거 존. `OrderService.GetDemand(품목) > 0`일 때만 1개씩 꺼낸다 (GDD 8.4 수요 기반 집기).
+- **주의**: 정차한 트럭이 없으면 수요가 0이라 아무것도 집지 않는다. 꺼낸 화물의 Origin은 `Shelf` 그대로 — 상차 존만 받는다.
 
 #### ShelfSlot
 [Logistics/ShelfSlot.cs](../Scripts/Logistics/ShelfSlot.cs)
@@ -419,7 +448,8 @@ PlayerMover : 이동 전에 SiteGrid.IsAreaWalkable로 열린 칸 안인지 확�
 - **동작**:
   - `BuildShelf(item)`: 비어 있고 현재 레벨로 열린 `ShelfSlot` 중 `order`가 가장 작은 곳에 선반을 세운다 (팝 연출). 같은 순서면 먼저 붙은 모듈.
   - `GetShelfFreeSpace(item)`: 그 품목 선반들의 빈자리 합
-  - `CountCarried(item, origin)`: 모든 interactor가 들고 있는 수 (중복 운반 방지)
+  - `GetStock(item)`: 선반 + 공용 보관소의 그 품목 수 (교착 방지 가중치용)
+  - `CountCarried(item, origin)`: 모든 interactor가 들고 있는 수 (중복 운반 방지, 수요 계산)
 
 #### InboundTruck
 [Logistics/InboundTruck.cs](../Scripts/Logistics/InboundTruck.cs)
@@ -429,27 +459,77 @@ PlayerMover : 이동 전에 SiteGrid.IsAreaWalkable로 열린 칸 안인지 확�
 #### InboundBay
 [Logistics/InboundBay.cs](../Scripts/Logistics/InboundBay.cs)
 - **역할**: 하차 베이 1곳. 하차 주차장 모듈 안에 있다. [3.4](#34-입고-트럭-한-대)의 반복을 코루틴으로 실행한다.
-- **연결**: `ContractService.Instance`(계약 여부, 회사 선택), `truckPrefab`, `parkPoint`(주차 위치 · 방향), `spawnPoint`(나타나고 사라지는 곳).
-- **주의**: 트럭에 실을 품목은 지금 무작위다. M4에서 교착 방지 가중치(GDD 7.8)로 바꾼다.
+- **연결**: `ContractService.Instance`(계약 여부), `StockBalancer`(트럭 회사 · 실을 품목), `truckPrefab`, `parkPoint`(주차 위치 · 방향), `spawnPoint`(나타나고 사라지는 곳).
 
 #### TruckPickupZone
 [Logistics/TruckPickupZone.cs](../Scripts/Logistics/TruckPickupZone.cs)
 - **역할**: 주차한 트럭 뒷문 앞의 집기 존. `bay.DockedTruck`에서 화물을 꺼낸다. 트럭이 없거나 이동 중이면 아무것도 안 준다.
+
+#### OutboundBay
+[Logistics/OutboundBay.cs](../Scripts/Logistics/OutboundBay.cs)
+- **역할**: 상차 베이 1곳. 상차 주차장 모듈 안에 있다. [3.6](#36-주문-한-건)의 트럭 부분을 코루틴으로 반복한다.
+- **동작**: 대기 주문 배정 → 트럭 생성 · 후진 주차 → `MarkDocked` → 주문이 다 차면 `Complete` → 보상을 `cashZone`에 쌓음 → 마지막 상자가 들어갈 때까지 잠깐 기다렸다가 출발.
+- **연결**: `OrderService.Instance`, `truckPrefab`(OutboundTruck), `parkPoint`, `spawnPoint`, `cashZone`. 하차 베이(`InboundBay`)와 구조가 같다.
+
+#### OutboundTruck
+[Logistics/OutboundTruck.cs](../Scripts/Logistics/OutboundTruck.cs)
+- **역할**: 출고 트럭 1대. 주문 1건을 맡고 위에 주문 카드(품목 색 글자 + `실은 수/필요 수`)를 띄운다.
+- **동작**: `Assign(order)`, `Receive(cargo)` — 주문에 기록하고 상자는 뒷문(`cargoEntry`)으로 날아 들어가 풀로 돌아간다.
+
+#### TruckLoadZone
+[Logistics/TruckLoadZone.cs](../Scripts/Logistics/TruckLoadZone.cs)
+- **역할**: 출고 트럭 뒷문 앞 상차 존. Origin = Shelf이고 정차한 트럭 주문에 남은 품목만 받는다. 받기만 한다.
+
+#### CashZone
+[Logistics/CashZone.cs](../Scripts/Logistics/CashZone.cs)
+- **역할**: 상차 존 옆 현금 존. 주문 보상이 **10원당 1뭉치**로 쌓이고(나머지는 마지막 뭉치), 플레이어가 반경 안에 들어오면 **멈추지 않아도** 흡수된다.
+- **동작**: `AddCash(amount)` — 뭉치가 위에서 떨어지며 쌓임. `Update`에서 `CashCollector.All` 중 반경 안의 대상을 찾으면 맨 위부터 하나씩 대상을 따라 날아가고, **도착할 때** `Wallet.Add` (그래서 HUD 숫자가 뭉치마다 오른다).
+- **주의**: `InteractionZone`이 아니다 (멈춤 규칙의 예외, GDD 7.6). 뭉치 오브젝트는 존 안에서 재사용한다. 수치는 `EconomyConfig`.
+
+#### CashCollector
+[Logistics/CashCollector.cs](../Scripts/Logistics/CashCollector.cs)
+- **역할**: 현금을 흡수할 수 있는 대상 표시 (플레이어). `CashCollector.All`에 스스로 등록한다. Build Site가 Player에 붙인다.
 
 ### 4.6 Contracts — 계약
 
 #### ContractService
 [Contracts/ContractService.cs](../Scripts/Contracts/ContractService.cs)
 - **역할**: 회사 계약 상태. 씬에 하나 (`Site/Logistics`).
-- **동작**: `TryContract(company)` — 이미 계약했거나 레벨이 모자라면 실패. 성공하면 선반을 세우고 `OnContracted`를 보낸다. `PickInboundCompany()`는 다음 트럭의 회사를 고른다 (지금은 무작위, M4에서 가중치).
-- **연결**: `ContractPopup`(UI), `InboundBay`(트럭), M4 주문 생성기가 `OnContracted`를 구독할 예정.
+- **동작**: `TryContract(company)` — 이미 계약했거나 레벨이 모자라면 실패. 성공하면 선반을 세우고 `OnContracted`를 보낸다. `Contracted`(계약한 회사 목록), `HasAnyContract`.
+- **연결**: `ContractPopup`(UI), `InboundBay`(트럭), `OrderService`(`OnContracted` 구독 → 첫 주문).
 
 #### ContractPC
 [Contracts/ContractPC.cs](../Scripts/Contracts/ContractPC.cs)
 - **역할**: 사무실의 계약 PC 게이지 존. 다 차면 `ContractPopup.Instance.Open()`. 나가면 게이지를 되돌린다.
 - **주의**: 사무실 모듈 프리팹 안에 있으므로 팝업을 직접 참조하지 않고 `Instance`로 찾는다. **가장 단순한 `GaugeZone` 예시**다.
 
-### 4.7 Site — 부지 모듈
+### 4.7 Orders — 주문
+
+전체 그림은 [3.6](#36-주문-한-건) 참고.
+
+#### Order
+[Orders/Order.cs](../Scripts/Orders/Order.cs)
+- **역할**: 주문 1건 (MonoBehaviour 아님). 번호, 회사, 품목 줄(`OrderLine`: 품목 · 수량 · 실은 수), 상태(`OrderState`: Waiting → Arriving → Docked → Departed).
+- **동작**: `TryLoad(item)`(1개 실음, `Changed` 알림), `GetRemaining(item)`, `IsFulfilled`, `IsCompound`, `GetReward(economy)`(Σ 단가 × 수량, 복합은 × 1.3).
+- **주의**: 상태는 `OrderService`만 바꾼다 (`SetState`는 internal).
+
+#### OrderService
+[Orders/OrderService.cs](../Scripts/Orders/OrderService.cs)
+- **역할**: 주문 큐. 씬에 하나 (`Site/Logistics`).
+- **동작**:
+  - 생성: 계약 순간 1건 + 레벨 구간 간격마다 1건 (`Time.deltaTime` 누적이라 팝업 · 일시정지 중엔 멈춤). 큐가 `maxQueuedOrders`면 멈춘다. 구성은 `OrderRules` 구간(단일/복합 확률, 수량).
+  - 진행: `AssignOldestWaiting` → `MarkDocked` → `Complete`(큐에서 빼고 XP 지급, 보상 금액 반환).
+  - 수요: `GetDemand(item)` = Docked 주문의 남은 수 − 선반에서 꺼내 들고 있는 수 − 예약 수. `GetQueuedDemand(item)` = 큐 전체 남은 수.
+  - 예약: `Reserve` / `Unreserve` — M6 알바가 작업을 고를 때 쓴다.
+- **연결**: `OnAdded` / `OnRemoved` → `OrderQueueView`. `OutboundBay`, `ShelfPickZone`, `StockBalancer`가 읽는다.
+
+#### StockBalancer
+[Orders/StockBalancer.cs](../Scripts/Orders/StockBalancer.cs)
+- **역할**: 교착 방지 가중치 (GDD 7.8, static 클래스).
+- **동작**: `PickInboundCompany` / `ComposeInboundLoad` — 부족량(큐 수요 − 재고)이 큰 품목일수록 많이, 품목마다 최소 `inboundMinWeight`(10%). `PickOrderCompany` / `PickOrderItem` — 재고 + 1에 비례.
+- **주의**: 재고는 `Warehouse.GetStock`(선반 + 보관소)이다. 트럭에 실려 오는 중이거나 들고 있는 화물은 세지 않는다.
+
+### 4.8 Site — 부지 모듈
 
 전체 그림은 [3.5](#35-부지-해금)와 TechStack 5.7 참고.
 
@@ -467,7 +547,22 @@ PlayerMover : 이동 전에 SiteGrid.IsAreaWalkable로 열린 칸 안인지 확�
   - `IsWalkable(위치)` / `IsAreaWalkable(중심, 반지름)`: 열린 칸 안인지 (반지름은 네 모서리로 검사).
 - **주의**: `Unlock`은 비용 · 레벨 · 인접 조건을 확인하지 않는다. 부르는 쪽(M5 구매 패드)이 확인한다.
 
-### 4.8 UI
+### 4.9 UI
+
+#### CashView
+[UI/CashView.cs](../Scripts/UI/CashView.cs)
+- **역할**: HUD 왼쪽 위 현금 표시. `Wallet.Cash`를 구독해 숫자가 굴러가듯 바뀌고(`DOVirtual.Float`), 오를 때 패널이 튄다.
+
+#### OrderQueueView
+[UI/OrderQueueView.cs](../Scripts/UI/OrderQueueView.cs)
+- **역할**: HUD 오른쪽 위 주문서 큐. 가장 오래된 주문이 오른쪽 끝, 새 주문은 왼쪽에 붙는다. 슬롯 5개, 넘치면 왼쪽에 `+n`.
+- **동작**: `OrderService.OnAdded` → 카드 생성 · 등장 연출. `OnRemoved` → 카드 퇴장 연출이 끝난 뒤 나머지를 오른쪽으로 당김(숨어 있던 카드는 자리에 나타남).
+- **주의**: 카드 위치는 레이아웃 그룹이 아니라 코드로 정한다 (슬라이드 연출 때문). 등장 연출 중에 당기면 크기가 1보다 큰 채로 남지 않게 `DOKill(true)`로 완료시킨다.
+
+#### OrderCardView
+[UI/OrderCardView.cs](../Scripts/UI/OrderCardView.cs)
+- **역할**: 주문 카드 1장 — 번호, 상태 배지(글자 + 색: 대기 회색 / 도착 파랑 / 출발 초록), 품목 줄(색 아이콘 + `실은 수/필요 수`, 다 차면 초록).
+- **동작**: `Bind(order)` — `State`와 `Changed`를 구독. `PlayEnter` / `PlayExit`(튄 뒤 위로 사라지고 스스로 삭제).
 
 #### ContractPopup
 [UI/ContractPopup.cs](../Scripts/UI/ContractPopup.cs)
@@ -492,28 +587,29 @@ PlayerMover : 이동 전에 SiteGrid.IsAreaWalkable로 열린 칸 안인지 확�
 - **역할**: 바닥에 눕힌 글자를 카메라 방향으로 돌린다. 모듈이 180° 돌아서 붙어도 글자가 뒤집히지 않는다.
 - **주의**: `OnEnable`에서 한 번만 맞춘다 (`[ExecuteAlways]`). 카메라 Yaw를 바꾸면 Build Site를 다시 실행한다.
 
-### 4.9 Debugging
+### 4.10 Debugging
 
 #### DebugMenu
 [Debugging/DebugMenu.cs](../Scripts/Debugging/DebugMenu.cs)
-- **역할**: 치트 메뉴 (IMGUI). 에디터와 Development 빌드에서만 동작한다. 오른쪽 위 `DEBUG` 버튼 또는 F1.
-- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / 레벨업 · XP +10 / 배속 ×1 · ×2 · ×4 / 일시정지 / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 모듈).
+- **역할**: 치트 메뉴 (IMGUI). 에디터와 Development 빌드에서만 동작한다. **왼쪽 아래** `DEBUG` 버튼 또는 F1 (오른쪽 위는 주문서 큐 자리).
+- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / 레벨업 · XP +10 / 배속 ×1 · ×2 · ×4 / 일시정지 / 큐 수 · **주문 1건 추가** / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 모듈).
 - **주의**: IMGUI는 EventSystem에 안 잡히므로 `ContainsScreenPoint`로 `UiHitTest`에 영역을 알려 준다. 새 치트는 `DrawContent`에 추가한다.
 
-### 4.10 Editor — 에디터 도구
+### 4.11 Editor — 에디터 도구
 
 `Assets/Scripts/Editor/`는 빌드에 포함되지 않는다. 씬 · 프리팹 · 데이터를 **코드로 만들어** 같은 결과를 언제든 다시 얻을 수 있게 한다.
 
 | 메뉴 | 스크립트 | 하는 일 |
 |---|---|---|
 | `APC > Setup > Run M0 Setup` | [ProjectBootstrap](../Scripts/Editor/ProjectBootstrap.cs) | 폴더, 가로 화면 설정, 데이터 에셋(GDD 수치), Game 씬. **이미 있는 에셋 · 씬은 건드리지 않고** 빈 참조만 채운다 |
-| `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground · Logistics → 시작 모듈 인스턴스 → 계약 팝업 UI → 플레이어 위치 → 씬 저장 |
+| `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground · Logistics(Warehouse · ContractService · OrderService) → 시작 모듈 인스턴스 → HUD(현금 · 주문서 큐 · 계약 팝업) → 플레이어 위치 + CashCollector → 씬 저장 |
 | `APC > Module > New Module...` | [ModuleFactory](../Scripts/Editor/ModuleFactory.cs) (`ModuleCreatorWindow`) | 빈 n × m 모듈 틀을 `Assets/Prefabs/Modules/Module_이름.prefab`으로 만든다 |
-| `APC > Module > Rebuild Standard Modules` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 9종 + `Shelf` · `InboundTruck` 프리팹을 코드 기준으로 **덮어써서** 다시 만든다 |
+| `APC > Module > Rebuild Standard Modules` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 9종을 코드 기준으로 **덮어써서** 다시 만든다 |
 
 #### StandardModules
-- **역할**: 기본 모듈 프리팹의 내용을 코드로 정의한다. `DefaultAssignments`(SiteLayout id → 기본 모듈 · 회전)와 `Builders`(모듈 이름 → 만드는 함수) 두 표가 핵심이다.
-- **주의**: 평소에는 **없는 프리팹만** 만든다. 프리팹을 손으로 고쳤다면 Rebuild를 누르지 않는다 (덮어씀). 좌표는 모듈 중심 기준(1칸 = −5 ~ +5)이고, 주차장의 바깥쪽은 −x다.
+- **역할**: 기본 모듈 프리팹의 내용을 코드로 정의한다. `DefaultAssignments`(SiteLayout id → 기본 모듈 · 회전)와 `Builders`(모듈 이름 → 만드는 함수) 두 표가 핵심이다. 시설 프리팹(`Shelf`, `InboundTruck`, `OutboundTruck`, `CashBundle`)도 여기서 만든다.
+- **동작**: `EnsureAll(overwrite)`, `Rebuild(asset)`(모듈 하나만 다시), `ShelfPrefab(overwrite)` · `OutboundTruckPrefab(overwrite)`. 같은 경로에 덮어쓰므로 GUID와 참조는 유지된다.
+- **주의**: 평소에는 **없는 프리팹만** 만든다. 프리팹을 손으로 고쳤다면 Rebuild를 누르지 않는다 (덮어씀). 좌표는 모듈 중심 기준(1칸 = −5 ~ +5)이고, 주차장의 바깥쪽은 −x다. 코드를 바꿨는데 프리팹이 이미 있으면 해당 프리팹만 `Rebuild`/`overwrite: true`로 다시 만든다.
 
 #### BuildKit
 [Editor/BuildKit.cs](../Scripts/Editor/BuildKit.cs)
@@ -536,11 +632,11 @@ PlayerMover : 이동 전에 SiteGrid.IsAreaWalkable로 열린 칸 안인지 확�
 
 ### 5.1 새 운반 존 만들기
 
-예: "선반 수거 존 — 주문에 필요한 수만큼 선반에서 집는다" (M4)
+예: `ShelfPickZone`(주는 존), `TruckLoadZone`(받는 존)이 그대로 따라 하기 좋은 예다.
 
 1. `CargoZone`을 상속한다.
 2. 받는 존이면 `CanReceive` + `Receive`, 주는 존이면 `TryGive`를 구현한다.
-3. **`CargoOrigin` 규칙을 지킨다**: 받을 때 Origin을 확인하고, 내보낼 때 Origin을 바꾼다 ([3.2](#32-화물이-흘러가는-길-m3까지)).
+3. **`CargoOrigin` 규칙을 지킨다**: 받을 때 Origin을 확인하고, 내보낼 때 Origin을 바꾼다 ([3.2](#32-화물이-흘러가는-길)).
 4. 프리팹에 놓을 때는 `BuildKit.Zone<T>`를 쓰거나, 직접 놓고 `size`와 바닥 `Renderer`를 연결한다. 다른 존과 겹치지 않게 한다.
 
 ```csharp
@@ -577,8 +673,8 @@ New Module 생성 → 프리팹의 `Content`에 내용 → `SiteLayout`에 배�
 
 ### 5.5 테스트
 
-- Play 후 F1 → 디버그 메뉴로 현금 · 레벨 · 배속 · 모듈 해금.
-- 사무실 계약 PC에서 회사 A 계약 → 트럭 → 보관소 → 선반 순서로 확인한다.
+- Play 후 F1 → 디버그 메뉴로 현금 · 레벨 · 배속 · 주문 추가 · 모듈 해금.
+- 한 사이클: 사무실 계약 PC에서 회사 A 계약 → 하차 존(트럭) → 보관소 내려놓기 → 보관소 집기 → 선반 앞 → (출고 트럭 도착 후) 선반 뒤 → 상차 존 → 현금 존 지나가기.
 
 ---
 

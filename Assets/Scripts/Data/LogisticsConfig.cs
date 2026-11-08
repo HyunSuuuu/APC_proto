@@ -15,6 +15,11 @@ namespace APC.Data
         [SerializeField, Min(0.1f), Tooltip("주차 칸에서 앞으로 나가 사라지는 시간 (초)")] float truckLeaveDuration = 1.5f;
         [SerializeField, Min(0f), Tooltip("트럭이 출발하고 다음 트럭이 들어오기까지 (초)")] float inboundRespawnDelay = 4f;
 
+        [Header("출고 트럭")]
+        [SerializeField, Min(0.1f), Tooltip("나타난 자리에서 상차 칸까지 후진으로 들어오는 시간 (초, GDD 8.3)")] float outboundReverseDuration = 3f;
+        [SerializeField, Min(0.1f), Tooltip("주문을 다 싣고 앞으로 나가 사라지는 시간 (초)")] float outboundLeaveDuration = 1.5f;
+        [SerializeField, Min(0f), Tooltip("트럭이 출발하고 다음 주문의 트럭이 들어오기까지 (초)")] float outboundRespawnDelay = 1f;
+
         [Header("사무실")]
         [SerializeField, Min(0.05f), Tooltip("계약 PC · 고용 데스크 · 배치 현황판 게이지 (초). 멈춘 순간부터 찬다")] float officeGaugeDuration = 0.5f;
 
@@ -26,6 +31,9 @@ namespace APC.Data
         public float TruckReverseDuration => truckReverseDuration;
         public float TruckLeaveDuration => truckLeaveDuration;
         public float InboundRespawnDelay => inboundRespawnDelay;
+        public float OutboundReverseDuration => outboundReverseDuration;
+        public float OutboundLeaveDuration => outboundLeaveDuration;
+        public float OutboundRespawnDelay => outboundRespawnDelay;
         public float OfficeGaugeDuration => officeGaugeDuration;
         public float FacilityPopDuration => facilityPopDuration;
     }
