@@ -73,8 +73,8 @@ namespace APC.Data
             new ModulePlacement { id = "R1C0", row = 1, column = 0, isStartArea = true, unlockLevel = 1, content = "하차 주차장 (하차 베이 1)" },
             new ModulePlacement { id = "R1C1", row = 1, column = 1, isStartArea = true, unlockLevel = 1, content = "공용 보관소" },
             new ModulePlacement { id = "R1C2", row = 1, column = 2, isStartArea = true, unlockLevel = 1, content = "선반 구역 A (선반 4개)" },
-            new ModulePlacement { id = "R1C3", row = 1, column = 3, isStartArea = true, unlockLevel = 1, content = "출고 구역 (현금 존)" },
-            new ModulePlacement { id = "R1C4", row = 1, column = 4, rotation = 180, isStartArea = true, unlockLevel = 1, content = "상차 주차장 (상차 베이 1)" },
+            new ModulePlacement { id = "R1C3", row = 1, column = 3, isStartArea = true, unlockLevel = 1, content = "출고 구역 (통로, Lv.4 포장 완료 존 자리)" },
+            new ModulePlacement { id = "R1C4", row = 1, column = 4, rotation = 180, isStartArea = true, unlockLevel = 1, content = "상차 주차장 (상차 베이 1, 현금 존)" },
             new ModulePlacement { id = "R2C1", row = 2, column = 1, isStartArea = true, unlockLevel = 1, content = "사무실 (계약 PC, 고용 데스크, 배치 현황판)" },
             // 확장
             new ModulePlacement { id = "E1", row = 2, column = 0, unlockLevel = 2, cost = 100, content = "하차 베이 2 (Lv.10에 베이 3 구매 패드)" },

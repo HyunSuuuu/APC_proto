@@ -56,7 +56,7 @@ namespace APC.EditorTools
 
             BakeGrid(site, layout);
             BuildContractPopup();
-            MoveTestZones(size);
+            RemoveTestZones();
             PlacePlayer(layout.CellCenter(2, 1) + new Vector3(1f, 0f, -1f));
 
             var scene = EditorSceneManager.GetActiveScene();
@@ -106,11 +106,11 @@ namespace APC.EditorTools
                     instance.name = $"Module_{placement.id}";
                     entry.instance = instance;
                 }
-                else
+                else if (placement.isStartArea)
                 {
-                    if (placement.isStartArea) Debug.LogWarning($"[SiteBuilder] 시작 칸 '{placement.id}'에 모듈이 없습니다.");
-                    entry.lockedMarker = LockedMarker(gridGo.transform, placement, center, SiteLayout.RotatedSize(moduleSize, placement.rotation), layout.CellSize);
+                    Debug.LogWarning($"[SiteBuilder] 시작 칸 '{placement.id}'에 모듈이 없습니다.");
                 }
+                // 잠긴 칸은 아무것도 두지 않는다 (보이지 않음 · 들어갈 수 없음). 해금하면 SiteGrid가 모듈을 붙인다.
                 entries.Add(entry);
             }
 
@@ -118,29 +118,11 @@ namespace APC.EditorTools
             EditorUtility.SetDirty(grid);
         }
 
-        static GameObject LockedMarker(Transform parent, SiteLayout.ModulePlacement placement, Vector3 center, Vector2Int cells, float cellSize)
+        /// <summary>M2 손맛 테스트 존 정리 (부지 밖이라 이제 들어갈 수 없다).</summary>
+        static void RemoveTestZones()
         {
-            var marker = new GameObject($"Locked_{placement.id}");
-            marker.transform.SetParent(parent, false);
-            marker.transform.position = center;
-            Cube("Floor", marker.transform, center + new Vector3(0f, -0.024f, 0f),
-                new Vector3(cells.x * cellSize - 0.1f, 0.05f, cells.y * cellSize - 0.1f), FloorLocked, keepCollider: true);
-            FlatLabel(marker.transform, $"{placement.id} / Lv.{placement.unlockLevel}\n{ShortName(placement.content)}",
-                center + new Vector3(-cellSize * 0.25f, 0.01f, -cellSize * 0.3f), 4f, new Color(0.85f, 0.85f, 0.85f));
-            return marker;
-        }
-
-        static void MoveTestZones(float size)
-        {
-            var names = new[] { "Test_Source", "Test_SinkAll", "Test_SinkRed", "Test_GaugePad" };
-            for (var i = 0; i < names.Length; i++)
-            {
-                var zone = GameObject.Find(names[i]);
-                if (zone == null) continue;
-                zone.transform.SetPositionAndRotation(new Vector3(i * size, 0f, -4f * size), Quaternion.identity);
-                var label = zone.transform.Find("Label");
-                if (label != null) label.rotation = CameraFacing;
-            }
+            foreach (var name in new[] { "Test_Source", "Test_SinkAll", "Test_SinkRed", "Test_GaugePad" })
+                DestroyIfExists(GameObject.Find(name));
         }
 
         static void PlacePlayer(Vector3 position)

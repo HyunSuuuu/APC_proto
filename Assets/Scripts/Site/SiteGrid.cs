@@ -8,8 +8,9 @@ using UnityEngine;
 namespace APC.Site
 {
     /// <summary>
-    /// 씬의 부지 (GDD 4.2, 9.3). SiteLayout config대로 놓인 모듈과 잠긴 칸 표시를 관리한다.
-    /// 시작 모듈과 잠김 표시는 에디터 Build Site가 미리 씬에 구워 두고, 해금(Unlock)은 실행 중에 모듈 프리팹을 붙인다.
+    /// 씬의 부지 (GDD 4.2, 9.3). SiteLayout config대로 붙은 모듈을 관리한다.
+    /// 잠긴 칸에는 아무것도 없고(보이지 않음 · 들어갈 수 없음), 해금(Unlock)하면 모듈 프리팹이 팝 연출과 함께 나타난다.
+    /// 플레이어 · 알바는 열린 칸 안에서만 움직인다 (IsAreaWalkable).
     /// </summary>
     public sealed class SiteGrid : MonoBehaviour
     {
@@ -18,7 +19,6 @@ namespace APC.Site
         {
             public string id;
             [Tooltip("붙어 있는 모듈. 잠겨 있으면 비어 있다")] public SiteModule instance;
-            [Tooltip("잠긴 칸 표시. 해금하면 지운다")] public GameObject lockedMarker;
         }
 
         public static SiteGrid Instance { get; private set; }
@@ -26,6 +26,8 @@ namespace APC.Site
         [SerializeField] List<Entry> entries = new();
 
         readonly Subject<string> unlocked = new();
+        readonly HashSet<Vector2Int> openCells = new(); // (열, 행)
+        SiteLayout layout;
 
         public IReadOnlyList<Entry> Entries => entries;
 
@@ -44,6 +46,12 @@ namespace APC.Site
                 return;
             }
             Instance = this;
+            layout = GameManager.Instance.Database.Site;
+
+            foreach (var entry in entries)
+            {
+                if (entry.instance != null && layout.TryGetPlacement(entry.id, out var placement)) OpenCells(placement);
+            }
         }
 
         void OnDestroy()
@@ -63,25 +71,48 @@ namespace APC.Site
             var entry = Find(id);
             if (entry == null || entry.instance != null) return false;
 
-            var layout = GameManager.Instance.Database.Site;
             if (!layout.TryGetPlacement(id, out var placement) || placement.module == null)
             {
                 Debug.LogWarning($"[SiteGrid] '{id}' 배치나 모듈 프리팹이 config에 없습니다.", this);
                 return false;
             }
 
-            if (entry.lockedMarker != null) Destroy(entry.lockedMarker);
             var module = Instantiate(placement.module, layout.GetModuleCenter(placement, placement.module.Size),
                 SiteLayout.GetRotation(placement), transform);
             module.name = $"Module_{id}";
             entry.instance = module;
+            OpenCells(placement);
             FacilityPop.Play(module.transform);
             unlocked.OnNext(id);
             return true;
         }
 
+        /// <summary>그 위치가 열린 칸 안인가.</summary>
+        public bool IsWalkable(Vector3 worldPosition)
+        {
+            var size = layout.CellSize;
+            var column = Mathf.FloorToInt(worldPosition.x / size + 0.5f);
+            var row = 1 + Mathf.FloorToInt(-worldPosition.z / size + 0.5f);
+            return openCells.Contains(new Vector2Int(column, row));
+        }
+
+        /// <summary>반지름 radius인 원(네 모서리)이 모두 열린 칸 안인가.</summary>
+        public bool IsAreaWalkable(Vector3 center, float radius)
+            => IsWalkable(center + new Vector3(radius, 0f, radius))
+               && IsWalkable(center + new Vector3(radius, 0f, -radius))
+               && IsWalkable(center + new Vector3(-radius, 0f, radius))
+               && IsWalkable(center + new Vector3(-radius, 0f, -radius));
+
         /// <summary>에디터 Build Site 전용.</summary>
         public void SetEntries(List<Entry> baked) => entries = baked;
+
+        void OpenCells(SiteLayout.ModulePlacement placement)
+        {
+            var size = SiteLayout.RotatedSize(placement.module != null ? placement.module.Size : Vector2Int.one, placement.rotation);
+            for (var r = 0; r < size.y; r++)
+            for (var c = 0; c < size.x; c++)
+                openCells.Add(new Vector2Int(placement.column + c, placement.row + r));
+        }
 
         Entry Find(string id)
         {

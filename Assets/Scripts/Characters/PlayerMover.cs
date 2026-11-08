@@ -2,6 +2,7 @@ using APC.Cameras;
 using APC.Controls;
 using APC.Core;
 using APC.Data;
+using APC.Site;
 using UnityEngine;
 
 namespace APC.Characters
@@ -42,20 +43,38 @@ namespace APC.Characters
 
             var yaw = cameraRig != null ? cameraRig.Yaw : 0f;
             var direction = Quaternion.Euler(0f, yaw, 0f) * new Vector3(input.x, 0f, input.y);
-            var velocity = direction * config.MoveSpeed;
+            var horizontal = ClampToSite(direction * (config.MoveSpeed * deltaTime));
 
             verticalVelocity = controller.isGrounded
                 ? GroundedVelocity
                 : verticalVelocity + Physics.gravity.y * deltaTime;
-            velocity.y = verticalVelocity;
 
-            controller.Move(velocity * deltaTime);
+            controller.Move(horizontal + Vector3.up * (verticalVelocity * deltaTime));
 
             if (direction.sqrMagnitude > 0.0001f)
             {
                 var look = Quaternion.LookRotation(direction, Vector3.up);
                 transform.rotation = Quaternion.RotateTowards(transform.rotation, look, config.TurnSpeed * deltaTime);
             }
+        }
+
+        /// <summary>
+        /// 해금된 칸 밖으로 나가지 못하게 막는다 (GDD 4.2). 막히면 축 하나씩 시도해 벽을 따라 미끄러진다.
+        /// 이미 칸 밖에 있으면(순간이동 등) 돌아올 수 있게 막지 않는다.
+        /// </summary>
+        Vector3 ClampToSite(Vector3 move)
+        {
+            var grid = SiteGrid.Instance;
+            if (grid == null || move.sqrMagnitude <= 0f) return move;
+
+            var position = transform.position;
+            var radius = controller.radius;
+            if (!grid.IsAreaWalkable(position, radius) || grid.IsAreaWalkable(position + move, radius)) return move;
+
+            var alongX = new Vector3(move.x, 0f, 0f);
+            if (grid.IsAreaWalkable(position + alongX, radius)) return alongX;
+            var alongZ = new Vector3(0f, 0f, move.z);
+            return grid.IsAreaWalkable(position + alongZ, radius) ? alongZ : Vector3.zero;
         }
     }
 }
