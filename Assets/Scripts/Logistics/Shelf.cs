@@ -6,8 +6,8 @@ using UnityEngine;
 namespace APC.Logistics
 {
     /// <summary>
-    /// 품목 1종 전용 분류 선반 (GDD 7.3). 칸에 실제 상자가 올라가고 위에 수량(7/10)을 표시한다.
-    /// 앞쪽(-x) 적재 존, 뒤쪽(+x) 수거 존(M4).
+    /// 품목 1종 전용 분류 선반 (GDD 7.3). 정사각형이고, 칸에 실제 상자가 올라가며 위에 수량(7/10)을 표시한다.
+    /// 둘레의 ShelfZone 하나로 넣고 꺼낸다.
     /// </summary>
     public sealed class Shelf : MonoBehaviour
     {
@@ -17,8 +17,8 @@ namespace APC.Logistics
         [SerializeField, Tooltip("선반 위 품목 색 표시")] Renderer iconRenderer;
         [SerializeField] TMP_Text countLabel;
 
-        [Header("칸 배치 (선반 로컬, 길이 방향 = z)")]
-        [SerializeField, Min(1)] int boxesPerLevel = 5;
+        [Header("칸 배치 (선반 로컬, 한 단 = 한 변 boxesPerSide × boxesPerSide)")]
+        [SerializeField, Min(1)] int boxesPerSide = 3;
         [SerializeField, Min(0.1f)] float boxSpacing = 0.52f;
         [SerializeField] float firstLevelHeight = 0.13f;
         [SerializeField, Min(0.1f)] float levelHeight = 0.8f;
@@ -67,9 +67,11 @@ namespace APC.Logistics
 
         Vector3 SlotPosition(int index)
         {
-            var level = index / boxesPerLevel;
-            var column = index % boxesPerLevel;
-            return new Vector3(0f, firstLevelHeight + level * levelHeight, (column - (boxesPerLevel - 1) * 0.5f) * boxSpacing);
+            var perLevel = boxesPerSide * boxesPerSide;
+            var level = index / perLevel;
+            var inLevel = index % perLevel;
+            var half = (boxesPerSide - 1) * 0.5f;
+            return new Vector3((inLevel % boxesPerSide - half) * boxSpacing, firstLevelHeight + level * levelHeight, (inLevel / boxesPerSide - half) * boxSpacing);
         }
     }
 }

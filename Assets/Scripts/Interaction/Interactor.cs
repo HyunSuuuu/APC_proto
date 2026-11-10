@@ -44,10 +44,55 @@ namespace APC.Interaction
         /// <summary>CargoZone이 간격을 재는 타이머. 상호작용이 막 시작되면 간격만큼 차 있어 첫 1개는 바로 옮긴다.</summary>
         internal float TransferTimer { get; set; }
 
+        /// <summary>
+        /// 작업 고정 (GDD 5.3, 플레이어만): 들고 있는 화물이 있으면 **같은 출처의 화물만** 더 집을 수 있다.
+        /// 예: 팔레트에서 분류용으로 집은 화물을 들고 있으면, 선반에서 주문용 화물을 집지 않는다 (다 내려놓아야 다음 일).
+        /// </summary>
+        public bool TaskLock { get; private set; }
+
+        /// <summary>내려놓기 ↔ 집기를 바꿀 때 쉬는 시간 (초). 0이면 없음 (알바).</summary>
+        public float SwitchCooldown { get; private set; }
+
+        enum TransferKind { None, Drop, Pick }
+
+        TransferKind lastKind;
+        float lastTransferTime;
+
         public void Configure(float interval, float delay)
         {
             transferInterval = Mathf.Max(0.01f, interval);
             readyDelay = Mathf.Max(0f, delay);
+        }
+
+        /// <summary>플레이어 규칙 (작업 고정 · 전환 쿨타임).</summary>
+        public void ConfigureRules(bool taskLock, float switchCooldown)
+        {
+            TaskLock = taskLock;
+            SwitchCooldown = Mathf.Max(0f, switchCooldown);
+        }
+
+        /// <summary>내려놓기(drop = true) / 집기를 지금 할 수 있는가 — 반대 동작 직후 쿨타임 동안은 막는다.</summary>
+        internal bool CanTransfer(bool drop)
+        {
+            var kind = drop ? TransferKind.Drop : TransferKind.Pick;
+            return lastKind == TransferKind.None || lastKind == kind || Time.time - lastTransferTime >= SwitchCooldown;
+        }
+
+        internal void NotifyTransfer(bool drop)
+        {
+            lastKind = drop ? TransferKind.Drop : TransferKind.Pick;
+            lastTransferTime = Time.time;
+        }
+
+        /// <summary>작업 고정: 이 출처의 화물을 더 집어도 되는가.</summary>
+        internal bool CanPickOrigin(CargoOrigin origin)
+        {
+            if (!TaskLock || stack == null) return true;
+            foreach (var cargo in stack.Items)
+            {
+                if (cargo.Origin != origin) return false;
+            }
+            return true;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]

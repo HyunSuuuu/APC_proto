@@ -26,7 +26,7 @@ Transform:
   m_GameObject: {fileID: 1260791864966332764}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -2.4, y: 0, z: 0}
+  m_LocalPosition: {x: 2.4, y: 0, z: 2.4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -79,8 +79,6 @@ Transform:
   - {fileID: 1140131456702826973}
   - {fileID: 7611615181899402519}
   - {fileID: 4996980323890817843}
-  - {fileID: 5034906968403861649}
-  - {fileID: 6978017492076445611}
   - {fileID: 306473977875450666}
   m_Father: {fileID: 8451073390211424409}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -278,52 +276,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1fdb6f95f92bb2244882f22a522b80fa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.UI.FlatLabelAligner
---- !u!1 &5025914425888808900
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 6978017492076445611}
-  - component: {fileID: 2575748542082559274}
-  m_Layer: 0
-  m_Name: ShelfSlot_6
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &6978017492076445611
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5025914425888808900}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 2.4, y: 0, z: -3.2}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 8272711147087794766}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2575748542082559274
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5025914425888808900}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 22ef9b6a7d81d854494cf8c7473b3d9f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::APC.Logistics.ShelfSlot
-  unlockLevel: 1
-  order: 5
 --- !u!1 &5834949406867627717
 GameObject:
   m_ObjectHideFlags: 0
@@ -398,7 +350,7 @@ Transform:
   m_GameObject: {fileID: 6643165091325457038}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -2.4, y: 0, z: -3.2}
+  m_LocalPosition: {x: -2.4, y: 0, z: -2.4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -418,52 +370,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::APC.Logistics.ShelfSlot
   unlockLevel: 1
   order: 2
---- !u!1 &7665599202478303952
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 5034906968403861649}
-  - component: {fileID: 6319012192283848215}
-  m_Layer: 0
-  m_Name: ShelfSlot_5
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &5034906968403861649
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7665599202478303952}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 2.4, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 8272711147087794766}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &6319012192283848215
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7665599202478303952}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 22ef9b6a7d81d854494cf8c7473b3d9f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::APC.Logistics.ShelfSlot
-  unlockLevel: 1
-  order: 4
 --- !u!1 &8490586362725652951
 GameObject:
   m_ObjectHideFlags: 0
@@ -490,7 +396,7 @@ Transform:
   m_GameObject: {fileID: 8490586362725652951}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 2.4, y: 0, z: 3.2}
+  m_LocalPosition: {x: 2.4, y: 0, z: -2.4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -536,7 +442,7 @@ Transform:
   m_GameObject: {fileID: 8586268611167337010}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -2.4, y: 0, z: 3.2}
+  m_LocalPosition: {x: -2.4, y: 0, z: 2.4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

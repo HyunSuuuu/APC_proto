@@ -17,6 +17,7 @@ namespace APC.Data
 
         [Header("상호작용")]
         [SerializeField, Min(0f), Tooltip("존 안에서 이만큼 가만히 있어야 상호작용 시작 (초, GDD 5.2)")] float interactionDelay = 0.5f;
+        [SerializeField, Min(0f), Tooltip("내려놓기 ↔ 집기를 바꿀 때 쉬는 시간 (초, GDD 5.3). 플레이어만")] float transferSwitchCooldown = 0.5f;
 
         public float MoveSpeed => moveSpeed;
         public float TurnSpeed => turnSpeed;
@@ -24,5 +25,6 @@ namespace APC.Data
         public int MaxCarry => maxCarry;
         public float PickInterval => pickInterval;
         public float InteractionDelay => interactionDelay;
+        public float TransferSwitchCooldown => transferSwitchCooldown;
     }
 }

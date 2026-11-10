@@ -5,7 +5,7 @@ namespace APC.Interaction
 {
     /// <summary>
     /// 게이지 존 (GDD 5.2, 체크리스트 M2-4). 존 안에서 멈추는 순간부터 게이지가 차고(따로 기다리지 않음), 다 차면 OnCompleted.
-    /// 움직이거나 벗어나면 멈추고 진행도는 유지된다. 구매 패드 · 계약 PC · 고용 데스크 · 포장 존 등이 상속한다.
+    /// 움직이거나 벗어나면 멈추고 진행도는 유지된다. 구매 패드 · 계약 PC · 고용 데스크 등이 상속한다.
     /// </summary>
     public abstract class GaugeZone : InteractionZone
     {

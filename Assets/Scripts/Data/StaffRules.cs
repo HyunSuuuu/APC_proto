@@ -25,7 +25,6 @@ namespace APC.Data
         [SerializeField, Min(0f), Tooltip("민첩 1포인트당 이동 속도 증가율")] float moveSpeedPerAgility = 0.2f;
         [SerializeField, Min(0f), Tooltip("지능 1포인트당 작업 속도 증가율")] float workSpeedPerIntelligence = 0.2f;
         [SerializeField, Min(0.01f), Tooltip("집기/내려놓기 간격 (초) ÷ 작업 배율")] float basePickInterval = 0.25f;
-        [SerializeField, Min(0.1f), Tooltip("포장 게이지 (초) ÷ 작업 배율")] float basePackDuration = 4f;
 
         [Header("비용")]
         [SerializeField, Min(0)] int hireCostPerStat = 15;
@@ -40,7 +39,6 @@ namespace APC.Data
         public int StatMin => statMin;
         public int StatMax => statMax;
         public float BasePickInterval => basePickInterval;
-        public float BasePackDuration => basePackDuration;
         public float DayLengthSeconds => dayLengthSeconds;
 
         /// <summary>최대 적재 수 = 기본 + 증가 × (힘 − 1)</summary>

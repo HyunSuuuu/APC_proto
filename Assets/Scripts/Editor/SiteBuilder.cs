@@ -15,7 +15,7 @@ using static APC.EditorTools.BuildKit;
 namespace APC.EditorTools
 {
     /// <summary>
-    /// SiteLayout(config)대로 부지를 씬에 굽는다: 시작 모듈은 프리팹 인스턴스로, 잠긴 칸은 잠김 표시로.
+    /// SiteLayout(config)대로 부지를 씬에 굽는다: 시작 모듈은 프리팹 인스턴스로. 잠긴 칸은 비워 두고, 해금 · 울타리는 실행 중 SiteUnlocker가 한다.
     /// 해금은 실행 중 SiteGrid.Unlock이 모듈 프리팹을 붙인다. "Site" 오브젝트를 지우고 다시 만들므로 여러 번 실행해도 같다.
     /// 모듈 내용(존 · 시설)을 바꾸려면 씬이 아니라 모듈 프리팹(Assets/Prefabs/Modules)을 고친다.
     /// </summary>
@@ -39,7 +39,7 @@ namespace APC.EditorTools
             StandardModules.TruckPrefab();
             StandardModules.OutboundTruckPrefab();
             StandardModules.CashBundlePrefab();
-            var padPrefab = StandardModules.ExpansionPadPrefab();
+            var fencePrefab = StandardModules.ConstructionFencePrefab();
             StandardModules.EnsureAll(overwrite: false);
             AssignDefaultModules(layout);
 
@@ -68,14 +68,15 @@ namespace APC.EditorTools
             services.gameObject.AddComponent<OrderService>();
 
             var grid = BakeGrid(site, layout);
-            SetRef(grid.gameObject.AddComponent<ExpansionPads>(), "padPrefab", padPrefab);
+            SetRef(grid.gameObject.AddComponent<SiteUnlocker>(), "fencePrefab", fencePrefab); // 레벨로 자동 해금 + 다음 구역 울타리
             BuildLevelHud();
             BuildCashHud();
             BuildLevelUpBanner();
             BuildOrderQueue();
+            BuildGuideArrow();
             BuildContractPopup();
             RemoveTestZones();
-            SetupPlayer(layout.CellCenter(2, 1) + new Vector3(1f, 0f, -1f));
+            SetupPlayer(layout.CellCenter(1, 1) + new Vector3(-1f, 0f, -1f)); // 7번 사무실
 
             var scene = EditorSceneManager.GetActiveScene();
             EditorSceneManager.MarkSceneDirty(scene);
@@ -184,6 +185,27 @@ namespace APC.EditorTools
             SetRef(view, "xpFill", fill);
             SetRef(view, "xpLabel", xp);
             SetRef(view, "punchTarget", rect);
+        }
+
+        // ── 가이드 화살표 (들고 있는 화물의 목적지) ───────────────────────
+
+        static void BuildGuideArrow()
+        {
+            var canvas = GameObject.Find("HUD Canvas").transform;
+            var old = canvas.Find("GuideArrow");
+            if (old != null) DestroyIfExists(old.gameObject);
+
+            var root = UIRect("GuideArrow", canvas, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var arrow = UIImage("Arrow", root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(72f, 64f), new Color(1f, 0.8f, 0.15f), null);
+            var outline = arrow.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0.2f, 0.12f, 0f, 0.9f);
+            outline.effectDistance = new Vector2(3f, -3f);
+
+            var guide = root.gameObject.AddComponent<GuideArrow>();
+            SetRef(guide, "arrow", arrow.rectTransform);
+            SetRef(guide, "image", arrow);
+            var player = GameObject.Find("Player");
+            if (player != null) SetRef(guide, "stack", player.GetComponent<CarryStack>());
         }
 
         // ── 레벨업 배너 (중앙) + 플레이어 위 파티클 ───────────────────────

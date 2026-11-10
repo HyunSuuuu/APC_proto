@@ -69,9 +69,9 @@ namespace APC.EditorTools
             var b2 = CreateItem("B2", "초록", "#43A047", 14);
             var b3 = CreateItem("B3", "보라", "#8E24AA", 14);
 
-            // 선반 구역: A = 선반 구역 A(R1C2), B = 선반 구역 B(E2) — 회사마다 자기 구역
-            var companyA = CreateCompany("A", "회사 A", 1, 8, "R1C2", new[] { a1, a2 });
-            var companyB = CreateCompany("B", "회사 B", 7, 10, "E2", new[] { b1, b2, b3 });
+            // 선반 구역: A = 선반 구역 A(5번, R2C2), B = 선반 구역 B(3번, E1) — 회사마다 자기 구역
+            var companyA = CreateCompany("A", "회사 A", 1, 8, "R2C2", new[] { a1, a2 });
+            var companyB = CreateCompany("B", "회사 B", 7, 10, "E1", new[] { b1, b2, b3 });
 
             var levels = LoadOrCreate<LevelTable>($"{DataRoot}/LevelTable.asset", out _);
             var economy = LoadOrCreate<EconomyConfig>($"{DataRoot}/EconomyConfig.asset", out _);

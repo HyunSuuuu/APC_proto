@@ -8,6 +8,8 @@ namespace APC.Logistics
     {
         [SerializeField] InboundBay bay;
 
+        protected override CargoOrigin GiveOrigin => CargoOrigin.Truck;
+
         protected override bool TryGive(Interactor who, out Cargo cargo)
         {
             var truck = bay.DockedTruck;

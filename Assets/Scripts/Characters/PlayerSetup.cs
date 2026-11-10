@@ -13,7 +13,9 @@ namespace APC.Characters
         {
             var config = GameManager.Instance.Database.Player;
             GetComponent<CarryStack>().SetCapacity(config.MaxCarry);
-            GetComponent<Interactor>().Configure(config.PickInterval, config.InteractionDelay);
+            var interactor = GetComponent<Interactor>();
+            interactor.Configure(config.PickInterval, config.InteractionDelay);
+            interactor.ConfigureRules(taskLock: true, config.TransferSwitchCooldown); // GDD 5.3 — 플레이어만
         }
     }
 }

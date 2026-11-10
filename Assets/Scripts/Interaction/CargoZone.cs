@@ -5,7 +5,8 @@ namespace APC.Interaction
     /// <summary>
     /// 운반 존 (GDD 5.2, 체크리스트 M2-3). 간격마다 1개씩 옮긴다.
     /// 받을 수 있는 화물이 있으면 내려놓기를 먼저 하고, 없으면 집는다.
-    /// 하위 클래스는 "받는 품목"(CanReceive/Receive)과 "주는 품목"(TryGive)만 정한다.
+    /// 플레이어 규칙 (GDD 5.3): 내려놓기 ↔ 집기를 바꿀 때 쿨타임, 들고 있는 일과 다른 출처의 화물은 집지 않음 (작업 고정).
+    /// 하위 클래스는 "받는 품목"(CanReceive/Receive)과 "주는 품목"(TryGive, GiveOrigin)만 정한다.
     /// </summary>
     public abstract class CargoZone : InteractionZone
     {
@@ -23,17 +24,26 @@ namespace APC.Interaction
             var stack = who.Stack;
             if (stack == null) return false;
 
-            var dropped = stack.TakeTopMatching(cargo => CanReceive(cargo, who));
-            if (dropped != null)
+            if (who.CanTransfer(drop: true))
             {
-                Receive(dropped, who);
-                return true;
+                var dropped = stack.TakeTopMatching(cargo => CanReceive(cargo, who));
+                if (dropped != null)
+                {
+                    Receive(dropped, who);
+                    who.NotifyTransfer(drop: true);
+                    return true;
+                }
             }
 
-            if (stack.IsFull || !TryGive(who, out var given)) return false;
+            if (stack.IsFull || !who.CanTransfer(drop: false) || !who.CanPickOrigin(GiveOrigin)) return false;
+            if (!TryGive(who, out var given)) return false;
             stack.TryAdd(given);
+            who.NotifyTransfer(drop: false);
             return true;
         }
+
+        /// <summary>이 존이 주는 화물의 출처 (작업 고정 확인용). 주지 않는 존은 그대로 둔다.</summary>
+        protected virtual CargoOrigin GiveOrigin => CargoOrigin.None;
 
         /// <summary>이 화물을 받을 수 있는가 (빈자리 포함).</summary>
         protected virtual bool CanReceive(Cargo cargo, Interactor who) => false;

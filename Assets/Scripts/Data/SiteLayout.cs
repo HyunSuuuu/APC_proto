@@ -7,9 +7,9 @@ using UnityEngine.Serialization;
 namespace APC.Data
 {
     /// <summary>
-    /// 부지 배치 config (GDD 4.2, 9.3): 어떤 모듈을 어디(행 · 열 · 회전)에 붙이고, 언제(레벨 · 비용) 해금하는지.
-    /// R = 행 (R1이 위, 아래로 늘어남), C = 열. C0 = 하차 주차장, C1~C3 = 물류센터, C4 = 상차 주차장.
-    /// 주차장 베이 확장은 주차장 아래 칸에 같은 주차장 모듈을 하나 더 붙이는 것이다 (세로 확장).
+    /// 부지 배치 config (GDD 4.2, 9.3): 어떤 모듈을 어디(행 · 열 · 회전)에 붙이고, 몇 레벨에 해금하는지.
+    /// R = 행 (R1이 위, 아래로 늘어남), C = 열. 시작 부지는 키패드 3 × 3 (7 8 9 / 4 5 6 / 1 2 3 = R1~R3 × C1~C3).
+    /// 확장은 레벨이 되면 자동으로 붙는다 (SiteUnlocker). 하차 · 상차장은 가장자리 모듈이라 회전으로 주차장 방향을 정한다.
     /// </summary>
     [CreateAssetMenu(menuName = "APC/Data/Site Layout", fileName = "SiteLayout")]
     public sealed class SiteLayout : ScriptableObject
@@ -21,14 +21,11 @@ namespace APC.Data
             [Tooltip("붙일 모듈 프리팹 (SiteModule)")] public SiteModule module;
             [Min(1), Tooltip("모듈이 차지하는 칸 중 왼쪽 위 칸의 행")] public int row;
             [Min(0), Tooltip("모듈이 차지하는 칸 중 왼쪽 위 칸의 열")] public int column;
-            [Tooltip("Y 회전 (0 / 90 / 180 / 270)")] public int rotation;
+            [Tooltip("Y 회전 (0 / 90 / 180 / 270). 하차 · 상차장 모듈은 로컬 −x가 주차장(바깥) 쪽: 0 = 서, 90 = 북, 180 = 동, 270 = 남")] public int rotation;
             [Tooltip("처음부터 열려 있는 모듈")] public bool isStartArea;
-            [Min(1)] public int unlockLevel;
-            [Min(0)] public int cost;
-            [Tooltip("다른 배치의 id를 적으면 그 배치가 해금될 때 같이 해금된다 (ㄱ자 구역 등). 이때 이 배치의 시작 여부 · 레벨 · 비용은 쓰지 않고 패드도 없다. 비워 두면 자기 조건으로 해금")]
+            [Min(1), Tooltip("이 레벨이 되면 자동으로 해금 (비용 없음)")] public int unlockLevel;
+            [Tooltip("다른 배치의 id를 적으면 그 배치가 해금될 때 같이 해금된다 (ㄱ자 구역 등). 이때 이 배치의 시작 여부 · 레벨은 쓰지 않는다. 비워 두면 자기 레벨로 해금")]
             public string unlockWith;
-            [Tooltip("해금 패드를 둘 열린 칸 (x = 열, y = 행). y가 0이면 자동 — 맞닿은 열린 칸 중 위 · 왼쪽 · 오른쪽 · 아래 순으로, 다른 존과 겹치지 않는 자리")]
-            public Vector2Int padCell;
             public string content;
 
             /// <summary>다른 배치와 같이 해금되는 배치인가.</summary>
@@ -137,25 +134,25 @@ namespace APC.Data
         }
 #endif
 
+        /// <summary>배치 목록을 GDD 기본값으로 되돌린다 (모듈 참조는 Build Site가 채움). 메뉴 APC > Setup > Apply Layout v0.3.</summary>
         [ContextMenu("배치 목록을 GDD 기본값으로 되돌리기 (모듈 참조는 Build Site가 채움)")]
-        void ResetModules() => modules = DefaultModules();
+        public void ResetModules() => modules = DefaultModules();
 
+        // 키패드:  7 8 9 = R1 · 4 5 6 = R2 · 1 2 3 = R3 (C1~C3). 1 · 9는 없는 칸 (주차장 자리).
         static List<ModulePlacement> DefaultModules() => new()
         {
             // 시작 부지
-            new ModulePlacement { id = "R1C0", row = 1, column = 0, isStartArea = true, unlockLevel = 1, content = "하차 주차장 (하차 베이 1)" },
-            new ModulePlacement { id = "R1C1", row = 1, column = 1, isStartArea = true, unlockLevel = 1, content = "공용 보관소" },
-            new ModulePlacement { id = "R1C2", row = 1, column = 2, isStartArea = true, unlockLevel = 1, content = "선반 구역 A (회사 A 선반, 품목당 1개)" },
-            new ModulePlacement { id = "R1C3", row = 1, column = 3, isStartArea = true, unlockLevel = 1, content = "출고 구역 (통로, Lv.4 포장 완료 존 자리)" },
-            new ModulePlacement { id = "R1C4", row = 1, column = 4, rotation = 180, isStartArea = true, unlockLevel = 1, content = "상차 주차장 (상차 베이 1, 현금 존)" },
-            new ModulePlacement { id = "R2C1", row = 2, column = 1, isStartArea = true, unlockLevel = 1, content = "사무실 (계약 PC, 고용 데스크, 배치 현황판)" },
-            // 확장
-            new ModulePlacement { id = "E1", row = 2, column = 0, unlockLevel = 2, cost = 100, content = "하차 베이 2 (Lv.10에 베이 3 구매 패드)" },
-            new ModulePlacement { id = "E5", row = 2, column = 4, rotation = 180, unlockLevel = 3, cost = 150, content = "상차 베이 2 (Lv.8에 베이 3 구매 패드)" },
-            new ModulePlacement { id = "E3", row = 2, column = 3, unlockLevel = 4, cost = 250, content = "포장 구역 (포장대 1, Lv.8에 포장대 2)" },
-            new ModulePlacement { id = "E2", row = 2, column = 2, unlockLevel = 6, cost = 350, content = "선반 구역 B (회사 B 선반)" },
-            new ModulePlacement { id = "E4", row = 3, column = 2, unlockLevel = 9, cost = 500, content = "선반 구역 C (이후 회사 선반 자리)" },
-            new ModulePlacement { id = "E6", row = 3, column = 1, unlockLevel = 11, cost = 600, content = "반품 구역 (검수 테이블, 반품 랙)" },
+            new ModulePlacement { id = "R1C1", row = 1, column = 1, isStartArea = true, unlockLevel = 1, content = "사무실 (7번 — 계약 PC, 고용 데스크, 배치 현황판)" },
+            new ModulePlacement { id = "R1C2", row = 1, column = 2, rotation = 180, isStartArea = true, unlockLevel = 1, content = "상차장 1 (8번 — 트럭은 오른쪽에서)" },
+            new ModulePlacement { id = "R2C1", row = 2, column = 1, rotation = 270, isStartArea = true, unlockLevel = 1, content = "하차장 1 (4번 — 팔레트, 트럭은 아래에서)" },
+            new ModulePlacement { id = "R2C2", row = 2, column = 2, isStartArea = true, unlockLevel = 1, content = "선반 구역 A (5번 — 회사 A 선반)" },
+            new ModulePlacement { id = "R2C3", row = 2, column = 3, rotation = 90, isStartArea = true, unlockLevel = 1, content = "상차장 2 (6번 — 트럭은 위에서)" },
+            new ModulePlacement { id = "R3C2", row = 3, column = 2, isStartArea = true, unlockLevel = 1, content = "하차장 2 (2번 — 팔레트, 트럭은 왼쪽에서)" },
+            // 확장 (레벨이 되면 자동 해금)
+            new ModulePlacement { id = "E1", row = 3, column = 3, unlockLevel = 3, content = "선반 구역 B (3번 — 회사 B 선반)" },
+            new ModulePlacement { id = "E2", row = 2, column = 0, rotation = 270, unlockLevel = 5, content = "하차장 3 (4번 왼쪽 — 트럭은 아래에서)" },
+            new ModulePlacement { id = "E3", row = 2, column = 4, rotation = 90, unlockLevel = 7, content = "상차장 3 (6번 오른쪽 — 트럭은 위에서)" },
+            new ModulePlacement { id = "E4", row = 3, column = 4, unlockLevel = 10, content = "반품 구역 (3번 오른쪽 — 검수 테이블, 반품 랙)" },
         };
     }
 }

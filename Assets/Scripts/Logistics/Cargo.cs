@@ -10,9 +10,6 @@ namespace APC.Logistics
 
         /// <summary>반품 상자 (Lv.11~). 분류 선반에 넣을 수 없다 (GDD 7.7).</summary>
         Return,
-
-        /// <summary>포장 완료 상자 (Lv.4~). 주문 정보를 가진다 (GDD 7.5).</summary>
-        Packed,
     }
 
     /// <summary>화물을 마지막으로 꺼낸 곳. 존이 받을 수 있는지 판단할 때 쓴다 (예: 트럭 → 선반 직행 금지, GDD 7.2).</summary>
@@ -26,7 +23,7 @@ namespace APC.Logistics
         /// <summary>공용 보관소에서 꺼냄 → 분류 선반에 넣을 수 있다.</summary>
         Storage,
 
-        /// <summary>분류 선반에 있거나 거기서 꺼냄 → 출고 · 포장 (M4~).</summary>
+        /// <summary>분류 선반에 있거나 거기서 꺼냄 → 출고 트럭 상차 존만 받는다.</summary>
         Shelf,
     }
 
@@ -89,7 +86,7 @@ namespace APC.Logistics
             tapeRenderer.GetPropertyBlock(block);
             block.SetColor(BaseColorId, Item != null ? Item.TapeColor : Color.white);
             tapeRenderer.SetPropertyBlock(block);
-            // 반품 스티커(M9), 포장 상자 외형(M7)은 해당 마일스톤에서 추가한다.
+            // 반품 스티커는 반품 마일스톤에서 추가한다.
         }
     }
 }

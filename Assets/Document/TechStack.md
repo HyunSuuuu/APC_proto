@@ -85,7 +85,7 @@ Git UPM 패키지는 모두 **태그로 버전을 고정**했다 (`Packages/mani
 |---|---|---|
 | 트럭: 진입 → 정차 → 하차 완료 대기 → 출발 | 7.1, 7.6 | 상태 머신 (알바 AI와 같은 방식) |
 | 하루 마감: 시급 정산 → 정산 팝업 닫힘 대기 → 이력서 갱신 | 11.7 | 코루틴 (`WaitUntil(팝업 닫힘)`) |
-| 레벨업: 축하 연출 → 팝업 → 해금 패드 등장 | 10.2 | DOTween `Sequence` + `OnComplete` |
+| 레벨업: 축하 연출 → 팝업 → 확장 칸 해금 · 업그레이드 패드 등장 | 10.2 | DOTween `Sequence` + `OnComplete` |
 | 튜토리얼 단계 진행 | 13 | 단계 매니저 + R3 조건 감지 |
 | 시설 생성 → 네비메시 재굽기 | 11.5 | `NavMeshSurface.UpdateNavMesh` + 코루틴 또는 `Awaitable.FromAsyncOperation` |
 | 저장 / 불러오기 파일 입출력 | 14.1 | 동기 처리로 시작 (데이터가 작음), 끊김이 보이면 `Awaitable.BackgroundThreadAsync` |
@@ -159,7 +159,8 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 | `SiteModule` (모듈 프리팹 루트) | 크기(칸), 칸 경계 기즈모. 안에 바닥 · 존 · 시설을 담는다. 루트 = 차지하는 칸들의 중심 |
 | `SiteLayout` (config, `Assets/Data`) | 배치 목록: id, 모듈 프리팹, 행 · 열(왼쪽 위 칸), 회전(0/90/180/270), 시작 여부, **해금 레벨 · 비용**, **같이 해금(`unlockWith`)** |
 | `SiteGrid` (씬) | 붙은 모듈 목록 + 열린 칸 집합. `Unlock(id)` = 모듈을 팝 연출로 붙이고 칸을 엶, `OnUnlocked` 이벤트, `IsAreaWalkable` = 열린 칸 안인지 |
-| `ExpansionPads` (SiteGrid 오브젝트) | 잠긴 대표 배치마다 레벨이 되고 열린 칸과 맞닿으면 **해금 패드**를 맞닿은 열린 칸 경계 안쪽에 놓는다 (`padCell`로 칸 지정 가능) |
+| `SiteUnlocker` (SiteGrid 오브젝트) | 잠긴 대표 배치가 **해금 레벨이 되고 열린 칸과 맞닿으면 자동으로 해금**한다 (비용 없음). 다음 해금 1곳에 공사장 울타리(`ConstructionFence`, `잠금해제 : LV N`) |
+| 하차 · 상차장 모듈 (`Module_Lot*`) | 가장자리용. 주차장은 칸 **바깥 −x**, 회전으로 방향을 정한다 (0 = 서, 90 = 북, 180 = 동, 270 = 남). `_M`은 주차 칸을 반대로 비킨 판 |
 | `SiteNavMesh` (Site 루트, `NavMeshSurface`) | 열린 모듈 바닥 충돌체에만 네비메시를 굽고, 해금마다 다시 굽는다 (임시 Ground는 `NavMeshModifier`로 제외) |
 | `Build Site` (메뉴 `APC > Setup`) | config대로 시작 모듈을 **프리팹 인스턴스로** 씬에 굽는다. 잠긴 칸에는 아무것도 두지 않는다 |
 | `New Module` (메뉴 `APC > Module`) | 빈 n × m 모듈 틀(바닥 + `Content`)을 `Assets/Prefabs/Modules`에 만든다 |

@@ -17,8 +17,8 @@ namespace APC.Logistics
         /// <summary>등록 순서 = 모듈이 붙은 순서. OnEnable 순서는 보장되지 않으므로 고를 때는 Order를 먼저 본다.</summary>
         public static IReadOnlyList<ShelfSlot> All => Registered;
 
-        /// <summary>선반 + 앞뒤 존이 차지할 바닥 (비어 있어도 나중에 선반이 생기므로 비워 둬야 하는 자리).</summary>
-        public Rect WorldFootprint => APC.Interaction.InteractionZone.FootprintRect(transform, new Vector2(2.05f, 1.35f));
+        /// <summary>선반 + 둘레 존이 차지할 바닥.</summary>
+        public Rect WorldFootprint => APC.Interaction.InteractionZone.FootprintRect(transform, new Vector2(1.6f, 1.6f));
 
         public int UnlockLevel => unlockLevel;
         public int Order => order;

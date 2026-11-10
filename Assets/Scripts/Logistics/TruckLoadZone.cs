@@ -11,6 +11,8 @@ namespace APC.Logistics
     {
         [SerializeField] OutboundBay bay;
 
+        public OutboundBay Bay => bay;
+
         protected override bool CanReceive(Cargo cargo, Interactor who)
         {
             var truck = bay.DockedTruck;
