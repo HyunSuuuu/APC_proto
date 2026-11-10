@@ -152,7 +152,7 @@ namespace APC.Data
             new ModulePlacement { id = "E1", row = 3, column = 3, unlockLevel = 3, content = "선반 구역 B (3번 — 회사 B 선반)" },
             new ModulePlacement { id = "E2", row = 2, column = 0, rotation = 270, unlockLevel = 5, content = "하차장 3 (4번 왼쪽 — 트럭은 아래에서)" },
             new ModulePlacement { id = "E3", row = 2, column = 4, rotation = 90, unlockLevel = 7, content = "상차장 3 (6번 오른쪽 — 트럭은 위에서)" },
-            new ModulePlacement { id = "E4", row = 3, column = 4, unlockLevel = 10, content = "반품 구역 (3번 오른쪽 — 검수 테이블, 반품 랙)" },
+            new ModulePlacement { id = "E4", row = 3, column = 4, unlockLevel = 11, content = "반품 구역 (3번 오른쪽 — 반품 대기 롤테이너, 검수 테이블)" },
         };
     }
 }

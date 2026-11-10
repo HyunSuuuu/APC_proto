@@ -12,18 +12,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2feb9b6c430e29a4c945e6290203184b, type: 3}
   m_Name: EconomyConfig
   m_EditorClassIdentifier: Assembly-CSharp::APC.Data.EconomyConfig
-  startingCash: 0
+  startingCash: 50
   padFillDuration: 1.5
-  extraShelfCost: 60
-  inboundBay3Cost: 300
-  outboundBay3Cost: 300
-  packingTable2Cost: 400
   playerCarryUpgradeCosts: 64000000c80000005e010000
   playerSpeedUpgradeCosts: 64000000c80000005e010000
   shelfCapacityUpgradeCosts: 5000000096000000fa0000007c01000026020000
   storageCapacityUpgradeCosts: 960000002c010000
-  compoundOrderMultiplier: 1.3
+  cashPerBundle: 10
+  cashMaxVisibleBundles: 40
+  cashPickupRadius: 1.5
+  cashAbsorbInterval: 0.05
+  cashFlyDuration: 0.3
+  partLengthSeconds: 180
+  firstPartLengthSeconds: 90
+  piggyStepCount: 10
+  piggyFullMin: 300
+  piggyFullRatio: 1.2
   xpSingleOrder: 10
   xpCompoundOrder: 20
   xpPurchase: 5
-  xpReturnInspection: 2
+  xpReturnInspection: 5

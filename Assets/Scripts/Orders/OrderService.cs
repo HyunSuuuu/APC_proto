@@ -107,7 +107,10 @@ namespace APC.Orders
 
         public void MarkDocked(Order order) => order.SetState(OrderState.Docked);
 
-        /// <summary>다 실은 주문을 끝낸다. 보상 금액을 돌려주고(현금 더미는 베이가 쌓음), 경험치를 준다.</summary>
+        /// <summary>
+        /// 트럭이 **출발하는 순간** 주문을 끝낸다 (GDD 7.6): 경험치를 주고, 출고 현금(실린 상자 수 × 계약 단가)을 돌려준다
+        /// (현금 더미는 베이가 쌓음). 출발 대수는 OnDeparted로 알린다 (할당량).
+        /// </summary>
         public int Complete(Order order)
         {
             if (!orders.Remove(order)) return 0;
@@ -116,7 +119,7 @@ namespace APC.Orders
             order.SetState(OrderState.Departed);
             removed.OnNext(order);
             GameManager.Instance.Level.AddXp(order.IsCompound ? economy.XpCompoundOrder : economy.XpSingleOrder);
-            return order.GetReward(economy);
+            return order.GetReward();
         }
 
         /// <summary>

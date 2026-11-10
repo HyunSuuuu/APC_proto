@@ -177,15 +177,19 @@ namespace APC.EditorTools
             var go = new GameObject("CashZone");
             go.transform.SetParent(parent, false);
             go.transform.position = position;
-            BuildKit.Cube("Floor", go.transform, position + new Vector3(0f, 0.01f, 0f), new Vector3(2f, 0.02f, 1.8f), BuildKit.Mat("M_CashFloor", new Color(0.55f, 0.8f, 0.55f)));
+            // 다발 4 × 5 × 2층 = 40개가 들어가는 바닥 (GDD 7.6)
+            BuildKit.Cube("Floor", go.transform, position + new Vector3(0f, 0.01f, 0f), new Vector3(2.4f, 0.02f, 2.9f), BuildKit.Mat("M_CashFloor", new Color(0.55f, 0.8f, 0.55f)));
             var pile = new GameObject("Pile").transform;
             pile.SetParent(go.transform, false);
             pile.position = position + new Vector3(0f, 0.02f, 0f);
-            BuildKit.FlatLabel(go.transform, "현금", position + new Vector3(0f, 0.03f, 1.6f), 3.6f, Color.white);
+            BuildKit.FlatLabel(go.transform, "현금", position + new Vector3(0f, 0.03f, 1.9f), 3.6f, Color.white);
+            var overflow = BuildKit.BillboardLabel(go.transform, "+0", position + new Vector3(0f, 1.2f, 0f), 7f);
+            overflow.name = "Overflow";
 
             var zone = go.AddComponent<CashZone>();
             BuildKit.SetRef(zone, "pileRoot", pile);
             BuildKit.SetRef(zone, "bundlePrefab", CashBundlePrefab());
+            BuildKit.SetRef(zone, "overflowLabel", overflow);
             return zone;
         }
 
@@ -219,7 +223,55 @@ namespace APC.EditorTools
             BuildKit.Cube("Desk", pc.transform, desk + new Vector3(0f, 0.4f, 0f), new Vector3(1.8f, 0.8f, 0.7f), BuildKit.Mat("M_Desk", new Color(0.55f, 0.4f, 0.3f)));
             BuildKit.Cube("Monitor", pc.transform, desk + new Vector3(0f, 1.1f, 0.1f), new Vector3(0.9f, 0.55f, 0.08f), BuildKit.Mat("M_Monitor", new Color(0.15f, 0.2f, 0.3f)));
             BuildKit.GaugeRing(pc, pc.transform);
+            BuildPiggyBank(content, new Vector3(-2.6f, 0f, 2.6f));
             Label(root, "사무실");
+        }
+
+        /// <summary>사무실 투명 저금통 (GDD 9.5): 반투명 원통(사람 키) + 금색 동전 층(10단계, 아래부터) + 위 금액 글자.</summary>
+        static void BuildPiggyBank(Transform parent, Vector3 position)
+        {
+            var go = new GameObject("PiggyBank");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = position;
+
+            const float height = 1.8f;
+            const float radius = 0.55f;
+            var jar = new GameObject("Jar").transform;
+            jar.SetParent(go.transform, false);
+            BuildKit.Cube("Base", jar, position + new Vector3(0f, 0.06f, 0f), new Vector3(radius * 2.3f, 0.12f, radius * 2.3f), BuildKit.Mat("M_PiggyBase", new Color(0.45f, 0.4f, 0.38f)));
+
+            // 동전 층: 피벗을 바닥에 둬서 y 크기로 아래부터 차오르게
+            var fill = new GameObject("FillPivot").transform;
+            fill.SetParent(jar, false);
+            fill.position = position + new Vector3(0f, 0.12f, 0f);
+            var coins = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            coins.name = "Coins";
+            UnityEngine.Object.DestroyImmediate(coins.GetComponent<Collider>());
+            coins.transform.SetParent(fill, false);
+            coins.transform.localPosition = new Vector3(0f, 0.5f, 0f);
+            coins.transform.localScale = new Vector3(radius * 1.8f, 0.5f, radius * 1.8f); // 원통은 높이 2 → 0.5배 = 1
+            coins.GetComponent<Renderer>().sharedMaterial = BuildKit.Mat("M_Coins", new Color(1f, 0.8f, 0.2f));
+            fill.localScale = new Vector3(1f, 0f, 1f);
+
+            var glass = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            glass.name = "Glass";
+            UnityEngine.Object.DestroyImmediate(glass.GetComponent<Collider>());
+            glass.transform.SetParent(jar, false);
+            glass.transform.position = position + new Vector3(0f, 0.12f + height * 0.5f, 0f);
+            glass.transform.localScale = new Vector3(radius * 2f, height * 0.5f, radius * 2f);
+            glass.GetComponent<Renderer>().sharedMaterial = BuildKit.TransparentMat("M_PiggyGlass", new Color(0.75f, 0.9f, 1f, 0.28f));
+
+            var label = BuildKit.BillboardLabel(go.transform, "", position + new Vector3(0f, height + 0.6f, 0f), 6f);
+            label.name = "Amount";
+            BuildKit.FlatLabel(go.transform, "저금통", position + new Vector3(0f, 0.03f, -1.1f), 3f, new Color(0.35f, 0.35f, 0.35f));
+
+            var view = go.AddComponent<APC.Economy.PiggyBankView>();
+            BuildKit.SetRef(view, "fill", fill);
+            BuildKit.SetRef(view, "jar", jar);
+            BuildKit.SetRef(view, "amountLabel", label);
+            var so = new SerializedObject(view);
+            so.FindProperty("fullHeight").floatValue = height - 0.1f;
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         static void Label(GameObject root, string text)

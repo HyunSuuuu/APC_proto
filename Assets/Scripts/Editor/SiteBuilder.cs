@@ -66,6 +66,7 @@ namespace APC.EditorTools
             SetRef(services.gameObject.AddComponent<Warehouse>(), "shelfPrefab", shelfPrefab);
             services.gameObject.AddComponent<ContractService>();
             services.gameObject.AddComponent<OrderService>();
+            services.gameObject.AddComponent<APC.Economy.PartService>(); // 파트 타이머 · 정산 (GDD 9.5)
 
             var grid = BakeGrid(site, layout);
             SetRef(grid.gameObject.AddComponent<SiteUnlocker>(), "fencePrefab", fencePrefab); // 레벨로 자동 해금 + 다음 구역 울타리
@@ -75,6 +76,8 @@ namespace APC.EditorTools
             BuildOrderQueue();
             BuildGuideArrow();
             BuildContractPopup();
+            BuildSettlementPopup();
+            FixCameraButton();
             RemoveTestZones();
             SetupPlayer(layout.CellCenter(1, 1) + new Vector3(-1f, 0f, -1f)); // 7번 사무실
 
@@ -292,21 +295,134 @@ namespace APC.EditorTools
             var old = canvas.Find("CashHud");
             if (old != null) DestroyIfExists(old.gameObject);
 
-            // 레벨 패널(330) 오른쪽 — GDD 12.1 [Lv.3 ■■■□ 42/80] 💰 1,250
-            var panel = UIImage("CashHud", canvas, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(370f, -20f), new Vector2(300f, 84f),
-                new Color(0f, 0f, 0f, 0.45f), BuiltinSprite("UI/Skin/UISprite.psd"));
+            // 레벨 패널(330) 오른쪽, 한 패널에 위아래 두 줄 — GDD 12.1: 위 보유 재화(크게) / 아래 저금통 `+N 대기`(작게)
+            var sprite = BuiltinSprite("UI/Skin/UISprite.psd");
+            var panel = UIImage("CashHud", canvas, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(370f, -20f), new Vector2(300f, 112f),
+                new Color(0f, 0f, 0f, 0.45f), sprite);
             panel.type = Image.Type.Sliced;
             var rect = panel.rectTransform;
             rect.pivot = new Vector2(0f, 1f);
 
-            UIImage("Icon", rect, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(46f, 0f), new Vector2(52f, 34f),
-                new Color(0.35f, 0.75f, 0.4f), BuiltinSprite("UI/Skin/UISprite.psd")).type = Image.Type.Sliced;
-            var label = UIText("Amount", rect, new Vector2(0f, 0.5f), new Vector2(190f, 0f), new Vector2(200f, 84f), "0", 52f, TitleFont, Color.white);
+            // 위 줄: 보유 재화
+            UIImage("Icon", rect, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(46f, -38f), new Vector2(52f, 34f),
+                new Color(0.35f, 0.75f, 0.4f), sprite).type = Image.Type.Sliced;
+            var label = UIText("Amount", rect, new Vector2(0f, 1f), new Vector2(190f, -38f), new Vector2(200f, 64f), "0", 50f, TitleFont, Color.white);
             label.alignment = TMPro.TextAlignmentOptions.Left;
+
+            // 아래 줄: 저금통 (분홍 동그라미 = 돼지 저금통 자리)
+            UIImage("PiggyIcon", rect, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(46f, 26f), new Vector2(26f, 26f),
+                new Color(1f, 0.6f, 0.7f), BuiltinSprite("UI/Skin/Knob.psd"));
+            var piggy = UIText("Piggy", rect, new Vector2(0f, 0f), new Vector2(170f, 26f), new Vector2(200f, 36f), "+0 대기", 28f, BodyFont, new Color(1f, 0.82f, 0.86f));
+            piggy.alignment = TMPro.TextAlignmentOptions.Left;
 
             var view = panel.gameObject.AddComponent<CashView>();
             SetRef(view, "label", label);
             SetRef(view, "punchTarget", rect);
+            SetRef(view, "piggyLabel", piggy);
+
+            BuildPartClock(canvas);
+        }
+
+        /// <summary>파트 시계 (레벨 패널 아래): `3파트 · 01:42`.</summary>
+        static void BuildPartClock(Transform canvas)
+        {
+            var old = canvas.Find("PartClock");
+            if (old != null) DestroyIfExists(old.gameObject);
+
+            var panel = UIImage("PartClock", canvas, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -112f), new Vector2(330f, 50f),
+                new Color(0f, 0f, 0f, 0.45f), BuiltinSprite("UI/Skin/UISprite.psd"));
+            panel.type = Image.Type.Sliced;
+            panel.rectTransform.pivot = new Vector2(0f, 1f);
+            var label = UIText("Label", panel.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(310f, 50f), "1파트 · 01:30", 32f, TitleFont, Color.white);
+
+            // 계약 전(파트 0)에는 스스로 숨는다. 구독은 컴포넌트 수명이라 숨어 있어도 다시 켜진다.
+            var clock = panel.gameObject.AddComponent<PartClockView>();
+            SetRef(clock, "root", panel.gameObject);
+            SetRef(clock, "label", label);
+        }
+
+        // ── 정산 팝업 (파트 종료) ─────────────────────────────────────────
+
+        static void BuildSettlementPopup()
+        {
+            var canvas = GameObject.Find("HUD Canvas").transform;
+            var old = canvas.Find("SettlementPopup");
+            if (old != null) DestroyIfExists(old.gameObject);
+
+            var dark = new Color(0.25f, 0.22f, 0.2f);
+            var sprite = BuiltinSprite("UI/Skin/UISprite.psd");
+            var root = UIRect("SettlementPopup", canvas, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var body = UIRect("Body", root, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var group = body.gameObject.AddComponent<CanvasGroup>();
+            UIImage("Dim", body, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, new Color(0f, 0f, 0f, 0.55f), null).raycastTarget = true;
+
+            var panel = UIImage("Panel", body, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760f, 640f), new Color(0.97f, 0.96f, 0.93f), sprite);
+            panel.type = Image.Type.Sliced;
+            var p = panel.rectTransform;
+            var title = UIText("Title", p, new Vector2(0.5f, 1f), new Vector2(0f, -66f), new Vector2(700f, 90f), "1파트 정산", 56f, TitleFont, dark);
+
+            string[] names = { "출고 수입", "반품 재출고 수입", "할당량 보너스", "알바 시급" };
+            var values = new TMPro.TMP_Text[5];
+            for (var i = 0; i < 5; i++)
+            {
+                var y = -150f - i * 72f - (i == 4 ? 24f : 0f);
+                var isTotal = i == 4;
+                var name = UIText($"Row{i}Name", p, new Vector2(0f, 1f), new Vector2(230f, y), new Vector2(380f, 60f), isTotal ? "합계" : names[i], isTotal ? 40f : 34f, isTotal ? TitleFont : BodyFont, dark);
+                name.alignment = TMPro.TextAlignmentOptions.Left;
+                var value = UIText($"Row{i}Value", p, new Vector2(1f, 1f), new Vector2(-190f, y), new Vector2(300f, 60f), "0", isTotal ? 46f : 36f, TitleFont, isTotal ? new Color(0.2f, 0.55f, 0.3f) : dark);
+                value.alignment = TMPro.TextAlignmentOptions.Right;
+                values[i] = value;
+            }
+            UIImage("Line", p, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -438f), new Vector2(620f, 4f), new Color(0.25f, 0.22f, 0.2f, 0.3f), null);
+
+            var buttonImage = UIImage("Confirm", p, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 70f), new Vector2(300f, 96f), new Color(0.3f, 0.75f, 0.4f), sprite);
+            buttonImage.type = Image.Type.Sliced;
+            buttonImage.raycastTarget = true;
+            var button = buttonImage.gameObject.AddComponent<Button>();
+            UIText("Label", buttonImage.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(300f, 96f), "확인", 42f, TitleFont, Color.white);
+
+            var popup = root.gameObject.AddComponent<SettlementPopup>();
+            SetRef(popup, "body", body.gameObject);
+            SetRef(popup, "group", group);
+            SetRef(popup, "panel", p);
+            SetRef(popup, "titleLabel", title);
+            SetRef(popup, "outboundValue", values[0]);
+            SetRef(popup, "returnValue", values[1]);
+            SetRef(popup, "bonusValue", values[2]);
+            SetRef(popup, "wageValue", values[3]);
+            SetRef(popup, "totalValue", values[4]);
+            SetRef(popup, "confirmButton", button);
+            root.SetAsLastSibling();
+        }
+
+        /// <summary>카메라 버튼 글자를 한글이 나오는 TMP로 바꾼다 (M1에서 만든 버튼은 기본 Text).</summary>
+        static void FixCameraButton()
+        {
+            var button = Object.FindFirstObjectByType<CameraModeButton>();
+            if (button == null) return;
+            var labelTransform = button.transform.Find("Label");
+            if (labelTransform == null && button.transform.childCount > 0) labelTransform = button.transform.GetChild(0);
+            if (labelTransform == null) return;
+
+            var legacy = labelTransform.GetComponent<Text>();
+            if (legacy != null) Object.DestroyImmediate(legacy);
+            var tmp = labelTransform.GetComponent<TMPro.TextMeshProUGUI>();
+            if (tmp == null) tmp = labelTransform.gameObject.AddComponent<TMPro.TextMeshProUGUI>();
+            tmp.font = TitleFont;
+            tmp.fontSize = 36f;
+            tmp.enableAutoSizing = true;
+            tmp.fontSizeMin = 20f;
+            tmp.fontSizeMax = 40f;
+            tmp.margin = new Vector4(10f, 0f, 10f, 0f);
+            tmp.alignment = TMPro.TextAlignmentOptions.Center;
+            tmp.color = new Color(0.2f, 0.2f, 0.2f);
+            tmp.text = "카메라";
+            tmp.raycastTarget = false;
+            SetRef(button, "label", tmp);
+            var so = new SerializedObject(button);
+            so.FindProperty("followLabel").stringValue = "카메라";
+            so.FindProperty("freeLabel").stringValue = "내 캐릭터로";
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         // ── HUD: 주문서 큐 (상단 오른쪽) ─────────────────────────────────

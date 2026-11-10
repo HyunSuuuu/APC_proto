@@ -51,6 +51,7 @@
 | `Logistics` | 화물, 운반 스택, 입고 · 출고 트럭, 보관소, 선반, 현금 존 |
 | `Contracts` | 회사 계약 |
 | `Orders` | 주문 데이터 · 주문 큐 · 수요 계산 · 교착 방지 가중치 |
+| `Economy` | 파트 타이머 · 파트 종료 정산 · 사무실 투명 저금통 |
 | `Site` | 부지 격자와 모듈 해금 |
 | `UI` | 팝업, 월드 글자 정렬 |
 | `Debugging` | 치트 메뉴 (에디터 · 개발 빌드 전용) |
@@ -76,11 +77,12 @@ Editor ─→ 전부   (런타임 코드는 Editor를 참조하지 않는다)
 | `Player` | PlayerMover, PlayerSetup, Interactor, CarryStack, CarryMaxIndicator, CashCollector | M1 · M2 · Build Site |
 | `CargoPool` | CargoPool | M2 |
 | `HUD Canvas` | 자식 `Joystick`(FloatingJoystick), `CameraButton`(CameraModeButton) | M0 · M1 |
-| └ `LevelHud` · `CashHud` · `LevelUpBanner` · `OrderQueue` · `GuideArrow` · `ContractPopup` | LevelView · CashView · LevelUpBanner · OrderQueueView · GuideArrow · ContractPopup | Build Site (지우고 다시 만듦) |
+| └ `LevelHud` · `CashHud` · `PartClock` · `LevelUpBanner` · `OrderQueue` · `GuideArrow` · `ContractPopup` · `SettlementPopup` | LevelView · CashView · PartClockView · LevelUpBanner · OrderQueueView · GuideArrow · ContractPopup · SettlementPopup | Build Site (지우고 다시 만듦) |
+| └ `CameraButton` | CameraModeButton (글자는 Build Site가 TMP로 바꿈) | M1 · Build Site |
 | └ Player 자식 `LevelUpConfetti` | ParticleSystem (레벨업 색종이) | Build Site |
 | `Site` | NavMeshSurface, SiteNavMesh + 아래 참고 | **Build Site** (지우고 다시 만듦) |
 | └ `Ground` | 초록 바닥 (임시 — 모듈 바닥으로 충분해지면 삭제 예정). NavMeshModifier로 네비메시에서 제외 | Build Site |
-| └ `Logistics` | Warehouse, ContractService, OrderService | Build Site |
+| └ `Logistics` | Warehouse, ContractService, OrderService, PartService | Build Site |
 | └ `SiteGrid` | SiteGrid, SiteUnlocker + 시작 모듈 프리팹 인스턴스 6개 (키패드 7 · 8 · 4 · 5 · 6 · 2). 실행 중 해금 모듈 · 공사장 울타리가 여기 붙음 | Build Site |
 
 ---
@@ -232,10 +234,13 @@ OrderService.TryGenerate ─ 상태 Waiting ("대기" 카드가 큐 왼쪽에 �
 MarkDocked ─ 상태 Docked ("도착") → 이때부터 수요(GetDemand)에 잡힌다
    │  플레이어: 선반 둘레 존에서 수요만큼 집음 → 상차 존에 내려놓음 → Order.TryLoad
    ▼  주문 품목이 다 차면 (IsFulfilled)
-Complete ─ 상태 Departed ("출발") → 큐에서 빠짐, XP 지급, 보상 금액 반환
-   │  OutboundBay: CashZone.AddCash(보상) → 트럭이 앞으로 나가 사라짐 → 1초 뒤 다음 주문
+(마지막 상자가 들어갈 때까지 잠깐 대기 = 출발 순간)
+Complete ─ 상태 Departed ("출발") → 큐에서 빠짐, XP 지급, 출고 현금(실린 상자 수 × 계약 단가) 반환
+   │  OutboundBay: CashZone.AddCash(출고 현금) → 트럭이 앞으로 나가 사라짐 → 1초 뒤 다음 주문
    ▼
-CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날아와 Wallet.Add
+CashZone: 플레이어가 반경 1.5m 안에 들어오면 다발이 하나씩 날아와 Wallet.AddToPiggy (저금통)
+   ▼
+PartService: 파트(180초, 첫 90초)가 끝나면 정산 팝업 → [확인] → Wallet.SettlePiggy (저금통 → 보유 재화) → 다음 파트
 ```
 
 **교착 방지** (`StockBalancer`, GDD 7.8): 입고 트럭은 큐 주문이 부족한 품목을 더 많이 싣고(품목마다 최소 10%), 새 주문은 재고가 많은 품목으로 더 잘 나온다. 그래서 한 품목만 쌓여 흐름이 멈추는 일이 없다.
@@ -259,8 +264,8 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 
 #### Wallet
 [Core/Wallet.cs](../Scripts/Core/Wallet.cs)
-- **역할**: 현금 (`Cash`, R3).
-- **동작**: `Add` 입금 / `TrySpend` 전액을 낼 수 있을 때만 차감 / `SpendUpTo` 가진 만큼만 차감하고 실제로 낸 금액을 반환 (구매 패드의 부분 투입용, M5).
+- **역할**: 돈 두 칸 (GDD 9.1): `Cash` = **보유 재화**(쓰는 돈), `Piggy` = **저금통**(이번 파트에 주운 돈, 못 씀). 둘 다 R3.
+- **동작**: `Add` 보유 재화 입금(정산 · 디버그) / `AddToPiggy` 저금통 입금(현금 존) / `SettlePiggy(조정액)` 파트 정산 — 저금통 + 조정액(보너스 − 시급)을 보유 재화로, 저금통 = 0 / `TrySpend` · `SpendUpTo` 보유 재화에서만 차감 (구매 패드 · 고용).
 
 #### LevelProgress
 [Core/LevelProgress.cs](../Scripts/Core/LevelProgress.cs)
@@ -280,9 +285,9 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 |---|---|---|
 | [GameDatabase](../Scripts/Data/GameDatabase.cs) | `GameDatabase` | 아래 테이블 전부의 참조. `Validate`(빠진 참조 검사), `GetCompanyOf(item)` |
 | [ItemDefinition](../Scripts/Data/ItemDefinition.cs) | `Items/Item_A1` 등 | 품목 id, 이름, **테이프 색**, 아이콘, 단가 |
-| [CompanyDefinition](../Scripts/Data/CompanyDefinition.cs) | `Companies/Company_A` 등 | 해금 레벨, 품목 목록(**품목마다 선반 1개**), 입고 트럭 적재량, **선반 구역**(`shelfAreaId` = SiteLayout 배치 id) |
+| [CompanyDefinition](../Scripts/Data/CompanyDefinition.cs) | `Companies/Company_A` 등 | 해금 레벨, 품목 목록(**품목마다 선반 1개**), 입고 트럭 적재량, **선반 구역**(`shelfAreaId` = SiteLayout 배치 id), **계약 단가**(`contractUnitPrice`, 출고 상자 1개당 현금) |
 | [LevelTable](../Scripts/Data/LevelTable.cs) | `LevelTable` | 레벨별 필요 XP · 최대 알바 · 해금 메모. 목록 이후 레벨은 공식으로 계산 |
-| [EconomyConfig](../Scripts/Data/EconomyConfig.cs) | `EconomyConfig` | 시작 현금, 구매 패드 시간, 시설 · 업그레이드 비용, 복합 주문 배율, **현금 더미**(뭉치 금액 · 흡수 반경 · 날아가는 간격/시간), 경험치 |
+| [EconomyConfig](../Scripts/Data/EconomyConfig.cs) | `EconomyConfig` | 시작 보유 재화, 구매 패드 시간, 업그레이드 비용, **현금 더미**(다발 금액 · 최대 보이는 수 · 흡수 반경 · 날아가는 간격/시간), **파트 · 정산**(파트 길이 · 첫 파트 · 저금통 단계 · 가득 기준), 경험치 |
 | [OrderRules](../Scripts/Data/OrderRules.cs) | `OrderRules` | 레벨 구간별 주문 간격 · 복합 확률 · 수량, 큐 최대 수, 교착 방지 최소 가중치 |
 | [StaffRules](../Scripts/Data/StaffRules.cs) | `StaffRules` | 알바 이력서 · 스탯 효과 · 고용금 · 시급 · 하루 길이 (M6에서 사용) |
 | [PlayerConfig](../Scripts/Data/PlayerConfig.cs) | `PlayerConfig` | 이동 속도 · 회전 속도 · 뛰기 기준, 최대 적재, 집기 간격, **상호작용 대기 시간**, 내려놓기 ↔ 집기 전환 쿨타임 |
@@ -489,7 +494,7 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 #### OutboundBay
 [Logistics/OutboundBay.cs](../Scripts/Logistics/OutboundBay.cs)
 - **역할**: 상차 베이 1곳. 상차 주차장 모듈 안에 있다. [3.6](#36-주문-한-건)의 트럭 부분을 코루틴으로 반복한다.
-- **동작**: 대기 주문 배정 → 트럭 생성 · 후진 주차 → `MarkDocked` → 주문이 다 차면 `Complete` → 보상을 `cashZone`에 쌓음 → 마지막 상자가 들어갈 때까지 잠깐 기다렸다가 출발.
+- **동작**: 대기 주문 배정 → 트럭 생성 · 후진 주차 → `MarkDocked` → 주문이 다 차면 마지막 상자가 들어갈 때까지 기다림 → **출발하는 순간** `Complete`(XP) → 출고 현금(상자 수 × 계약 단가)을 `cashZone`에 쌓음 → 출발.
 - **연결**: `OrderService.Instance`, `truckPrefab`(OutboundTruck), `parkPoint`, `spawnPoint`, `cashZone`. 하차 베이(`InboundBay`)와 구조가 같다.
 
 #### OutboundTruck
@@ -503,8 +508,8 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 
 #### CashZone
 [Logistics/CashZone.cs](../Scripts/Logistics/CashZone.cs)
-- **역할**: 상차 존 옆 현금 존. 주문 보상이 **10원당 1뭉치**로 쌓이고(나머지는 마지막 뭉치), 플레이어가 반경 안에 들어오면 **멈추지 않아도** 흡수된다.
-- **동작**: `AddCash(amount)` — 뭉치가 위에서 떨어지며 쌓임. `Update`에서 `CashCollector.All` 중 반경 안의 대상을 찾으면 맨 위부터 하나씩 대상을 따라 날아가고, **도착할 때** `Wallet.Add` (그래서 HUD 숫자가 뭉치마다 오른다).
+- **역할**: 상차 존 옆 현금 존. 출고 현금이 **10원당 다발 1개**로 보이되 **최대 40개**(4 × 5 × 2층), 넘으면 위에 `+금액`(`overflowLabel`). 플레이어가 반경(1.5m) 안에 들어오면 **멈추지 않아도** 흡수 → **저금통**으로.
+- **동작**: 남은 금액(`StoredCash`)만 들고 다발은 보이는 수만큼만 만든다. `AddCash(amount)` — 다발이 위에서 떨어지며 쌓임. 수거 중엔 맨 위부터 하나씩 대상을 따라 날아가고, 다발마다 `남은 금액 ÷ 남은 다발 수`(마지막은 나머지 전부)를 실어 **도착할 때** `Wallet.AddToPiggy`. 줍지 않은 돈은 사라지지 않는다.
 - **주의**: `InteractionZone`이 아니다 (멈춤 규칙의 예외, GDD 7.6). 뭉치 오브젝트는 존 안에서 재사용한다. 수치는 `EconomyConfig`.
 
 #### CashCollector
@@ -531,7 +536,7 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 #### Order
 [Orders/Order.cs](../Scripts/Orders/Order.cs)
 - **역할**: 주문 1건 (MonoBehaviour 아님). 번호, 회사, 품목 줄(`OrderLine`: 품목 · 수량 · 실은 수), 상태(`OrderState`: Waiting → Arriving → Docked → Departed).
-- **동작**: `TryLoad(item)`(1개 실음, `Changed` 알림), `GetRemaining(item)`, `IsFulfilled`, `IsCompound`, `GetReward(economy)`(Σ 단가 × 수량, 복합은 × 1.3).
+- **동작**: `TryLoad(item)`(1개 실음, `Changed` 알림), `GetRemaining(item)`, `IsFulfilled`, `IsCompound`, `LoadedCount`, `GetReward()`(= 실린 상자 수 × 회사 계약 단가, 복합 배율 없음).
 - **주의**: 상태는 `OrderService`만 바꾼다 (`SetState`는 internal).
 
 #### OrderService
@@ -549,6 +554,19 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 - **역할**: 교착 방지 가중치 (GDD 7.8, static 클래스).
 - **동작**: `PickInboundCompany` / `ComposeInboundLoad` — 부족량(큐 수요 − 재고)이 큰 품목일수록 많이, 품목마다 최소 `inboundMinWeight`(10%). `PickOrderCompany` / `PickOrderItem` — 재고 + 1에 비례.
 - **주의**: 재고는 `Warehouse.GetStock`(선반 + 보관소)이다. 트럭에 실려 오는 중이거나 들고 있는 화물은 세지 않는다.
+
+### 4.7b Economy — 파트 · 정산 · 저금통
+
+#### PartService
+[Economy/PartService.cs](../Scripts/Economy/PartService.cs)
+- **역할**: 시간 흐름(파트) · 파트 종료 정산 (GDD 9.5, 11.7). 씬에 하나 (`Site/Logistics`).
+- **동작**: 첫 계약 순간 1파트 시작(첫 파트 90초, 이후 180초). `Time.deltaTime`으로 흐르므로 팝업 · 일시정지 중엔 멈춘다. 0초가 되면(또는 `EndPart()`) 정산 내역 `SettlementResult`(출고 수입 = 저금통, 반품 · 보너스 · 시급은 아직 0)를 `OnSettlementReady`로 보냄 → 팝업 [확인] 시 `Confirm()` → `Wallet.SettlePiggy` → 다음 파트.
+- **연결**: `Part` · `Remaining`(R3, HUD 시계), `LastSettlement` · `PiggyFullAmount`(저금통 가득 기준), `DeparturesThisPart`(할당량 M10, `OrderService.OnRemoved`로 셈).
+- **주의**: 정산 대기 중(`IsRunning = false`)에는 시간이 흐르지 않는다. 시급(M6) · 보너스(M10) · 반품 재출고 수입(M9)은 `EndPart`에서 채운다.
+
+#### PiggyBankView
+[Economy/PiggyBankView.cs](../Scripts/Economy/PiggyBankView.cs)
+- **역할**: 사무실 투명 저금통 (사무실 모듈 안). `Wallet.Piggy`에 따라 금색 동전 층이 10단계로 차오르고(피벗이 바닥인 `FillPivot`의 y 크기), 돈이 들어오면 통이 튄다. 정산 때 비워진다. 위 글자 = 저금통 금액.
 
 ### 4.8 Site — 부지 모듈
 
@@ -604,7 +622,16 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 
 #### CashView
 [UI/CashView.cs](../Scripts/UI/CashView.cs)
-- **역할**: HUD 왼쪽 위(레벨 패널 오른쪽) 현금 표시. `Wallet.Cash`를 구독해 숫자가 굴러가듯 바뀌고(`DOVirtual.Float`), 오를 때 패널이 튄다.
+- **역할**: HUD 왼쪽 위(레벨 패널 오른쪽) 돈 패널 — 한 패널에 두 줄: 위 = 보유 재화(`Wallet.Cash`, 크게), 아래 = 저금통(`Wallet.Piggy`, `+N 대기`, 작게). 각 숫자가 굴러가듯 바뀌고(`DOVirtual.Float`) 오를 때 튄다. 정산 때 저금통이 줄고 보유 재화가 오르는 모습이 그대로 보인다.
+
+#### PartClockView
+[UI/PartClockView.cs](../Scripts/UI/PartClockView.cs)
+- **역할**: HUD 파트 시계(레벨 패널 아래) `2파트 · 02:47`. 계약 전(파트 0)엔 숨고, 10초 남으면 빨갛게.
+
+#### SettlementPopup
+[UI/SettlementPopup.cs](../Scripts/UI/SettlementPopup.cs)
+- **역할**: 파트 종료 정산 팝업 (게임 멈춤). 출고 수입 · 반품 재출고 수입 · 할당량 보너스 · 알바 시급 · 합계가 줄마다 차례로 올라가고(`SetUpdate(true)`), 다 오르면 [확인]이 켜진다. [확인] → 닫고 `ClosePopup` → `PartService.Confirm()`.
+- **주의**: 루트는 항상 켜 두고 `body`만 켜고 끈다 (계약 팝업과 같은 구조).
 
 #### OrderQueueView
 [UI/OrderQueueView.cs](../Scripts/UI/OrderQueueView.cs)
@@ -629,7 +656,7 @@ CashZone: 플레이어가 반경 2m 안에 들어오면 뭉치가 하나씩 날�
 
 #### CameraModeButton
 [UI/CameraModeButton.cs](../Scripts/UI/CameraModeButton.cs)
-- **역할**: HUD 오른쪽 아래 카메라 버튼. 추적 ↔ 자유 전환, 자유 모드에서는 조이스틱을 끈다.
+- **역할**: HUD 오른쪽 아래 카메라 버튼. 추적 ↔ 자유 전환, 자유 모드에서는 조이스틱을 끄고 버튼이 **'내 캐릭터로'** 가 된다. 글자는 TMP(`label`).
 
 #### Billboard
 [UI/Billboard.cs](../Scripts/UI/Billboard.cs)

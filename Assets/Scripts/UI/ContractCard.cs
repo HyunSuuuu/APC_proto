@@ -44,7 +44,7 @@ namespace APC.UI
         {
             onContract = contract;
             nameLabel.text = company.DisplayName;
-            infoLabel.text = $"입고 트럭 {company.InboundTruckCapacity}개";
+            infoLabel.text = $"입고 트럭 {company.InboundTruckCapacity}개 · 단가 {company.ContractUnitPrice}";
 
             while (icons.Count < company.Items.Count)
             {

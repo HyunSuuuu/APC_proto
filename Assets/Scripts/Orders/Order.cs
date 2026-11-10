@@ -99,13 +99,19 @@ namespace APC.Orders
             return false;
         }
 
-        /// <summary>보상 금액 (GDD 8.5): Σ(단가 × 수량), 복합 주문은 × 배율.</summary>
-        public int GetReward(EconomyConfig economy)
+/// <summary>실린 상자 수.</summary>
+        public int LoadedCount
         {
-            var sum = 0;
-            foreach (var line in lines) sum += line.Item.UnitPrice * line.Quantity;
-            return IsCompound ? Mathf.RoundToInt(sum * economy.CompoundOrderMultiplier) : sum;
+            get
+            {
+                var n = 0;
+                foreach (var line in lines) n += line.Loaded;
+                return n;
+            }
         }
+
+        /// <summary>출고 현금 (GDD 8.5): 실린 상자 수 × 회사 계약 단가. 복합 주문 배율 없음.</summary>
+        public int GetReward() => LoadedCount * Company.ContractUnitPrice;
 
         internal void SetState(OrderState value) => state.Value = value;
     }

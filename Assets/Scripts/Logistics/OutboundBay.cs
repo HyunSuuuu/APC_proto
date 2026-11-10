@@ -52,11 +52,10 @@ namespace APC.Logistics
                 yield return new WaitUntil(() => order.IsFulfilled);
                 DockedTruck = null;
 
+                // 마지막 상자가 뒷문에 들어갈 때까지 기다렸다가 출발한다. 출발하는 순간 XP · 출고 현금 (GDD 7.6).
+                yield return new WaitForSeconds(gm.Database.Carry.FlyDuration);
                 var reward = orders.Complete(order);
                 if (cashZone != null) cashZone.AddCash(reward);
-
-                // 마지막 상자가 뒷문에 들어갈 때까지 기다렸다가 출발한다.
-                yield return new WaitForSeconds(gm.Database.Carry.FlyDuration);
                 DOTween.Sequence()
                     .Append(t.DOMove(spawnPoint.position, config.OutboundLeaveDuration).SetEase(Ease.InCubic))
                     .Append(t.DOScale(0f, AppearDuration).SetEase(Ease.InBack))

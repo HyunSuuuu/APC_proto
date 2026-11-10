@@ -102,7 +102,7 @@ namespace APC.Debugging
             var level = gm.Level;
             GUILayout.Label($"State  {gm.State.CurrentValue}   timeScale {Time.timeScale:0.##}", labelStyle);
             GUILayout.Label($"Lv.{level.Level.CurrentValue}   XP {level.Xp.CurrentValue}/{level.XpToNext}   MaxStaff {level.MaxStaff}", labelStyle);
-            GUILayout.Label($"Cash  {gm.Wallet.Cash.CurrentValue:N0}", labelStyle);
+            GUILayout.Label($"Cash  {gm.Wallet.Cash.CurrentValue:N0}   Piggy  {gm.Wallet.Piggy.CurrentValue:N0}", labelStyle);
 
             Header("Cash");
             GUILayout.BeginHorizontal();
@@ -128,8 +128,22 @@ namespace APC.Debugging
             GUILayout.EndHorizontal();
             if (GUILayout.Button(gm.IsPaused ? "Resume" : "Pause", buttonStyle)) gm.SetPaused(!gm.IsPaused);
 
+            DrawPart();
             DrawOrders();
             DrawSite(gm);
+        }
+
+        /// <summary>파트 테스트: 남은 시간 · 출발 대수, 파트 즉시 종료 (정산 팝업).</summary>
+        void DrawPart()
+        {
+            var parts = APC.Economy.PartService.Instance;
+            if (parts == null) return;
+
+            Header("Part");
+            GUILayout.Label($"Part {parts.Part.CurrentValue}   {parts.Remaining.CurrentValue:0}s   Departed {parts.DeparturesThisPart}", labelStyle);
+            GUI.enabled = parts.IsRunning;
+            if (GUILayout.Button("End Part", buttonStyle)) parts.EndPart();
+            GUI.enabled = true;
         }
 
         /// <summary>주문 테스트: 계약한 회사 중 하나로 주문 1건 추가 (큐 최대 수는 지킨다).</summary>

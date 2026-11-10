@@ -22,7 +22,7 @@ namespace APC.Data
         [ContextMenu("레벨 표를 GDD 기본값으로 되돌리기")]
         public void ResetLevels() => levels = DefaultLevels();
 
-        // GDD 10.3 (v0.3). 확장은 SiteLayout의 해금 레벨과 맞춘다.
+        // GDD 10.3 (v0.4). 확장은 SiteLayout의 해금 레벨과 맞춘다.
         static List<Entry> DefaultLevels() => new()
         {
             new Entry { xpToNext = 30, maxStaff = 1, unlockNote = "시작 부지 · 회사 A 계약 · 선반 2 (A1 · A2) · 하차장 2 · 상차장 2 · 단일 주문" },
@@ -34,11 +34,12 @@ namespace APC.Data
             new Entry { xpToNext = 220, maxStaff = 6, unlockNote = "회사 B 계약 · 6번 오른쪽 상차장 3 확장" },
             new Entry { xpToNext = 260, maxStaff = 7, unlockNote = "" },
             new Entry { xpToNext = 300, maxStaff = 7, unlockNote = "" },
-            new Entry { xpToNext = 350, maxStaff = 8, unlockNote = "3번 오른쪽 반품 구역 확장 · 반품 입고 시작 · 프로토타입 목표 달성" },
+            new Entry { xpToNext = 350, maxStaff = 8, unlockNote = "" },
+            new Entry { xpToNext = 400, maxStaff = 8, unlockNote = "3번 오른쪽 반품 구역 확장 · 반품 입고 시작 (반품 1개 재출고 = 프로토타입 완료)" },
         };
 
         [Header("목록 이후 레벨: 기본 + 증가 × (Lv − 목록 길이)")]
-        [SerializeField, Min(1)] int overflowBaseXp = 350; // Lv.11 = 400
+        [SerializeField, Min(1)] int overflowBaseXp = 400; // Lv.12 = 400 + 50 × 1
         [SerializeField, Min(0)] int overflowStepXp = 50;
         [SerializeField, Min(0)] int overflowMaxStaff = 8;
 

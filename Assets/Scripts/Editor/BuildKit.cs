@@ -105,6 +105,27 @@ namespace APC.EditorTools
             return tmp;
         }
 
+        /// <summary>반투명 재질 (URP Lit, Transparent · Alpha). 유리 저금통 등.</summary>
+        public static Material TransparentMat(string name, Color color)
+        {
+            var path = $"{MaterialRoot}/{name}.mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material != null) return material;
+            material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            material.SetFloat("_Surface", 1f); // Transparent
+            material.SetFloat("_Blend", 0f);   // Alpha
+            material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.SetFloat("_ZWrite", 0f);
+            material.SetFloat("_Smoothness", 0.85f);
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            material.SetColor("_BaseColor", color);
+            AssetDatabase.CreateAsset(material, path);
+            return material;
+        }
+
         /// <summary>파티클용 재질 (URP Particles/Unlit, 텍스처 없음 = 네모 조각). 색은 파티클 색을 따른다.</summary>
         public static Material ParticleMat(string name)
         {

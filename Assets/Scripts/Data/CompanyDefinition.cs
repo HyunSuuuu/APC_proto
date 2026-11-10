@@ -12,6 +12,7 @@ namespace APC.Data
         [SerializeField, Min(1)] int unlockLevel = 1;
         [SerializeField] List<ItemDefinition> items = new();
         [SerializeField, Min(1)] int inboundTruckCapacity = 8;
+        [SerializeField, Min(0), Tooltip("계약 단가: 출고 상자 1개당 현금 (GDD 6.2, 8.5). 출발 순간 실린 상자 수 × 이 값")] int contractUnitPrice = 10;
         [SerializeField, Tooltip("이 회사 선반이 생기는 선반 구역 = SiteLayout 배치 id (예: R1C2 = 선반 구역 A, E2 = 선반 구역 B). 그 구역이 열려 있어야 계약할 수 있다. 비우면 아무 빈 자리")]
         string shelfAreaId;
 
@@ -20,6 +21,7 @@ namespace APC.Data
         public int UnlockLevel => unlockLevel;
         public IReadOnlyList<ItemDefinition> Items => items;
         public int InboundTruckCapacity => inboundTruckCapacity;
+        public int ContractUnitPrice => contractUnitPrice;
         public string ShelfAreaId => shelfAreaId;
     }
 }

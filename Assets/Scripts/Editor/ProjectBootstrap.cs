@@ -70,8 +70,8 @@ namespace APC.EditorTools
             var b3 = CreateItem("B3", "보라", "#8E24AA", 14);
 
             // 선반 구역: A = 선반 구역 A(5번, R2C2), B = 선반 구역 B(3번, E1) — 회사마다 자기 구역
-            var companyA = CreateCompany("A", "회사 A", 1, 8, "R2C2", new[] { a1, a2 });
-            var companyB = CreateCompany("B", "회사 B", 7, 10, "E1", new[] { b1, b2, b3 });
+            var companyA = CreateCompany("A", "회사 A", 1, 8, "R2C2", 10, new[] { a1, a2 });
+            var companyB = CreateCompany("B", "회사 B", 7, 10, "E1", 14, new[] { b1, b2, b3 });
 
             var levels = LoadOrCreate<LevelTable>($"{DataRoot}/LevelTable.asset", out _);
             var economy = LoadOrCreate<EconomyConfig>($"{DataRoot}/EconomyConfig.asset", out _);
@@ -122,7 +122,7 @@ namespace APC.EditorTools
             return item;
         }
 
-        static CompanyDefinition CreateCompany(string id, string displayName, int unlockLevel, int truckCapacity, string shelfAreaId, ItemDefinition[] items)
+        static CompanyDefinition CreateCompany(string id, string displayName, int unlockLevel, int truckCapacity, string shelfAreaId, int unitPrice, ItemDefinition[] items)
         {
             var company = LoadOrCreate<CompanyDefinition>($"{DataRoot}/Companies/Company_{id}.asset", out var created);
             if (!created) return company;
@@ -134,6 +134,7 @@ namespace APC.EditorTools
             so.FindProperty("inboundTruckCapacity").intValue = truckCapacity;
             SetObjectList(so.FindProperty("items"), items);
             so.FindProperty("shelfAreaId").stringValue = shelfAreaId;
+            so.FindProperty("contractUnitPrice").intValue = unitPrice;
             so.ApplyModifiedPropertiesWithoutUndo();
             return company;
         }
