@@ -11,7 +11,7 @@
 1. 저장소를 받고 `git lfs install` → `git lfs pull` (폰트 에셋이 LFS)
 2. Unity **6000.3.26f1**로 연다. 처음 열 때 TechStack 3절 확인 (R3 NuGet DLL은 `Assets/Packages`에 커밋돼 있음)
 3. `Assets/Scenes/Game.unity`를 열고 Play. F1 또는 왼쪽 아래 `DEBUG`로 치트 메뉴 (현금 · 레벨업 · 배속 · 주문 추가 · `End Part` · 모듈 해금)
-4. 씬 · 프리팹이 이상하면 메뉴 `APC > Setup > Build Site` (Site · HUD를 지우고 다시 만듦). 배치 · 레벨 표까지 기본값으로 되돌리려면 `APC > Setup > Apply Layout v0.3` (config 값을 덮어씀 — 이후 v0.4 값은 [M5b 데이터](#m5b-저금통--파트-정산-gdd-76-91-95--v04-신규) 줄 참고해 다시 넣어야 함)
+4. 씬 · 프리팹이 이상하면 메뉴 `APC > Setup > Build Site` (Site · HUD를 지우고 다시 만듦). 알바 프리팹 · 작업 지점 · 선반까지 다시 만들려면 `APC > Setup > Apply M6 Staff`. 배치 · 레벨 표까지 기본값으로 되돌리려면 `APC > Setup > Apply Layout v0.3` (config 값을 덮어씀 — 이후 v0.4 값은 [M5b 데이터](#m5b-저금통--파트-정산-gdd-76-91-95--v04-신규) 줄 참고해 다시 넣어야 함)
 5. 문서를 먼저 읽는다: [GDD](GDD.md) v0.4 (무엇을) → [Wiki](Wiki.md) (코드가 어떻게) → [TechStack](TechStack.md) (도구 · 규칙)
 
 ### 2. 다음 작업: **M6 마무리 확인 → M8-3 · M8-4 또는 M9** (M6 8/8 구현 완료)
@@ -20,6 +20,8 @@
   - 고용: 계약 PC 고용 탭 (`HirePanel` · `HireCard` · 공용 도장 `Stamp` · `StampCard`). 배치: 배치 탭 (`RosterPanel` · `RosterCard` · `RosterColumn`). 명단 · 시급 규칙은 `StaffService`
   - 시급: `PartService.EndPart` → `StaffService.PlanWages`(정산 팝업 표시) → [확인] `ApplyWages`(미지급 `Owed` · 퇴사 `Quit`)
   - 말풍선("월급 주세요" 등, GDD 11.6)은 아직 없음
+  - 디버그 메뉴 `Staff` 절로 알바를 바로 생성(고용금 없음), `End Part`로 정산을 바로 열 수 있다
+- 자동 테스트(Unity MCP, `.mcp.json`) 팁: 에디터가 뒤에 있으면 Play 프레임 · 컴파일이 멈춘다 → Unity 창을 한 번 클릭하거나 Play 중 `Application.runInBackground = true`. Play 중에 스크립트를 고치면 재컴파일로 상태가 날아가므로 Play를 다시 켠다. 스크린샷은 `Temp/McpShots`에 (Assets에 남기지 않음)
 - 시작 전에 사용자(기획)에게 확인할 것: 다음 마일스톤 순서(M8 밸런스 / M9 반품 / M10 저장)
 
 ### 3. 그 뒤
@@ -27,8 +29,9 @@
 - **M9 반품**: 롤테이너 → 검수 테이블(검수 + 재포장) → 재출고. `CargoState.Return`은 있음, 반품 구역 모듈(`Module_Returns`)은 글자만 있는 빈 칸
 - **M10 2순위**: 저장이 가장 먼저 (긴 테스트용)
 
-### 4. 아직 확정 안 된 것 (GDD 18장 15~18번)
-- 재포장 상자를 어느 트럭에 싣나 · 반품 재출고 수입 금액, 시급 수준(`스탯 총합 × 4`/파트), 할당량 수치, 알바 스탯 생성 → 해당 작업 전에 기획 확인
+### 4. 아직 확정 안 된 것 (GDD 18장 15~17번, 18번은 해결)
+- 재포장 상자를 어느 트럭에 싣나 · 반품 재출고 수입 금액(M9), 시급 수준(`스탯 총합 × 4`/파트, 지금 이 값으로 동작 — 통플레이 때 조정), 할당량 수치(M10) → 해당 작업 전에 기획 확인
+- 알바 말풍선(GDD 11.6) · 알바 외형 랜덤(M10-6, 모델 필요)은 아직 일정 없음
 
 ### 5. 작업 규칙
 - 매 단계: **시작 전에 질문해 확정 → 구현 → Play 테스트 → 문서 반영(GDD · 체크리스트 · TechStack · Wiki) → 커밋**
