@@ -249,10 +249,10 @@ namespace APC.EditorTools
             BuildKit.GaugeRing(pc, pc.transform);
             BuildPiggyBank(content, new Vector3(-2.6f, 0f, 2.6f));
 
-            // 알바가 나타나는 문 앞 (GDD 11.1). 고용 데스크 · 배치 현황판은 M6-5 · M6-6
+            // 고용한 알바가 나타나는 곳: 계약 PC 책상 건너편 = PC 존 바로 앞, PC 쪽을 바라봄 (GDD 11.1. 고용은 PC 팝업 고용 탭)
             var spawn = new GameObject("StaffSpawnPoint");
             spawn.transform.SetParent(content, false);
-            spawn.transform.SetPositionAndRotation(new Vector3(2f, 0f, -2.5f), Quaternion.LookRotation(Vector3.back));
+            spawn.transform.SetPositionAndRotation(new Vector3(2f, 0f, -0.4f), Quaternion.LookRotation(Vector3.forward));
             spawn.AddComponent<StaffSpawnPoint>();
             Label(root, "사무실");
         }

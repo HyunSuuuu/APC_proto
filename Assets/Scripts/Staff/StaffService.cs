@@ -1,14 +1,28 @@
 using System.Collections.Generic;
 using APC.Core;
 using APC.Data;
+using APC.Economy;
+using R3;
 using UnityEngine;
 using UnityEngine.AI;
 
 namespace APC.Staff
 {
+    /// <summary>고용 탭 후보 1명 (GDD 11.1). 고용하면 Hired가 켜지고 다음 교체(파트 · 새로고침)까지 그 자리에 남는다.</summary>
+    public sealed class StaffCandidate
+    {
+        public StaffCandidate(StaffStats stats) => Stats = stats;
+
+        public StaffStats Stats { get; }
+        public bool Hired { get; internal set; }
+    }
+
+    /// <summary>고용할 수 없는 이유.</summary>
+    public enum HireBlock { None, Hired, MaxStaff, Cash }
+
     /// <summary>
-    /// 알바 명단 · 생성 (GDD 11.1, 11.3). 씬에 하나 둔다 (Site/Logistics).
-    /// M6-5 고용 데스크 전까지는 디버그 메뉴가 Spawn을 부른다 (고용금 · 최대 인원 없음).
+    /// 알바 명단 · 후보 · 고용 (GDD 11.1, 11.3). 씬에 하나 둔다 (Site/Logistics).
+    /// 후보는 파트가 바뀔 때마다, 그리고 고용 탭 [새로고침]으로 다시 뽑는다. 고용금은 보유 재화에서만 낸다.
     /// </summary>
     public sealed class StaffService : MonoBehaviour
     {
@@ -19,9 +33,18 @@ namespace APC.Staff
         [SerializeField] StaffWorker workerPrefab;
 
         readonly List<StaffWorker> workers = new(); // 고용 순서
+        readonly List<StaffCandidate> candidates = new();
+        readonly Subject<Unit> candidatesChanged = new();
 
         /// <summary>고용 순서대로 (시급 지급 순서, GDD 11.7).</summary>
         public IReadOnlyList<StaffWorker> Workers => workers;
+
+        public IReadOnlyList<StaffCandidate> Candidates => candidates;
+
+        /// <summary>후보가 새로 뽑히거나 누군가 고용됐다 (고용 탭이 다시 그린다).</summary>
+        public Observable<Unit> OnCandidatesChanged => candidatesChanged;
+
+        public int MaxStaff => GameManager.Instance.Level.MaxStaff;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() => Instance = null;
@@ -37,9 +60,54 @@ namespace APC.Staff
             Instance = this;
         }
 
+        void Start()
+        {
+            // 파트가 바뀔 때마다 후보 교체 (구독하는 순간 한 번 = 처음 후보)
+            if (PartService.Instance != null) PartService.Instance.Part.Subscribe(_ => RefreshCandidates()).AddTo(this);
+            else RefreshCandidates();
+        }
+
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
+            candidatesChanged.Dispose();
+        }
+
+        /// <summary>후보를 모두 새로 뽑는다 (파트 교체 · 고용 탭 [새로고침], 무료).</summary>
+        public void RefreshCandidates()
+        {
+            var rules = GameManager.Instance.Database.Staff;
+            candidates.Clear();
+            for (var i = 0; i < rules.CandidateCount; i++) candidates.Add(new StaffCandidate(rules.RollStats()));
+            candidatesChanged.OnNext(Unit.Default);
+        }
+
+        public int GetHireCost(StaffCandidate candidate) => GameManager.Instance.Database.Staff.GetHireCost(candidate.Stats.Total);
+
+        public HireBlock GetBlock(StaffCandidate candidate)
+        {
+            if (candidate.Hired) return HireBlock.Hired;
+            if (workers.Count >= MaxStaff) return HireBlock.MaxStaff;
+            return GameManager.Instance.Wallet.Cash.CurrentValue < GetHireCost(candidate) ? HireBlock.Cash : HireBlock.None;
+        }
+
+        /// <summary>
+        /// 후보를 고용한다: 고용금(보유 재화) → 빈 역할로 사무실 생성 지점에 생성 → XP. 실패하면 이유를 돌려준다.
+        /// </summary>
+        public bool TryHire(StaffCandidate candidate, out HireBlock block)
+        {
+            block = GetBlock(candidate);
+            if (block != HireBlock.None) return false;
+
+            var gm = GameManager.Instance;
+            var worker = Spawn(NextEmptyRole(), candidate.Stats);
+            if (worker == null) return false;
+
+            gm.Wallet.TrySpend(GetHireCost(candidate));
+            candidate.Hired = true;
+            gm.Level.AddXp(gm.Database.Economy.XpPurchase); // 시설 구매 · 알바 고용 +5 (GDD 10.1)
+            candidatesChanged.OnNext(Unit.Default);
+            return true;
         }
 
         /// <summary>빈 역할 (하차 → 분류 → 피킹 순, GDD 11.1). 모두 차 있으면 인원이 가장 적은 역할.</summary>
@@ -67,8 +135,11 @@ namespace APC.Staff
             return n;
         }
 
-        /// <summary>사무실 문 앞에 알바 1명을 만든다 (스탯은 무작위). 네비메시가 없으면 null.</summary>
-        public StaffWorker Spawn(StaffRole role)
+        /// <summary>디버그용: 무작위 스탯으로 바로 만든다 (고용금 · 최대 인원 없음).</summary>
+        public StaffWorker Spawn(StaffRole role) => Spawn(role, GameManager.Instance.Database.Staff.RollStats());
+
+        /// <summary>사무실 생성 지점(PC 책상 건너편)에 알바 1명을 만든다. 네비메시가 없으면 null.</summary>
+        public StaffWorker Spawn(StaffRole role, StaffStats stats)
         {
             var spawn = StaffSpawnPoint.Current;
             var position = spawn != null ? spawn.transform.position : transform.position;
@@ -80,7 +151,7 @@ namespace APC.Staff
 
             var worker = Instantiate(workerPrefab, hit.position, spawn != null ? spawn.transform.rotation : Quaternion.identity, transform);
             worker.name = $"Staff_{workers.Count + 1}_{role}";
-            worker.Setup(role, GameManager.Instance.Database.Staff.RollStats());
+            worker.Setup(role, stats);
             workers.Add(worker);
             FacilityPop.Play(worker.transform);
             return worker;

@@ -516,11 +516,13 @@ namespace APC.EditorTools
             var dim = UIImage("Dim", body, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, new Color(0f, 0f, 0f, 0.55f), null);
             dim.raycastTarget = true;
 
-            var panel = UIImage("Panel", body, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1040f, 640f),
+            // 계약 PC 팝업: 계약 | 고용 탭 (GDD 11.1)
+            var panel = UIImage("Panel", body, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1500f, 900f),
                 new Color(0.97f, 0.96f, 0.93f), BuiltinSprite("UI/Skin/UISprite.psd"));
             panel.type = Image.Type.Sliced;
             var panelRect = panel.rectTransform;
-            UIText("Title", panelRect, new Vector2(0.5f, 1f), new Vector2(0f, -70f), new Vector2(600f, 90f), "계약", 60f, TitleFont, new Color(0.25f, 0.22f, 0.2f));
+            var contractTab = TabButton("ContractTab", panelRect, new Vector2(150f, -60f), "계약");
+            var hireTab = TabButton("HireTab", panelRect, new Vector2(390f, -60f), "고용");
 
             var close = UIImage("Close", panelRect, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-60f, -60f), new Vector2(90f, 90f),
                 new Color(0.85f, 0.4f, 0.35f), BuiltinSprite("UI/Skin/UISprite.psd"));
@@ -529,7 +531,8 @@ namespace APC.EditorTools
             var closeButton = close.gameObject.AddComponent<Button>();
             UIText("X", close.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(90f, 90f), "X", 48f, TitleFont, Color.white);
 
-            var cards = UIRect("Cards", panelRect, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -50f), new Vector2(960f, 440f));
+            var contractPage = UIRect("ContractPage", panelRect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var cards = UIRect("Cards", contractPage, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -50f), new Vector2(960f, 440f));
             var layout = cards.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.spacing = 40f;
             layout.childAlignment = TextAnchor.MiddleCenter;
@@ -553,22 +556,17 @@ namespace APC.EditorTools
             iconLayout.childForceExpandHeight = false;
             var icon = UIImage("IconTemplate", iconRow, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(64f, 64f),
                 Color.white, BuiltinSprite("UI/Skin/UISprite.psd"));
-            var infoLabel = UIText("Info", card, new Vector2(0.5f, 1f), new Vector2(0f, -240f), new Vector2(380f, 60f), "입고 트럭 8개", 34f, BodyFont, new Color(0.35f, 0.33f, 0.3f));
-            var buttonImage = UIImage("Button", card, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 75f), new Vector2(300f, 96f),
-                new Color(0.3f, 0.75f, 0.4f), BuiltinSprite("UI/Skin/UISprite.psd"));
-            buttonImage.type = Image.Type.Sliced;
-            buttonImage.raycastTarget = true;
-            var button = buttonImage.gameObject.AddComponent<Button>();
-            var buttonLabel = UIText("Label", buttonImage.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(300f, 96f), "계약", 40f, TitleFont, Color.white);
+            var infoLabel = UIText("Info", card, new Vector2(0.5f, 1f), new Vector2(0f, -255f), new Vector2(380f, 100f), "입고 트럭 : 8\n단가 : 10", 34f, BodyFont, new Color(0.35f, 0.33f, 0.3f));
+            var blockLabel = UIText("Block", card, new Vector2(0.5f, 1f), new Vector2(0f, -335f), new Vector2(380f, 50f), "Lv.7 해금", 34f, BodyFont, new Color(0.75f, 0.25f, 0.2f));
+            cardImage.raycastTarget = true; // 도장을 놓을 곳 (계약은 버튼 대신 도장, GDD 6.3)
 
             var contractCard = card.gameObject.AddComponent<ContractCard>();
             SetRef(contractCard, "nameLabel", nameLabel);
             SetRef(contractCard, "infoLabel", infoLabel);
+            SetRef(contractCard, "blockLabel", blockLabel);
             SetRef(contractCard, "iconRow", iconRow);
             SetRef(contractCard, "iconTemplate", icon);
-            SetRef(contractCard, "button", button);
-            SetRef(contractCard, "buttonImage", buttonImage);
-            SetRef(contractCard, "buttonLabel", buttonLabel);
+            StampOverlay(contractCard, card, "[ 계약 ]", new Vector2(0f, 35f));
 
             var popup = root.gameObject.AddComponent<ContractPopup>();
             SetRef(popup, "body", body.gameObject);
@@ -577,7 +575,131 @@ namespace APC.EditorTools
             SetRef(popup, "closeButton", closeButton);
             SetRef(popup, "cardContainer", cards);
             SetRef(popup, "cardTemplate", contractCard);
+            SetRef(popup, "contractTab", contractTab);
+            SetRef(popup, "hireTab", hireTab);
+            SetRef(popup, "contractPage", contractPage.gameObject);
+            SetRef(popup, "hirePage", BuildHirePage(panelRect).gameObject);
+            BuildStamp(panelRect); // 두 탭이 같이 쓰는 도장 (카드보다 위에 그려지게 마지막에)
             root.SetAsLastSibling();
+        }
+
+        /// <summary>도장 카드(StampCard) 공통: 회색 필터 + 붉은 도장 자국(25° 기울임) + 사유 글자. 모두 꺼진 채로 만든다.</summary>
+        static void StampOverlay(StampCard target, RectTransform card, string markText, Vector2 reasonPosition)
+        {
+            var filter = UIImage("StampFilter", card, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, new Color(0.35f, 0.35f, 0.35f, 0.65f), BuiltinSprite("UI/Skin/UISprite.psd"));
+            filter.type = Image.Type.Sliced;
+            filter.gameObject.SetActive(false);
+            var mark = UIText("StampMark", card, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(440f, 160f), markText, 96f, TitleFont, new Color(0.85f, 0.15f, 0.15f));
+            mark.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 25f);
+            mark.gameObject.SetActive(false);
+            var reason = UIText("Reason", card, new Vector2(0.5f, 0f), reasonPosition, new Vector2(360f, 44f), "", 30f, TitleFont, new Color(0.85f, 0.15f, 0.15f));
+            reason.gameObject.SetActive(false);
+            SetRef(target, "stampFilter", filter);
+            SetRef(target, "stampMark", mark.rectTransform);
+            SetRef(target, "reasonLabel", reason);
+        }
+
+        /// <summary>
+        /// 계약 PC 팝업 오른쪽 아래 도장: 평소 앞모습(Art/Temp/Stamp_Front), 들면 윗모습(Stamp_Top).
+        /// 끌어서 계약 · 후보 카드에 놓으면 찍는다.
+        /// </summary>
+        static void BuildStamp(RectTransform panelRect)
+        {
+            var front = LoadSprite("Assets/Art/Temp/Stamp_Front.png");
+            var top = LoadSprite("Assets/Art/Temp/Stamp_Top.png");
+            var image = UIImage("Stamp", panelRect, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-150f, 160f), new Vector2(230f, 230f), Color.white, front);
+            image.preserveAspect = true;
+            image.raycastTarget = true;
+            image.gameObject.AddComponent<CanvasGroup>();
+            UIText("Hint", panelRect, new Vector2(1f, 0f), new Vector2(-150f, 30f), new Vector2(320f, 44f), "끌어서 카드에 찍기", 28f, BodyFont, new Color(0.35f, 0.33f, 0.3f));
+            var stamp = image.gameObject.AddComponent<Stamp>();
+            SetRef(stamp, "image", image);
+            SetRef(stamp, "frontSprite", front);
+            SetRef(stamp, "topSprite", top);
+        }
+
+        /// <summary>스프라이트 모드가 Single이든 Multiple이든 그 텍스처의 첫 스프라이트.</summary>
+        static Sprite LoadSprite(string path)
+        {
+            foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(path))
+            {
+                if (asset is Sprite sprite) return sprite;
+            }
+            Debug.LogWarning($"[SiteBuilder] 스프라이트가 없습니다: {path}");
+            return null;
+        }
+
+        static Button TabButton(string name, RectTransform parent, Vector2 position, string text)
+        {
+            var image = UIImage(name, parent, new Vector2(0f, 1f), new Vector2(0f, 1f), position, new Vector2(220f, 84f),
+                new Color(0.75f, 0.72f, 0.68f), BuiltinSprite("UI/Skin/UISprite.psd"));
+            image.type = Image.Type.Sliced;
+            image.raycastTarget = true;
+            var button = image.gameObject.AddComponent<Button>();
+            UIText("Label", image.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(220f, 84f), text, 42f, TitleFont, Color.white);
+            return button;
+        }
+
+        /// <summary>
+        /// 고용 탭 (GDD 11.1): 위 왼쪽 알바 수 · 보유 재화, 위 오른쪽 다음 교체 시간 + [새로고침], 후보 카드 3장,
+        /// 도장은 팝업에 하나 (BuildStamp, 계약 탭과 같이 씀).
+        /// </summary>
+        static HirePanel BuildHirePage(RectTransform panelRect)
+        {
+            var dark = new Color(0.25f, 0.22f, 0.2f);
+            var soft = new Color(0.35f, 0.33f, 0.3f);
+            var sprite = BuiltinSprite("UI/Skin/UISprite.psd");
+
+            var page = UIRect("HirePage", panelRect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var header = UIText("Header", page, new Vector2(0f, 1f), new Vector2(380f, -150f), new Vector2(700f, 60f), "알바 0/1", 36f, BodyFont, dark);
+            header.alignment = TMPro.TextAlignmentOptions.Left;
+            var timer = UIText("Timer", page, new Vector2(1f, 1f), new Vector2(-290f, -60f), new Vector2(320f, 60f), "다음 교체 00:00", 34f, BodyFont, dark);
+            var refreshImage = UIImage("Refresh", page, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-290f, -140f), new Vector2(260f, 74f),
+                new Color(0.35f, 0.6f, 0.85f), sprite);
+            refreshImage.type = Image.Type.Sliced;
+            refreshImage.raycastTarget = true;
+            var refresh = refreshImage.gameObject.AddComponent<Button>();
+            UIText("Label", refreshImage.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(260f, 74f), "새로고침", 36f, TitleFont, Color.white);
+
+            var cardRow = UIRect("Candidates", page, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-110f, -80f), new Vector2(1240f, 520f));
+            var layout = cardRow.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 40f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+
+            var cards = new List<Object>();
+            for (var i = 0; i < 3; i++)
+            {
+                var cardImage = UIImage($"Candidate{i + 1}", cardRow, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(380f, 500f), Color.white, sprite);
+                cardImage.type = Image.Type.Sliced;
+                cardImage.raycastTarget = true; // 도장을 놓을 곳
+                var card = cardImage.rectTransform;
+                var title = UIText("Title", card, new Vector2(0.5f, 1f), new Vector2(0f, -55f), new Vector2(340f, 64f), $"후보 {i + 1}", 44f, TitleFont, dark);
+                var speed = UIText("Speed", card, new Vector2(0.5f, 1f), new Vector2(0f, -145f), new Vector2(340f, 56f), "이동 속도", 34f, BodyFont, soft);
+                var carry = UIText("Carry", card, new Vector2(0.5f, 1f), new Vector2(0f, -205f), new Vector2(340f, 56f), "적재량", 34f, BodyFont, soft);
+                var cost = UIText("Cost", card, new Vector2(0.5f, 1f), new Vector2(0f, -305f), new Vector2(340f, 64f), "고용금", 42f, TitleFont, dark);
+                var wage = UIText("Wage", card, new Vector2(0.5f, 1f), new Vector2(0f, -370f), new Vector2(340f, 56f), "시급", 32f, BodyFont, soft);
+                var hireCard = card.gameObject.AddComponent<HireCard>();
+                SetRef(hireCard, "titleLabel", title);
+                SetRef(hireCard, "speedLabel", speed);
+                SetRef(hireCard, "carryLabel", carry);
+                SetRef(hireCard, "costLabel", cost);
+                SetRef(hireCard, "wageLabel", wage);
+                StampOverlay(hireCard, card, "[ 고용 ]", new Vector2(0f, 55f));
+                cards.Add(hireCard);
+            }
+
+            var hire = page.gameObject.AddComponent<HirePanel>();
+            SetList(hire, "cards", cards);
+            SetRef(hire, "headerLabel", header);
+            SetRef(hire, "timerLabel", timer);
+            SetRef(hire, "refreshButton", refresh);
+
+            page.gameObject.SetActive(false);
+            return hire;
         }
     }
 }

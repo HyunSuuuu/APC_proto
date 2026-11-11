@@ -418,7 +418,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### GaugeZone (추상)
 [Interaction/GaugeZone.cs](../Scripts/Interaction/GaugeZone.cs)
-- **역할**: 멈춰 있으면 게이지가 차고, 다 차면 `OnCompleted`를 한 번 부르는 존. 계약 PC, 이후 구매 패드 · 고용 데스크가 상속한다.
+- **역할**: 멈춰 있으면 게이지가 차고, 다 차면 `OnCompleted`를 한 번 부르는 존. 계약 PC, 구매 패드가 상속한다.
 - **동작**: `Progress`(0~1, R3). 움직이거나 나가면 멈추고 진행도는 유지된다. 처음부터 다시 하려면 `ResetGauge()`.
 - **덮어쓸 수 있는 것**: `Advance`(진행 계산 — 구매 패드는 넣은 돈만큼 진행), `CanProgress`, `Duration`(코드에서 config 값으로 설정).
 - **주의**: 다 찬 뒤에는 `ResetGauge` 전까지 다시 완료되지 않는다. `ContractPC`는 `OnExit`에서 되돌려, 존을 나갔다 들어오면 다시 열린다.
@@ -565,14 +565,18 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### StaffService
 [Staff/StaffService.cs](../Scripts/Staff/StaffService.cs)
-- **역할**: 알바 명단과 생성. 씬 `Site/Logistics`에 하나 (`Instance`).
-- **동작**: `Spawn(role)` = 사무실 문 앞(`StaffSpawnPoint`)에 `StaffWorker` 프리팹을 만들고 팝 연출, 스탯은 `StaffRules.RollStats()`. `Workers`는 고용 순서대로 (시급 지급 순서, GDD 11.7). `NextEmptyRole()` = 빈 역할 (하차 → 분류 → 피킹 순, 다 차면 인원이 가장 적은 역할). `CountRole(role)`.
-- **연결**: `StaffSpawnPoint.Current`, `StaffRules`. 호출자는 디버그 메뉴 `Staff` 절 (M6-5 고용 데스크 전까지).
-- **주의**: 고용금 · 최대 인원 검사가 없다 (M6-5에서 추가). 네비메시가 없으면 `Spawn`은 null.
+- **역할**: 알바 명단 · 고용 후보 · 고용 (GDD 11.1). 씬 `Site/Logistics`에 하나 (`Instance`).
+- **동작**:
+  - 후보: `Candidates`(`StaffCandidate` = 스탯 + `Hired`, `StaffRules.candidateCount` 3명). `PartService.Part`를 구독해 **파트가 바뀔 때마다**(구독 순간 = 처음 후보 포함) `RefreshCandidates()`, 고용 탭 [새로고침]도 같은 함수. 바뀌면 `OnCandidatesChanged`.
+  - 고용: `GetBlock(candidate)` = `Hired` / `MaxStaff`(`Workers.Count >= LevelProgress.MaxStaff`) / `Cash`(보유 재화 < 고용금) / `None`. `TryHire(candidate, out block)` = 막히지 않으면 빈 역할로 생성 → `Wallet.TrySpend(고용금)` → `Hired = true` → XP `xpPurchase`(+5) → `OnCandidatesChanged`.
+  - 생성: `Spawn(role, stats)` = 사무실 생성 지점(`StaffSpawnPoint`, PC 존 바로 앞)에 `StaffWorker` 프리팹 + 팝 연출. `Spawn(role)`은 무작위 스탯(디버그 메뉴용, 고용금 · 최대 인원 없음).
+  - `Workers`는 고용 순서대로 (시급 지급 순서, GDD 11.7). `NextEmptyRole()` = 빈 역할 (하차 → 분류 → 피킹 순, 다 차면 인원이 가장 적은 역할). `CountRole(role)`.
+- **연결**: `StaffSpawnPoint.Current`, `StaffRules`, `PartService`(후보 교체), `HirePanel`(고용 탭), 디버그 메뉴 `Staff` 절.
+- **주의**: 네비메시가 없으면 `Spawn`은 null이고 고용도 실패한다 (돈은 나가지 않음).
 
 #### StaffSpawnPoint
 [Staff/StaffSpawnPoint.cs](../Scripts/Staff/StaffSpawnPoint.cs)
-- **역할**: 사무실 모듈 안의 알바 생성 위치 (문 앞).
+- **역할**: 사무실 모듈 안의 알바 생성 위치 — 계약 PC 책상 건너편 (PC 존 바로 앞, PC 쪽을 바라봄).
 - **동작**: 켜질 때 static `Current`에 스스로 등록한다. `StaffService.Spawn`이 쓴다.
 - **연결**: `StandardModules`가 사무실 모듈 프리팹에 붙인다.
 
@@ -712,14 +716,37 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### ContractPopup
 [UI/ContractPopup.cs](../Scripts/UI/ContractPopup.cs)
-- **역할**: 계약 팝업. 열려 있는 동안 게임이 멈춘다. 계약하면 바로 닫혀서 선반이 생기는 모습을 보여 준다.
-- **동작**: `Open` → 회사마다 카드를 채우고(`Refresh`) → `GameManager.OpenPopup`. `Close` → 닫힘 연출이 끝나면 `ClosePopup`. 트윈은 `SetUpdate(true)`.
+- **역할**: 계약 PC 팝업 — `계약 | 고용` 탭 (GDD 11.1, 12.3). 열려 있는 동안 게임이 멈춘다. 계약하면 바로 닫혀서 선반이 생기는 모습을 보여 주고, 고용 탭(`HirePanel`)은 고용해도 열린 채다.
+- **동작**: `Open` → `GameManager.OpenPopup` → 탭 선택(계약이 없으면 계약 탭, 있으면 고용 탭). `SelectTab`이 `contractPage` / `hirePage`를 켜고 끄고 탭 버튼 색을 바꾼다. 계약 탭은 회사마다 카드를 채운다(`Refresh`). `Close` → 닫힘 연출이 끝나면 `ClosePopup`. 트윈은 `SetUpdate(true)`.
 - **주의**: 루트 오브젝트는 항상 켜 두고 자식 `body`만 켜고 끈다 (꺼져 있으면 `Instance`가 등록되지 않음). Build Site가 UI를 통째로 다시 만든다.
 
 #### ContractCard
 [UI/ContractCard.cs](../Scripts/UI/ContractCard.cs)
-- **역할**: 회사 카드 1장. 이름, 품목 색 아이콘, 입고 물량, 버튼(계약 / 계약 완료 / Lv.N 해금 / 선반 구역 B 필요 / 선반 자리 부족). 긴 문구는 글자 크기를 자동으로 줄인다.
+- **역할**: 계약 탭의 회사 카드 1장 (`StampCard`). 이름, 품목 색 아이콘, `입고 트럭 : N` / `단가 : N` 두 줄 + 그 아래 따로 둔 붉은 사유 글자 `blockLabel`(Lv.N 해금 / 선반 구역 B 필요 / 선반 자리 부족, 계약할 수 없을 때만 켜짐). 상태 띠는 없앰. **버튼은 없고 도장으로 계약**한다.
+- **동작**: `Bind(company, block, areaName, tryContract)`. `TryStamp()` = 막혀 있으면 흔들림 + 사유(이미 계약함 / 띠 문구), 아니면 `tryContract()`(→ `ContractPopup.Contract`) 성공 시 `[ 계약 ]` 자국 + 띠 `계약 완료`. 계약한 회사는 다시 열어도 자국 · 필터가 찍힌 채 보인다.
 
+#### StampCard (추상)
+[UI/StampCard.cs](../Scripts/UI/StampCard.cs)
+- **역할**: 도장을 찍을 수 있는 카드의 바탕 (`ContractCard` · `HireCard`). 회색 필터 + 붉은 도장 자국(25° 기울임) + 사유 글자.
+- **동작**: 하위 클래스가 `TryStamp()`(찍혔으면 true)를 구현한다. `SetStamped(bool)`(연출 없이), `PlayStamped()`(자국이 1.8배에서 쾅 내려앉고 필터가 서서히), `Flash(사유)`(좌우 흔들림 + 사유 1.2초). 연출은 모두 `SetUpdate(true)`.
+- **주의**: 사유 글자 · 필터 · 자국은 Build Site(`StampOverlay`)가 **꺼진 채** 만든다. `Awake`에서 끄면 부모 `OnEnable`의 `Bind` 뒤에 다시 꺼지므로 그렇게 하지 않는다. 카드 바탕 Image의 `raycastTarget`은 켜 둔다 (도장이 놓일 곳).
+
+#### HirePanel
+[UI/HirePanel.cs](../Scripts/UI/HirePanel.cs)
+- **역할**: 계약 PC 팝업의 고용 탭 (GDD 11.1). 위 왼쪽 `알바 n/최대 · 보유 재화`, 위 오른쪽 `다음 교체 mm:ss`(= 파트 남은 시간, 계약 전엔 안내 글자) + [새로고침](무료), 후보 카드 3장, 도장은 팝업에 하나(`Stamp`, 계약 탭과 같이 씀).
+- **동작**: `StaffService.OnCandidatesChanged` · `Wallet.Cash`를 구독해 카드를 다시 그린다. `TryHire(card)`(`HireCard.TryStamp`가 부름) → `StaffService.TryHire` → 성공이면 `card.ShowHired()` 후 true, 실패면 `card.ShowBlocked(block)` 후 false.
+- **연결**: `HireCard` × 3, `StaffService`, `PartService`.
+
+#### HireCard
+[UI/HireCard.cs](../Scripts/UI/HireCard.cs)
+- **역할**: 후보 카드 1장 (`StampCard`): 이동 속도 · 적재량(파생값 m/s · 개수) · 고용금(모자라면 빨강) · 시급. 고용되면 `[ 고용 ]` 자국 + 회색 필터.
+- **동작**: `Bind(번호, 후보, rules, canAfford)` — 같은 후보가 방금 고용됐으면 찍는 연출을 끊지 않는다. `TryStamp()` → 부모 `HirePanel.TryHire(this)`. 사유: 이미 고용함 / 최대 인원 / 보유 재화 부족.
+
+#### Stamp
+[UI/Stamp.cs](../Scripts/UI/Stamp.cs)
+- **역할**: 계약 PC 팝업 오른쪽 아래 도장 (계약 · 고용 탭 공용). 평소엔 앞모습(`Art/Temp/Stamp_Front`), 들면 윗모습(`Stamp_Top`). 끌어서 `StampCard`에 놓으면 그 카드의 `TryStamp()`.
+- **동작**: 드래그 중엔 `CanvasGroup.blocksRaycasts = false`로 아래 카드가 잡히게 하고, 놓으면 `EventSystem.RaycastAll`로 `StampCard`를 찾는다. 찍혔으면 꾹 누르듯 `pressScale`(1.25)배로 커졌다 돌아온 뒤 제자리로, 못 찍었으면 바로 제자리로 (앞모습으로 바뀜). `SetUpdate(true)`.
+- **주의**: Screen Space Overlay 캔버스 기준 (월드 좌표 = 화면 좌표). 스프라이트는 Multiple 모드여도 Build Site의 `LoadSprite`가 첫 스프라이트를 쓴다. MCP 스크린샷은 찍는 순간 Game 뷰 해상도를 바꾸므로, 자동 테스트에서 드롭 좌표는 같은 호출 안에서 구한다.
 #### CameraModeButton
 [UI/CameraModeButton.cs](../Scripts/UI/CameraModeButton.cs)
 - **역할**: HUD 오른쪽 아래 카메라 버튼. 추적 ↔ 자유 전환, 자유 모드에서는 조이스틱을 끄고 버튼이 **'내 캐릭터로'** 가 된다. 글자는 TMP(`label`).
@@ -748,7 +775,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | 메뉴 | 스크립트 | 하는 일 |
 |---|---|---|
 | `APC > Setup > Run M0 Setup` | [ProjectBootstrap](../Scripts/Editor/ProjectBootstrap.cs) | 폴더, 가로 화면 설정, 데이터 에셋(GDD 수치), Game 씬. **이미 있는 에셋 · 씬은 건드리지 않고** 빈 참조만 채운다 |
-| `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground(네비메시 제외) · NavMeshSurface · Logistics(Warehouse · ContractService · OrderService · StaffService) → 시작 모듈 인스턴스 + SiteUnlocker → HUD(레벨 · 현금 · 레벨업 배너 + 색종이 · 주문서 큐 · 계약 팝업 · 정산 팝업, 자식은 꺼진 채 저장 + `UiBootstrap`) → 플레이어 위치 + CashCollector → 씬 저장 |
+| `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground(네비메시 제외) · NavMeshSurface · Logistics(Warehouse · ContractService · OrderService · StaffService) → 시작 모듈 인스턴스 + SiteUnlocker → HUD(레벨 · 현금 · 레벨업 배너 + 색종이 · 주문서 큐 · 계약 PC 팝업(계약 · 고용 탭) · 정산 팝업, 자식은 꺼진 채 저장 + `UiBootstrap`) → 플레이어 위치 + CashCollector → 씬 저장 |
 | `APC > Setup > Apply M6 Staff (프리팹 덮어쓰기)` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 · 선반 · 알바 프리팹(`StaffWorker.prefab`)을 덮어쓰고 Build Site. config(SiteLayout · 레벨 표)는 건드리지 않는다 |
 | `APC > Module > New Module...` | [ModuleFactory](../Scripts/Editor/ModuleFactory.cs) (`ModuleCreatorWindow`) | 빈 n × m 모듈 틀을 `Assets/Prefabs/Modules/Module_이름.prefab`으로 만든다 |
 | `APC > Module > Rebuild Standard Modules` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 10종(빈 타일 `Module_Empty` 포함)을 코드 기준으로 **덮어써서** 다시 만든다 |
@@ -801,7 +828,7 @@ public sealed class ExampleDropZone : CargoZone
 
 ### 5.2 새 게이지 존 만들기
 
-예: "고용 데스크" (M6)
+예: "배치 현황판" (M6-6)
 
 1. `GaugeZone`을 상속하고 `OnCompleted`를 구현한다.
 2. 게이지 시간은 `Start`에서 config 값으로 `Duration = ...`.

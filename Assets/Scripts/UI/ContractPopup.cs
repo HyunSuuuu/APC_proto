@@ -9,7 +9,10 @@ using UnityEngine.UI;
 namespace APC.UI
 {
     /// <summary>
-    /// 계약 팝업 (GDD 6.3, 12.3). 열려 있는 동안 게임이 멈춘다. 계약하면 바로 닫혀서 선반이 생기는 모습을 보여준다.
+    /// 계약 PC 팝업 (GDD 6.3, 11.1, 12.3): `계약 | 고용` 탭. 열려 있는 동안 게임이 멈춘다.
+    /// 두 탭 모두 오른쪽 아래 도장(Stamp)을 카드에 찍어 실행한다.
+    /// 계약 탭: 계약하면 `[ 계약 ]` 자국을 잠깐 보여 준 뒤 닫혀서 선반이 생기는 모습을 보여준다. 고용 탭(HirePanel): 고용해도 열린 채.
+    /// 열 때 탭: 아직 계약이 없으면 계약, 있으면 고용.
     /// 이 오브젝트는 항상 켜 두고, 자식 body만 켜고 끈다.
     /// </summary>
     public sealed class ContractPopup : MonoBehaviour
@@ -20,6 +23,15 @@ namespace APC.UI
         [SerializeField] Button closeButton;
         [SerializeField] RectTransform cardContainer;
         [SerializeField] ContractCard cardTemplate;
+
+        [Header("탭")]
+        [SerializeField] Button contractTab;
+        [SerializeField] Button hireTab;
+        [SerializeField] GameObject contractPage;
+        [SerializeField] GameObject hirePage;
+        [SerializeField] Color tabOnColor = new(0.95f, 0.6f, 0.25f);
+        [SerializeField] Color tabOffColor = new(0.75f, 0.72f, 0.68f);
+        [SerializeField, Tooltip("계약 도장을 찍은 뒤 닫히기까지 (초, 실시간)")] float contractCloseDelay = 0.6f;
 
         readonly List<ContractCard> cards = new();
         Sequence transition;
@@ -41,6 +53,8 @@ namespace APC.UI
         {
             Instance = this;
             closeButton.onClick.AddListener(Close);
+            contractTab.onClick.AddListener(() => SelectTab(hire: false));
+            hireTab.onClick.AddListener(() => SelectTab(hire: true));
             cardTemplate.gameObject.SetActive(false);
             body.SetActive(false);
         }
@@ -51,6 +65,7 @@ namespace APC.UI
             IsOpen = true;
             Refresh();
             body.SetActive(true);
+            SelectTab(hire: ContractService.Instance != null && ContractService.Instance.HasAnyContract);
             GameManager.Instance.OpenPopup();
 
             transition?.Kill();
@@ -81,6 +96,15 @@ namespace APC.UI
                 });
         }
 
+        void SelectTab(bool hire)
+        {
+            contractPage.SetActive(!hire);
+            hirePage.SetActive(hire);
+            contractTab.image.color = hire ? tabOffColor : tabOnColor;
+            hireTab.image.color = hire ? tabOnColor : tabOffColor;
+            if (!hire) Refresh();
+        }
+
         void Refresh()
         {
             var companies = GameManager.Instance.Database.Companies;
@@ -105,9 +129,12 @@ namespace APC.UI
             }
         }
 
-        void Contract(CompanyDefinition company)
+        /// <summary>계약 카드에 도장이 찍혔다. 성공하면 도장 자국을 잠깐 보여 준 뒤 닫혀서 선반이 생기는 모습을 보여 준다.</summary>
+        bool Contract(CompanyDefinition company)
         {
-            if (ContractService.Instance.TryContract(company)) Close();
+            if (!ContractService.Instance.TryContract(company)) return false;
+            DOVirtual.DelayedCall(contractCloseDelay, Close, ignoreTimeScale: true).SetLink(gameObject);
+            return true;
         }
     }
 }
