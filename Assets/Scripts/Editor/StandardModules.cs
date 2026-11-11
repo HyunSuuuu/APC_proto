@@ -531,7 +531,16 @@ namespace APC.EditorTools
             var stack = root.AddComponent<CarryStack>();
             BuildKit.SetRef(stack, "anchor", anchor);
             BuildKit.SetRef(root.AddComponent<Interactor>(), "stack", stack);
-            BuildKit.SetRef(root.AddComponent<StaffWorker>(), "body", body);
+            // 미지급 표시 (GDD 11.7): 머리 위 빨간 ₩ (외곽선), 꺼진 채 — StaffWorker.SetOwed가 켜고 둥실거림
+            var icon = BuildKit.BillboardLabel(root.transform, "₩", Vector3.zero, 9f);
+            icon.name = "UnpaidIcon";
+            icon.transform.localPosition = new Vector3(0f, 2.3f, 0f);
+            icon.color = new Color(0.9f, 0.12f, 0.12f);
+            icon.gameObject.SetActive(false);
+
+            var worker = root.AddComponent<StaffWorker>();
+            BuildKit.SetRef(worker, "body", body);
+            BuildKit.SetRef(worker, "unpaidIcon", icon.gameObject);
 
             PrefabUtility.SaveAsPrefabAsset(root, path);
             UnityEngine.Object.DestroyImmediate(root);

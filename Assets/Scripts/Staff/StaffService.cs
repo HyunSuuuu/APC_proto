@@ -17,6 +17,24 @@ namespace APC.Staff
         public bool Hired { get; internal set; }
     }
 
+    /// <summary>
+    /// 파트 정산의 시급 계획 (GDD 11.7). 정산 팝업이 열릴 때 만들고([확인] 전엔 바뀌지 않음), [확인] 때 ApplyWages로 적용한다.
+    /// </summary>
+    public sealed class WagePlan
+    {
+        public static readonly WagePlan Empty = new();
+
+        /// <summary>이번 정산에서 실제로 낸 시급 합계 (밀린 시급 포함).</summary>
+        public int Paid { get; internal set; }
+        public List<StaffWorker> PaidWorkers { get; } = new();
+
+        /// <summary>처음 못 받은 알바와 밀린 금액 (= 이번 시급).</summary>
+        public List<(StaffWorker worker, int owed)> Unpaid { get; } = new();
+
+        /// <summary>두 번째로 못 받아 떠나는 알바.</summary>
+        public List<StaffWorker> Quitting { get; } = new();
+    }
+
     /// <summary>고용할 수 없는 이유.</summary>
     public enum HireBlock { None, Hired, MaxStaff, Cash }
 
@@ -159,6 +177,7 @@ namespace APC.Staff
             worker.Number = ++hireCount;
             worker.name = $"Staff_{worker.Number}";
             worker.Setup(role, stats);
+            worker.PartShare = CurrentPartShare();
             workers.Add(worker);
             FacilityPop.Play(worker.transform);
             workersChanged.OnNext(Unit.Default);
@@ -177,6 +196,59 @@ namespace APC.Staff
         public void Fire(StaffWorker worker)
         {
             if (worker != null) worker.Fire(); // Remove가 명단에서 뺀다
+        }
+
+        /// <summary>이번 파트 시급 (고용한 파트는 남은 시간 비율만큼, 올림).</summary>
+        public int GetPartWage(StaffWorker worker)
+            => Mathf.CeilToInt(GameManager.Instance.Database.Staff.GetWage(worker.Stats.Total) * worker.PartShare);
+
+        /// <summary>
+        /// 시급 계획 (GDD 11.7): 쓸 수 있는 돈(정산 금액 + 보유 재화)으로 고용 순서대로 `밀린 시급 + 이번 시급`을 낸다. 부분 지급 없음.
+        /// 못 받은 알바는 밀린 시급이 없으면 미지급, 있으면 퇴사. 상태는 ApplyWages 전엔 바꾸지 않는다.
+        /// </summary>
+        public WagePlan PlanWages(int available)
+        {
+            var plan = new WagePlan();
+            foreach (var worker in workers)
+            {
+                var wage = GetPartWage(worker);
+                var due = worker.Owed + wage;
+                if (due <= available)
+                {
+                    available -= due;
+                    plan.Paid += due;
+                    plan.PaidWorkers.Add(worker);
+                }
+                else if (worker.Owed > 0) plan.Quitting.Add(worker);
+                else plan.Unpaid.Add((worker, wage));
+            }
+            return plan;
+        }
+
+        /// <summary>정산 [확인]: 받은 알바는 밀린 시급을 지우고, 못 받은 알바는 미지급(₩), 두 번째면 퇴사. 남은 알바는 다음 파트 시급 비율 1.</summary>
+        public void ApplyWages(WagePlan plan)
+        {
+            foreach (var worker in plan.PaidWorkers)
+            {
+                if (worker != null) worker.SetOwed(0);
+            }
+            foreach (var (worker, owed) in plan.Unpaid)
+            {
+                if (worker != null) worker.SetOwed(owed);
+            }
+            foreach (var worker in plan.Quitting)
+            {
+                if (worker != null) worker.Quit();
+            }
+            foreach (var worker in workers) worker.PartShare = 1f;
+            workersChanged.OnNext(Unit.Default);
+        }
+
+        static float CurrentPartShare()
+        {
+            var parts = PartService.Instance;
+            if (parts == null || !parts.IsRunning || parts.CurrentPartLength <= 0f) return 1f;
+            return Mathf.Clamp01(parts.Remaining.CurrentValue / parts.CurrentPartLength);
         }
 
         internal void Remove(StaffWorker worker)

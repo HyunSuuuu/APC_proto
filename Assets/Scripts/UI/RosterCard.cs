@@ -36,7 +36,7 @@ namespace APC.UI
         {
             Worker = worker;
             colorBar.color = rules.GetRoleColor(worker.Role);
-            nameLabel.text = worker.DisplayName;
+            nameLabel.text = worker.Owed > 0 ? $"{worker.DisplayName}  <color=#D9262B>₩{worker.Owed:N0} 밀림</color>" : worker.DisplayName;
             var stats = worker.Stats;
             statsLabel.text = $"이동 {stats.moveSpeed} · 적재 {stats.carry} · 시급 {rules.GetWage(stats.Total):N0}";
         }

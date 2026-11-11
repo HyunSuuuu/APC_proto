@@ -562,7 +562,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
   - 할 일이 없으면 역할 존의 빈 슬롯에서 `Parked`로 기다린다. 빈 슬롯이 없으면 그 자리에서 `Waiting`.
   - 도착 후 3초 + 대기 시간 동안 존이 잡히지 않으면 경고 로그 `작업 지점 … 밖에 있습니다`.
   - 해고(`Fire`): 바로 `StaffService` 명단에서 빠진다. 배달하러 가는 중 · 내려놓는 중이면 끝내고, 아니면 일을 멈춘다. 손에 화물이 있으면 배달부터 하고, 빈손이 되면 `Leave()` — 생성 지점으로 걸어가 도착하면 `Destroy`.
-  - 프리팹에 충돌체가 없고 회피를 끈다 (`StaffWorkerPrefab`). 플레이어 · 알바와 겹쳐 지나간다.
+  - 시급(GDD 11.7): `Owed`(밀린 시급) · `PartShare`(이번 파트 비율, 고용 파트는 남은 시간 비율). `SetOwed`가 머리 위 `unpaidIcon`(빨간 ₩)을 켜고 둥실거리게 한다. `Quit()` = `Fire()` + 몸통 빨간 깜빡임 · 두 번 점프(0.9초, 그동안 `agent.isStopped`).
+  - 프리팹에 충돌체가 없고 회피를 끈다 (`StaffWorkerPrefab`, 머리 위 `UnpaidIcon` 꺼진 채). 플레이어 · 알바와 겹쳐 지나간다.
 
 #### StaffService
 [Staff/StaffService.cs](../Scripts/Staff/StaffService.cs)
@@ -572,6 +573,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
   - 고용: `GetBlock(candidate)` = `Hired` / `MaxStaff`(`Workers.Count >= LevelProgress.MaxStaff`) / `Cash`(보유 재화 < 고용금) / `None`. `TryHire(candidate, out block)` = 막히지 않으면 빈 역할로 생성 → `Wallet.TrySpend(고용금)` → `Hired = true` → XP `xpPurchase`(+5) → `OnCandidatesChanged`.
   - 생성: `Spawn(role, stats)` = 사무실 생성 지점(`StaffSpawnPoint`, PC 존 바로 앞)에 `StaffWorker` 프리팹 + 팝 연출. `Spawn(role)`은 무작위 스탯(디버그 메뉴용, 고용금 · 최대 인원 없음).
   - 명단 변경: `SetRole(worker, role)` · `Fire(worker)`(고용금 환불 없음), 고용 · 해고 · 역할 변경마다 `OnWorkersChanged`. 알바 번호(`Number`)는 해고해도 다시 쓰지 않는다.
+  - 시급: `GetPartWage(worker)` = `올림(시급 × PartShare)`. `PlanWages(쓸 수 있는 돈)` → `WagePlan`(`Paid` · `PaidWorkers` · `Unpaid`(알바, 밀린 금액) · `Quitting`) — 고용 순서대로 `Owed + 이번 시급`을 전액 지급, 못 받으면 `Owed`가 없으면 미지급 · 있으면 퇴사. `ApplyWages(plan)` = `SetOwed` · `Quit` 적용, 남은 알바 `PartShare = 1`, `OnWorkersChanged`.
   - `Workers`는 고용 순서대로 (시급 지급 순서, GDD 11.7). `NextEmptyRole()` = 빈 역할 (하차 → 분류 → 피킹 순, 다 차면 인원이 가장 적은 역할). `CountRole(role)`.
 - **연결**: `StaffSpawnPoint.Current`, `StaffRules`, `PartService`(후보 교체), `HirePanel`(고용 탭), `RosterPanel`(배치 탭), 디버그 메뉴 `Staff` 절.
 - **주의**: 네비메시가 없으면 `Spawn`은 null이고 고용도 실패한다 (돈은 나가지 않음).
@@ -626,9 +628,9 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### PartService
 [Economy/PartService.cs](../Scripts/Economy/PartService.cs)
 - **역할**: 시간 흐름(파트) · 파트 종료 정산 (GDD 9.5, 11.7). 씬에 하나 (`Site/Logistics`).
-- **동작**: 첫 계약 순간 1파트 시작(첫 파트 90초, 이후 180초). `Time.deltaTime`으로 흐르므로 팝업 · 일시정지 중엔 멈춘다. 0초가 되면(또는 `EndPart()`) 정산 내역 `SettlementResult`(출고 수입 = 저금통, 반품 · 보너스 · 시급은 아직 0)를 `OnSettlementReady`로 보냄 → 팝업 [확인] 시 `Confirm()` → `Wallet.SettlePiggy` → 다음 파트.
-- **연결**: `Part` · `Remaining`(R3, HUD 시계), `LastSettlement` · `PiggyFullAmount`(저금통 가득 기준), `DeparturesThisPart`(할당량 M10, `OrderService.OnRemoved`로 셈).
-- **주의**: 정산 대기 중(`IsRunning = false`)에는 시간이 흐르지 않는다. 시급(M6) · 보너스(M10) · 반품 재출고 수입(M9)은 `EndPart`에서 채운다.
+- **동작**: 첫 계약 순간 1파트 시작(첫 파트 90초, 이후 180초). `Time.deltaTime`으로 흐르므로 팝업 · 일시정지 중엔 멈춘다. 0초가 되면(또는 `EndPart()`) 정산 내역 `SettlementResult`(출고 수입 = 저금통, 반품 · 보너스는 아직 0, 시급 = `StaffService.PlanWages(저금통 + 보유 재화)`의 `WagePlan.Paid`)를 `OnSettlementReady`로 보냄 → 팝업 [확인] 시 `Confirm()` → `StaffService.ApplyWages` → `Wallet.SettlePiggy(−시급)` → 다음 파트.
+- **연결**: `Part` · `Remaining`(R3, HUD 시계), `LastSettlement` · `PiggyFullAmount`(저금통 가득 기준), `DeparturesThisPart`(할당량 M10, `OrderService.OnRemoved`로 셈), `CurrentPartLength`(고용한 파트의 시급 비율).
+- **주의**: 정산 대기 중(`IsRunning = false`)에는 시간이 흐르지 않는다. 시급 계획은 팝업이 열릴 때 만들고 [확인] 때 적용한다 (그사이 게임이 멈춰 있어 바뀌지 않음). 보너스(M10) · 반품 재출고 수입(M9)은 `EndPart`에서 채운다.
 
 #### PiggyBankView
 [Economy/PiggyBankView.cs](../Scripts/Economy/PiggyBankView.cs)
@@ -702,7 +704,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### SettlementPopup
 [UI/SettlementPopup.cs](../Scripts/UI/SettlementPopup.cs)
-- **역할**: 파트 종료 정산 팝업 (게임 멈춤). 출고 수입 · 반품 재출고 수입 · 할당량 보너스 · 알바 시급 · 합계가 줄마다 차례로 올라가고(`SetUpdate(true)`), 다 오르면 [확인]이 켜진다. [확인] → 닫고 `ClosePopup` → `PartService.Confirm()`.
+- **역할**: 파트 종료 정산 팝업 (게임 멈춤). 출고 수입 · 반품 재출고 수입 · 할당량 보너스 · 알바 시급 · 합계가 줄마다 차례로 올라가고(`SetUpdate(true)`), 다 오르면 [확인]이 켜진다. [확인] → 닫고 `ClosePopup` → `PartService.Confirm()`. 아래 `staffLabel`에 미지급 · 퇴사 알바 명단 + 경고(`WagePlan`), 합계가 음수면 `negativeColor`.
 - **주의**: 루트는 항상 켜 두고 `body`만 켜고 끈다 (계약 팝업과 같은 구조).
 
 #### OrderQueueView
@@ -759,7 +761,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### RosterCard
 [UI/RosterCard.cs](../Scripts/UI/RosterCard.cs)
-- **역할**: 배치 탭 알바 카드 1장: 역할 색 막대 · `알바 N` · `이동 · 적재 · 시급`.
+- **역할**: 배치 탭 알바 카드 1장: 역할 색 막대 · `알바 N`(미지급이면 붉은 `₩N 밀림`) · `이동 · 적재 · 시급`.
 - **동작**: 드래그를 시작하면 `dragLayer`로 옮기고 `blocksRaycasts = false`, 놓으면 `EventSystem.RaycastAll`로 `RosterColumn`을 찾아 `RosterPanel.Drop`. Screen Space Overlay 기준.
 
 #### RosterColumn

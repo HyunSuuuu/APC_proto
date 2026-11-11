@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using APC.Core;
 using APC.Economy;
+using APC.Staff;
 using DG.Tweening;
 using R3;
 using TMPro;
@@ -24,8 +26,11 @@ namespace APC.UI
         [SerializeField] TMP_Text bonusValue;
         [SerializeField] TMP_Text wageValue;
         [SerializeField] TMP_Text totalValue;
+        [SerializeField, Tooltip("미지급 · 퇴사 알바 명단 + 경고 (GDD 11.7)")] TMP_Text staffLabel;
         [SerializeField] Button confirmButton;
         [SerializeField, Min(0.05f)] float rowDuration = 0.35f;
+        [SerializeField] Color totalColor = new(0.2f, 0.55f, 0.3f);
+        [SerializeField, Tooltip("합계가 음수일 때 (시급이 수입보다 많음)")] Color negativeColor = new(0.8f, 0.2f, 0.15f);
 
         Sequence sequence;
         bool open;
@@ -53,6 +58,8 @@ namespace APC.UI
             confirmButton.interactable = false;
 
             foreach (var text in new[] { outboundValue, returnValue, bonusValue, wageValue, totalValue }) text.text = "0";
+            staffLabel.text = StaffText(result.WagePlan);
+            totalValue.color = result.Total >= 0 ? totalColor : negativeColor;
 
             sequence?.Kill();
             group.alpha = 0f;
@@ -69,6 +76,25 @@ namespace APC.UI
                 .OnComplete(() => confirmButton.interactable = true)
                 .SetUpdate(true)
                 .SetLink(gameObject);
+        }
+
+        /// <summary>`미지급: 알바 3, 알바 5 — 다음 정산 때 못 받으면 떠납니다` / `퇴사: 알바 2`. 둘 다 없으면 빈 글자.</summary>
+        static string StaffText(WagePlan plan)
+        {
+            var lines = new List<string>();
+            if (plan.Unpaid.Count > 0)
+            {
+                var names = new List<string>();
+                foreach (var (worker, _) in plan.Unpaid) names.Add(worker.DisplayName);
+                lines.Add($"미지급: {string.Join(", ", names)} — 다음 정산 때 못 받으면 떠납니다");
+            }
+            if (plan.Quitting.Count > 0)
+            {
+                var names = new List<string>();
+                foreach (var worker in plan.Quitting) names.Add(worker.DisplayName);
+                lines.Add($"퇴사: {string.Join(", ", names)}");
+            }
+            return string.Join("\n", lines);
         }
 
         Tween Count(TMP_Text text, int value, string sign)

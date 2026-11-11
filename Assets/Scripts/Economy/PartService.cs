@@ -1,6 +1,7 @@
 using APC.Contracts;
 using APC.Core;
 using APC.Orders;
+using APC.Staff;
 using R3;
 using UnityEngine;
 
@@ -9,13 +10,14 @@ namespace APC.Economy
     /// <summary>파트 정산 내역 (정산 팝업에 표시, GDD 9.5).</summary>
     public readonly struct SettlementResult
     {
-        public SettlementResult(int part, int outboundIncome, int returnIncome, int quotaBonus, int wages)
+        public SettlementResult(int part, int outboundIncome, int returnIncome, int quotaBonus, WagePlan wagePlan)
         {
             Part = part;
             OutboundIncome = outboundIncome;
             ReturnIncome = returnIncome;
             QuotaBonus = quotaBonus;
-            Wages = wages;
+            WagePlan = wagePlan ?? WagePlan.Empty;
+            Wages = WagePlan.Paid;
         }
 
         public int Part { get; }
@@ -29,8 +31,11 @@ namespace APC.Economy
         /// <summary>할당량 보너스 (M10). 지금은 0.</summary>
         public int QuotaBonus { get; }
 
-        /// <summary>알바 시급 (M6). 지금은 0.</summary>
+        /// <summary>알바 시급 — 실제로 낸 금액 (밀린 시급 포함, GDD 11.7).</summary>
         public int Wages { get; }
+
+        /// <summary>누가 받았고 누가 미지급 · 퇴사인지 ([확인] 때 StaffService.ApplyWages).</summary>
+        public WagePlan WagePlan { get; }
 
         public int Total => OutboundIncome + ReturnIncome + QuotaBonus - Wages;
     }
@@ -67,6 +72,9 @@ namespace APC.Economy
 
         /// <summary>이번 파트에 출발한 출고 트럭 수 (할당량, M10).</summary>
         public int DeparturesThisPart => departures;
+
+        /// <summary>이번 파트 길이 (초). 고용한 파트의 시급 비율에 쓴다.</summary>
+        public float CurrentPartLength { get; private set; }
 
         /// <summary>사무실 저금통이 가득 찬 것으로 보는 금액 = MAX(최소값, 직전 정산액 × 배율).</summary>
         public int PiggyFullAmount
@@ -126,7 +134,10 @@ namespace APC.Economy
         {
             if (!IsRunning) return;
             var wallet = GameManager.Instance.Wallet;
-            var result = new SettlementResult(part.Value, wallet.Piggy.CurrentValue, returnIncome: 0, quotaBonus: 0, wages: 0);
+            // 시급은 정산 금액 + 보유 재화로 고용 순서대로 (GDD 11.7)
+            var available = wallet.Piggy.CurrentValue + wallet.Cash.CurrentValue;
+            var wages = StaffService.Instance != null ? StaffService.Instance.PlanWages(available) : WagePlan.Empty;
+            var result = new SettlementResult(part.Value, wallet.Piggy.CurrentValue, returnIncome: 0, quotaBonus: 0, wages);
             pending = result;
             settlementReady.OnNext(result);
         }
@@ -138,6 +149,7 @@ namespace APC.Economy
             var result = pending.Value;
             pending = null;
 
+            if (StaffService.Instance != null) StaffService.Instance.ApplyWages(result.WagePlan);
             GameManager.Instance.Wallet.SettlePiggy(result.ReturnIncome + result.QuotaBonus - result.Wages);
             LastSettlement = result.Total;
             BeginPart(result.Part + 1);
@@ -147,7 +159,8 @@ namespace APC.Economy
         {
             var economy = GameManager.Instance.Database.Economy;
             departures = 0;
-            remaining.Value = number == 1 ? economy.FirstPartLengthSeconds : economy.PartLengthSeconds;
+            CurrentPartLength = number == 1 ? economy.FirstPartLengthSeconds : economy.PartLengthSeconds;
+            remaining.Value = CurrentPartLength;
             part.Value = number;
         }
     }

@@ -3,6 +3,7 @@ using APC.Data;
 using APC.Interaction;
 using APC.Logistics;
 using APC.Orders;
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -31,6 +32,8 @@ namespace APC.Staff
         enum Search { None, NoSlot, Found }
 
         [SerializeField, Tooltip("역할 색을 칠할 몸통")] Renderer body;
+        [SerializeField, Tooltip("미지급 표시 (머리 위 빨간 ₩, 꺼진 채)")] GameObject unpaidIcon;
+        [SerializeField, Tooltip("퇴사할 때 깜빡이는 색")] Color angryColor = new(0.9f, 0.1f, 0.1f);
 
         NavMeshAgent agent;
         Interactor interactor;
@@ -48,6 +51,8 @@ namespace APC.Staff
         float workTime;
         float idleTime;
         int lastCount;
+        float iconBaseY;
+        Tween iconTween;
 
         public StaffRole Role { get; private set; }
         public StaffStats Stats { get; private set; }
@@ -61,12 +66,59 @@ namespace APC.Staff
         /// <summary>해고됨: 명단에서 빠졌고, 들고 있던 화물을 배달한 뒤 생성 지점으로 걸어가 사라진다.</summary>
         public bool Fired { get; private set; }
 
+        /// <summary>밀린 시급 (GDD 11.7). 0보다 크면 미지급 상태 — 머리 위 ₩. 다음 정산 때 `밀린 시급 + 이번 시급`을 못 받으면 퇴사.</summary>
+        public int Owed { get; private set; }
+
+        /// <summary>이번 파트에 낼 시급 비율. 고용한 파트는 고용 때 남은 시간 비율, 정산 뒤엔 1.</summary>
+        public float PartShare { get; internal set; } = 1f;
+
         void Awake()
         {
             agent = GetComponent<NavMeshAgent>();
             interactor = GetComponent<Interactor>();
             stack = GetComponent<CarryStack>();
             interactor.RestrictToTarget = true; // 목표 존의 작업 지점에서만 상호작용
+            if (unpaidIcon != null)
+            {
+                iconBaseY = unpaidIcon.transform.localPosition.y;
+                unpaidIcon.SetActive(false);
+            }
+        }
+
+        /// <summary>밀린 시급을 정한다 (정산 [확인] 때 StaffService가 부름). 0보다 크면 머리 위 ₩이 둥실거린다.</summary>
+        internal void SetOwed(int amount)
+        {
+            Owed = Mathf.Max(0, amount);
+            if (unpaidIcon == null) return;
+            iconTween?.Kill();
+            unpaidIcon.SetActive(Owed > 0);
+            if (Owed <= 0) return;
+            var t = unpaidIcon.transform;
+            t.localPosition = new Vector3(t.localPosition.x, iconBaseY, t.localPosition.z);
+            iconTween = t.DOLocalMoveY(iconBaseY + 0.15f, 0.6f).SetEase(Ease.InOutSine).SetLoops(-1, LoopType.Yoyo).SetLink(gameObject);
+        }
+
+        /// <summary>
+        /// 퇴사 (GDD 11.7, 두 번째 미지급): 해고처럼 명단에서 빠지고, 몸통이 빨갛게 깜빡이며 제자리에서 두 번 뛴 뒤
+        /// 들고 있던 화물을 배달하고 생성 지점으로 걸어 나가 사라진다.
+        /// </summary>
+        public void Quit()
+        {
+            if (Fired) return;
+            Fire();
+            SetOwed(0);
+            if (agent.isOnNavMesh) agent.isStopped = true;
+            var roleColor = rules.GetRoleColor(Role);
+            var bodyTransform = body.transform;
+            DOTween.Sequence()
+                .Append(DOVirtual.Float(0f, 1f, 0.9f, t => SetColor(Color.Lerp(roleColor, angryColor, Mathf.PingPong(t * 6f, 1f)))))
+                .Join(bodyTransform.DOLocalJump(bodyTransform.localPosition, 0.5f, 2, 0.9f))
+                .OnComplete(() =>
+                {
+                    SetColor(roleColor);
+                    if (agent.isOnNavMesh) agent.isStopped = false;
+                })
+                .SetLink(gameObject);
         }
 
         public void Setup(StaffRole role, StaffStats stats)

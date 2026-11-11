@@ -370,7 +370,7 @@ namespace APC.EditorTools
             var group = body.gameObject.AddComponent<CanvasGroup>();
             UIImage("Dim", body, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, new Color(0f, 0f, 0f, 0.55f), null).raycastTarget = true;
 
-            var panel = UIImage("Panel", body, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760f, 640f), new Color(0.97f, 0.96f, 0.93f), sprite);
+            var panel = UIImage("Panel", body, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760f, 760f), new Color(0.97f, 0.96f, 0.93f), sprite);
             panel.type = Image.Type.Sliced;
             var p = panel.rectTransform;
             var title = UIText("Title", p, new Vector2(0.5f, 1f), new Vector2(0f, -66f), new Vector2(700f, 90f), "1파트 정산", 56f, TitleFont, dark);
@@ -388,6 +388,11 @@ namespace APC.EditorTools
                 values[i] = value;
             }
             UIImage("Line", p, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -438f), new Vector2(620f, 4f), new Color(0.25f, 0.22f, 0.2f, 0.3f), null);
+            // 미지급 · 퇴사 알바 명단 + 경고 (GDD 11.7)
+            var staff = UIText("Staff", p, new Vector2(0.5f, 1f), new Vector2(0f, -545f), new Vector2(680f, 100f), "", 26f, BodyFont, new Color(0.8f, 0.2f, 0.15f));
+            staff.enableAutoSizing = true;
+            staff.fontSizeMin = 18f;
+            staff.fontSizeMax = 26f;
 
             var buttonImage = UIImage("Confirm", p, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 70f), new Vector2(300f, 96f), new Color(0.3f, 0.75f, 0.4f), sprite);
             buttonImage.type = Image.Type.Sliced;
@@ -405,6 +410,7 @@ namespace APC.EditorTools
             SetRef(popup, "bonusValue", values[2]);
             SetRef(popup, "wageValue", values[3]);
             SetRef(popup, "totalValue", values[4]);
+            SetRef(popup, "staffLabel", staff);
             SetRef(popup, "confirmButton", button);
             root.SetAsLastSibling();
         }
