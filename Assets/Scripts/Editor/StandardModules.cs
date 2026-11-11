@@ -1,10 +1,14 @@
 using System;
 using System.Collections.Generic;
 using APC.Contracts;
+using APC.Interaction;
 using APC.Logistics;
 using APC.Site;
+using APC.Staff;
+using Unity.AI.Navigation;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace APC.EditorTools
 {
@@ -135,6 +139,7 @@ namespace APC.EditorTools
                 var zone = BuildKit.Zone<TruckPickupZone>(content, "PickupZone", dock, new Vector2(2f, 2.6f),
                     new Color(0.85f, 0.75f, 0.4f), new Color(1f, 0.85f, 0.3f), "하차");
                 BuildKit.SetRef(zone, "bay", bay);
+                WorkSlots(zone, new Vector3(0.3f, 0f, -0.7f), new Vector3(0.3f, 0f, 0.7f)); // 트럭 뒷문 앞 좌우
                 BuildPallet(content);
                 Label(root, "하차장");
             }
@@ -147,6 +152,7 @@ namespace APC.EditorTools
                 var zone = BuildKit.Zone<TruckLoadZone>(content, "LoadZone", dock, new Vector2(2f, 2.6f),
                     new Color(0.85f, 0.65f, 0.45f), new Color(1f, 0.6f, 0.25f), "상차");
                 BuildKit.SetRef(zone, "bay", bay);
+                WorkSlots(zone, new Vector3(0.3f, 0f, -0.7f), new Vector3(0.3f, 0f, 0.7f));
                 // 현금 존: 상차 존 바로 옆 (GDD 7.6 확정), 주차 칸 반대쪽
                 BuildKit.SetRef(bay, "cashZone", BuildCashZone(content, new Vector3(-3.6f, 0f, -3.3f * parkSide)));
                 Label(root, "상차장");
@@ -169,6 +175,24 @@ namespace APC.EditorTools
             var zone = BuildKit.Zone<StorageZone>(content, "Zone", pallet, new Vector2(4.2f, 3.8f),
                 new Color(0.5f, 0.72f, 0.5f), new Color(0.35f, 0.95f, 0.35f), null);
             BuildKit.SetRef(zone, "storage", storage);
+            // 팔레트 네 변 (존 둘레 0.7m 띠 안)
+            WorkSlots(zone, new Vector3(-1.8f, 0f, 0f), new Vector3(1.8f, 0f, 0f), new Vector3(0f, 0f, -1.6f), new Vector3(0f, 0f, 1.6f));
+        }
+
+        /// <summary>
+        /// 알바 작업 지점 (WorkSlot, M6). offsets = 존 중심 기준, 존 사각형 안이어야 한다 (알바가 서면 그 존이 잡히게).
+        /// 슬롯은 존 중심을 바라본다.
+        /// </summary>
+        static void WorkSlots(InteractionZone zone, params Vector3[] offsets)
+        {
+            for (var i = 0; i < offsets.Length; i++)
+            {
+                var go = new GameObject($"WorkSlot_{i + 1}");
+                go.transform.SetParent(zone.transform, false);
+                go.transform.position = zone.transform.position + offsets[i];
+                if (offsets[i].sqrMagnitude > 0f) go.transform.rotation = Quaternion.LookRotation(-offsets[i]);
+                go.AddComponent<WorkSlot>();
+            }
         }
 
         /// <summary>현금 존: 바닥 + 뭉치가 쌓이는 자리. 흡수 반경은 EconomyConfig.</summary>
@@ -224,6 +248,12 @@ namespace APC.EditorTools
             BuildKit.Cube("Monitor", pc.transform, desk + new Vector3(0f, 1.1f, 0.1f), new Vector3(0.9f, 0.55f, 0.08f), BuildKit.Mat("M_Monitor", new Color(0.15f, 0.2f, 0.3f)));
             BuildKit.GaugeRing(pc, pc.transform);
             BuildPiggyBank(content, new Vector3(-2.6f, 0f, 2.6f));
+
+            // 알바가 나타나는 문 앞 (GDD 11.1). 고용 데스크 · 배치 현황판은 M6-5 · M6-6
+            var spawn = new GameObject("StaffSpawnPoint");
+            spawn.transform.SetParent(content, false);
+            spawn.transform.SetPositionAndRotation(new Vector3(2f, 0f, -2.5f), Quaternion.LookRotation(Vector3.back));
+            spawn.AddComponent<StaffSpawnPoint>();
             Label(root, "사무실");
         }
 
@@ -306,6 +336,20 @@ namespace APC.EditorTools
             BuildKit.SetRef(shelf, "iconRenderer", icon.GetComponent<Renderer>());
             BuildKit.SetRef(shelf, "countLabel", label);
             BuildKit.SetRef(zone, "shelf", shelf);
+            // 네 변의 작업 지점. 장애물(1.6m) + 네비메시 에이전트 반경(0.5) 바깥, 존(3.2m) 안
+            WorkSlots(zone, new Vector3(-1.4f, 0f, 0f), new Vector3(1.4f, 0f, 0f), new Vector3(0f, 0f, -1.4f), new Vector3(0f, 0f, 1.4f));
+
+            // 장애물 (M6): 플레이어는 충돌체에 막히고, 알바는 네비메시 구멍(carve)을 돌아간다.
+            // 충돌체가 바닥처럼 구워지지 않게 네비메시 굽기에서는 뺀다.
+            var body = root.AddComponent<BoxCollider>();
+            body.center = new Vector3(0f, 0.9f, 0f);
+            body.size = new Vector3(1.6f, 1.8f, 1.6f);
+            var obstacle = root.AddComponent<NavMeshObstacle>();
+            obstacle.shape = NavMeshObstacleShape.Box;
+            obstacle.center = body.center;
+            obstacle.size = body.size;
+            obstacle.carving = true;
+            root.AddComponent<NavMeshModifier>().ignoreFromBuild = true;
 
             PrefabUtility.SaveAsPrefabAsset(root, path);
             UnityEngine.Object.DestroyImmediate(root);
@@ -446,6 +490,71 @@ namespace APC.EditorTools
             ConstructionFencePrefab(overwrite: true);
             AssetDatabase.SaveAssets();
 
+            SiteBuilder.BuildInternal();
+        }
+
+        /// <summary>
+        /// 알바 (M6): 임시 캡슐(역할 색은 실행 중 칠함) + 머리 위 운반 스택 + NavMeshAgent(회피 끔 = 겹쳐 지나감).
+        /// 충돌체가 없어 플레이어와 부딪히지 않는다.
+        /// </summary>
+        public static StaffWorker StaffWorkerPrefab(bool overwrite = false)
+        {
+            var path = $"{PrefabRoot}/StaffWorker.prefab";
+            var existing = AssetDatabase.LoadAssetAtPath<StaffWorker>(path);
+            if (existing != null && !overwrite) return existing;
+
+            var root = new GameObject("StaffWorker");
+            var capsule = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            capsule.name = "Body";
+            UnityEngine.Object.DestroyImmediate(capsule.GetComponent<Collider>());
+            capsule.transform.SetParent(root.transform, false);
+            capsule.transform.localPosition = new Vector3(0f, 0.6f, 0f);
+            capsule.transform.localScale = new Vector3(0.6f, 0.6f, 0.6f); // 높이 1.2 (플레이어보다 작게)
+            var body = capsule.GetComponent<Renderer>();
+            body.sharedMaterial = BuildKit.Mat("M_Staff", Color.white);
+            // 앞쪽 표시 (눈 띠)
+            BuildKit.Cube("Face", root.transform, new Vector3(0f, 0.95f, 0.28f), new Vector3(0.3f, 0.08f, 0.05f), BuildKit.Mat("M_StaffFace", new Color(0.15f, 0.15f, 0.18f)));
+
+            var anchor = new GameObject("StackAnchor").transform;
+            anchor.SetParent(root.transform, false);
+            anchor.localPosition = new Vector3(0f, 1.35f, 0f);
+
+            var agent = root.AddComponent<NavMeshAgent>();
+            agent.radius = 0.3f;
+            agent.height = 1.2f;
+            agent.speed = 2.5f;
+            agent.angularSpeed = 720f;
+            agent.acceleration = 20f;
+            agent.stoppingDistance = 0.05f;
+            agent.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance; // GDD 11.5 — 알바끼리 겹쳐 지나감
+
+            var stack = root.AddComponent<CarryStack>();
+            BuildKit.SetRef(stack, "anchor", anchor);
+            BuildKit.SetRef(root.AddComponent<Interactor>(), "stack", stack);
+            BuildKit.SetRef(root.AddComponent<StaffWorker>(), "body", body);
+
+            PrefabUtility.SaveAsPrefabAsset(root, path);
+            UnityEngine.Object.DestroyImmediate(root);
+            return AssetDatabase.LoadAssetAtPath<StaffWorker>(path);
+        }
+
+        /// <summary>
+        /// M6 알바 적용: 기본 모듈(작업 지점 · 사무실 생성 지점) · 선반(장애물 · 작업 지점) · 알바 프리팹을 다시 만들고 Build Site.
+        /// config(SiteLayout · 레벨 표)는 건드리지 않는다.
+        /// </summary>
+        [MenuItem("APC/Setup/Apply M6 Staff (프리팹 덮어쓰기)")]
+        static void ApplyStaff()
+        {
+            if (!EditorUtility.DisplayDialog("M6 알바 적용", "기본 모듈 · 선반 · 알바 프리팹을 덮어쓰고 Build Site를 실행합니다.", "적용", "취소")) return;
+            ApplyStaffInternal();
+        }
+
+        public static void ApplyStaffInternal()
+        {
+            EnsureAll(overwrite: true);
+            ShelfPrefab(overwrite: true);
+            StaffWorkerPrefab(overwrite: true);
+            AssetDatabase.SaveAssets();
             SiteBuilder.BuildInternal();
         }
 

@@ -115,6 +115,15 @@ namespace APC.Logistics
             return false;
         }
 
+        readonly Dictionary<ItemDefinition, int> reservedShelfSpace = new();
+
+        /// <summary>분류 알바가 채우러 오는 중인 선반 빈자리 (GDD 8.4 예약). 공용 보관소가 그만큼 덜 내준다.</summary>
+        public int GetReservedShelfSpace(ItemDefinition item) => reservedShelfSpace.TryGetValue(item, out var n) ? n : 0;
+
+        public void ReserveShelfSpace(ItemDefinition item, int count) => reservedShelfSpace[item] = GetReservedShelfSpace(item) + count;
+
+        public void UnreserveShelfSpace(ItemDefinition item, int count) => reservedShelfSpace[item] = Mathf.Max(0, GetReservedShelfSpace(item) - count);
+
         /// <summary>그 품목 선반들의 빈자리 합.</summary>
         public int GetShelfFreeSpace(ItemDefinition item)
         {

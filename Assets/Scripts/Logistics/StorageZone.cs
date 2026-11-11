@@ -19,6 +19,8 @@ namespace APC.Logistics
 
         protected override CargoOrigin GiveOrigin => CargoOrigin.Storage;
 
+        public override bool HasCargoFor(Interactor who) => storage.HasCargoForShelves();
+
         protected override bool TryGive(Interactor who, out Cargo cargo)
         {
             cargo = storage.TakeForShelves();

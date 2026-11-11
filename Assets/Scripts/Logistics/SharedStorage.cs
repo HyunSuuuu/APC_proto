@@ -73,19 +73,63 @@ namespace APC.Logistics
         /// </summary>
         public Cargo TakeForShelves()
         {
-            var warehouse = Warehouse.Instance;
+            var i = FindForShelves();
+            if (i < 0) return null;
+
+            var cargo = pile.RemoveAt(i);
+            cargo.Origin = CargoOrigin.Storage;
+            count.Value = pile.Count;
+            return cargo;
+        }
+
+        /// <summary>TakeForShelves로 꺼낼 화물이 있는가 (꺼내지 않음, 분류 알바용).</summary>
+        public bool HasCargoForShelves() => FindForShelves() >= 0;
+
+        /// <summary>빈자리가 남은 공용 보관소가 있는가 (하차 알바가 트럭에서 집을 가치가 있나).</summary>
+        public static bool AnyHasSpace()
+        {
+            foreach (var storage in Registered)
+            {
+                if (storage.pile.Count < storage.capacity) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 분류 알바 예약용: 지금 집으면 선반에 갈 화물을 품목별로 최대 max개까지 센다 (꺼내지 않음).
+        /// TakeForShelves와 같은 순서(최근 것부터) · 같은 조건.
+        /// </summary>
+        public Dictionary<ItemDefinition, int> PlanForShelves(int max)
+        {
+            var plan = new Dictionary<ItemDefinition, int>();
+            var total = 0;
+            for (var i = pile.Count - 1; i >= 0 && total < max; i--)
+            {
+                var item = pile.Items[i].Item;
+                if (pile.Items[i].State != CargoState.Normal) continue;
+                plan.TryGetValue(item, out var taken);
+                if (ShelfAllowance(item) - taken <= 0) continue;
+                plan[item] = taken + 1;
+                total++;
+            }
+            return plan;
+        }
+
+        int FindForShelves()
+        {
             for (var i = pile.Count - 1; i >= 0; i--)
             {
                 var candidate = pile.Items[i];
-                if (candidate.State != CargoState.Normal) continue;
-                if (warehouse.GetShelfFreeSpace(candidate.Item) - Warehouse.CountCarried(candidate.Item, CargoOrigin.Storage) <= 0) continue;
-
-                var cargo = pile.RemoveAt(i);
-                cargo.Origin = CargoOrigin.Storage;
-                count.Value = pile.Count;
-                return cargo;
+                if (candidate.State == CargoState.Normal && ShelfAllowance(candidate.Item) > 0) return i;
             }
-            return null;
+            return -1;
+        }
+
+        /// <summary>그 품목을 선반에 더 보낼 수 있는 수 = 선반 빈자리 − 이미 들고 가는 수 − 분류 알바 예약.</summary>
+        static int ShelfAllowance(ItemDefinition item)
+        {
+            var warehouse = Warehouse.Instance;
+            return warehouse.GetShelfFreeSpace(item) - Warehouse.CountCarried(item, CargoOrigin.Storage) - warehouse.GetReservedShelfSpace(item);
         }
     }
 }

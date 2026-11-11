@@ -28,8 +28,8 @@ namespace APC.Controls
     }
 
     /// <summary>
-    /// 터치와 마우스를 하나의 목록으로 읽는다. 터치스크린이 있으면 터치만(실기기, Device Simulator),
-    /// 없으면 마우스 왼쪽 버튼을 손가락 1개로 취급한다(에디터 Game 뷰, PC).
+    /// 터치와 마우스를 하나의 목록으로 읽는다. 닿아 있는 손가락이 있으면 터치만(실기기, Device Simulator),
+    /// 없으면 마우스 왼쪽 버튼을 손가락 1개로 취급한다(에디터 Game 뷰, PC — 터치스크린이 잡힌 PC 포함).
     /// Input System의 TouchSimulation은 에디터 사용자 설정에 따라 꺼지므로 쓰지 않는다.
     /// </summary>
     public static class PointerInput
@@ -73,7 +73,9 @@ namespace APC.Controls
             cachedFrame = Time.frameCount;
             Samples.Clear();
 
-            if (Touchscreen.current != null)
+            // 손가락이 닿아 있으면 터치만 읽는다. 터치 노트북 · 펜 태블릿 PC처럼 터치스크린이 잡혀 있어도
+            // 마우스로 조작할 수 있게, "장치가 있나"가 아니라 "지금 닿은 손가락이 있나"로 고른다.
+            if (Touchscreen.current != null && Touch.activeTouches.Count > 0)
             {
                 foreach (var touch in Touch.activeTouches)
                     Samples.Add(new PointerSample(touch.finger.index, touch.screenPosition, touch.delta, touch.phase));

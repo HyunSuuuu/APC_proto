@@ -12,6 +12,14 @@ namespace APC.Logistics
     {
         [SerializeField] Shelf shelf;
 
+        public Shelf Shelf => shelf;
+
+        public override bool HasCargoFor(Interactor who)
+        {
+            var orders = OrderService.Instance;
+            return orders != null && shelf.Item != null && shelf.Count.CurrentValue > 0 && orders.GetDemand(shelf.Item) > 0;
+        }
+
         protected override bool CanReceive(Cargo cargo, Interactor who)
             => cargo.Item == shelf.Item
                && cargo.Origin == CargoOrigin.Storage

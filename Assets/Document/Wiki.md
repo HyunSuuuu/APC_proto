@@ -25,6 +25,7 @@
    - [Controls · Cameras · Characters](#43-controls--cameras--characters--조작)
    - [Interaction](#44-interaction--상호작용-존)
    - [Logistics](#45-logistics--물류)
+   - [Staff](#45b-staff--알바)
    - [Contracts](#46-contracts--계약)
    - [Orders](#47-orders--주문)
    - [Site](#48-site--부지-모듈)
@@ -47,13 +48,14 @@
 | `Controls` | 터치/마우스 입력, 플로팅 조이스틱 |
 | `Cameras` | 쿼터뷰 카메라 (추적 · 자유 모드) |
 | `Characters` | 플레이어 이동과 초기 설정 |
-| `Interaction` | 바닥 존 상호작용의 틀 (운반 존 · 게이지 존) |
+| `Interaction` | 바닥 존 상호작용의 틀 (운반 존 · 게이지 존 · 작업 슬롯) |
 | `Logistics` | 화물, 운반 스택, 입고 · 출고 트럭, 보관소, 선반, 현금 존 |
+| `Staff` | 알바 (작업 상태 머신 · 스탯 · 명단 · 생성) |
 | `Contracts` | 회사 계약 |
 | `Orders` | 주문 데이터 · 주문 큐 · 수요 계산 · 교착 방지 가중치 |
 | `Economy` | 파트 타이머 · 파트 종료 정산 · 사무실 투명 저금통 |
 | `Site` | 부지 격자와 모듈 해금 |
-| `UI` | 팝업, 월드 글자 정렬 |
+| `UI` | 팝업, 월드 글자 정렬, HUD 초기화 (`UiBootstrap`) |
 | `Debugging` | 치트 메뉴 (에디터 · 개발 빌드 전용) |
 | `Editor` | 씬 · 프리팹 · 데이터 자동 생성 메뉴 (빌드에 포함 안 됨) |
 
@@ -76,14 +78,14 @@ Editor ─→ 전부   (런타임 코드는 Editor를 참조하지 않는다)
 | `Main Camera` | CameraRig | M1 |
 | `Player` | PlayerMover, PlayerSetup, Interactor, CarryStack, CarryMaxIndicator, CashCollector | M1 · M2 · Build Site |
 | `CargoPool` | CargoPool | M2 |
-| `HUD Canvas` | 자식 `Joystick`(FloatingJoystick), `CameraButton`(CameraModeButton) | M0 · M1 |
-| └ `LevelHud` · `CashHud` · `PartClock` · `LevelUpBanner` · `OrderQueue` · `GuideArrow` · `ContractPopup` · `SettlementPopup` | LevelView · CashView · PartClockView · LevelUpBanner · OrderQueueView · GuideArrow · ContractPopup · SettlementPopup | Build Site (지우고 다시 만듦) |
+| `HUD Canvas` | UiBootstrap, 자식 `Joystick`(FloatingJoystick), `CameraButton`(CameraModeButton) | M0 · M1 · M6 |
+| └ `LevelHud` · `CashHud` · `PartClock` · `LevelUpBanner` · `OrderQueue` · `GuideArrow` · `ContractPopup` · `SettlementPopup` | LevelView · CashView · PartClockView · LevelUpBanner · OrderQueueView · GuideArrow · ContractPopup · SettlementPopup | Build Site (지우고 다시 만듦, 꺼진 채 저장 → UiBootstrap이 켬) |
 | └ `CameraButton` | CameraModeButton (글자는 Build Site가 TMP로 바꿈) | M1 · Build Site |
 | └ Player 자식 `LevelUpConfetti` | ParticleSystem (레벨업 색종이) | Build Site |
 | `Site` | NavMeshSurface, SiteNavMesh + 아래 참고 | **Build Site** (지우고 다시 만듦) |
 | └ `Ground` | 초록 바닥 (임시 — 모듈 바닥으로 충분해지면 삭제 예정). NavMeshModifier로 네비메시에서 제외 | Build Site |
-| └ `Logistics` | Warehouse, ContractService, OrderService, PartService | Build Site |
-| └ `SiteGrid` | SiteGrid, SiteUnlocker + 시작 모듈 프리팹 인스턴스 6개 (키패드 7 · 8 · 4 · 5 · 6 · 2). 실행 중 해금 모듈 · 공사장 울타리가 여기 붙음 | Build Site |
+| └ `Logistics` | Warehouse, ContractService, OrderService, PartService, StaffService | Build Site |
+| └ `SiteGrid` | SiteGrid, SiteUnlocker + 시작 모듈 프리팹 인스턴스 6개 (키패드 7 · 8 · 4 · 5 · 6 · 2). 실행 중 해금 모듈 · 공사장 울타리가 여기 붙음. 사무실 모듈 안에 `StaffSpawnPoint`(알바 생성 위치) | Build Site |
 
 ---
 
@@ -93,7 +95,7 @@ Editor ─→ 전부   (런타임 코드는 Editor를 참조하지 않는다)
 
 ### 2.1 씬에 하나뿐인 서비스 — `Instance`
 
-`GameManager`, `CargoPool`, `Warehouse`, `ContractService`, `OrderService`, `SiteGrid`, `ContractPopup`이 이 형태다.
+`GameManager`, `CargoPool`, `Warehouse`, `ContractService`, `OrderService`, `SiteGrid`, `ContractPopup`, `StaffService`이 이 형태다.
 
 ```csharp
 public static Foo Instance { get; private set; }
@@ -114,7 +116,7 @@ void OnDestroy() { if (Instance == this) Instance = null; }
 
 | 목록 | 쓰는 곳 |
 |---|---|
-| `InteractionZone.All` (private) | `InteractionZone.FindAt` — 위치로 존 찾기 |
+| `InteractionZone.All` (private, 공개 `Active`) | `InteractionZone.FindAt` — 위치로 존 찾기 |
 | `Interactor.All` | `Warehouse.CountCarried` — 들고 있는 화물 집계 |
 | `ShelfSlot.All` | `Warehouse.BuildShelf` — 선반 세울 자리 찾기 |
 | `SharedStorage.All` | `Warehouse.GetStock` — 재고 집계 |
@@ -155,6 +157,7 @@ Interactor.Update (플레이어 · 알바마다)
  └ 조건을 만족하면 zone.Tick(this, deltaTime)
       · 운반 존(CargoZone)  : 0.5초(interactionDelay) 이상 멈춰 있어야 함
       · 게이지 존(GaugeZone): 멈춰 있기만 하면 됨 (게이지가 대기 역할)
+      · 알바(`RestrictToTarget`): `Target` 존이 아니면 아무것도 하지 않는다
 
 CargoZone.Tick → 간격(0.15초)마다 1개
  ├ 스택에서 받을 수 있는 화물이 있으면 → 내려놓기 (CanReceive → Receive)
@@ -245,6 +248,23 @@ PartService: 파트(180초, 첫 90초)가 끝나면 정산 팝업 → [확인] �
 
 **교착 방지** (`StockBalancer`, GDD 7.8): 입고 트럭은 큐 주문이 부족한 품목을 더 많이 싣고(품목마다 최소 10%), 새 주문은 재고가 많은 품목으로 더 잘 나온다. 그래서 한 품목만 쌓여 흐름이 멈추는 일이 없다.
 
+### 3.7 알바 한 사이클
+
+```
+StaffWorker (thinkInterval 0.25초마다 판단)
+ ├ 빈손 + 역할 존에 할 일 있음 → 존의 가장 가까운 빈 WorkSlot 예약 → Moving
+ │    · 예약 (3역할, 출발할 때): 하차 = 트럭 `Reserve(min(남은 적재, Available))`, 분류 = 선반 빈자리 `ReserveShelfSpace`(품목별), 피킹 = `OrderService.Reserve(min(남은 적재, 수요))`
+ ├ 도착 → Interactor.Target = 그 존, AllowDrop/AllowPick 설정 → Working
+ │    · 슬롯에서 interactionDelay(0.5초) 뒤부터 CargoZone.Tick (슬롯 밖이면 상호작용 없음)
+ │    · 내려놓기 대상 = 들고 있는 화물을 받는 존 (역할을 바꿔도 원래 목적지로)
+ │    · 도착하면 예약을 푼다 (그 뒤로는 들고 있는 수가 예약을 대신함)
+ ├ 옮길 것이 workIdleTimeout(0.5초) 없거나 가득 · 빈손 → 작업 끝 → 슬롯 Release → Idle
+ └ 할 일 없음 → 역할 존의 빈 슬롯에서 Parked 대기 / 빈 슬롯도 없음 → 제자리 Waiting
+```
+
+- 가는 중 대상이 사라지면 예약을 풀고 다시 고른다. 피킹 예약은 잠깐 풀고 다시 확인해 자기 예약 때문에 일이 없어 보이지 않게 한다.
+- 플레이어와 달리 작업 고정 · 전환 쿨타임 · 가이드 화살표가 없다 (GDD 5.3).
+
 ---
 
 ## 4. 스크립트별 설명
@@ -289,7 +309,7 @@ PartService: 파트(180초, 첫 90초)가 끝나면 정산 팝업 → [확인] �
 | [LevelTable](../Scripts/Data/LevelTable.cs) | `LevelTable` | 레벨별 필요 XP · 최대 알바 · 해금 메모. 목록 이후 레벨은 공식으로 계산 |
 | [EconomyConfig](../Scripts/Data/EconomyConfig.cs) | `EconomyConfig` | 시작 보유 재화, 구매 패드 시간, 업그레이드 비용, **현금 더미**(다발 금액 · 최대 보이는 수 · 흡수 반경 · 날아가는 간격/시간), **파트 · 정산**(파트 길이 · 첫 파트 · 저금통 단계 · 가득 기준), 경험치 |
 | [OrderRules](../Scripts/Data/OrderRules.cs) | `OrderRules` | 레벨 구간별 주문 간격 · 복합 확률 · 수량, 큐 최대 수, 교착 방지 최소 가중치 |
-| [StaffRules](../Scripts/Data/StaffRules.cs) | `StaffRules` | 알바 이력서 · 스탯 효과 · 고용금 · 시급 · 하루 길이 (M6에서 사용) |
+| [StaffRules](../Scripts/Data/StaffRules.cs) | `StaffRules` | 알바 스탯 생성 · 스탯 효과 · 고용금 · 시급 · 역할 색 · 작업 대기 · 집기 간격 (M6) |
 | [PlayerConfig](../Scripts/Data/PlayerConfig.cs) | `PlayerConfig` | 이동 속도 · 회전 속도 · 뛰기 기준, 최대 적재, 집기 간격, **상호작용 대기 시간**, 내려놓기 ↔ 집기 전환 쿨타임 |
 | [ControlsConfig](../Scripts/Data/ControlsConfig.cs) | `ControlsConfig` | 조이스틱 반경, 카메라 각도 · 렌즈 · 줌 · 복귀 시간 |
 | [CarryConfig](../Scripts/Data/CarryConfig.cs) | `CarryConfig` | 상자 높이, 비행 · 착지 연출, 스택 흔들림 스프링, MAX 표시 |
@@ -325,7 +345,7 @@ PartService: 파트(180초, 첫 90초)가 끝나면 정산 팝업 → [확인] �
 #### PointerInput
 [Controls/PointerInput.cs](../Scripts/Controls/PointerInput.cs)
 - **역할**: 터치와 마우스를 하나의 목록(`Active`)으로 읽는다. 입력은 **이것만 통해서** 읽는다.
-- **동작**: 터치스크린이 있으면 터치만, 없으면 마우스 왼쪽 버튼을 손가락 1개(id −1)로 본다. 한 프레임에 한 번만 갱신해 캐시한다.
+- **동작**: 지금 닿은 손가락이 있으면 터치, 없으면 마우스 왼쪽 버튼을 손가락 1개(id −1)로 본다. 터치스크린 장치 유무로 고르지 않는다 (장치가 잡혀 있어도 마우스가 무시되지 않게). 한 프레임에 한 번만 갱신해 캐시한다.
 - **주의**: Input System의 `TouchSimulation`은 에디터 개인 설정에 따라 꺼지므로 쓰지 않는다.
 
 #### UiHitTest
@@ -355,7 +375,7 @@ PartService: 파트(180초, 첫 90초)가 끝나면 정산 팝업 → [확인] �
 
 #### PlayerSetup
 [Characters/PlayerSetup.cs](../Scripts/Characters/PlayerSetup.cs)
-- **역할**: `PlayerConfig` 값을 `CarryStack`(최대 적재)과 `Interactor`(집기 간격, 대기 시간)에 넣는다. 알바(M6)는 같은 컴포넌트에 스탯 기반 값을 넣는다.
+- **역할**: `PlayerConfig` 값을 `CarryStack`(최대 적재)과 `Interactor`(집기 간격, 대기 시간)에 넣는다. 알바는 `StaffWorker`가 같은 컴포넌트에 스탯 기반 값을 넣는다.
 
 ### 4.4 Interaction — 상호작용 존
 
@@ -369,10 +389,13 @@ PartService: 파트(180초, 첫 90초)가 끝나면 정산 팝업 → [확인] �
 - **플레이어 규칙** (`ConfigureRules(taskLock, switchCooldown)`, PlayerSetup이 켬, 알바는 끔):
   - `CanTransfer(drop)` / `NotifyTransfer(drop)`: 내려놓기 ↔ 집기를 바꿀 때 `switchCooldown`(0.5초) 동안 막는다.
   - `CanPickOrigin(origin)`: **작업 고정** — 들고 있는 화물이 모두 그 출처일 때만 더 집는다 (손이 비면 무엇이든).
+- **알바 규칙** (M6, 알바는 `ConfigureRules`를 부르지 않는다):
+  - `RestrictToTarget` + `Target`: `Target` 존에서만 상호작용한다. 지나가거나 기다리다 걸린 다른 존은 무시하고 바닥 색도 밝히지 않는다.
+  - `AllowDrop` / `AllowPick`: 작업 종류에 맞춰 끈다 (예: 하차 알바는 팔레트에서 집지 않음). `CanTransfer`에서 확인한다.
 
 #### InteractionZone (추상)
 [Interaction/InteractionZone.cs](../Scripts/Interaction/InteractionZone.cs)
-- **역할**: 모든 존의 바탕. 영역(`size`, 루트 기준 XZ 사각형), 안에 있는 interactor 목록, 바닥 색 표시.
+- **역할**: 모든 존의 바탕. 영역(`size`, 루트 기준 XZ 사각형), 안에 있는 interactor 목록, 바닥 색 표시, 작업 지점(`Slots`, 자식 `WorkSlot`). `Active`로 켜진 모든 존을 본다.
 - **동작**: `FindAt(위치)`는 등록된 존을 순서대로 보고 처음 맞는 것을 돌려준다. 바닥 색은 `FloorProgress`에 따라 idle → active로 바뀐다 (`MaterialPropertyBlock`으로 재질 복사 없이).
 - **하위 클래스가 정하는 것**: `Tick`(필수), `WaitsForReadyDelay`, `FloorProgress`, `OnEnter`/`OnExit`.
 - **겹침 확인**: `WorldRect`(바닥 사각형), `AnyOverlap(rect)`(어떤 존과든 겹치나 — 나중에 놓는 패드 자리 찾기), `FootprintRect(transform, half)`(로컬 사각형 → 월드).
@@ -383,7 +406,15 @@ PartService: 파트(180초, 첫 90초)가 끝나면 정산 팝업 → [확인] �
 - **역할**: 화물을 간격마다 1개씩 옮기는 존. **내려놓기가 집기보다 우선**이다.
 - **하위 클래스가 정하는 것**: `CanReceive`(받을 수 있나) / `Receive`(받아서 보관) / `TryGive`(줄 화물 꺼내기) / **`GiveOrigin`(주는 화물의 출처 — 작업 고정 확인용, 주는 존은 꼭 지정)**. 받기만 하는 존은 `TryGive`를, 주기만 하는 존은 `CanReceive`를 덮어쓰지 않으면 된다.
 - **플레이어 규칙**: 내려놓기 · 집기 전에 `Interactor.CanTransfer`(전환 쿨타임), 집기 전에 `Interactor.CanPickOrigin(GiveOrigin)`(작업 고정)을 확인한다.
+- **알바 판단용**: `CanReceiveAny(who)`(들고 있는 것 중 받을 것이 있나), `virtual HasCargoFor(who)`(줄 것이 있나 — 꺼내지 않고 확인만). 하위 클래스는 `HasCargoFor`를 구현한다.
 - **주의**: `Receive`에서는 화물이 이미 스택에서 빠진 상태다. 날아가는 연출은 받는 쪽(`CargoPile.Add`, `CarryStack.TryAdd`)이 한다.
+
+#### WorkSlot
+[Interaction/WorkSlot.cs](../Scripts/Interaction/WorkSlot.cs)
+- **역할**: 알바 작업 지점. 존 프리팹 안에 1~4개 두고, 알바는 빈 슬롯을 예약한 뒤 그 지점에서만 집고 내려놓는다 ([GDD 11.4](GDD.md#114-작업-ai-상태-머신-1순위)).
+- **동작**: `TryClaim(who)` · `Release(who)` · `IsFreeFor(who)`, `Owner`(예약한 알바, 없으면 null), `FindNearestFree(slots, who, from)`(가장 가까운 빈 슬롯, 자기가 예약한 것 포함). 화면에는 보이지 않고 Scene 뷰 기즈모로만 보인다.
+- **연결**: `InteractionZone.Slots`로 찾는다. `StaffWorker`가 쓴다. 기본 배치는 `StandardModules.WorkSlots(zone, offsets)`.
+- **주의**: 존 사각형 안에 둬야 한다 (알바가 서면 그 존이 잡히도록). 플레이어는 슬롯과 무관하다.
 
 #### GaugeZone (추상)
 [Interaction/GaugeZone.cs](../Scripts/Interaction/GaugeZone.cs)
@@ -443,12 +474,14 @@ PartService: 파트(180초, 첫 90초)가 끝나면 정산 팝업 → [확인] �
 #### SharedStorage
 [Logistics/SharedStorage.cs](../Scripts/Logistics/SharedStorage.cs)
 - **역할**: 공용 보관소 본체. 트럭 화물만 받아 품목을 섞어 팔레트에 쌓는다. 용량은 `LogisticsConfig`.
-- **동작**: `CanAccept`(Origin = Truck이고 빈자리 있음), `Store`, `TakeForShelves`(선반에 갈 자리가 있는 품목만, 최근에 들어온 것부터 꺼내고 Origin을 Storage로 바꿈), `CountOf(item)`. 모듈 안에 있으므로 `SharedStorage.All`에 스스로 등록한다.
+- **동작**: `CanAccept`(Origin = Truck이고 빈자리 있음), `Store`, `TakeForShelves`(선반에 갈 자리가 있는 품목만, 최근에 들어온 것부터 꺼내고 Origin을 Storage로 바꿈), `CountOf(item)`, `HasCargoForShelves()`(알바 판단용, 꺼내지 않음), static `AnyHasSpace()`, `PlanForShelves(max)`(분류 알바 예약용: 지금 집으면 선반에 갈 품목별 수를 최대 max까지 센다, 꺼내지 않음). `TakeForShelves`의 판정은 `FindForShelves`로 분리했다. 모듈 안에 있으므로 `SharedStorage.All`에 스스로 등록한다.
+- **`ShelfAllowance(item)`**: 그 품목을 선반에 더 보낼 수 있는 수 = 선반 빈자리 − 들고 가는 수 − 분류 알바 예약. `FindForShelves`(→ `TakeForShelves` · `HasCargoForShelves`)가 이 값으로 판정한다.
 - **연결**: 하차장 모듈마다 하나 (팔레트). 팔레트 둘레의 `StorageZone` 하나로 넣고 꺼낸다.
+- **주의**: 플레이어 · 분류 알바가 같은 `ShelfAllowance`를 쓴다. 예약된 수만큼은 플레이어도 덜 받는다.
 
 #### StorageZone
 [Logistics/StorageZone.cs](../Scripts/Logistics/StorageZone.cs)
-- **역할**: 팔레트 둘레 존 (4.2 × 3.8m). **트럭 화물 내려놓기 먼저**(`CanAccept`/`Store`), 내려놓을 것이 없으면 선반에 갈 화물을 집는다(`TakeForShelves`). `ShelfZone`과 같은 구조.
+- **역할**: 팔레트 둘레 존 (4.2 × 3.8m). **트럭 화물 내려놓기 먼저**(`CanAccept`/`Store`), 내려놓을 것이 없으면 선반에 갈 화물을 집는다(`TakeForShelves`). `ShelfZone`과 같은 구조. `HasCargoFor`(분류 알바가 집기 전에 확인)를 구현한다.
 
 #### Shelf
 [Logistics/Shelf.cs](../Scripts/Logistics/Shelf.cs)
@@ -458,7 +491,7 @@ PartService: 파트(180초, 첫 90초)가 끝나면 정산 팝업 → [확인] �
 
 #### ShelfZone
 [Logistics/ShelfZone.cs](../Scripts/Logistics/ShelfZone.cs)
-- **역할**: 정사각형 선반 둘레 존 (3.2m). **내려놓기 먼저** — 같은 품목, Origin = Storage, Normal 상태 화물을 받고 Origin을 Shelf로 바꾼다. 내려놓을 것이 없으면 `OrderService.GetDemand(품목) > 0`일 때만 1개씩 꺼낸다 (GDD 8.4).
+- **역할**: 정사각형 선반 둘레 존 (3.2m). **내려놓기 먼저** — 같은 품목, Origin = Storage, Normal 상태 화물을 받고 Origin을 Shelf로 바꾼다. 내려놓을 것이 없으면 `OrderService.GetDemand(품목) > 0`일 때만 1개씩 꺼낸다 (GDD 8.4). `Shelf` 프로퍼티로 붙은 선반을 읽고, `HasCargoFor`(알바 판단용)를 구현한다.
 - **주의**: 정차한 트럭이 없으면 수요가 0이라 집지 않는다. 꺼낸 화물의 Origin은 `Shelf` 그대로 — 상차 존만 받는다.
 
 #### ShelfSlot
@@ -476,11 +509,12 @@ PartService: 파트(180초, 첫 90초)가 끝나면 정산 팝업 → [확인] �
   - `GetShelfFreeSpace(item)`: 그 품목 선반들의 빈자리 합
   - `GetStock(item)`: 선반 + 공용 보관소의 그 품목 수 (교착 방지 가중치용)
   - `CountCarried(item, origin)`: 모든 interactor가 들고 있는 수 (중복 운반 방지, 수요 계산)
+  - `GetReservedShelfSpace(item)` · `ReserveShelfSpace(item, n)` · `UnreserveShelfSpace(item, n)`: 분류 알바가 채우러 가는 선반 빈자리 예약 ([GDD 8.4](GDD.md#84-수요-계산)). 공용 보관소가 그만큼 덜 내준다.
 
 #### InboundTruck
 [Logistics/InboundTruck.cs](../Scripts/Logistics/InboundTruck.cs)
 - **역할**: 입고 트럭 1대. 실은 품목 목록과 남은 수량 표시만 가진다. 움직임은 `InboundBay`가 한다.
-- **동작**: `Load(company, items)`, `TakeCargo()`(뒷문 `cargoExit` 위치에 화물을 만들고 Origin = Truck).
+- **동작**: `Load(company, items)`, `TakeCargo()`(뒷문 `cargoExit` 위치에 화물을 만들고 Origin = Truck). 하차 알바 예약: `Reserved`(집으러 오는 수), `Available`(= 남은 화물 − 예약), `Reserve(n)` · `Unreserve(n)`.
 
 #### InboundBay
 [Logistics/InboundBay.cs](../Scripts/Logistics/InboundBay.cs)
@@ -489,7 +523,7 @@ PartService: 파트(180초, 첫 90초)가 끝나면 정산 팝업 → [확인] �
 
 #### TruckPickupZone
 [Logistics/TruckPickupZone.cs](../Scripts/Logistics/TruckPickupZone.cs)
-- **역할**: 주차한 트럭 뒷문 앞의 집기 존. `bay.DockedTruck`에서 화물을 꺼낸다. 트럭이 없거나 이동 중이면 아무것도 안 준다.
+- **역할**: 주차한 트럭 뒷문 앞의 집기 존. `bay.DockedTruck`에서 화물을 꺼낸다. 트럭이 없거나 이동 중이면 아무것도 안 준다. `Bay` 프로퍼티로 베이를 노출한다 (알바가 예약할 트럭을 찾음). `HasCargoFor`(알바 판단용)는 트럭의 `Available > 0`일 때만 참이다. 플레이어는 예약과 무관하게 꺼낸다.
 
 #### OutboundBay
 [Logistics/OutboundBay.cs](../Scripts/Logistics/OutboundBay.cs)
@@ -515,6 +549,32 @@ PartService: 파트(180초, 첫 90초)가 끝나면 정산 팝업 → [확인] �
 #### CashCollector
 [Logistics/CashCollector.cs](../Scripts/Logistics/CashCollector.cs)
 - **역할**: 현금을 흡수할 수 있는 대상 표시 (플레이어). `CashCollector.All`에 스스로 등록한다. Build Site가 Player에 붙인다.
+
+### 4.5b Staff — 알바
+
+#### StaffWorker
+[Staff/StaffWorker.cs](../Scripts/Staff/StaffWorker.cs)
+- **역할**: 알바 1명. 플레이어와 같은 `Interactor` · `CarryStack`을 쓰고, 이동은 `NavMeshAgent`가 한다 ([GDD 11](GDD.md#11-알바생)).
+- **동작**: 상태 `Phase` = `Idle / Moving / Working / Parked / Waiting`. 집는 곳은 역할로 정한다 (하차 `TruckPickupZone`, 분류 `StorageZone`, 피킹 `ShelfZone`). 내려놓는 곳은 들고 있는 화물을 받는 존(`CargoZone.CanReceiveAny`)이라서, 역할을 바꿔도 화물은 원래 목적지로 간다. 가장 가까운 빈 `WorkSlot`을 출발할 때 예약하고, 도착하면 `Interactor.Target`을 그 존으로 두고 `AllowDrop` · `AllowPick`을 작업에 맞춘다. 옮길 것이 `workIdleTimeout`(0.5초) 동안 없거나 가득 · 빈손이 되면 작업을 끝낸다. 예약은 3역할 공통 ([GDD 8.4](GDD.md#84-수요-계산)): 출발할 때 가져갈 만큼 `Reserve()`로 잡고, 도착하면 `ReleaseReservation()`으로 푼다. 해제는 `releaseReservation` 함수 하나. 하차 = `InboundTruck.Reserve`, 분류 = `Warehouse.ReserveShelfSpace`(`PlanForShelves` 품목별), 피킹 = `OrderService.Reserve`.
+- **연결**: `Setup(role, stats)`(`StaffService.Spawn`이 부른다), `SetRole(role)`(역할 변경 — M6-6 배치 현황판용), `Role` · `Stats` · `State` · `Stack`. 설정값은 `StaffRules`.
+- **주의**:
+  - 가는 중 대상이 사라지면 예약을 풀고, `thinkInterval`(0.25초)마다 다시 고른다. 가는 중 확인(`StillValid`)은 예약을 잠깐 풀고 다시 확인해 다시 잡는다.
+  - 할 일이 없으면 역할 존의 빈 슬롯에서 `Parked`로 기다린다. 빈 슬롯이 없으면 그 자리에서 `Waiting`.
+  - 도착 후 3초 + 대기 시간 동안 존이 잡히지 않으면 경고 로그 `작업 지점 … 밖에 있습니다`.
+  - 프리팹에 충돌체가 없고 회피를 끈다 (`StaffWorkerPrefab`). 플레이어 · 알바와 겹쳐 지나간다.
+
+#### StaffService
+[Staff/StaffService.cs](../Scripts/Staff/StaffService.cs)
+- **역할**: 알바 명단과 생성. 씬 `Site/Logistics`에 하나 (`Instance`).
+- **동작**: `Spawn(role)` = 사무실 문 앞(`StaffSpawnPoint`)에 `StaffWorker` 프리팹을 만들고 팝 연출, 스탯은 `StaffRules.RollStats()`. `Workers`는 고용 순서대로 (시급 지급 순서, GDD 11.7). `NextEmptyRole()` = 빈 역할 (하차 → 분류 → 피킹 순, 다 차면 인원이 가장 적은 역할). `CountRole(role)`.
+- **연결**: `StaffSpawnPoint.Current`, `StaffRules`. 호출자는 디버그 메뉴 `Staff` 절 (M6-5 고용 데스크 전까지).
+- **주의**: 고용금 · 최대 인원 검사가 없다 (M6-5에서 추가). 네비메시가 없으면 `Spawn`은 null.
+
+#### StaffSpawnPoint
+[Staff/StaffSpawnPoint.cs](../Scripts/Staff/StaffSpawnPoint.cs)
+- **역할**: 사무실 모듈 안의 알바 생성 위치 (문 앞).
+- **동작**: 켜질 때 static `Current`에 스스로 등록한다. `StaffService.Spawn`이 쓴다.
+- **연결**: `StandardModules`가 사무실 모듈 프리팹에 붙인다.
 
 ### 4.6 Contracts — 계약
 
@@ -601,9 +661,15 @@ PartService: 파트(180초, 첫 90초)가 끝나면 정산 팝업 → [확인] �
 [Site/SiteNavMesh.cs](../Scripts/Site/SiteNavMesh.cs)
 - **역할**: 부지 네비메시 (M6 알바 대비). Site 루트의 `NavMeshSurface`가 **자식 충돌체 = 열린 모듈 바닥**에만 굽는다. 잠긴 칸엔 바닥이 없으니 알바도 열린 칸 안에서만 다닌다.
 - **동작**: 시작 시 한 번, `OnUnlocked`마다 팝 연출(`facilityPopDuration`)이 끝난 뒤 다시 굽는다 (묶음 해금이어도 한 번).
-- **주의**: 초록 Ground는 `NavMeshModifier.ignoreFromBuild`로 제외. 선반 · 트럭 등은 충돌체가 없어 아직 장애물이 아니다 (M6에서 처리).
+- **주의**: 초록 Ground는 `NavMeshModifier.ignoreFromBuild`로 제외. 선반은 `BoxCollider` + `NavMeshObstacle`(carve)로 알바가 돌아가고, `NavMeshModifier`(ignoreFromBuild)로 바닥에 구워지지 않는다. 트럭은 장애물로 두지 않는다 (주차 칸이 부지 밖).
 
 ### 4.9 UI
+
+#### UiBootstrap
+[UI/UiBootstrap.cs](../Scripts/UI/UiBootstrap.cs)
+- **역할**: HUD 초기화. `HUD Canvas`에 붙는다. 씬에는 HUD 자식 UI를 모두 **꺼진 채** 저장하고(Build Site), 실행하면 이것이 차례대로 켜서 각 UI의 `Awake`가 초기 상태를 잡게 한다. 켜 둔 채 저장된 팝업 딤이 클릭을 가로채는 일을 막는다.
+- **동작**: `[DefaultExecutionOrder(-900)]`. `Awake`에서 자식을 모두 끈 뒤 순서대로 다시 켠다. 팝업의 `Instance`는 다른 스크립트의 `Start` 전에 등록된다.
+- **주의**: 팝업은 루트가 켜진 뒤 `Awake`에서 자기 `body`를 숨긴다 (4.9 팝업 규칙 그대로).
 
 #### LevelView
 [UI/LevelView.cs](../Scripts/UI/LevelView.cs)
@@ -672,7 +738,7 @@ PartService: 파트(180초, 첫 90초)가 끝나면 정산 팝업 → [확인] �
 #### DebugMenu
 [Debugging/DebugMenu.cs](../Scripts/Debugging/DebugMenu.cs)
 - **역할**: 치트 메뉴 (IMGUI). 에디터와 Development 빌드에서만 동작한다. **왼쪽 아래** `DEBUG` 버튼 또는 F1 (오른쪽 위는 주문서 큐 자리).
-- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / 레벨업 · XP +10 / 배속 ×1 · ×2 · ×4 / 일시정지 / 큐 수 · **주문 1건 추가** / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림).
+- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / 레벨업 · XP +10 / 배속 ×1 · ×2 · ×4 / 일시정지 / 큐 수 · **주문 1건 추가** / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick 생성, 알바별 `이름 spd cap 상태 들고있는수/최대`.
 - **주의**: IMGUI는 EventSystem에 안 잡히므로 `ContainsScreenPoint`로 `UiHitTest`에 영역을 알려 준다. 새 치트는 `DrawContent`에 추가한다.
 
 ### 4.11 Editor — 에디터 도구
@@ -682,13 +748,15 @@ PartService: 파트(180초, 첫 90초)가 끝나면 정산 팝업 → [확인] �
 | 메뉴 | 스크립트 | 하는 일 |
 |---|---|---|
 | `APC > Setup > Run M0 Setup` | [ProjectBootstrap](../Scripts/Editor/ProjectBootstrap.cs) | 폴더, 가로 화면 설정, 데이터 에셋(GDD 수치), Game 씬. **이미 있는 에셋 · 씬은 건드리지 않고** 빈 참조만 채운다 |
-| `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground(네비메시 제외) · NavMeshSurface · Logistics(Warehouse · ContractService · OrderService) → 시작 모듈 인스턴스 + SiteUnlocker → HUD(레벨 · 현금 · 레벨업 배너 + 색종이 · 주문서 큐 · 계약 팝업) → 플레이어 위치 + CashCollector → 씬 저장 |
+| `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground(네비메시 제외) · NavMeshSurface · Logistics(Warehouse · ContractService · OrderService · StaffService) → 시작 모듈 인스턴스 + SiteUnlocker → HUD(레벨 · 현금 · 레벨업 배너 + 색종이 · 주문서 큐 · 계약 팝업 · 정산 팝업, 자식은 꺼진 채 저장 + `UiBootstrap`) → 플레이어 위치 + CashCollector → 씬 저장 |
+| `APC > Setup > Apply M6 Staff (프리팹 덮어쓰기)` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 · 선반 · 알바 프리팹(`StaffWorker.prefab`)을 덮어쓰고 Build Site. config(SiteLayout · 레벨 표)는 건드리지 않는다 |
 | `APC > Module > New Module...` | [ModuleFactory](../Scripts/Editor/ModuleFactory.cs) (`ModuleCreatorWindow`) | 빈 n × m 모듈 틀을 `Assets/Prefabs/Modules/Module_이름.prefab`으로 만든다 |
 | `APC > Module > Rebuild Standard Modules` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 10종(빈 타일 `Module_Empty` 포함)을 코드 기준으로 **덮어써서** 다시 만든다 |
 
 #### StandardModules
 - **역할**: 기본 모듈 프리팹의 내용을 코드로 정의한다. `DefaultAssignments`(SiteLayout id → 기본 모듈 · 회전)와 `Builders`(모듈 이름 → 만드는 함수) 두 표가 핵심이다. 시설 프리팹(`Shelf`, `InboundTruck`, `OutboundTruck`, `CashBundle`, `ConstructionFence`)도 여기서 만든다.
 - **하차 · 상차장(`BuildLot`)**: 가장자리용. 주차장은 칸 바깥 −x, 트럭 뒷면이 가장자리(슬라이드 도어 자리)에 닿게 주차. `parkSide`로 주차 칸을 가장자리를 따라 ±2.5m 비킨다 (`_M` 판). 하차장은 안쪽에 팔레트(`SharedStorage` + 둘레 `StorageZone`), 상차장은 상차 존 옆에 현금 존.
+- **M6 추가**: `WorkSlots(zone, offsets)`로 작업 지점을 존마다 둔다 (하차 · 상차 존 2 · 팔레트 4 · 선반 4). 선반 프리팹에 `BoxCollider`(1.6×1.8×1.6) + `NavMeshObstacle`(carve) + `NavMeshModifier`(ignoreFromBuild). 사무실 모듈에 `StaffSpawnPoint`. `StaffWorkerPrefab(overwrite)` = 캡슐 + `StackAnchor`(1.35) + `NavMeshAgent`(반경 0.3 · 높이 1.2 · 회피 없음) + `CarryStack` + `Interactor` + `StaffWorker`, 충돌체 없음.
 - **메뉴 `APC > Setup > Apply Layout v0.3`**(`ApplyLayoutV3Internal`): SiteLayout · 레벨 표 · 회사 선반 구역을 기본값으로, 기본 프리팹 덮어쓰기, `ObsoleteAssets` 삭제, Build Site.
 - **동작**: `EnsureAll(overwrite)`, `Rebuild(asset)`(모듈 하나만 다시), `ShelfPrefab(overwrite)` · `OutboundTruckPrefab(overwrite)`. 같은 경로에 덮어쓰므로 GUID와 참조는 유지된다.
 - **주의**: 평소에는 **없는 프리팹만** 만든다. 프리팹을 손으로 고쳤다면 Rebuild를 누르지 않는다 (덮어씀). 좌표는 모듈 중심 기준(1칸 = −5 ~ +5)이고, 주차장의 바깥쪽은 −x다. 코드를 바꿨는데 프리팹이 이미 있으면 해당 프리팹만 `Rebuild`/`overwrite: true`로 다시 만든다.

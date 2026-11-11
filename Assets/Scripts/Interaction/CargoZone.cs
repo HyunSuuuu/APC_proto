@@ -42,6 +42,20 @@ namespace APC.Interaction
             return true;
         }
 
+        /// <summary>들고 있는 화물 중 이 존이 지금 받을 수 있는 것이 있는가 (알바 배달 목적지 찾기).</summary>
+        public bool CanReceiveAny(Interactor who)
+        {
+            if (who.Stack == null) return false;
+            foreach (var cargo in who.Stack.Items)
+            {
+                if (CanReceive(cargo, who)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>지금 집으면 줄 화물이 있는가 (꺼내지는 않는다, 알바 작업 대상 찾기). 주는 존은 TryGive와 같은 조건으로 덮어쓴다.</summary>
+        public virtual bool HasCargoFor(Interactor who) => false;
+
         /// <summary>이 존이 주는 화물의 출처 (작업 고정 확인용). 주지 않는 존은 그대로 둔다.</summary>
         protected virtual CargoOrigin GiveOrigin => CargoOrigin.None;
 

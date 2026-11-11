@@ -35,10 +35,24 @@ namespace APC.Interaction
         /// <summary>운반 존 상호작용 가능 상태 (존 안에서 readyDelay 이상 멈춰 있음).</summary>
         public bool IsReady => stillTime >= readyDelay;
 
-        /// <summary>대기 진행도 0~1 (존 바닥 표시용).</summary>
-        public float ReadyProgress => readyDelay <= 0f ? 1f : Mathf.Clamp01(stillTime / readyDelay);
+        /// <summary>대기 진행도 0~1 (존 바닥 표시용). 알바가 목표가 아닌 존을 지나갈 때는 0.</summary>
+        public float ReadyProgress => IsBlockedHere ? 0f : readyDelay <= 0f ? 1f : Mathf.Clamp01(stillTime / readyDelay);
 
-        /// <summary>집기/내려놓기 간격 (초). 플레이어 = PlayerConfig, 알바 = 기본 간격 ÷ 지능 배율.</summary>
+        /// <summary>
+        /// 알바 규칙 (M6): true면 <see cref="Target"/> 존에서만 상호작용한다 — 지나가거나 기다리다 다른 존에 걸려도 아무것도 옮기지 않는다.
+        /// </summary>
+        public bool RestrictToTarget { get; set; }
+
+        /// <summary>RestrictToTarget일 때 상호작용할 존 (작업 지점에 도착하면 알바가 정한다).</summary>
+        public InteractionZone Target { get; set; }
+
+        /// <summary>내려놓기 / 집기 허용 (알바가 작업 종류에 맞춰 끈다 — 예: 하차 알바는 팔레트에서 집지 않음). 기본 둘 다 true.</summary>
+        public bool AllowDrop { get; set; } = true;
+        public bool AllowPick { get; set; } = true;
+
+        bool IsBlockedHere => RestrictToTarget && zone != Target;
+
+        /// <summary>집기/내려놓기 간격 (초). 플레이어 = PlayerConfig, 알바 = StaffRules.</summary>
         public float TransferInterval => transferInterval;
 
         /// <summary>CargoZone이 간격을 재는 타이머. 상호작용이 막 시작되면 간격만큼 차 있어 첫 1개는 바로 옮긴다.</summary>
@@ -74,6 +88,7 @@ namespace APC.Interaction
         /// <summary>내려놓기(drop = true) / 집기를 지금 할 수 있는가 — 반대 동작 직후 쿨타임 동안은 막는다.</summary>
         internal bool CanTransfer(bool drop)
         {
+            if (!(drop ? AllowDrop : AllowPick)) return false;
             var kind = drop ? TransferKind.Drop : TransferKind.Pick;
             return lastKind == TransferKind.None || lastKind == kind || Time.time - lastTransferTime >= SwitchCooldown;
         }
@@ -124,7 +139,7 @@ namespace APC.Interaction
 
             SetZone(InteractionZone.FindAt(position));
 
-            if (zone == null || !(zone.WaitsForReadyDelay ? IsReady : IsStill))
+            if (zone == null || IsBlockedHere || !(zone.WaitsForReadyDelay ? IsReady : IsStill))
             {
                 TransferTimer = transferInterval;
                 return;

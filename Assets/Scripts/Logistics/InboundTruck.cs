@@ -20,6 +20,15 @@ namespace APC.Logistics
         public bool HasCargo => load.Count > 0;
         public ReadOnlyReactiveProperty<int> Remaining => remaining;
 
+        /// <summary>하차 알바가 집으러 오는 중인 수 (GDD 8.4 예약). 같은 화물을 두고 여러 알바가 오지 않게.</summary>
+        public int Reserved { get; private set; }
+
+        /// <summary>아직 아무도 예약하지 않은 화물 수.</summary>
+        public int Available => Mathf.Max(0, load.Count - Reserved);
+
+        public void Reserve(int count) => Reserved += count;
+        public void Unreserve(int count) => Reserved = Mathf.Max(0, Reserved - count);
+
         void Awake() => remaining.Subscribe(n => countLabel.text = n.ToString()).AddTo(this);
 
         void OnDestroy() => remaining.Dispose();

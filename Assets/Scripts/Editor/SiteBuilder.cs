@@ -67,6 +67,7 @@ namespace APC.EditorTools
             services.gameObject.AddComponent<ContractService>();
             services.gameObject.AddComponent<OrderService>();
             services.gameObject.AddComponent<APC.Economy.PartService>(); // 파트 타이머 · 정산 (GDD 9.5)
+            SetRef(services.gameObject.AddComponent<APC.Staff.StaffService>(), "workerPrefab", StandardModules.StaffWorkerPrefab()); // 알바 (M6)
 
             var grid = BakeGrid(site, layout);
             SetRef(grid.gameObject.AddComponent<SiteUnlocker>(), "fencePrefab", fencePrefab); // 레벨로 자동 해금 + 다음 구역 울타리
@@ -78,6 +79,7 @@ namespace APC.EditorTools
             BuildContractPopup();
             BuildSettlementPopup();
             FixCameraButton();
+            DisableHudForBootstrap();
             RemoveTestZones();
             SetupPlayer(layout.CellCenter(1, 1) + new Vector3(-1f, 0f, -1f)); // 7번 사무실
 
@@ -140,6 +142,18 @@ namespace APC.EditorTools
             grid.SetEntries(entries);
             EditorUtility.SetDirty(grid);
             return grid;
+        }
+
+        /// <summary>
+        /// HUD Canvas 아래 UI를 모두 꺼진 채로 저장하고, 실행하면 UiBootstrap이 차례대로 켠다
+        /// (켜 둔 채 저장된 팝업 · 딤이 클릭을 가로채지 않게).
+        /// </summary>
+        static void DisableHudForBootstrap()
+        {
+            var canvas = GameObject.Find("HUD Canvas");
+            if (canvas == null) return;
+            if (canvas.GetComponent<APC.UI.UiBootstrap>() == null) canvas.AddComponent<APC.UI.UiBootstrap>();
+            foreach (Transform child in canvas.transform) child.gameObject.SetActive(false);
         }
 
         /// <summary>M2 손맛 테스트 존 정리 (부지 밖이라 이제 들어갈 수 없다).</summary>
@@ -398,7 +412,7 @@ namespace APC.EditorTools
         /// <summary>카메라 버튼 글자를 한글이 나오는 TMP로 바꾼다 (M1에서 만든 버튼은 기본 Text).</summary>
         static void FixCameraButton()
         {
-            var button = Object.FindFirstObjectByType<CameraModeButton>();
+            var button = Object.FindFirstObjectByType<CameraModeButton>(FindObjectsInactive.Include); // HUD는 꺼진 채 저장됨
             if (button == null) return;
             var labelTransform = button.transform.Find("Label");
             if (labelTransform == null && button.transform.childCount > 0) labelTransform = button.transform.GetChild(0);

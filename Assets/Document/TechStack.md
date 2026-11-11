@@ -33,10 +33,11 @@ Git UPM 패키지는 모두 **태그로 버전을 고정**했다 (`Packages/mani
 | 설정 | 위치 | 이유 |
 |---|---|---|
 | `NuGet.config`, `packages.config` | `Assets/` | R3 코어와 의존 DLL 6개를 `Assets/Packages/`에 복원 |
+| `.mcp.json` | 프로젝트 루트 | Claude Code에 UnityMCP 서버 등록 (`http://localhost:8080/mcp`). 연결 방법은 [4.4](#44-unitymcp--개발-보조) |
 
 ## 3. 처음 열 때 확인할 것
 
-1. 프로젝트를 열면 Package Manager가 Git 패키지를 받는다 (**Git 설치 필요**).
+1. 프로젝트를 열면 Package Manager가 Git 패키지를 받는다 (**Git for Windows가 PATH에 있어야 한다**). 없으면 R3.Unity가 빠져 `.AddTo(this)`에서 CS1620이 대량으로 난다 (2026-11-11 실제 발생, Git 설치로 해결).
 2. NuGetForUnity가 `packages.config`를 읽어 R3 DLL을 자동 복원한다. 복원 전에는 R3 관련 컴파일 에러가 잠깐 뜰 수 있다 → 복원 후 재컴파일되면 사라짐. 복원이 안 되면 `NuGet > Restore Packages`를 실행한다.
    - **안전 모드(Safe Mode) 주의:** 첫 실행 때 이 에러 때문에 안전 모드를 띄우라는 창이 나오면 **Ignore**를 고른다. 안전 모드에서는 NuGetForUnity가 실행되지 않아 복원도 되지 않는다. 그러면 에러가 풀리지 않아 안전 모드를 계속 빠져나오지 못한다.
    - 이미 안전 모드에 들어갔다면, 같은 버전의 `Assets/Packages/`를 다른 프로젝트(예: BPCP)에서 `.meta` 파일까지 통째로 복사한다. 그 뒤 `Ctrl+R`로 다시 불러오고 안전 모드를 종료한다.
@@ -96,6 +97,7 @@ Git UPM 패키지는 모두 **태그로 버전을 고정**했다 (`Packages/mani
 - 임시 프리미티브 프리팹 생성, 부지 그리드(GDD 4.2) 배치
 - 콘솔 에러 확인, 플레이 모드 실행 확인
 - 빌드에는 영향 없음 (에디터 전용 패키지)
+- **Claude Code 연결**: 프로젝트 루트 `.mcp.json`에 서버 `UnityMCP`(`http://localhost:8080/mcp`)가 등록돼 있다. Unity에서 `Window > MCP for Unity` 서버를 먼저 켠 뒤 Claude Code를 (재)시작하고, 프로젝트 MCP 서버 사용을 승인한다. 포트가 바뀌면 `.mcp.json`의 url을 고친다.
 
 ## 5. 사용 규칙
 
@@ -133,7 +135,7 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 
 ### 5.5 입력
 
-- 터치와 마우스는 `PointerInput`으로만 읽는다. 터치스크린이 있으면 터치, 없으면 마우스 왼쪽 버튼을 손가락 1개로 본다.
+- 터치와 마우스는 `PointerInput`으로만 읽는다. 지금 닿은 손가락이 있으면 터치, 없으면 마우스 왼쪽 버튼을 손가락 1개로 본다. 터치스크린 장치 유무로 고르지 않는다 (PC에 터치 · 펜 장치가 잡혀 있으면 마우스가 무시되는 버그가 났었다).
 - Input System의 `TouchSimulation`은 쓰지 않는다. 에디터 개인 설정(Input Debugger)에 따라 플레이 시작 시 강제로 꺼지기 때문이다.
 - UI 위 터치 판정은 `UiHitTest` (uGUI 레이캐스트 + 디버그 메뉴 영역).
 
@@ -162,9 +164,10 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 | `SiteUnlocker` (SiteGrid 오브젝트) | 잠긴 대표 배치가 **해금 레벨이 되고 열린 칸과 맞닿으면 자동으로 해금**한다 (비용 없음). 다음 해금 1곳에 공사장 울타리(`ConstructionFence`, `잠금해제 : LV N`) |
 | 하차 · 상차장 모듈 (`Module_Lot*`) | 가장자리용. 주차장은 칸 **바깥 −x**, 회전으로 방향을 정한다 (0 = 서, 90 = 북, 180 = 동, 270 = 남). `_M`은 주차 칸을 반대로 비킨 판 |
 | `SiteNavMesh` (Site 루트, `NavMeshSurface`) | 열린 모듈 바닥 충돌체에만 네비메시를 굽고, 해금마다 다시 굽는다 (임시 Ground는 `NavMeshModifier`로 제외) |
-| `Build Site` (메뉴 `APC > Setup`) | config대로 시작 모듈을 **프리팹 인스턴스로** 씬에 굽는다. 잠긴 칸에는 아무것도 두지 않는다 |
+| `Build Site` (메뉴 `APC > Setup`) | config대로 시작 모듈을 **프리팹 인스턴스로** 씬에 굽는다. 잠긴 칸에는 아무것도 두지 않는다. HUD 자식 UI는 꺼진 채 저장하고 `UiBootstrap`이 켠다 |
 | `New Module` (메뉴 `APC > Module`) | 빈 n × m 모듈 틀(바닥 + `Content`)을 `Assets/Prefabs/Modules`에 만든다 |
 | `Rebuild Standard Modules` | 기본 모듈 프리팹을 코드 기준으로 다시 만든다 (덮어쓰기 — 프리팹에서 고친 내용은 사라짐) |
+| `Apply M6 Staff` (메뉴 `APC > Setup`) | 기본 모듈 · 선반 · 알바 프리팹(`StaffWorker.prefab`)을 덮어쓰고 Build Site. config는 건드리지 않는다 |
 
 **새 모듈 추가 절차**
 1. `APC > Module > New Module...` → 이름 · 크기 입력 → 생성
@@ -185,6 +188,8 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 - 회전해서 붙는 모듈의 바닥 글자는 `FlatLabelAligner`가 카메라 쪽으로 돌려 놓는다.
 - 이동 제한은 물리 벽이 아니라 **칸 판정**(`SiteGrid.IsAreaWalkable`)으로 한다. 플레이어는 `PlayerMover`가 이동 전에 확인하고, 알바(M6)는 열린 모듈 바닥에만 네비메시를 구워 같은 효과를 낸다 (`SiteNavMesh`).
 - 모듈 바닥(`Floor`)만 충돌체를 가진다. 네비메시가 바닥 충돌체로 구워지므로, 걸을 수 있는 면을 새로 만들면 충돌체를 남기고(`BuildKit.Cube(..., keepCollider: true)`), 장식에는 충돌체를 두지 않는다.
+- 선반 등 시설은 `BoxCollider` + `NavMeshObstacle`(carve)로 알바 경로에서 피한다. 바닥에 구워지지 않게 `NavMeshModifier`(ignoreFromBuild)를 붙인다. 플레이어도 선반 충돌체에 막힌다. 트럭은 장애물로 두지 않는다 (주차 칸이 부지 밖).
+- 알바 프리팹(`StaffWorker`)은 충돌체가 없고 NavMeshAgent 회피를 끈다 (플레이어 · 알바끼리 겹쳐 지나감).
 
 ### 5.8 문서
 

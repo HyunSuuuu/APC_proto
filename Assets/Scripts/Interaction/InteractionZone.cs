@@ -21,9 +21,16 @@ namespace APC.Interaction
 
         readonly List<Interactor> occupants = new();
         MaterialPropertyBlock block;
+        WorkSlot[] slots;
 
         public Vector2 Size => size;
         public IReadOnlyList<Interactor> Occupants => occupants;
+
+        /// <summary>켜져 있는 모든 존 (알바가 작업 대상을 찾을 때).</summary>
+        public static IReadOnlyList<InteractionZone> Active => All;
+
+        /// <summary>알바 작업 지점 (자식 WorkSlot). 없으면 알바는 이 존을 쓰지 않는다.</summary>
+        public IReadOnlyList<WorkSlot> Slots => slots ??= GetComponentsInChildren<WorkSlot>(true);
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() => All.Clear();

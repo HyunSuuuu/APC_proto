@@ -10,6 +10,11 @@ namespace APC.Logistics
 
         protected override CargoOrigin GiveOrigin => CargoOrigin.Truck;
 
+        public InboundBay Bay => bay;
+
+        /// <summary>예약하지 않은 화물이 있는가 (알바용, 다른 알바의 예약은 뺀다).</summary>
+        public override bool HasCargoFor(Interactor who) => bay.DockedTruck != null && bay.DockedTruck.Available > 0;
+
         protected override bool TryGive(Interactor who, out Cargo cargo)
         {
             var truck = bay.DockedTruck;

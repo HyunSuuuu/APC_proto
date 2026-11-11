@@ -1,5 +1,6 @@
 using APC.Contracts;
 using APC.Core;
+using APC.Data;
 using APC.Orders;
 using APC.Site;
 using UnityEngine;
@@ -130,7 +131,28 @@ namespace APC.Debugging
 
             DrawPart();
             DrawOrders();
+            DrawStaff();
             DrawSite(gm);
+        }
+
+        /// <summary>알바 테스트 (M6-5 고용 데스크 전까지): 역할 지정 / 빈 역할 자동 배정 생성. 고용금 · 최대 인원 없음.</summary>
+        void DrawStaff()
+        {
+            var staff = APC.Staff.StaffService.Instance;
+            if (staff == null) return;
+
+            Header($"Staff ({staff.Workers.Count})");
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Auto", buttonStyle)) staff.Spawn(staff.NextEmptyRole());
+            if (GUILayout.Button("Unload", buttonStyle)) staff.Spawn(StaffRole.Unload);
+            if (GUILayout.Button("Sort", buttonStyle)) staff.Spawn(StaffRole.Sort);
+            if (GUILayout.Button("Pick", buttonStyle)) staff.Spawn(StaffRole.Pick);
+            GUILayout.EndHorizontal();
+            foreach (var worker in staff.Workers)
+            {
+                var stats = worker.Stats;
+                GUILayout.Label($"{worker.name}  spd{stats.moveSpeed} cap{stats.carry}  {worker.State}  {worker.Stack.Count.CurrentValue}/{worker.Stack.Capacity.CurrentValue}", labelStyle);
+            }
         }
 
         /// <summary>파트 테스트: 남은 시간 · 출발 대수, 파트 즉시 종료 (정산 팝업).</summary>
