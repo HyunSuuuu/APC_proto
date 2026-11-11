@@ -523,6 +523,7 @@ namespace APC.EditorTools
             var panelRect = panel.rectTransform;
             var contractTab = TabButton("ContractTab", panelRect, new Vector2(150f, -60f), "계약");
             var hireTab = TabButton("HireTab", panelRect, new Vector2(390f, -60f), "고용");
+            var rosterTab = TabButton("RosterTab", panelRect, new Vector2(630f, -60f), "배치");
 
             var close = UIImage("Close", panelRect, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-60f, -60f), new Vector2(90f, 90f),
                 new Color(0.85f, 0.4f, 0.35f), BuiltinSprite("UI/Skin/UISprite.psd"));
@@ -579,7 +580,9 @@ namespace APC.EditorTools
             SetRef(popup, "hireTab", hireTab);
             SetRef(popup, "contractPage", contractPage.gameObject);
             SetRef(popup, "hirePage", BuildHirePage(panelRect).gameObject);
-            BuildStamp(panelRect); // 두 탭이 같이 쓰는 도장 (카드보다 위에 그려지게 마지막에)
+            SetRef(popup, "rosterTab", rosterTab);
+            SetRef(popup, "rosterPage", BuildRosterPage(panelRect).gameObject);
+            SetRef(popup, "stampArea", BuildStamp(panelRect)); // 계약 · 고용 탭이 같이 쓰는 도장 (카드보다 위에 그려지게 마지막에)
             root.SetAsLastSibling();
         }
 
@@ -603,19 +606,128 @@ namespace APC.EditorTools
         /// 계약 PC 팝업 오른쪽 아래 도장: 평소 앞모습(Art/Temp/Stamp_Front), 들면 윗모습(Stamp_Top).
         /// 끌어서 계약 · 후보 카드에 놓으면 찍는다.
         /// </summary>
-        static void BuildStamp(RectTransform panelRect)
+        static GameObject BuildStamp(RectTransform panelRect)
         {
             var front = LoadSprite("Assets/Art/Temp/Stamp_Front.png");
             var top = LoadSprite("Assets/Art/Temp/Stamp_Top.png");
-            var image = UIImage("Stamp", panelRect, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-150f, 160f), new Vector2(230f, 230f), Color.white, front);
+            var area = UIRect("StampArea", panelRect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero); // 배치 탭에서는 통째로 숨김
+            var image = UIImage("Stamp", area, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-150f, 160f), new Vector2(230f, 230f), Color.white, front);
             image.preserveAspect = true;
             image.raycastTarget = true;
             image.gameObject.AddComponent<CanvasGroup>();
-            UIText("Hint", panelRect, new Vector2(1f, 0f), new Vector2(-150f, 30f), new Vector2(320f, 44f), "끌어서 카드에 찍기", 28f, BodyFont, new Color(0.35f, 0.33f, 0.3f));
+            UIText("Hint", area, new Vector2(1f, 0f), new Vector2(-150f, 30f), new Vector2(320f, 44f), "끌어서 카드에 찍기", 28f, BodyFont, new Color(0.35f, 0.33f, 0.3f));
             var stamp = image.gameObject.AddComponent<Stamp>();
             SetRef(stamp, "image", image);
             SetRef(stamp, "frontSprite", front);
             SetRef(stamp, "topSprite", top);
+            return area.gameObject;
+        }
+
+        /// <summary>
+        /// 배치 탭 (GDD 11.3): 위 왼쪽 알바 수, 하차 · 분류 · 피킹 3열(제목에 인원 수) + 오른쪽 해고 칸.
+        /// 알바 카드를 끌어 다른 열에 놓으면 역할 변경, 해고 칸에 놓으면 확인 창.
+        /// </summary>
+        static RosterPanel BuildRosterPage(RectTransform panelRect)
+        {
+            var dark = new Color(0.25f, 0.22f, 0.2f);
+            var soft = new Color(0.35f, 0.33f, 0.3f);
+            var red = new Color(0.8f, 0.25f, 0.2f);
+            var sprite = BuiltinSprite("UI/Skin/UISprite.psd");
+            var rules = Database.Staff;
+            var center = new Vector2(0.5f, 0.5f);
+
+            var page = UIRect("RosterPage", panelRect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var header = UIText("Header", page, new Vector2(0f, 1f), new Vector2(380f, -150f), new Vector2(700f, 60f), "알바 0/1", 36f, BodyFont, dark);
+            header.alignment = TMPro.TextAlignmentOptions.Left;
+
+            var roles = new[] { StaffRole.Unload, StaffRole.Sort, StaffRole.Pick };
+            var names = new[] { "하차", "분류", "피킹" };
+            var columns = new List<Object>();
+            for (var i = 0; i < roles.Length; i++)
+            {
+                var bg = UIImage($"Column_{roles[i]}", page, center, center, new Vector2(-560f + 380f * i, -60f), new Vector2(360f, 640f), new Color(0.9f, 0.88f, 0.85f), sprite);
+                bg.type = Image.Type.Sliced;
+                bg.raycastTarget = true; // 카드를 놓을 곳
+                var title = UIText("Title", bg.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -40f), new Vector2(340f, 60f), $"{names[i]} (0)", 38f, TitleFont, dark);
+                UIImage("Bar", bg.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -78f), new Vector2(320f, 8f), rules.GetRoleColor(roles[i]), sprite);
+                var content = UIRect("Content", bg.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -365f), new Vector2(340f, 540f));
+                var layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
+                layout.spacing = 10f;
+                layout.childAlignment = TextAnchor.UpperCenter;
+                layout.childControlWidth = false;
+                layout.childControlHeight = false;
+                layout.childForceExpandWidth = false;
+                layout.childForceExpandHeight = false;
+                columns.Add(Column(bg.gameObject, false, roles[i], title, names[i], content));
+            }
+
+            var fireImage = UIImage("Column_Fire", page, center, center, new Vector2(590f, -60f), new Vector2(300f, 640f), new Color(0.95f, 0.86f, 0.83f), sprite);
+            fireImage.type = Image.Type.Sliced;
+            fireImage.raycastTarget = true;
+            UIText("Label", fireImage.rectTransform, center, Vector2.zero, new Vector2(280f, 200f), "해고\n<size=60%>여기에 놓기</size>", 52f, TitleFont, red);
+            Column(fireImage.gameObject, true, StaffRole.Unload, null, "해고", null);
+
+            // 끄는 카드를 올려 둘 층 (레이아웃 밖) + 카드 템플릿
+            var dragLayer = UIRect("DragLayer", page, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var cardImage = UIImage("CardTemplate", dragLayer, center, center, Vector2.zero, new Vector2(340f, 100f), Color.white, sprite);
+            cardImage.type = Image.Type.Sliced;
+            cardImage.raycastTarget = true; // 끌 수 있게
+            cardImage.gameObject.AddComponent<CanvasGroup>();
+            var bar = UIImage("Color", cardImage.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(22f, 0f), new Vector2(16f, 76f), Color.white, sprite);
+            var nameLabel = UIText("Name", cardImage.rectTransform, new Vector2(0.5f, 1f), new Vector2(20f, -30f), new Vector2(280f, 44f), "알바 1", 34f, TitleFont, dark);
+            nameLabel.alignment = TMPro.TextAlignmentOptions.Left;
+            var statsLabel = UIText("Stats", cardImage.rectTransform, new Vector2(0.5f, 1f), new Vector2(20f, -72f), new Vector2(280f, 36f), "이동 1 · 적재 1 · 시급 8", 26f, BodyFont, soft);
+            statsLabel.alignment = TMPro.TextAlignmentOptions.Left;
+            var card = cardImage.gameObject.AddComponent<RosterCard>();
+            SetRef(card, "colorBar", bar);
+            SetRef(card, "nameLabel", nameLabel);
+            SetRef(card, "statsLabel", statsLabel);
+
+            // 해고 확인 창 (맨 위, 꺼진 채)
+            var confirm = UIImage("Confirm", page, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, new Color(0f, 0f, 0f, 0.45f), null);
+            confirm.raycastTarget = true;
+            var box = UIImage("Box", confirm.rectTransform, center, center, Vector2.zero, new Vector2(700f, 340f), Color.white, sprite);
+            box.type = Image.Type.Sliced;
+            var confirmLabel = UIText("Label", box.rectTransform, center, new Vector2(0f, 60f), new Vector2(640f, 150f), "알바 1을(를) 해고할까요?", 38f, TitleFont, dark);
+            var yes = DialogButton("Fire", box.rectTransform, new Vector2(-150f, -95f), "해고", red);
+            var no = DialogButton("Cancel", box.rectTransform, new Vector2(150f, -95f), "취소", new Color(0.6f, 0.58f, 0.55f));
+            confirm.gameObject.SetActive(false);
+
+            var panel = page.gameObject.AddComponent<RosterPanel>();
+            SetList(panel, "columns", columns);
+            SetRef(panel, "cardTemplate", card);
+            SetRef(panel, "dragLayer", dragLayer);
+            SetRef(panel, "headerLabel", header);
+            SetRef(panel, "confirm", confirm.gameObject);
+            SetRef(panel, "confirmLabel", confirmLabel);
+            SetRef(panel, "confirmButton", yes);
+            SetRef(panel, "cancelButton", no);
+
+            page.gameObject.SetActive(false);
+            return panel;
+        }
+
+        static RosterColumn Column(GameObject go, bool fire, StaffRole role, TMPro.TMP_Text title, string displayName, RectTransform content)
+        {
+            var column = go.AddComponent<RosterColumn>();
+            var so = new SerializedObject(column);
+            so.FindProperty("fire").boolValue = fire;
+            so.FindProperty("role").enumValueIndex = (int)role;
+            so.FindProperty("titleLabel").objectReferenceValue = title;
+            so.FindProperty("displayName").stringValue = displayName;
+            so.FindProperty("content").objectReferenceValue = content;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return column;
+        }
+
+        static Button DialogButton(string name, RectTransform parent, Vector2 position, string text, Color color)
+        {
+            var image = UIImage(name, parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), position, new Vector2(240f, 80f), color, BuiltinSprite("UI/Skin/UISprite.psd"));
+            image.type = Image.Type.Sliced;
+            image.raycastTarget = true;
+            var button = image.gameObject.AddComponent<Button>();
+            UIText("Label", image.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(240f, 80f), text, 38f, TitleFont, Color.white);
+            return button;
         }
 
         /// <summary>스프라이트 모드가 Single이든 Multiple이든 그 텍스처의 첫 스프라이트.</summary>

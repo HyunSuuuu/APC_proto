@@ -9,8 +9,8 @@ using UnityEngine.UI;
 namespace APC.UI
 {
     /// <summary>
-    /// 계약 PC 팝업 (GDD 6.3, 11.1, 12.3): `계약 | 고용` 탭. 열려 있는 동안 게임이 멈춘다.
-    /// 두 탭 모두 오른쪽 아래 도장(Stamp)을 카드에 찍어 실행한다.
+    /// 계약 PC 팝업 (GDD 6.3, 11.1, 11.3, 12.3): `계약 | 고용 | 배치` 탭. 열려 있는 동안 게임이 멈춘다.
+    /// 계약 · 고용 탭은 오른쪽 아래 도장(Stamp)을 카드에 찍어 실행한다. 배치 탭(RosterPanel)은 알바 카드를 끌어 역할 변경 · 해고.
     /// 계약 탭: 계약하면 `[ 계약 ]` 자국을 잠깐 보여 준 뒤 닫혀서 선반이 생기는 모습을 보여준다. 고용 탭(HirePanel): 고용해도 열린 채.
     /// 열 때 탭: 아직 계약이 없으면 계약, 있으면 고용.
     /// 이 오브젝트는 항상 켜 두고, 자식 body만 켜고 끈다.
@@ -27,8 +27,11 @@ namespace APC.UI
         [Header("탭")]
         [SerializeField] Button contractTab;
         [SerializeField] Button hireTab;
+        [SerializeField] Button rosterTab;
         [SerializeField] GameObject contractPage;
         [SerializeField] GameObject hirePage;
+        [SerializeField] GameObject rosterPage;
+        [SerializeField, Tooltip("도장 + 안내 글자 (배치 탭에서는 숨김)")] GameObject stampArea;
         [SerializeField] Color tabOnColor = new(0.95f, 0.6f, 0.25f);
         [SerializeField] Color tabOffColor = new(0.75f, 0.72f, 0.68f);
         [SerializeField, Tooltip("계약 도장을 찍은 뒤 닫히기까지 (초, 실시간)")] float contractCloseDelay = 0.6f;
@@ -53,8 +56,9 @@ namespace APC.UI
         {
             Instance = this;
             closeButton.onClick.AddListener(Close);
-            contractTab.onClick.AddListener(() => SelectTab(hire: false));
-            hireTab.onClick.AddListener(() => SelectTab(hire: true));
+            contractTab.onClick.AddListener(() => SelectTab(Tab.Contract));
+            hireTab.onClick.AddListener(() => SelectTab(Tab.Hire));
+            rosterTab.onClick.AddListener(() => SelectTab(Tab.Roster));
             cardTemplate.gameObject.SetActive(false);
             body.SetActive(false);
         }
@@ -65,7 +69,7 @@ namespace APC.UI
             IsOpen = true;
             Refresh();
             body.SetActive(true);
-            SelectTab(hire: ContractService.Instance != null && ContractService.Instance.HasAnyContract);
+            SelectTab(ContractService.Instance != null && ContractService.Instance.HasAnyContract ? Tab.Hire : Tab.Contract);
             GameManager.Instance.OpenPopup();
 
             transition?.Kill();
@@ -96,13 +100,18 @@ namespace APC.UI
                 });
         }
 
-        void SelectTab(bool hire)
+        enum Tab { Contract, Hire, Roster }
+
+        void SelectTab(Tab tab)
         {
-            contractPage.SetActive(!hire);
-            hirePage.SetActive(hire);
-            contractTab.image.color = hire ? tabOffColor : tabOnColor;
-            hireTab.image.color = hire ? tabOnColor : tabOffColor;
-            if (!hire) Refresh();
+            contractPage.SetActive(tab == Tab.Contract);
+            hirePage.SetActive(tab == Tab.Hire);
+            rosterPage.SetActive(tab == Tab.Roster);
+            stampArea.SetActive(tab != Tab.Roster);
+            contractTab.image.color = tab == Tab.Contract ? tabOnColor : tabOffColor;
+            hireTab.image.color = tab == Tab.Hire ? tabOnColor : tabOffColor;
+            rosterTab.image.color = tab == Tab.Roster ? tabOnColor : tabOffColor;
+            if (tab == Tab.Contract) Refresh();
         }
 
         void Refresh()

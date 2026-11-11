@@ -556,11 +556,12 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Staff/StaffWorker.cs](../Scripts/Staff/StaffWorker.cs)
 - **역할**: 알바 1명. 플레이어와 같은 `Interactor` · `CarryStack`을 쓰고, 이동은 `NavMeshAgent`가 한다 ([GDD 11](GDD.md#11-알바생)).
 - **동작**: 상태 `Phase` = `Idle / Moving / Working / Parked / Waiting`. 집는 곳은 역할로 정한다 (하차 `TruckPickupZone`, 분류 `StorageZone`, 피킹 `ShelfZone`). 내려놓는 곳은 들고 있는 화물을 받는 존(`CargoZone.CanReceiveAny`)이라서, 역할을 바꿔도 화물은 원래 목적지로 간다. 가장 가까운 빈 `WorkSlot`을 출발할 때 예약하고, 도착하면 `Interactor.Target`을 그 존으로 두고 `AllowDrop` · `AllowPick`을 작업에 맞춘다. 옮길 것이 `workIdleTimeout`(0.5초) 동안 없거나 가득 · 빈손이 되면 작업을 끝낸다. 예약은 3역할 공통 ([GDD 8.4](GDD.md#84-수요-계산)): 출발할 때 가져갈 만큼 `Reserve()`로 잡고, 도착하면 `ReleaseReservation()`으로 푼다. 해제는 `releaseReservation` 함수 하나. 하차 = `InboundTruck.Reserve`, 분류 = `Warehouse.ReserveShelfSpace`(`PlanForShelves` 품목별), 피킹 = `OrderService.Reserve`.
-- **연결**: `Setup(role, stats)`(`StaffService.Spawn`이 부른다), `SetRole(role)`(역할 변경 — M6-6 배치 현황판용), `Role` · `Stats` · `State` · `Stack`. 설정값은 `StaffRules`.
+- **연결**: `Setup(role, stats)`(`StaffService.Spawn`이 부른다), `SetRole(role)`(역할 변경 — 배치 탭), `Fire()`(해고), `Role` · `Stats` · `State` · `Stack` · `Number`(고용 순 번호, `DisplayName` = `알바 N`) · `Fired`. 설정값은 `StaffRules`.
 - **주의**:
   - 가는 중 대상이 사라지면 예약을 풀고, `thinkInterval`(0.25초)마다 다시 고른다. 가는 중 확인(`StillValid`)은 예약을 잠깐 풀고 다시 확인해 다시 잡는다.
   - 할 일이 없으면 역할 존의 빈 슬롯에서 `Parked`로 기다린다. 빈 슬롯이 없으면 그 자리에서 `Waiting`.
   - 도착 후 3초 + 대기 시간 동안 존이 잡히지 않으면 경고 로그 `작업 지점 … 밖에 있습니다`.
+  - 해고(`Fire`): 바로 `StaffService` 명단에서 빠진다. 배달하러 가는 중 · 내려놓는 중이면 끝내고, 아니면 일을 멈춘다. 손에 화물이 있으면 배달부터 하고, 빈손이 되면 `Leave()` — 생성 지점으로 걸어가 도착하면 `Destroy`.
   - 프리팹에 충돌체가 없고 회피를 끈다 (`StaffWorkerPrefab`). 플레이어 · 알바와 겹쳐 지나간다.
 
 #### StaffService
@@ -570,8 +571,9 @@ StaffWorker (thinkInterval 0.25초마다 판단)
   - 후보: `Candidates`(`StaffCandidate` = 스탯 + `Hired`, `StaffRules.candidateCount` 3명). `PartService.Part`를 구독해 **파트가 바뀔 때마다**(구독 순간 = 처음 후보 포함) `RefreshCandidates()`, 고용 탭 [새로고침]도 같은 함수. 바뀌면 `OnCandidatesChanged`.
   - 고용: `GetBlock(candidate)` = `Hired` / `MaxStaff`(`Workers.Count >= LevelProgress.MaxStaff`) / `Cash`(보유 재화 < 고용금) / `None`. `TryHire(candidate, out block)` = 막히지 않으면 빈 역할로 생성 → `Wallet.TrySpend(고용금)` → `Hired = true` → XP `xpPurchase`(+5) → `OnCandidatesChanged`.
   - 생성: `Spawn(role, stats)` = 사무실 생성 지점(`StaffSpawnPoint`, PC 존 바로 앞)에 `StaffWorker` 프리팹 + 팝 연출. `Spawn(role)`은 무작위 스탯(디버그 메뉴용, 고용금 · 최대 인원 없음).
+  - 명단 변경: `SetRole(worker, role)` · `Fire(worker)`(고용금 환불 없음), 고용 · 해고 · 역할 변경마다 `OnWorkersChanged`. 알바 번호(`Number`)는 해고해도 다시 쓰지 않는다.
   - `Workers`는 고용 순서대로 (시급 지급 순서, GDD 11.7). `NextEmptyRole()` = 빈 역할 (하차 → 분류 → 피킹 순, 다 차면 인원이 가장 적은 역할). `CountRole(role)`.
-- **연결**: `StaffSpawnPoint.Current`, `StaffRules`, `PartService`(후보 교체), `HirePanel`(고용 탭), 디버그 메뉴 `Staff` 절.
+- **연결**: `StaffSpawnPoint.Current`, `StaffRules`, `PartService`(후보 교체), `HirePanel`(고용 탭), `RosterPanel`(배치 탭), 디버그 메뉴 `Staff` 절.
 - **주의**: 네비메시가 없으면 `Spawn`은 null이고 고용도 실패한다 (돈은 나가지 않음).
 
 #### StaffSpawnPoint
@@ -716,14 +718,14 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### ContractPopup
 [UI/ContractPopup.cs](../Scripts/UI/ContractPopup.cs)
-- **역할**: 계약 PC 팝업 — `계약 | 고용` 탭 (GDD 11.1, 12.3). 열려 있는 동안 게임이 멈춘다. 계약하면 바로 닫혀서 선반이 생기는 모습을 보여 주고, 고용 탭(`HirePanel`)은 고용해도 열린 채다.
-- **동작**: `Open` → `GameManager.OpenPopup` → 탭 선택(계약이 없으면 계약 탭, 있으면 고용 탭). `SelectTab`이 `contractPage` / `hirePage`를 켜고 끄고 탭 버튼 색을 바꾼다. 계약 탭은 회사마다 카드를 채운다(`Refresh`). `Close` → 닫힘 연출이 끝나면 `ClosePopup`. 트윈은 `SetUpdate(true)`.
+- **역할**: 계약 PC 팝업 — `계약 | 고용 | 배치` 탭 (GDD 11.1, 11.3, 12.3). 열려 있는 동안 게임이 멈춘다. 계약하면 바로 닫혀서 선반이 생기는 모습을 보여 주고, 고용 탭(`HirePanel`)은 고용해도 열린 채다.
+- **동작**: `Open` → `GameManager.OpenPopup` → 탭 선택(계약이 없으면 계약 탭, 있으면 고용 탭). `SelectTab(Tab)`이 `contractPage` / `hirePage` / `rosterPage`를 켜고 끄고 탭 버튼 색을 바꾼다. 배치 탭에선 도장 · 안내 글자 묶음(`stampArea`)을 숨긴다. 계약 탭은 회사마다 카드를 채운다(`Refresh`). `Close` → 닫힘 연출이 끝나면 `ClosePopup`. 트윈은 `SetUpdate(true)`.
 - **주의**: 루트 오브젝트는 항상 켜 두고 자식 `body`만 켜고 끈다 (꺼져 있으면 `Instance`가 등록되지 않음). Build Site가 UI를 통째로 다시 만든다.
 
 #### ContractCard
 [UI/ContractCard.cs](../Scripts/UI/ContractCard.cs)
 - **역할**: 계약 탭의 회사 카드 1장 (`StampCard`). 이름, 품목 색 아이콘, `입고 트럭 : N` / `단가 : N` 두 줄 + 그 아래 따로 둔 붉은 사유 글자 `blockLabel`(Lv.N 해금 / 선반 구역 B 필요 / 선반 자리 부족, 계약할 수 없을 때만 켜짐). 상태 띠는 없앰. **버튼은 없고 도장으로 계약**한다.
-- **동작**: `Bind(company, block, areaName, tryContract)`. `TryStamp()` = 막혀 있으면 흔들림 + 사유(이미 계약함 / 띠 문구), 아니면 `tryContract()`(→ `ContractPopup.Contract`) 성공 시 `[ 계약 ]` 자국 + 띠 `계약 완료`. 계약한 회사는 다시 열어도 자국 · 필터가 찍힌 채 보인다.
+- **동작**: `Bind(company, block, areaName, tryContract)`. `TryStamp()` = 막혀 있으면 흔들림 + 사유(이미 계약함 / `blockLabel` 문구), 아니면 `tryContract()`(→ `ContractPopup.Contract`) 성공 시 `[ 계약 ]` 자국 + 필터. 계약한 회사는 다시 열어도 자국 · 필터가 찍힌 채 보인다.
 
 #### StampCard (추상)
 [UI/StampCard.cs](../Scripts/UI/StampCard.cs)
@@ -747,6 +749,23 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 계약 PC 팝업 오른쪽 아래 도장 (계약 · 고용 탭 공용). 평소엔 앞모습(`Art/Temp/Stamp_Front`), 들면 윗모습(`Stamp_Top`). 끌어서 `StampCard`에 놓으면 그 카드의 `TryStamp()`.
 - **동작**: 드래그 중엔 `CanvasGroup.blocksRaycasts = false`로 아래 카드가 잡히게 하고, 놓으면 `EventSystem.RaycastAll`로 `StampCard`를 찾는다. 찍혔으면 꾹 누르듯 `pressScale`(1.25)배로 커졌다 돌아온 뒤 제자리로, 못 찍었으면 바로 제자리로 (앞모습으로 바뀜). `SetUpdate(true)`.
 - **주의**: Screen Space Overlay 캔버스 기준 (월드 좌표 = 화면 좌표). 스프라이트는 Multiple 모드여도 Build Site의 `LoadSprite`가 첫 스프라이트를 쓴다. MCP 스크린샷은 찍는 순간 Game 뷰 해상도를 바꾸므로, 자동 테스트에서 드롭 좌표는 같은 호출 안에서 구한다.
+
+#### RosterPanel
+[UI/RosterPanel.cs](../Scripts/UI/RosterPanel.cs)
+- **역할**: 계약 PC 팝업의 배치 탭 (GDD 11.3). 위 왼쪽 `알바 n/최대`, 하차 · 분류 · 피킹 3열(`RosterColumn`, 제목에 인원 수) + 오른쪽 해고 칸 + 해고 확인 창.
+- **동작**: `StaffService.OnWorkersChanged` · `OnEnable`마다 `Refresh` — 카드(`RosterCard`)를 명단 수만큼 만들어 두고 `Workers[i]`에 묶어 그 역할 열 `Content`로 옮긴다. `Drop(card, column)`: 역할 열이면 `StaffService.SetRole`, 해고 칸이면 확인 창 → [해고] `StaffService.Fire` / [취소]. 어디에 놓든 카드는 다시 그린 자리로 돌아간다.
+- **연결**: `RosterColumn` × 3 + 해고 칸, `RosterCard` 템플릿, `dragLayer`(끄는 카드를 올려 두는 층).
+- **주의**: 한 열에 카드가 5장쯤 들어간다 (스크롤 없음). 탭이 꺼지면 확인 창도 닫힌다.
+
+#### RosterCard
+[UI/RosterCard.cs](../Scripts/UI/RosterCard.cs)
+- **역할**: 배치 탭 알바 카드 1장: 역할 색 막대 · `알바 N` · `이동 · 적재 · 시급`.
+- **동작**: 드래그를 시작하면 `dragLayer`로 옮기고 `blocksRaycasts = false`, 놓으면 `EventSystem.RaycastAll`로 `RosterColumn`을 찾아 `RosterPanel.Drop`. Screen Space Overlay 기준.
+
+#### RosterColumn
+[UI/RosterColumn.cs](../Scripts/UI/RosterColumn.cs)
+- **역할**: 배치 탭의 칸 — 역할 열(`role`, 제목 · `Content` 세로 레이아웃) 또는 해고 칸(`fire`). 배경 Image의 `raycastTarget`을 켜 둔다 (카드를 놓을 곳).
+
 #### CameraModeButton
 [UI/CameraModeButton.cs](../Scripts/UI/CameraModeButton.cs)
 - **역할**: HUD 오른쪽 아래 카메라 버튼. 추적 ↔ 자유 전환, 자유 모드에서는 조이스틱을 끄고 버튼이 **'내 캐릭터로'** 가 된다. 글자는 TMP(`label`).
@@ -775,7 +794,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | 메뉴 | 스크립트 | 하는 일 |
 |---|---|---|
 | `APC > Setup > Run M0 Setup` | [ProjectBootstrap](../Scripts/Editor/ProjectBootstrap.cs) | 폴더, 가로 화면 설정, 데이터 에셋(GDD 수치), Game 씬. **이미 있는 에셋 · 씬은 건드리지 않고** 빈 참조만 채운다 |
-| `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground(네비메시 제외) · NavMeshSurface · Logistics(Warehouse · ContractService · OrderService · StaffService) → 시작 모듈 인스턴스 + SiteUnlocker → HUD(레벨 · 현금 · 레벨업 배너 + 색종이 · 주문서 큐 · 계약 PC 팝업(계약 · 고용 탭) · 정산 팝업, 자식은 꺼진 채 저장 + `UiBootstrap`) → 플레이어 위치 + CashCollector → 씬 저장 |
+| `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground(네비메시 제외) · NavMeshSurface · Logistics(Warehouse · ContractService · OrderService · StaffService) → 시작 모듈 인스턴스 + SiteUnlocker → HUD(레벨 · 현금 · 레벨업 배너 + 색종이 · 주문서 큐 · 계약 PC 팝업(계약 · 고용 · 배치 탭) · 정산 팝업, 자식은 꺼진 채 저장 + `UiBootstrap`) → 플레이어 위치 + CashCollector → 씬 저장 |
 | `APC > Setup > Apply M6 Staff (프리팹 덮어쓰기)` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 · 선반 · 알바 프리팹(`StaffWorker.prefab`)을 덮어쓰고 Build Site. config(SiteLayout · 레벨 표)는 건드리지 않는다 |
 | `APC > Module > New Module...` | [ModuleFactory](../Scripts/Editor/ModuleFactory.cs) (`ModuleCreatorWindow`) | 빈 n × m 모듈 틀을 `Assets/Prefabs/Modules/Module_이름.prefab`으로 만든다 |
 | `APC > Module > Rebuild Standard Modules` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 10종(빈 타일 `Module_Empty` 포함)을 코드 기준으로 **덮어써서** 다시 만든다 |

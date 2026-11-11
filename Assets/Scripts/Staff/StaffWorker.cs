@@ -42,6 +42,7 @@ namespace APC.Staff
         WorkSlot slot;
         bool dropping;
         bool parking;
+        bool leaving;
         System.Action releaseReservation; // 지금 잡고 있는 예약을 푸는 함수 (없으면 null)
         float thinkTimer;
         float workTime;
@@ -52,6 +53,13 @@ namespace APC.Staff
         public StaffStats Stats { get; private set; }
         public Phase State { get; private set; }
         public CarryStack Stack => stack;
+
+        /// <summary>고용 순서 번호 (배치 탭 이름 `알바 N`).</summary>
+        public int Number { get; internal set; }
+        public string DisplayName => $"알바 {Number}";
+
+        /// <summary>해고됨: 명단에서 빠졌고, 들고 있던 화물을 배달한 뒤 생성 지점으로 걸어가 사라진다.</summary>
+        public bool Fired { get; private set; }
 
         void Awake()
         {
@@ -82,6 +90,18 @@ namespace APC.Staff
             if (State == Phase.Parked || (State == Phase.Moving && !dropping)) Abort();
         }
 
+        /// <summary>
+        /// 해고 (GDD 11.3). 바로 명단에서 빠진다 (빈자리는 다시 고용 가능).
+        /// 배달하러 가는 중 · 내려놓는 중이면 끝내고, 아니면 지금 일을 멈춘다. 손에 화물이 남아 있으면 배달부터 한다.
+        /// </summary>
+        public void Fire()
+        {
+            if (Fired) return;
+            Fired = true;
+            if (StaffService.Instance != null) StaffService.Instance.Remove(this);
+            if (!dropping || State is not (Phase.Moving or Phase.Working)) Abort();
+        }
+
         void OnDisable()
         {
             ReleaseAll();
@@ -99,6 +119,9 @@ namespace APC.Staff
 
             switch (State)
             {
+                case Phase.Moving when leaving:
+                    if (Arrived()) Destroy(gameObject);
+                    break;
                 case Phase.Moving when parking:
                     if (think) Think(); // 기다리러 가는 중에도 일이 생기면 바로 간다
                     if (State == Phase.Moving && parking && Arrived())
@@ -126,6 +149,11 @@ namespace APC.Staff
 
         void Think()
         {
+            if (Fired && stack.Count.CurrentValue == 0)
+            {
+                Leave();
+                return;
+            }
             if (stack.Count.CurrentValue > 0)
             {
                 // 배달할 곳이 없거나 빈 슬롯이 없으면 그 자리에서 기다린다
@@ -215,7 +243,7 @@ namespace APC.Staff
             if (agent.pathPending) return false;
             if (agent.pathStatus == NavMeshPathStatus.PathInvalid)
             {
-                Debug.LogWarning($"[StaffWorker] {name}: 작업 지점 '{slot.name}'까지 길이 없습니다.", slot);
+                Debug.LogWarning($"[StaffWorker] {name}: '{(slot != null ? slot.name : "출구")}'까지 길이 없습니다.", this);
                 Hold();
                 return false;
             }
@@ -271,6 +299,16 @@ namespace APC.Staff
             ReleaseAll();
             State = Phase.Idle;
             thinkTimer = 0f; // 다음 일을 바로 고른다
+        }
+
+        /// <summary>해고 후 빈손: 생성 지점(사무실 PC 앞)으로 걸어가 사라진다.</summary>
+        void Leave()
+        {
+            ReleaseAll();
+            leaving = true;
+            var spawn = StaffSpawnPoint.Current;
+            agent.SetDestination(spawn != null ? spawn.transform.position : transform.position);
+            State = Phase.Moving;
         }
 
         /// <summary>그 자리에서 멈춰 기다린다 (빈 슬롯 없음 / 배달할 곳 없음).</summary>

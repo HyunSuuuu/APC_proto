@@ -35,6 +35,8 @@ namespace APC.Staff
         readonly List<StaffWorker> workers = new(); // 고용 순서
         readonly List<StaffCandidate> candidates = new();
         readonly Subject<Unit> candidatesChanged = new();
+        readonly Subject<Unit> workersChanged = new();
+        int hireCount; // 알바 번호 (해고해도 다시 쓰지 않음)
 
         /// <summary>고용 순서대로 (시급 지급 순서, GDD 11.7).</summary>
         public IReadOnlyList<StaffWorker> Workers => workers;
@@ -43,6 +45,9 @@ namespace APC.Staff
 
         /// <summary>후보가 새로 뽑히거나 누군가 고용됐다 (고용 탭이 다시 그린다).</summary>
         public Observable<Unit> OnCandidatesChanged => candidatesChanged;
+
+        /// <summary>명단이 바뀌었다: 고용 · 해고 · 역할 변경 (배치 탭이 다시 그린다).</summary>
+        public Observable<Unit> OnWorkersChanged => workersChanged;
 
         public int MaxStaff => GameManager.Instance.Level.MaxStaff;
 
@@ -71,6 +76,7 @@ namespace APC.Staff
         {
             if (Instance == this) Instance = null;
             candidatesChanged.Dispose();
+            workersChanged.Dispose();
         }
 
         /// <summary>후보를 모두 새로 뽑는다 (파트 교체 · 고용 탭 [새로고침], 무료).</summary>
@@ -150,13 +156,32 @@ namespace APC.Staff
             }
 
             var worker = Instantiate(workerPrefab, hit.position, spawn != null ? spawn.transform.rotation : Quaternion.identity, transform);
-            worker.name = $"Staff_{workers.Count + 1}_{role}";
+            worker.Number = ++hireCount;
+            worker.name = $"Staff_{worker.Number}";
             worker.Setup(role, stats);
             workers.Add(worker);
             FacilityPop.Play(worker.transform);
+            workersChanged.OnNext(Unit.Default);
             return worker;
         }
 
-        internal void Remove(StaffWorker worker) => workers.Remove(worker);
+        /// <summary>역할 변경 (배치 탭, GDD 11.3). 들고 있던 화물은 원래 목적지에 배달한 뒤 바뀐다.</summary>
+        public void SetRole(StaffWorker worker, StaffRole role)
+        {
+            if (worker == null || worker.Role == role) return;
+            worker.SetRole(role);
+            workersChanged.OnNext(Unit.Default);
+        }
+
+        /// <summary>해고 (배치 탭, GDD 11.3). 고용금은 돌려받지 않는다.</summary>
+        public void Fire(StaffWorker worker)
+        {
+            if (worker != null) worker.Fire(); // Remove가 명단에서 뺀다
+        }
+
+        internal void Remove(StaffWorker worker)
+        {
+            if (workers.Remove(worker)) workersChanged.OnNext(Unit.Default);
+        }
     }
 }
