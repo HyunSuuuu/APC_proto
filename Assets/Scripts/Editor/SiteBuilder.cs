@@ -324,7 +324,7 @@ namespace APC.EditorTools
             label.alignment = TMPro.TextAlignmentOptions.Left;
 
             // 아래 줄: 저금통 (분홍 동그라미 = 돼지 저금통 자리)
-            UIImage("PiggyIcon", rect, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(46f, 26f), new Vector2(26f, 26f),
+            var piggyIcon = UIImage("PiggyIcon", rect, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(46f, 26f), new Vector2(26f, 26f),
                 new Color(1f, 0.6f, 0.7f), BuiltinSprite("UI/Skin/Knob.psd"));
             var piggy = UIText("Piggy", rect, new Vector2(0f, 0f), new Vector2(170f, 26f), new Vector2(200f, 36f), "+0 대기", 28f, BodyFont, new Color(1f, 0.82f, 0.86f));
             piggy.alignment = TMPro.TextAlignmentOptions.Left;
@@ -333,6 +333,18 @@ namespace APC.EditorTools
             SetRef(view, "label", label);
             SetRef(view, "punchTarget", rect);
             SetRef(view, "piggyLabel", piggy);
+
+            // 주운 현금 → HUD 저금통 아이콘으로 날아가는 달러 (화면 전체 층, 클릭은 막지 않음)
+            var oldFly = canvas.Find("CashFly");
+            if (oldFly != null) DestroyIfExists(oldFly.gameObject);
+            var flyLayer = UIRect("CashFly", canvas, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var dollar = UIImage("DollarTemplate", flyLayer, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(64f, 64f),
+                Color.white, LoadSprite("Assets/Art/Temp/Dollor.png", makeSprite: true));
+            dollar.preserveAspect = true;
+            var fly = flyLayer.gameObject.AddComponent<CashFlyEffect>();
+            SetRef(fly, "iconTemplate", dollar);
+            SetRef(fly, "target", piggyIcon.rectTransform);
+            SetRef(fly, "config", ConfigAsset<CashFlyConfig>("Assets/Data/CashFlyConfig.asset"));
 
             BuildPartClock(canvas);
         }
@@ -586,6 +598,7 @@ namespace APC.EditorTools
             SetRef(popup, "hireTab", hireTab);
             SetRef(popup, "contractPage", contractPage.gameObject);
             SetRef(popup, "hirePage", BuildHirePage(panelRect).gameObject);
+            SetRef(popup, "stampConfig", StampConfigAsset());
             SetRef(popup, "rosterTab", rosterTab);
             SetRef(popup, "rosterPage", BuildRosterPage(panelRect).gameObject);
             SetRef(popup, "stampArea", BuildStamp(panelRect)); // 계약 · 고용 탭이 같이 쓰는 도장 (카드보다 위에 그려지게 마지막에)
@@ -606,6 +619,20 @@ namespace APC.EditorTools
             SetRef(target, "stampFilter", filter);
             SetRef(target, "stampMark", mark.rectTransform);
             SetRef(target, "reasonLabel", reason);
+            SetRef(target, "config", StampConfigAsset());
+        }
+
+        /// <summary>도장 연출 값 에셋 (`Assets/Data/StampConfig.asset`).</summary>
+        static StampConfig StampConfigAsset() => ConfigAsset<StampConfig>("Assets/Data/StampConfig.asset");
+
+        /// <summary>UI 연출 값 에셋. 없으면 기본값으로 만든다 (있으면 고친 값 그대로).</summary>
+        static T ConfigAsset<T>(string path) where T : ScriptableObject
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<T>(path);
+            if (asset != null) return asset;
+            asset = ScriptableObject.CreateInstance<T>();
+            AssetDatabase.CreateAsset(asset, path);
+            return asset;
         }
 
         /// <summary>
@@ -626,6 +653,7 @@ namespace APC.EditorTools
             SetRef(stamp, "image", image);
             SetRef(stamp, "frontSprite", front);
             SetRef(stamp, "topSprite", top);
+            SetRef(stamp, "config", StampConfigAsset());
             return area.gameObject;
         }
 
@@ -737,8 +765,15 @@ namespace APC.EditorTools
         }
 
         /// <summary>스프라이트 모드가 Single이든 Multiple이든 그 텍스처의 첫 스프라이트.</summary>
-        static Sprite LoadSprite(string path)
+        static Sprite LoadSprite(string path, bool makeSprite = false)
         {
+            // makeSprite: 텍스처 타입이 Default면 Sprite (Single)로 바꿔 다시 가져온다 (Art/Temp에 막 넣은 이미지)
+            if (makeSprite && AssetImporter.GetAtPath(path) is TextureImporter importer && importer.textureType != TextureImporterType.Sprite)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.SaveAndReimport();
+            }
             foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(path))
             {
                 if (asset is Sprite sprite) return sprite;

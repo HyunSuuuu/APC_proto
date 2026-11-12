@@ -33,14 +33,17 @@ namespace APC.Logistics
                 yield return new WaitUntil(() => contracts.HasAnyContract);
 
                 var company = StockBalancer.PickInboundCompany(contracts.Contracted);
-                var truck = Instantiate(truckPrefab, spawnPoint.position, parkPoint.rotation, transform);
+                // 로컬 좌표로 움직인다: 확장 모듈은 크기 0에서 커지는 중(FacilityPop)에 첫 트럭이 나오므로,
+                // 월드 좌표를 그때 잡으면 엉뚱한 곳에서 들어온다. 주차 · 생성 지점은 이 베이의 바로 아래 자식.
+                var truck = Instantiate(truckPrefab, transform);
                 truck.Load(company, StockBalancer.ComposeInboundLoad(company));
 
                 var t = truck.transform;
+                t.SetLocalPositionAndRotation(spawnPoint.localPosition, parkPoint.localRotation);
                 t.localScale = Vector3.zero;
                 yield return DOTween.Sequence()
                     .Append(t.DOScale(1f, AppearDuration).SetEase(Ease.OutBack))
-                    .Append(t.DOMove(parkPoint.position, config.TruckReverseDuration).SetEase(Ease.OutCubic))
+                    .Append(t.DOLocalMove(parkPoint.localPosition, config.TruckReverseDuration).SetEase(Ease.OutCubic))
                     .SetLink(truck.gameObject)
                     .WaitForCompletion();
                 DockedTruck = truck;
@@ -49,7 +52,7 @@ namespace APC.Logistics
                 DockedTruck = null;
 
                 DOTween.Sequence()
-                    .Append(t.DOMove(spawnPoint.position, config.TruckLeaveDuration).SetEase(Ease.InCubic))
+                    .Append(t.DOLocalMove(spawnPoint.localPosition, config.TruckLeaveDuration).SetEase(Ease.InCubic))
                     .Append(t.DOScale(0f, AppearDuration).SetEase(Ease.InBack))
                     .SetLink(truck.gameObject)
                     .OnComplete(() => Destroy(truck.gameObject));

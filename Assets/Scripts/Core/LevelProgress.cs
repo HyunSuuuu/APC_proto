@@ -26,6 +26,23 @@ namespace APC.Core
         public Observable<int> LeveledUp => leveledUp;
 
         public int XpToNext => table.GetXpToNext(level.Value);
+
+        /// <summary>지금 레벨이 시작된 누적 XP (Lv.1 = 0, Lv.2 = Lv.1 필요량, …).</summary>
+        public int LevelStartXp
+        {
+            get
+            {
+                var sum = 0;
+                for (var l = 1; l < level.Value; l++) sum += table.GetXpToNext(l);
+                return sum;
+            }
+        }
+
+        /// <summary>처음부터 모은 누적 XP (HUD `누적 / 다음 레벨 누적`, GDD 10.1).</summary>
+        public int TotalXp => LevelStartXp + xp.Value;
+
+        /// <summary>다음 레벨이 되는 누적 XP.</summary>
+        public int NextLevelXp => LevelStartXp + XpToNext;
         public int MaxStaff => table.GetMaxStaff(level.Value);
 
         public void AddXp(int amount)

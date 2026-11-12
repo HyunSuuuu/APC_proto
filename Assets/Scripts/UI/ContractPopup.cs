@@ -34,7 +34,7 @@ namespace APC.UI
         [SerializeField, Tooltip("도장 + 안내 글자 (배치 탭에서는 숨김)")] GameObject stampArea;
         [SerializeField] Color tabOnColor = new(0.95f, 0.6f, 0.25f);
         [SerializeField] Color tabOffColor = new(0.75f, 0.72f, 0.68f);
-        [SerializeField, Tooltip("계약 도장을 찍은 뒤 닫히기까지 (초, 실시간)")] float contractCloseDelay = 0.6f;
+        [SerializeField, Tooltip("도장 연출 값 (Assets/Data/StampConfig) — 계약 뒤 닫히기까지")] StampConfig stampConfig;
 
         readonly List<ContractCard> cards = new();
         Sequence transition;
@@ -142,7 +142,7 @@ namespace APC.UI
         bool Contract(CompanyDefinition company)
         {
             if (!ContractService.Instance.TryContract(company)) return false;
-            DOVirtual.DelayedCall(contractCloseDelay, Close, ignoreTimeScale: true).SetLink(gameObject);
+            DOVirtual.DelayedCall(StampConfig.OrDefault(stampConfig).ContractCloseDelay, Close, ignoreTimeScale: true).SetLink(gameObject);
             return true;
         }
     }

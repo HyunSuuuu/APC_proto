@@ -1,3 +1,4 @@
+using APC.Data;
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
@@ -15,6 +16,7 @@ namespace APC.UI
         [SerializeField, Tooltip("찍을 수 없는 이유 (잠깐 표시)")] TMP_Text reasonLabel;
         [SerializeField, Tooltip("찍힘 회색 필터")] Graphic stampFilter;
         [SerializeField, Tooltip("붉은 [ 고용 ] / [ 계약 ] 도장 자국")] RectTransform stampMark;
+        [SerializeField, Tooltip("연출 값 (Assets/Data/StampConfig)")] StampConfig config;
 
         // 사유 글자 · 필터 · 자국은 Build Site가 꺼진 채 만든다 (Awake에서 끄면 부모 OnEnable의 Bind 뒤에 다시 꺼진다)
 
@@ -39,12 +41,13 @@ namespace APC.UI
         /// <summary>도장 찍기: 자국이 크게 나타났다가 쾅 내려앉고, 회색 필터가 서서히 덮인다.</summary>
         protected void PlayStamped()
         {
+            var c = StampConfig.OrDefault(config);
             SetStamped(true);
-            stampMark.localScale = Vector3.one * 1.8f;
-            stampMark.DOScale(1f, 0.18f).SetEase(Ease.InQuad).SetUpdate(true).SetLink(gameObject)
-                .OnComplete(() => transform.DOPunchScale(Vector3.one * 0.06f, 0.2f, 6, 0.5f).SetUpdate(true).SetLink(gameObject));
+            stampMark.localScale = Vector3.one * c.MarkStartScale;
+            stampMark.DOScale(1f, c.MarkDropDuration).SetEase(Ease.InQuad).SetUpdate(true).SetLink(gameObject)
+                .OnComplete(() => transform.DOPunchScale(Vector3.one * c.CardPunch, c.CardPunchDuration, 6, 0.5f).SetUpdate(true).SetLink(gameObject));
             stampFilter.color = WithAlpha(stampFilter.color, 0f);
-            stampFilter.DOFade(filterAlpha, 0.2f).SetUpdate(true).SetLink(gameObject);
+            stampFilter.DOFade(filterAlpha, c.FilterFadeDuration).SetUpdate(true).SetLink(gameObject);
         }
 
         /// <summary>찍을 수 없음: 좌우로 흔들리고 사유를 1.2초 띄운다.</summary>
@@ -53,11 +56,12 @@ namespace APC.UI
             reasonLabel.text = reason;
             reasonLabel.gameObject.SetActive(true);
 
+            var c = StampConfig.OrDefault(config);
             flash?.Kill(true);
             var rect = (RectTransform)transform;
             flash = DOTween.Sequence()
-                .Append(rect.DOShakeAnchorPos(0.35f, new Vector2(18f, 0f), 18, 0f, false, true))
-                .AppendInterval(1.2f)
+                .Append(rect.DOShakeAnchorPos(c.ShakeDuration, new Vector2(c.ShakeStrength, 0f), 18, 0f, false, true))
+                .AppendInterval(c.ReasonDuration)
                 .OnComplete(() => reasonLabel.gameObject.SetActive(false))
                 .SetUpdate(true)
                 .SetLink(gameObject);

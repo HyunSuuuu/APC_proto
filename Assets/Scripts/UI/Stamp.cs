@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using APC.Data;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -18,7 +19,7 @@ namespace APC.UI
         [SerializeField] Image image;
         [SerializeField, Tooltip("놓여 있을 때 (앞모습)")] Sprite frontSprite;
         [SerializeField, Tooltip("들고 있을 때 (윗모습)")] Sprite topSprite;
-        [SerializeField, Tooltip("찍을 때 커지는 배율")] float pressScale = 1.25f;
+        [SerializeField, Tooltip("연출 값 (Assets/Data/StampConfig)")] StampConfig config;
 
         static readonly List<RaycastResult> Hits = new();
 
@@ -61,16 +62,17 @@ namespace APC.UI
             var card = FindCard(eventData);
             var stamped = card != null && card.TryStamp();
 
+            var c = StampConfig.OrDefault(config);
             motion?.Kill();
             motion = DOTween.Sequence();
             if (stamped)
             {
-                motion.Append(rect.DOScale(pressScale, 0.08f).SetEase(Ease.OutQuad))
-                    .Append(rect.DOScale(1f, 0.12f).SetEase(Ease.InQuad))
-                    .AppendInterval(0.08f);
+                motion.Append(rect.DOScale(c.PressScale, c.PressInDuration).SetEase(Ease.OutQuad))
+                    .Append(rect.DOScale(1f, c.PressOutDuration).SetEase(Ease.InQuad))
+                    .AppendInterval(c.HoldDuration);
             }
             motion.AppendCallback(() => image.sprite = frontSprite)
-                .Append(rect.DOAnchorPos(home, 0.25f).SetEase(Ease.OutBack))
+                .Append(rect.DOAnchorPos(home, c.ReturnDuration).SetEase(c.ReturnEase))
                 .SetUpdate(true)
                 .SetLink(gameObject);
         }

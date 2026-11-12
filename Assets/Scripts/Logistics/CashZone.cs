@@ -11,7 +11,8 @@ namespace APC.Logistics
     /// <summary>
     /// 현금 존 (GDD 7.6). 상차장마다 상차 존 옆에 있다. 출고 트럭이 출발하면 `실린 상자 수 × 계약 단가`가 쌓인다.
     /// 10원당 지폐 다발 1개로 보여 주되 **최대 40개**까지만 보이고, 넘으면 위에 `+금액`을 띄운다.
-    /// 플레이어가 반경 안에 들어오면 **멈추지 않아도** 다발이 하나씩 날아가 **저금통**에 들어간다 (알바는 줍지 않음).
+    /// 플레이어가 반경 안에 들어오면 **멈추지 않아도** 다발이 하나씩 플레이어에게 날아가고, 닿으면 달러 아이콘이
+    /// HUD 저금통으로 날아가 도착할 때 **저금통**에 들어간다 (CashFlyEffect, 알바는 줍지 않음).
     /// 줍지 않은 돈은 사라지지 않는다 (다음 파트로 넘어감).
     /// </summary>
     public sealed class CashZone : MonoBehaviour
@@ -105,7 +106,10 @@ namespace APC.Logistics
                     .SetLink(bundle.gameObject)
                     .OnComplete(() =>
                     {
-                        wallet.AddToPiggy(value);
+                        // 플레이어에게 닿으면 달러 아이콘이 HUD 저금통으로 날아가고, 도착할 때 저금통에 더한다
+                        var fx = UI.CashFlyEffect.Instance;
+                        if (fx != null) fx.Fly(bundle.position, () => wallet.AddToPiggy(value));
+                        else wallet.AddToPiggy(value);
                         ReturnBundle(bundle);
                     });
 

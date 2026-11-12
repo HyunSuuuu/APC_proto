@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace APC.UI
 {
-    /// <summary>HUD 좌상단 레벨 + 경험치 바 (GDD 12.1, 체크리스트 M5-1). 레벨이 오르면 튄다.</summary>
+    /// <summary>HUD 좌상단 레벨 + 경험치 바 (GDD 12.1, 체크리스트 M5-1). XP는 누적으로 보인다 (Lv.1 `0/30` → Lv.2 `30/80`). 레벨이 오르면 튄다.</summary>
     public sealed class LevelView : MonoBehaviour
     {
         [SerializeField] TMP_Text levelLabel;
@@ -36,11 +36,12 @@ namespace APC.UI
             progress.Level.Subscribe(_ => RefreshXp()).AddTo(this);
         }
 
+        /// <summary>글자는 누적 XP (`15/24`), 바는 이번 레벨 안에서 찬 비율.</summary>
         void RefreshXp()
         {
             var xp = progress.Xp.CurrentValue;
             var toNext = progress.XpToNext;
-            xpLabel.text = $"{xp}/{toNext}";
+            xpLabel.text = $"{progress.TotalXp}/{progress.NextLevelXp}";
             xpFill.DOKill();
             xpFill.DOFillAmount(toNext > 0 ? (float)xp / toNext : 0f, fillDuration).SetEase(Ease.OutCubic).SetLink(gameObject);
         }

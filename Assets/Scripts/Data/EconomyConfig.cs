@@ -48,8 +48,7 @@ namespace APC.Data
         public int CashMaxVisibleBundles => cashMaxVisibleBundles;
         public float CashPickupRadius => cashPickupRadius;
         public float CashAbsorbInterval => cashAbsorbInterval;
-        public float CashFlyDuration => cashFlyDuration;
-        public float PartLengthSeconds => partLengthSeconds;
+        public float CashFlyDuration => cashFlyDuration;        public float PartLengthSeconds => partLengthSeconds;
         public float FirstPartLengthSeconds => firstPartLengthSeconds;
         public int PiggyStepCount => piggyStepCount;
         public int PiggyFullMin => piggyFullMin;

@@ -291,6 +291,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Core/LevelProgress.cs](../Scripts/Core/LevelProgress.cs)
 - **역할**: 레벨과 경험치. 필요 XP와 최대 알바 수는 `LevelTable`에서 읽는다.
 - **동작**: `AddXp`는 여러 레벨을 한 번에 넘을 수 있고, 값을 먼저 정한 뒤 넘은 레벨마다 `LeveledUp`을 한 번씩 보낸다. `LevelUpNow`는 디버그용.
+- **연결**: `Xp`(이번 레벨 안에서 모은 양), 누적 표시용 `LevelStartXp` · `TotalXp` · `NextLevelXp` (레벨 표는 레벨마다 필요한 양 그대로, 누적은 계산).
 
 #### FacilityPop
 [Core/FacilityPop.cs](../Scripts/Core/FacilityPop.cs)
@@ -315,6 +316,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | [CarryConfig](../Scripts/Data/CarryConfig.cs) | `CarryConfig` | 상자 높이, 비행 · 착지 연출, 스택 흔들림 스프링, MAX 표시 |
 | [LogisticsConfig](../Scripts/Data/LogisticsConfig.cs) | `LogisticsConfig` | 보관소 · 선반 용량, 입고 · 출고 트럭 후진 · 출발 · 재등장 시간, 사무실 게이지, 팝 연출 시간 |
 | [SiteLayout](../Scripts/Data/SiteLayout.cs) | `SiteLayout` | 칸 크기, **모듈 배치 목록** (아래 설명) |
+| [CashFlyConfig](../Scripts/Data/CashFlyConfig.cs) | `CashFlyConfig` | 주운 현금 → HUD 저금통 **달러 아이콘 연출**: 비행 시간, **속도 그래프**(`moveCurve`, 시간 0~1 → 경로 진행 0~1, 기울기 = 속도, 1을 넘기면 지나쳤다 돌아옴), 포물선 높이, 기본 크기, **크기 그래프**(`scaleCurve`, 시간 → 배율), 도착 때 저금통 아이콘 튐. Build Site가 `CashFlyEffect`에 직접 연결 (없으면 만듦, 비면 `OrDefault`) |
+| [StampConfig](../Scripts/Data/StampConfig.cs) | `StampConfig` | 계약 PC **도장 연출**: 누르기 배율 · 시간, 카드 위 머무는 시간, 복귀 시간 · 이징, 자국 · 필터, 흔들림 · 사유 시간, 계약 후 팝업 닫힘 지연. **`GameDatabase`가 아니라** Build Site가 `Stamp` · `StampCard` · `ContractPopup`에 직접 연결 (없으면 만들고, 연결이 비면 기본값 `OrDefault`) |
 | [DataTypes](../Scripts/Data/DataTypes.cs) | — | 공용 구조체 `IntRange`(`Roll()`로 무작위), `WeightedInt` |
 
 #### SiteLayout (자세히)
@@ -520,6 +523,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Logistics/InboundBay.cs](../Scripts/Logistics/InboundBay.cs)
 - **역할**: 하차 베이 1곳. 하차 주차장 모듈 안에 있다. [3.4](#34-입고-트럭-한-대)의 반복을 코루틴으로 실행한다.
 - **연결**: `ContractService.Instance`(계약 여부), `StockBalancer`(트럭 회사 · 실을 품목), `truckPrefab`, `parkPoint`(주차 위치 · 방향), `spawnPoint`(나타나고 사라지는 곳).
+- **주의**: 트럭은 **베이 기준 로컬 좌표**로 움직인다 (`parkPoint` · `spawnPoint`는 베이 바로 아래 자식이어야 함). 확장 모듈은 크기 0에서 커지는 중(`FacilityPop`)에 첫 트럭이 나오므로, 월드 좌표를 쓰면 엉뚱한 곳에서 들어온다 (2026-11-12 수정). `OutboundBay`도 같다.
 
 #### TruckPickupZone
 [Logistics/TruckPickupZone.cs](../Scripts/Logistics/TruckPickupZone.cs)
@@ -543,7 +547,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### CashZone
 [Logistics/CashZone.cs](../Scripts/Logistics/CashZone.cs)
 - **역할**: 상차 존 옆 현금 존. 출고 현금이 **10원당 다발 1개**로 보이되 **최대 40개**(4 × 5 × 2층), 넘으면 위에 `+금액`(`overflowLabel`). 플레이어가 반경(1.5m) 안에 들어오면 **멈추지 않아도** 흡수 → **저금통**으로.
-- **동작**: 남은 금액(`StoredCash`)만 들고 다발은 보이는 수만큼만 만든다. `AddCash(amount)` — 다발이 위에서 떨어지며 쌓임. 수거 중엔 맨 위부터 하나씩 대상을 따라 날아가고, 다발마다 `남은 금액 ÷ 남은 다발 수`(마지막은 나머지 전부)를 실어 **도착할 때** `Wallet.AddToPiggy`. 줍지 않은 돈은 사라지지 않는다.
+- **동작**: 남은 금액(`StoredCash`)만 들고 다발은 보이는 수만큼만 만든다. `AddCash(amount)` — 다발이 위에서 떨어지며 쌓임. 수거 중엔 맨 위부터 하나씩 대상을 따라 날아가고, 다발마다 `남은 금액 ÷ 남은 다발 수`(마지막은 나머지 전부)를 싣는다. 플레이어에게 닿으면 `CashFlyEffect.Fly`로 달러 아이콘이 HUD 저금통으로 날아가고, **아이콘이 도착할 때** `Wallet.AddToPiggy` (효과가 없으면 바로). 줍지 않은 돈은 사라지지 않는다.
 - **주의**: `InteractionZone`이 아니다 (멈춤 규칙의 예외, GDD 7.6). 뭉치 오브젝트는 존 안에서 재사용한다. 수치는 `EconomyConfig`.
 
 #### CashCollector
@@ -681,7 +685,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### LevelView
 [UI/LevelView.cs](../Scripts/UI/LevelView.cs)
-- **역할**: HUD 좌상단 `Lv.N` + 경험치 바 + `xp/필요`. 바는 부드럽게 차고, 레벨이 오르면 패널이 튄다.
+- **역할**: HUD 좌상단 `Lv.N` + 경험치 바 + **누적** `TotalXp/NextLevelXp` (Lv.1 `0/30` → Lv.2 `30/80`). 바는 이번 레벨 안에서 찬 비율로 부드럽게 차고, 레벨이 오르면 패널이 튄다.
 
 #### LevelUpBanner
 [UI/LevelUpBanner.cs](../Scripts/UI/LevelUpBanner.cs)
@@ -697,6 +701,12 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### CashView
 [UI/CashView.cs](../Scripts/UI/CashView.cs)
 - **역할**: HUD 왼쪽 위(레벨 패널 오른쪽) 돈 패널 — 한 패널에 두 줄: 위 = 보유 재화(`Wallet.Cash`, 크게), 아래 = 저금통(`Wallet.Piggy`, `+N 대기`, 작게). 각 숫자가 굴러가듯 바뀌고(`DOVirtual.Float`) 오를 때 튄다. 정산 때 저금통이 줄고 보유 재화가 오르는 모습이 그대로 보인다.
+
+#### CashFlyEffect
+[UI/CashFlyEffect.cs](../Scripts/UI/CashFlyEffect.cs)
+- **역할**: 주운 현금이 HUD 저금통 아이콘(`CashHud/PiggyIcon`)으로 날아가는 연출. 달러 아이콘(`Art/Temp/Dollor`, Build Site가 Sprite로 가져옴)이 플레이어 화면 위치에서 포물선(2차 베지어)으로 날아가 작아지고, 도착하면 콜백(저금통 +) + 아이콘 튐.
+- **동작**: `Instance.Fly(월드 위치, onArrive)`. 아이콘은 풀로 재사용. 값은 `CashFlyConfig` — 시간은 일정하게(Linear) 흐르고 위치는 `moveCurve`, 크기는 `scaleCurve`로 정한다. DOTween(`DOVirtual.Float`) — 파티클 대신 쓴 이유: 움직이는 UI 목표 · 한 장씩 도착 콜백.
+- **주의**: HUD Canvas 아래 `CashFly` 전체 층 (레이캐스트 안 막음). 날아가는 중 파트가 끝나면 그 돈은 다음 파트 저금통으로 들어간다.
 
 #### PartClockView
 [UI/PartClockView.cs](../Scripts/UI/PartClockView.cs)
@@ -732,7 +742,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### StampCard (추상)
 [UI/StampCard.cs](../Scripts/UI/StampCard.cs)
 - **역할**: 도장을 찍을 수 있는 카드의 바탕 (`ContractCard` · `HireCard`). 회색 필터 + 붉은 도장 자국(25° 기울임) + 사유 글자.
-- **동작**: 하위 클래스가 `TryStamp()`(찍혔으면 true)를 구현한다. `SetStamped(bool)`(연출 없이), `PlayStamped()`(자국이 1.8배에서 쾅 내려앉고 필터가 서서히), `Flash(사유)`(좌우 흔들림 + 사유 1.2초). 연출은 모두 `SetUpdate(true)`.
+- **동작**: 하위 클래스가 `TryStamp()`(찍혔으면 true)를 구현한다. `SetStamped(bool)`(연출 없이), `PlayStamped()`(자국이 크게 나타났다 쾅 내려앉고 필터가 서서히), `Flash(사유)`(좌우 흔들림 + 사유). 연출 값은 `StampConfig`, 모두 `SetUpdate(true)`.
 - **주의**: 사유 글자 · 필터 · 자국은 Build Site(`StampOverlay`)가 **꺼진 채** 만든다. `Awake`에서 끄면 부모 `OnEnable`의 `Bind` 뒤에 다시 꺼지므로 그렇게 하지 않는다. 카드 바탕 Image의 `raycastTarget`은 켜 둔다 (도장이 놓일 곳).
 
 #### HirePanel
@@ -749,7 +759,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### Stamp
 [UI/Stamp.cs](../Scripts/UI/Stamp.cs)
 - **역할**: 계약 PC 팝업 오른쪽 아래 도장 (계약 · 고용 탭 공용). 평소엔 앞모습(`Art/Temp/Stamp_Front`), 들면 윗모습(`Stamp_Top`). 끌어서 `StampCard`에 놓으면 그 카드의 `TryStamp()`.
-- **동작**: 드래그 중엔 `CanvasGroup.blocksRaycasts = false`로 아래 카드가 잡히게 하고, 놓으면 `EventSystem.RaycastAll`로 `StampCard`를 찾는다. 찍혔으면 꾹 누르듯 `pressScale`(1.25)배로 커졌다 돌아온 뒤 제자리로, 못 찍었으면 바로 제자리로 (앞모습으로 바뀜). `SetUpdate(true)`.
+- **동작**: 드래그 중엔 `CanvasGroup.blocksRaycasts = false`로 아래 카드가 잡히게 하고, 놓으면 `EventSystem.RaycastAll`로 `StampCard`를 찾는다. 찍혔으면 꾹 누르듯 커졌다 돌아와 카드 위에 잠깐 머문 뒤 제자리로, 못 찍었으면 바로 제자리로 (앞모습으로 바뀜). 값은 `StampConfig`(누르기 1.25배 · 머무름 0.35초 · 복귀 0.35초 기본), `SetUpdate(true)`.
 - **주의**: Screen Space Overlay 캔버스 기준 (월드 좌표 = 화면 좌표). 스프라이트는 Multiple 모드여도 Build Site의 `LoadSprite`가 첫 스프라이트를 쓴다. MCP 스크린샷은 찍는 순간 Game 뷰 해상도를 바꾸므로, 자동 테스트에서 드롭 좌표는 같은 호출 안에서 구한다.
 
 #### RosterPanel
@@ -796,7 +806,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | 메뉴 | 스크립트 | 하는 일 |
 |---|---|---|
 | `APC > Setup > Run M0 Setup` | [ProjectBootstrap](../Scripts/Editor/ProjectBootstrap.cs) | 폴더, 가로 화면 설정, 데이터 에셋(GDD 수치), Game 씬. **이미 있는 에셋 · 씬은 건드리지 않고** 빈 참조만 채운다 |
-| `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground(네비메시 제외) · NavMeshSurface · Logistics(Warehouse · ContractService · OrderService · StaffService) → 시작 모듈 인스턴스 + SiteUnlocker → HUD(레벨 · 현금 · 레벨업 배너 + 색종이 · 주문서 큐 · 계약 PC 팝업(계약 · 고용 · 배치 탭) · 정산 팝업, 자식은 꺼진 채 저장 + `UiBootstrap`) → 플레이어 위치 + CashCollector → 씬 저장 |
+| `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground(네비메시 제외) · NavMeshSurface · Logistics(Warehouse · ContractService · OrderService · StaffService) → 시작 모듈 인스턴스 + SiteUnlocker → HUD(레벨 · 현금 · 레벨업 배너 + 색종이 · 주문서 큐 · 계약 PC 팝업(계약 · 고용 · 배치 탭) · 정산 팝업 · 현금 아이콘 층 `CashFly`, 자식은 꺼진 채 저장 + `UiBootstrap`) → 플레이어 위치 + CashCollector → 씬 저장 |
 | `APC > Setup > Apply M6 Staff (프리팹 덮어쓰기)` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 · 선반 · 알바 프리팹(`StaffWorker.prefab`)을 덮어쓰고 Build Site. config(SiteLayout · 레벨 표)는 건드리지 않는다 |
 | `APC > Module > New Module...` | [ModuleFactory](../Scripts/Editor/ModuleFactory.cs) (`ModuleCreatorWindow`) | 빈 n × m 모듈 틀을 `Assets/Prefabs/Modules/Module_이름.prefab`으로 만든다 |
 | `APC > Module > Rebuild Standard Modules` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 10종(빈 타일 `Module_Empty` 포함)을 코드 기준으로 **덮어써서** 다시 만든다 |

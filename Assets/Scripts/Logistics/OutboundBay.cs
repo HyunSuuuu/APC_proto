@@ -36,14 +36,16 @@ namespace APC.Logistics
                 var order = orders.AssignOldestWaiting();
                 if (order == null) continue; // 같은 프레임에 다른 베이가 가져감
 
-                var truck = Instantiate(truckPrefab, spawnPoint.position, parkPoint.rotation, transform);
+                // 로컬 좌표로 움직인다 (확장 모듈이 커지는 중에 나와도 제자리로, InboundBay와 같음)
+                var truck = Instantiate(truckPrefab, transform);
                 truck.Assign(order);
 
                 var t = truck.transform;
+                t.SetLocalPositionAndRotation(spawnPoint.localPosition, parkPoint.localRotation);
                 t.localScale = Vector3.zero;
                 yield return DOTween.Sequence()
                     .Append(t.DOScale(1f, AppearDuration).SetEase(Ease.OutBack))
-                    .Append(t.DOMove(parkPoint.position, config.OutboundReverseDuration).SetEase(Ease.OutCubic))
+                    .Append(t.DOLocalMove(parkPoint.localPosition, config.OutboundReverseDuration).SetEase(Ease.OutCubic))
                     .SetLink(truck.gameObject)
                     .WaitForCompletion();
                 DockedTruck = truck;
@@ -57,7 +59,7 @@ namespace APC.Logistics
                 var reward = orders.Complete(order);
                 if (cashZone != null) cashZone.AddCash(reward);
                 DOTween.Sequence()
-                    .Append(t.DOMove(spawnPoint.position, config.OutboundLeaveDuration).SetEase(Ease.InCubic))
+                    .Append(t.DOLocalMove(spawnPoint.localPosition, config.OutboundLeaveDuration).SetEase(Ease.InCubic))
                     .Append(t.DOScale(0f, AppearDuration).SetEase(Ease.InBack))
                     .SetLink(truck.gameObject)
                     .OnComplete(() => Destroy(truck.gameObject));
