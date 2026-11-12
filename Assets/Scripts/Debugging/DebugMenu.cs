@@ -117,6 +117,10 @@ namespace APC.Debugging
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Level Up", buttonStyle)) level.LevelUpNow();
             if (GUILayout.Button("XP +10", buttonStyle)) level.AddXp(10);
+            if (GUILayout.Button("Lv.11", buttonStyle)) // 반품 구역 해금 테스트 (GDD 7.7)
+            {
+                while (level.Level.CurrentValue < 11) level.LevelUpNow();
+            }
             GUILayout.EndHorizontal();
 
             Header("Speed");

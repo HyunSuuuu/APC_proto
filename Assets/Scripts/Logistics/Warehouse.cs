@@ -147,6 +147,16 @@ namespace APC.Logistics
             return stock;
         }
 
+        /// <summary>재포장한 반품이 선반에 들어간 수. 1이 되는 순간 프로토타입 목표 달성 (GDD 1.3, 완료 표시는 2순위).</summary>
+        public int RepackedShelved { get; private set; }
+
+        /// <summary>선반 둘레 존이 재포장 상자를 넣었을 때 부른다.</summary>
+        public void NotifyRepackedShelved()
+        {
+            RepackedShelved++;
+            if (RepackedShelved == 1) Debug.Log("[Warehouse] 재포장한 반품이 처음으로 선반에 들어감 — 프로토타입 목표 달성 (GDD 1.3)");
+        }
+
         /// <summary>플레이어 · 알바가 지금 들고 있는 화물 중 조건에 맞는 수.</summary>
         public static int CountCarried(ItemDefinition item, CargoOrigin origin)
         {

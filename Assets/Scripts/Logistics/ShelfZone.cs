@@ -30,6 +30,7 @@ namespace APC.Logistics
         {
             cargo.Origin = CargoOrigin.Shelf;
             shelf.Store(cargo);
+            if (cargo.Repacked && Warehouse.Instance != null) Warehouse.Instance.NotifyRepackedShelved();
         }
 
         protected override CargoOrigin GiveOrigin => CargoOrigin.Shelf;

@@ -22,7 +22,6 @@ namespace APC.UI
         [SerializeField] RectTransform panel;
         [SerializeField] TMP_Text titleLabel;
         [SerializeField] TMP_Text outboundValue;
-        [SerializeField] TMP_Text returnValue;
         [SerializeField] TMP_Text bonusValue;
         [SerializeField] TMP_Text wageValue;
         [SerializeField] TMP_Text totalValue;
@@ -57,7 +56,7 @@ namespace APC.UI
             titleLabel.text = $"{result.Part}파트 정산";
             confirmButton.interactable = false;
 
-            foreach (var text in new[] { outboundValue, returnValue, bonusValue, wageValue, totalValue }) text.text = "0";
+            foreach (var text in new[] { outboundValue, bonusValue, wageValue, totalValue }) text.text = "0";
             staffLabel.text = StaffText(result.WagePlan);
             totalValue.color = result.Total >= 0 ? totalColor : negativeColor;
 
@@ -68,7 +67,6 @@ namespace APC.UI
                 .Append(group.DOFade(1f, 0.15f))
                 .Join(panel.DOScale(1f, 0.25f).SetEase(Ease.OutBack))
                 .Append(Count(outboundValue, result.OutboundIncome, "+"))
-                .Append(Count(returnValue, result.ReturnIncome, "+"))
                 .Append(Count(bonusValue, result.QuotaBonus, "+"))
                 .Append(Count(wageValue, result.Wages, "−"))
                 .Append(Count(totalValue, result.Total, result.Total >= 0 ? "+" : "−"))

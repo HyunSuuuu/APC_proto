@@ -187,20 +187,29 @@ namespace APC.EditorTools
             var rect = panel.rectTransform;
             rect.pivot = new Vector2(0f, 1f);
 
-            var level = UIText("Level", rect, new Vector2(0f, 0.5f), new Vector2(66f, 0f), new Vector2(110f, 84f), "Lv.1", 40f, TitleFont, Color.white);
-            var barBack = UIImage("XpBack", rect, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(222f, 8f), new Vector2(190f, 22f),
+            var level = UIText("Level", rect, new Vector2(0f, 0.5f), new Vector2(60f, 0f), new Vector2(104f, 84f), "Lv.1", 40f, TitleFont, Color.white);
+            level.textWrappingMode = TMPro.TextWrappingModes.NoWrap; // `Lv.11`이 두 줄로 꺾이지 않게 줄여서 맞춘다
+            level.enableAutoSizing = true;
+            level.fontSizeMin = 26f;
+            level.fontSizeMax = 40f;
+            // 경험치 아이콘 (Art/Temp/Star)
+            var star = UIImage("XpIcon", rect, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(134f, 0f), new Vector2(40f, 40f),
+                Color.white, LoadSprite("Assets/Art/Temp/Star.png", makeSprite: true));
+            star.preserveAspect = true;
+            var barBack = UIImage("XpBack", rect, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(240f, 8f), new Vector2(160f, 22f),
                 new Color(1f, 1f, 1f, 0.2f), sprite);
             barBack.type = Image.Type.Sliced;
             var fill = UIImage("XpFill", barBack.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, new Color(1f, 0.82f, 0.3f), sprite);
             fill.type = Image.Type.Filled;
             fill.fillMethod = Image.FillMethod.Horizontal;
             fill.fillAmount = 0f;
-            var xp = UIText("Xp", rect, new Vector2(0f, 0.5f), new Vector2(222f, -22f), new Vector2(190f, 26f), "0/30", 22f, BodyFont, new Color(1f, 1f, 1f, 0.85f));
+            var xp = UIText("Xp", rect, new Vector2(0f, 0.5f), new Vector2(240f, -22f), new Vector2(160f, 26f), "0/30", 22f, BodyFont, new Color(1f, 1f, 1f, 0.85f));
 
             var view = panel.gameObject.AddComponent<LevelView>();
             SetRef(view, "levelLabel", level);
             SetRef(view, "xpFill", fill);
             SetRef(view, "xpLabel", xp);
+            SetRef(view, "xpIcon", star.rectTransform);
             SetRef(view, "punchTarget", rect);
         }
 
@@ -387,21 +396,22 @@ namespace APC.EditorTools
             var p = panel.rectTransform;
             var title = UIText("Title", p, new Vector2(0.5f, 1f), new Vector2(0f, -66f), new Vector2(700f, 90f), "1파트 정산", 56f, TitleFont, dark);
 
-            string[] names = { "출고 수입", "반품 재출고 수입", "할당량 보너스", "알바 시급" };
-            var values = new TMPro.TMP_Text[5];
-            for (var i = 0; i < 5; i++)
+            // 반품은 재포장 후 일반 화물로 출고되므로 따로 수입 줄이 없다 (GDD 7.7)
+            string[] names = { "출고 수입", "할당량 보너스", "알바 시급" };
+            var values = new TMPro.TMP_Text[4];
+            for (var i = 0; i < 4; i++)
             {
-                var y = -150f - i * 72f - (i == 4 ? 24f : 0f);
-                var isTotal = i == 4;
+                var y = -150f - i * 72f - (i == 3 ? 24f : 0f);
+                var isTotal = i == 3;
                 var name = UIText($"Row{i}Name", p, new Vector2(0f, 1f), new Vector2(230f, y), new Vector2(380f, 60f), isTotal ? "합계" : names[i], isTotal ? 40f : 34f, isTotal ? TitleFont : BodyFont, dark);
                 name.alignment = TMPro.TextAlignmentOptions.Left;
                 var value = UIText($"Row{i}Value", p, new Vector2(1f, 1f), new Vector2(-190f, y), new Vector2(300f, 60f), "0", isTotal ? 46f : 36f, TitleFont, isTotal ? new Color(0.2f, 0.55f, 0.3f) : dark);
                 value.alignment = TMPro.TextAlignmentOptions.Right;
                 values[i] = value;
             }
-            UIImage("Line", p, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -438f), new Vector2(620f, 4f), new Color(0.25f, 0.22f, 0.2f, 0.3f), null);
+            UIImage("Line", p, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -366f), new Vector2(620f, 4f), new Color(0.25f, 0.22f, 0.2f, 0.3f), null);
             // 미지급 · 퇴사 알바 명단 + 경고 (GDD 11.7)
-            var staff = UIText("Staff", p, new Vector2(0.5f, 1f), new Vector2(0f, -545f), new Vector2(680f, 100f), "", 26f, BodyFont, new Color(0.8f, 0.2f, 0.15f));
+            var staff = UIText("Staff", p, new Vector2(0.5f, 1f), new Vector2(0f, -490f), new Vector2(680f, 100f), "", 26f, BodyFont, new Color(0.8f, 0.2f, 0.15f));
             staff.enableAutoSizing = true;
             staff.fontSizeMin = 18f;
             staff.fontSizeMax = 26f;
@@ -418,10 +428,9 @@ namespace APC.EditorTools
             SetRef(popup, "panel", p);
             SetRef(popup, "titleLabel", title);
             SetRef(popup, "outboundValue", values[0]);
-            SetRef(popup, "returnValue", values[1]);
-            SetRef(popup, "bonusValue", values[2]);
-            SetRef(popup, "wageValue", values[3]);
-            SetRef(popup, "totalValue", values[4]);
+            SetRef(popup, "bonusValue", values[1]);
+            SetRef(popup, "wageValue", values[2]);
+            SetRef(popup, "totalValue", values[3]);
             SetRef(popup, "staffLabel", staff);
             SetRef(popup, "confirmButton", button);
             root.SetAsLastSibling();

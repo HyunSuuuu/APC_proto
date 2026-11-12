@@ -14,9 +14,13 @@ namespace APC.UI
         [SerializeField, Tooltip("Filled · Horizontal Image")] Image xpFill;
         [SerializeField] TMP_Text xpLabel;
         [SerializeField] RectTransform punchTarget;
+        [SerializeField, Tooltip("경험치 아이콘 (별). XP가 오를 때마다 통통 튄다")] RectTransform xpIcon;
+        [SerializeField, Min(0f)] float xpIconPunch = 0.35f;
+        [SerializeField, Min(0.05f)] float xpIconPunchDuration = 0.35f;
         [SerializeField, Min(0.05f)] float fillDuration = 0.3f;
 
         LevelProgress progress;
+        int lastTotalXp = -1;
 
         void Start()
         {
@@ -42,6 +46,15 @@ namespace APC.UI
             var xp = progress.Xp.CurrentValue;
             var toNext = progress.XpToNext;
             xpLabel.text = $"{progress.TotalXp}/{progress.NextLevelXp}";
+
+            // 오를 때만 별이 튄다 (처음 표시 · 같은 값은 제외)
+            var total = progress.TotalXp;
+            if (lastTotalXp >= 0 && total > lastTotalXp && xpIcon != null)
+            {
+                xpIcon.DOKill(true);
+                xpIcon.DOPunchScale(Vector3.one * xpIconPunch, xpIconPunchDuration, 6, 0.5f).SetLink(gameObject);
+            }
+            lastTotalXp = total;
             xpFill.DOKill();
             xpFill.DOFillAmount(toNext > 0 ? (float)xp / toNext : 0f, fillDuration).SetEase(Ease.OutCubic).SetLink(gameObject);
         }

@@ -314,7 +314,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | [PlayerConfig](../Scripts/Data/PlayerConfig.cs) | `PlayerConfig` | 이동 속도 · 회전 속도 · 뛰기 기준, 최대 적재, 집기 간격, **상호작용 대기 시간**, 내려놓기 ↔ 집기 전환 쿨타임 |
 | [ControlsConfig](../Scripts/Data/ControlsConfig.cs) | `ControlsConfig` | 조이스틱 반경, 카메라 각도 · 렌즈 · 줌 · 복귀 시간 |
 | [CarryConfig](../Scripts/Data/CarryConfig.cs) | `CarryConfig` | 상자 높이, 비행 · 착지 연출, 스택 흔들림 스프링, MAX 표시 |
-| [LogisticsConfig](../Scripts/Data/LogisticsConfig.cs) | `LogisticsConfig` | 보관소 · 선반 용량, 입고 · 출고 트럭 후진 · 출발 · 재등장 시간, 사무실 게이지, 팝 연출 시간 |
+| [LogisticsConfig](../Scripts/Data/LogisticsConfig.cs) | `LogisticsConfig` | 보관소 · 선반 용량, **반품**(반품 확률 10% · 롤테이너 12 · 재포장 출구 6 · 검수 1.5초), 입고 · 출고 트럭 후진 · 출발 · 재등장 시간, 사무실 게이지, 팝 연출 시간 |
 | [SiteLayout](../Scripts/Data/SiteLayout.cs) | `SiteLayout` | 칸 크기, **모듈 배치 목록** (아래 설명) |
 | [CashFlyConfig](../Scripts/Data/CashFlyConfig.cs) | `CashFlyConfig` | 주운 현금 → HUD 저금통 **달러 아이콘 연출**: 비행 시간, **속도 그래프**(`moveCurve`, 시간 0~1 → 경로 진행 0~1, 기울기 = 속도, 1을 넘기면 지나쳤다 돌아옴), 포물선 높이, 기본 크기, **크기 그래프**(`scaleCurve`, 시간 → 배율), 도착 때 저금통 아이콘 튐. Build Site가 `CashFlyEffect`에 직접 연결 (없으면 만듦, 비면 `OrDefault`) |
 | [StampConfig](../Scripts/Data/StampConfig.cs) | `StampConfig` | 계약 PC **도장 연출**: 누르기 배율 · 시간, 카드 위 머무는 시간, 복귀 시간 · 이징, 자국 · 필터, 흔들림 · 사유 시간, 계약 후 팝업 닫힘 지연. **`GameDatabase`가 아니라** Build Site가 `Stamp` · `StampCard` · `ContractPopup`에 직접 연결 (없으면 만들고, 연결이 비면 기본값 `OrDefault`) |
@@ -441,8 +441,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### Cargo
 [Logistics/Cargo.cs](../Scripts/Logistics/Cargo.cs)
-- **역할**: 화물 1개. 품목(`Item`), 상태(`State`: Normal / Return / Packed), 출처(`Origin`: None / Truck / Storage / Shelf).
-- **동작**: 루트는 위치 이동(DOTween), 자식 `Visual`은 흔들림 · 펀치만 받는다. 테이프 색은 `MaterialPropertyBlock`.
+- **역할**: 화물 1개. 품목(`Item`), 상태(`State`: Normal / Return), 출처(`Origin`: None / Truck / Storage / Shelf), `Repacked`(반품을 재포장한 일반 상자).
+- **동작**: 루트는 위치 이동(DOTween), 자식 `Visual`은 흔들림 · 펀치만 받는다. 색은 `MaterialPropertyBlock` — 테이프 = 품목 색(반품은 빨간 띠), 상자(`boxRenderer`) = 기본 재질(반품 회색, 재포장 흰색). `Repack(item)` = 그 품목의 Normal 상자 + `Repacked`.
 - **주의**: **`Instantiate`/`Destroy` 하지 않는다.** `CargoPool.Instance.Spawn`으로 꺼내고 `Release()`로 돌려준다. 반환 시 트윈 · 상태 · Origin이 모두 초기화된다.
 
 #### CargoPool
@@ -476,10 +476,10 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### SharedStorage
 [Logistics/SharedStorage.cs](../Scripts/Logistics/SharedStorage.cs)
-- **역할**: 공용 보관소 본체. 트럭 화물만 받아 품목을 섞어 팔레트에 쌓는다. 용량은 `LogisticsConfig`.
-- **동작**: `CanAccept`(Origin = Truck이고 빈자리 있음), `Store`, `TakeForShelves`(선반에 갈 자리가 있는 품목만, 최근에 들어온 것부터 꺼내고 Origin을 Storage로 바꿈), `CountOf(item)`, `HasCargoForShelves()`(알바 판단용, 꺼내지 않음), static `AnyHasSpace()`, `PlanForShelves(max)`(분류 알바 예약용: 지금 집으면 선반에 갈 품목별 수를 최대 max까지 센다, 꺼내지 않음). `TakeForShelves`의 판정은 `FindForShelves`로 분리했다. 모듈 안에 있으므로 `SharedStorage.All`에 스스로 등록한다.
+- **역할**: 보관 더미. `kind`(`StorageKind`)로 쓰임이 갈린다 — **Pallet**(하차장 팔레트: 트럭에서 꺼낸 일반 화물만), **Returns**(반품 대기 롤테이너: 반품 상자만 받고 주지 않음), **Repacked**(재포장 출구: 검수 테이블만 `Store`, 팔레트처럼 선반 빈자리만큼 준다). 용량은 `LogisticsConfig` (팔레트 20 · 롤테이너 12 · 출구 6).
+- **동작**: `CanAccept`(kind별 조건 + 빈자리), `TakeReturn()` · `HasReturn`(검수 테이블), static `ReturnsOpen`(롤테이너가 있으면 반품이 섞임), `HasSpace`, `Store`, `TakeForShelves`(선반에 갈 자리가 있는 품목만, 최근에 들어온 것부터 꺼내고 Origin을 Storage로 바꿈), `CountOf(item)`(반품 제외), `HasCargoForShelves()`(알바 판단용, 꺼내지 않음), static `AnyHasSpace()`(팔레트만), `PlanForShelves(max)`(분류 알바 예약용: 지금 집으면 선반에 갈 품목별 수를 최대 max까지 센다, 꺼내지 않음). `TakeForShelves`의 판정은 `FindForShelves`로 분리했다. 모듈 안에 있으므로 `SharedStorage.All`에 스스로 등록한다.
 - **`ShelfAllowance(item)`**: 그 품목을 선반에 더 보낼 수 있는 수 = 선반 빈자리 − 들고 가는 수 − 분류 알바 예약. `FindForShelves`(→ `TakeForShelves` · `HasCargoForShelves`)가 이 값으로 판정한다.
-- **연결**: 하차장 모듈마다 하나 (팔레트). 팔레트 둘레의 `StorageZone` 하나로 넣고 꺼낸다.
+- **연결**: 하차장 모듈마다 팔레트 하나, 반품 구역에 롤테이너 · 출구 하나씩. 각각 둘레의 `StorageZone` 하나로 넣고 꺼낸다 (분류 알바 · 하차 알바가 그대로 씀).
 - **주의**: 플레이어 · 분류 알바가 같은 `ShelfAllowance`를 쓴다. 예약된 수만큼은 플레이어도 덜 받는다.
 
 #### StorageZone
@@ -494,8 +494,16 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### ShelfZone
 [Logistics/ShelfZone.cs](../Scripts/Logistics/ShelfZone.cs)
-- **역할**: 정사각형 선반 둘레 존 (3.2m). **내려놓기 먼저** — 같은 품목, Origin = Storage, Normal 상태 화물을 받고 Origin을 Shelf로 바꾼다. 내려놓을 것이 없으면 `OrderService.GetDemand(품목) > 0`일 때만 1개씩 꺼낸다 (GDD 8.4). `Shelf` 프로퍼티로 붙은 선반을 읽고, `HasCargoFor`(알바 판단용)를 구현한다.
+- **역할**: 정사각형 선반 둘레 존 (3.2m). **내려놓기 먼저** — 같은 품목, Origin = Storage, Normal 상태 화물을 받고 Origin을 Shelf로 바꾼다 (재포장 상자면 `Warehouse.NotifyRepackedShelved`). 내려놓을 것이 없으면 `OrderService.GetDemand(품목) > 0`일 때만 1개씩 꺼낸다 (GDD 8.4). `Shelf` 프로퍼티로 붙은 선반을 읽고, `HasCargoFor`(알바 판단용)를 구현한다.
 - **주의**: 정차한 트럭이 없으면 수요가 0이라 집지 않는다. 꺼낸 화물의 Origin은 `Shelf` 그대로 — 상차 존만 받는다.
+
+#### InspectionTable
+[Logistics/InspectionTable.cs](../Scripts/Logistics/InspectionTable.cs)
+- **역할**: 반품 검수 테이블 (GDD 7.7, `GaugeZone`, 플레이어 전용 — 알바는 `CargoZone`만 찾으므로 쓰지 않음).
+- **동작**: 멈춰 서 있고 롤테이너에 반품이 있으며 출구에 빈자리가 있으면 게이지(`inspectionDuration` 1.5초)가 찬다 → `returnBin.TakeReturn()` → `Cargo.Repack(후보 중 무작위)` → 테이블 위(`workPoint`)에서 출구(`output.Store`)로 날아감 → XP `xpReturnInspection`(+5) → 게이지 0.
+- **연결**: `returnBin`(Returns) · `output`(Repacked) · `workPoint`, `ContractService.Contracted`. `StandardModules.BuildReturns`가 만든다.
+- **후보 품목**(`FindCandidates`): 계약 품목 중 `SharedStorage.ShelfAllowance(item)`(선반 빈자리 − 들고 가는 수 − 분류 알바 예약) − 출구에서 기다리는 그 품목 수 > 0. 후보가 없으면 `CanProgress` false → 자리가 빌 때까지 게이지 멈춤.
+- **주의**: 출구 6개가 다 차도 멈춘다. `ShelfAllowance`는 이 때문에 public static.
 
 #### ShelfSlot
 [Logistics/ShelfSlot.cs](../Scripts/Logistics/ShelfSlot.cs)
@@ -513,11 +521,12 @@ StaffWorker (thinkInterval 0.25초마다 판단)
   - `GetStock(item)`: 선반 + 공용 보관소의 그 품목 수 (교착 방지 가중치용)
   - `CountCarried(item, origin)`: 모든 interactor가 들고 있는 수 (중복 운반 방지, 수요 계산)
   - `GetReservedShelfSpace(item)` · `ReserveShelfSpace(item, n)` · `UnreserveShelfSpace(item, n)`: 분류 알바가 채우러 가는 선반 빈자리 예약 ([GDD 8.4](GDD.md#84-수요-계산)). 공용 보관소가 그만큼 덜 내준다.
+  - `RepackedShelved` · `NotifyRepackedShelved()`: 재포장한 반품이 선반에 들어간 수 (`ShelfZone`이 부름). 1이 되면 프로토타입 목표 달성 로그 (완료 표시는 2순위).
 
 #### InboundTruck
 [Logistics/InboundTruck.cs](../Scripts/Logistics/InboundTruck.cs)
 - **역할**: 입고 트럭 1대. 실은 품목 목록과 남은 수량 표시만 가진다. 움직임은 `InboundBay`가 한다.
-- **동작**: `Load(company, items)`, `TakeCargo()`(뒷문 `cargoExit` 위치에 화물을 만들고 Origin = Truck). 하차 알바 예약: `Reserved`(집으러 오는 수), `Available`(= 남은 화물 − 예약), `Reserve(n)` · `Unreserve(n)`.
+- **동작**: `Load(company, items)`, `TakeCargo()`(뒷문 `cargoExit` 위치에 화물을 만들고 Origin = Truck. `SharedStorage.ReturnsOpen`이면 `returnChance`(10%) 확률로 반품 상자). 하차 알바 예약: `Reserved`(집으러 오는 수), `Available`(= 남은 화물 − 예약), `Reserve(n)` · `Unreserve(n)`.
 
 #### InboundBay
 [Logistics/InboundBay.cs](../Scripts/Logistics/InboundBay.cs)
@@ -632,9 +641,9 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### PartService
 [Economy/PartService.cs](../Scripts/Economy/PartService.cs)
 - **역할**: 시간 흐름(파트) · 파트 종료 정산 (GDD 9.5, 11.7). 씬에 하나 (`Site/Logistics`).
-- **동작**: 첫 계약 순간 1파트 시작(첫 파트 90초, 이후 180초). `Time.deltaTime`으로 흐르므로 팝업 · 일시정지 중엔 멈춘다. 0초가 되면(또는 `EndPart()`) 정산 내역 `SettlementResult`(출고 수입 = 저금통, 반품 · 보너스는 아직 0, 시급 = `StaffService.PlanWages(저금통 + 보유 재화)`의 `WagePlan.Paid`)를 `OnSettlementReady`로 보냄 → 팝업 [확인] 시 `Confirm()` → `StaffService.ApplyWages` → `Wallet.SettlePiggy(−시급)` → 다음 파트.
+- **동작**: 첫 계약 순간 1파트 시작(첫 파트 90초, 이후 180초). `Time.deltaTime`으로 흐르므로 팝업 · 일시정지 중엔 멈춘다. 0초가 되면(또는 `EndPart()`) 정산 내역 `SettlementResult`(출고 수입 = 저금통, 보너스는 아직 0, 시급 = `StaffService.PlanWages(저금통 + 보유 재화)`의 `WagePlan.Paid`)를 `OnSettlementReady`로 보냄 → 팝업 [확인] 시 `Confirm()` → `StaffService.ApplyWages` → `Wallet.SettlePiggy(−시급)` → 다음 파트.
 - **연결**: `Part` · `Remaining`(R3, HUD 시계), `LastSettlement` · `PiggyFullAmount`(저금통 가득 기준), `DeparturesThisPart`(할당량 M10, `OrderService.OnRemoved`로 셈), `CurrentPartLength`(고용한 파트의 시급 비율).
-- **주의**: 정산 대기 중(`IsRunning = false`)에는 시간이 흐르지 않는다. 시급 계획은 팝업이 열릴 때 만들고 [확인] 때 적용한다 (그사이 게임이 멈춰 있어 바뀌지 않음). 보너스(M10) · 반품 재출고 수입(M9)은 `EndPart`에서 채운다.
+- **주의**: 정산 대기 중(`IsRunning = false`)에는 시간이 흐르지 않는다. 시급 계획은 팝업이 열릴 때 만들고 [확인] 때 적용한다 (그사이 게임이 멈춰 있어 바뀌지 않음). 보너스(M10)는 `EndPart`에서 채운다. 반품은 재포장 후 일반 주문으로 출고되므로 따로 수입 줄이 없다 (GDD 7.7).
 
 #### PiggyBankView
 [Economy/PiggyBankView.cs](../Scripts/Economy/PiggyBankView.cs)
@@ -685,7 +694,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### LevelView
 [UI/LevelView.cs](../Scripts/UI/LevelView.cs)
-- **역할**: HUD 좌상단 `Lv.N` + 경험치 바 + **누적** `TotalXp/NextLevelXp` (Lv.1 `0/30` → Lv.2 `30/80`). 바는 이번 레벨 안에서 찬 비율로 부드럽게 차고, 레벨이 오르면 패널이 튄다.
+- **역할**: HUD 좌상단 `Lv.N`(줄바꿈 없이 자동 크기) + 경험치 아이콘(`Art/Temp/Star`, Build Site, **XP가 오를 때마다 통통 튐** `xpIconPunch`) + 경험치 바 + **누적** `TotalXp/NextLevelXp` (Lv.1 `0/30` → Lv.2 `30/80`). 바는 이번 레벨 안에서 찬 비율로 부드럽게 차고, 레벨이 오르면 패널이 튄다.
 
 #### LevelUpBanner
 [UI/LevelUpBanner.cs](../Scripts/UI/LevelUpBanner.cs)
@@ -714,7 +723,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### SettlementPopup
 [UI/SettlementPopup.cs](../Scripts/UI/SettlementPopup.cs)
-- **역할**: 파트 종료 정산 팝업 (게임 멈춤). 출고 수입 · 반품 재출고 수입 · 할당량 보너스 · 알바 시급 · 합계가 줄마다 차례로 올라가고(`SetUpdate(true)`), 다 오르면 [확인]이 켜진다. [확인] → 닫고 `ClosePopup` → `PartService.Confirm()`. 아래 `staffLabel`에 미지급 · 퇴사 알바 명단 + 경고(`WagePlan`), 합계가 음수면 `negativeColor`.
+- **역할**: 파트 종료 정산 팝업 (게임 멈춤). 출고 수입 · 할당량 보너스 · 알바 시급 · 합계가 줄마다 차례로 올라가고(`SetUpdate(true)`), 다 오르면 [확인]이 켜진다. [확인] → 닫고 `ClosePopup` → `PartService.Confirm()`. 아래 `staffLabel`에 미지급 · 퇴사 알바 명단 + 경고(`WagePlan`), 합계가 음수면 `negativeColor`.
 - **주의**: 루트는 항상 켜 두고 `body`만 켜고 끈다 (계약 팝업과 같은 구조).
 
 #### OrderQueueView
@@ -796,7 +805,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### DebugMenu
 [Debugging/DebugMenu.cs](../Scripts/Debugging/DebugMenu.cs)
 - **역할**: 치트 메뉴 (IMGUI). 에디터와 Development 빌드에서만 동작한다. **왼쪽 아래** `DEBUG` 버튼 또는 F1 (오른쪽 위는 주문서 큐 자리).
-- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / 레벨업 · XP +10 / 배속 ×1 · ×2 · ×4 / 일시정지 / 큐 수 · **주문 1건 추가** / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick 생성, 알바별 `이름 spd cap 상태 들고있는수/최대`.
+- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / 레벨업 · XP +10 · **Lv.11**(반품 구역까지) / 배속 ×1 · ×2 · ×4 / 일시정지 / 큐 수 · **주문 1건 추가** / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick 생성, 알바별 `이름 spd cap 상태 들고있는수/최대`.
 - **주의**: IMGUI는 EventSystem에 안 잡히므로 `ContainsScreenPoint`로 `UiHitTest`에 영역을 알려 준다. 새 치트는 `DrawContent`에 추가한다.
 
 ### 4.11 Editor — 에디터 도구
@@ -815,6 +824,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 기본 모듈 프리팹의 내용을 코드로 정의한다. `DefaultAssignments`(SiteLayout id → 기본 모듈 · 회전)와 `Builders`(모듈 이름 → 만드는 함수) 두 표가 핵심이다. 시설 프리팹(`Shelf`, `InboundTruck`, `OutboundTruck`, `CashBundle`, `ConstructionFence`)도 여기서 만든다.
 - **하차 · 상차장(`BuildLot`)**: 가장자리용. 주차장은 칸 바깥 −x, 트럭 뒷면이 가장자리(슬라이드 도어 자리)에 닿게 주차. `parkSide`로 주차 칸을 가장자리를 따라 ±2.5m 비킨다 (`_M` 판). 하차장은 안쪽에 팔레트(`SharedStorage` + 둘레 `StorageZone`), 상차장은 상차 존 옆에 현금 존.
 - **M6 추가**: `WorkSlots(zone, offsets)`로 작업 지점을 존마다 둔다 (하차 · 상차 존 2 · 팔레트 4 · 선반 4). 선반 프리팹에 `BoxCollider`(1.6×1.8×1.6) + `NavMeshObstacle`(carve) + `NavMeshModifier`(ignoreFromBuild). 사무실 모듈에 `StaffSpawnPoint`. `StaffWorkerPrefab(overwrite)` = 캡슐 + `StackAnchor`(1.35) + `NavMeshAgent`(반경 0.3 · 높이 1.2 · 회피 없음) + `CarryStack` + `Interactor` + `StaffWorker`, 충돌체 없음.
+- **M9 반품 구역(`BuildReturns`, `Module_Returns`)**: 왼쪽 위 롤테이너(`SharedStorage` Returns, 3 × 2 × 2층) + `StorageZone`(작업 지점 2, 하차 알바 배달용), 오른쪽 위 검수 테이블(`InspectionTable` + 게이지 링 + 테이블 · `workPoint`), 오른쪽 아래 재포장 출구(`SharedStorage` Repacked, 3 × 2) + `StorageZone`(작업 지점 2, 분류 알바용). 보관 더미는 `Storage(...)` 헬퍼로 각자 오브젝트에 붙인다.
+- **사무실 주의**: `Module_Office.prefab`은 사용자가 손으로 위치를 고쳤다 (2026-11-12). `EnsureAll(true)` · Apply 메뉴는 이를 덮어쓰므로, 다른 모듈만 고칠 땐 `Rebuild("Module_…")`로 그 모듈만.
 - **메뉴 `APC > Setup > Apply Layout v0.3`**(`ApplyLayoutV3Internal`): SiteLayout · 레벨 표 · 회사 선반 구역을 기본값으로, 기본 프리팹 덮어쓰기, `ObsoleteAssets` 삭제, Build Site.
 - **동작**: `EnsureAll(overwrite)`, `Rebuild(asset)`(모듈 하나만 다시), `ShelfPrefab(overwrite)` · `OutboundTruckPrefab(overwrite)`. 같은 경로에 덮어쓰므로 GUID와 참조는 유지된다.
 - **주의**: 평소에는 **없는 프리팹만** 만든다. 프리팹을 손으로 고쳤다면 Rebuild를 누르지 않는다 (덮어씀). 좌표는 모듈 중심 기준(1칸 = −5 ~ +5)이고, 주차장의 바깥쪽은 −x다. 코드를 바꿨는데 프리팹이 이미 있으면 해당 프리팹만 `Rebuild`/`overwrite: true`로 다시 만든다.

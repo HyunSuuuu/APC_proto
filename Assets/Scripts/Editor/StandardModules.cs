@@ -51,7 +51,7 @@ namespace APC.EditorTools
             ("Module_ShelfArea_A", root => BuildShelfArea(root, "선반 구역 A")),
             ("Module_ShelfArea_B", root => BuildShelfArea(root, "선반 구역 B")),
             ("Module_Office", BuildOffice),
-            ("Module_Returns", root => Label(root, "반품 구역")),
+            ("Module_Returns", BuildReturns),
             // 빈 타일 (바닥만). 다른 배치와 같이 해금되게 묶어 ㄱ자 같은 구역을 만든다 (SiteLayout.unlockWith).
             ("Module_Empty", _ => { }),
         };
@@ -177,6 +177,75 @@ namespace APC.EditorTools
             BuildKit.SetRef(zone, "storage", storage);
             // 팔레트 네 변 (존 둘레 0.7m 띠 안)
             WorkSlots(zone, new Vector3(-1.8f, 0f, 0f), new Vector3(1.8f, 0f, 0f), new Vector3(0f, 0f, -1.6f), new Vector3(0f, 0f, 1.6f));
+        }
+
+        /// <summary>
+        /// 반품 구역 (GDD 7.7, Lv.11): 반품 대기 롤테이너(반품 상자만, 하차 알바도 배달) + 검수 테이블(플레이어 전용 게이지)
+        /// + 재포장 출구(일반 상자, 선반 빈자리만큼 집기 — 분류 알바도 나름). 롤테이너가 있으면 입고 화물에 반품이 섞인다.
+        /// </summary>
+        static void BuildReturns(GameObject root)
+        {
+            var content = ModuleFactory.Content(root);
+
+            // 롤테이너 (왼쪽 위): 회색 철망 바닥 + 기둥, 3 × 2 × 2층 = 12
+            var bin = new Vector3(-2.5f, 0f, 1.5f);
+            var cage = BuildKit.Mat("M_RollTainer", new Color(0.62f, 0.64f, 0.68f));
+            BuildKit.Cube("RollTainer", content, bin + new Vector3(0f, 0.1f, 0f), new Vector3(1.9f, 0.2f, 1.4f), cage);
+            foreach (var x in new[] { -0.9f, 0.9f })
+            foreach (var z in new[] { -0.65f, 0.65f })
+                BuildKit.Cube("Post", content, bin + new Vector3(x, 0.8f, z), new Vector3(0.06f, 1.4f, 0.06f), cage);
+            var returnBin = Storage(content, "ReturnBin", StorageKind.Returns, bin + new Vector3(0f, 0.2f, 0f), new CargoGridLayout(3, 2, 0.55f, 0.5f), "0/12");
+            var binZone = BuildKit.Zone<StorageZone>(content, "ReturnBinZone", bin, new Vector2(3f, 2.8f),
+                new Color(0.75f, 0.55f, 0.55f), new Color(1f, 0.45f, 0.45f), "반품 대기");
+            BuildKit.SetRef(binZone, "storage", returnBin);
+            WorkSlots(binZone, new Vector3(1.3f, 0f, 0f), new Vector3(0f, 0f, -1.2f));
+
+            // 검수 테이블 (오른쪽 위): 플레이어가 서면 게이지
+            var tablePos = new Vector3(1.8f, 0f, 1.8f);
+            var table = BuildKit.Zone<InspectionTable>(content, "InspectionTable", tablePos, new Vector2(2.2f, 2.2f),
+                new Color(0.7f, 0.7f, 0.85f), new Color(0.5f, 0.6f, 1f), "검수");
+            var desk = tablePos + new Vector3(0f, 0f, 1.6f);
+            BuildKit.Cube("Table", table.transform, desk + new Vector3(0f, 0.4f, 0f), new Vector3(1.8f, 0.8f, 0.8f), BuildKit.Mat("M_InspectTable", new Color(0.8f, 0.8f, 0.82f)));
+            var workPoint = new GameObject("WorkPoint").transform;
+            workPoint.SetParent(table.transform, false);
+            workPoint.position = desk + new Vector3(0f, 0.9f, 0f);
+            BuildKit.GaugeRing(table, table.transform);
+
+            // 재포장 출구 (오른쪽 아래): 3 × 2 = 6
+            var outPos = new Vector3(1.8f, 0f, -2f);
+            BuildKit.Cube("OutputPallet", content, outPos + new Vector3(0f, 0.05f, 0f), new Vector3(1.9f, 0.1f, 1.4f), BuildKit.Mat("M_Pallet", new Color(0.6f, 0.45f, 0.28f)));
+            var output = Storage(content, "RepackOutput", StorageKind.Repacked, outPos + new Vector3(0f, 0.1f, 0f), new CargoGridLayout(3, 2, 0.55f, 0.5f), "0/6");
+            var outZone = BuildKit.Zone<StorageZone>(content, "RepackOutputZone", outPos, new Vector2(3f, 2.6f),
+                new Color(0.5f, 0.72f, 0.5f), new Color(0.35f, 0.95f, 0.35f), "재포장");
+            BuildKit.SetRef(outZone, "storage", output);
+            WorkSlots(outZone, new Vector3(-1.3f, 0f, 0f), new Vector3(0f, 0f, -1.1f));
+
+            BuildKit.SetRef(table, "returnBin", returnBin);
+            BuildKit.SetRef(table, "output", output);
+            BuildKit.SetRef(table, "workPoint", workPoint);
+            Label(root, "반품 구역");
+        }
+
+        /// <summary>보관 더미 하나 (팔레트와 같은 SharedStorage, 쓰임은 kind). 자기 오브젝트에 붙인다.</summary>
+        static SharedStorage Storage(Transform content, string name, StorageKind kind, Vector3 pilePosition, CargoGridLayout layout, string countText)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(content, false);
+            var storage = go.AddComponent<SharedStorage>();
+            var pileRoot = new GameObject("Pile").transform;
+            pileRoot.SetParent(go.transform, false);
+            pileRoot.position = pilePosition;
+            BuildKit.SetRef(storage, "pileRoot", pileRoot);
+            BuildKit.SetRef(storage, "countLabel", BuildKit.BillboardLabel(go.transform, countText, pilePosition + new Vector3(0f, 2f, 0f), 6f));
+            var so = new SerializedObject(storage);
+            so.FindProperty("kind").enumValueIndex = (int)kind;
+            var grid = so.FindProperty("layout");
+            grid.FindPropertyRelative("columns").intValue = layout.columns;
+            grid.FindPropertyRelative("rows").intValue = layout.rows;
+            grid.FindPropertyRelative("spacing").floatValue = layout.spacing;
+            grid.FindPropertyRelative("layerHeight").floatValue = layout.layerHeight;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return storage;
         }
 
         /// <summary>

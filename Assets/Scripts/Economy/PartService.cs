@@ -10,11 +10,10 @@ namespace APC.Economy
     /// <summary>파트 정산 내역 (정산 팝업에 표시, GDD 9.5).</summary>
     public readonly struct SettlementResult
     {
-        public SettlementResult(int part, int outboundIncome, int returnIncome, int quotaBonus, WagePlan wagePlan)
+        public SettlementResult(int part, int outboundIncome, int quotaBonus, WagePlan wagePlan)
         {
             Part = part;
             OutboundIncome = outboundIncome;
-            ReturnIncome = returnIncome;
             QuotaBonus = quotaBonus;
             WagePlan = wagePlan ?? WagePlan.Empty;
             Wages = WagePlan.Paid;
@@ -25,9 +24,6 @@ namespace APC.Economy
         /// <summary>출고 수입 = 이번 파트 저금통 (주운 현금).</summary>
         public int OutboundIncome { get; }
 
-        /// <summary>반품 재출고 수입 (M9). 지금은 0.</summary>
-        public int ReturnIncome { get; }
-
         /// <summary>할당량 보너스 (M10). 지금은 0.</summary>
         public int QuotaBonus { get; }
 
@@ -37,7 +33,7 @@ namespace APC.Economy
         /// <summary>누가 받았고 누가 미지급 · 퇴사인지 ([확인] 때 StaffService.ApplyWages).</summary>
         public WagePlan WagePlan { get; }
 
-        public int Total => OutboundIncome + ReturnIncome + QuotaBonus - Wages;
+        public int Total => OutboundIncome + QuotaBonus - Wages;
     }
 
     /// <summary>
@@ -137,7 +133,7 @@ namespace APC.Economy
             // 시급은 정산 금액 + 보유 재화로 고용 순서대로 (GDD 11.7)
             var available = wallet.Piggy.CurrentValue + wallet.Cash.CurrentValue;
             var wages = StaffService.Instance != null ? StaffService.Instance.PlanWages(available) : WagePlan.Empty;
-            var result = new SettlementResult(part.Value, wallet.Piggy.CurrentValue, returnIncome: 0, quotaBonus: 0, wages);
+            var result = new SettlementResult(part.Value, wallet.Piggy.CurrentValue, quotaBonus: 0, wages);
             pending = result;
             settlementReady.OnNext(result);
         }
@@ -150,7 +146,7 @@ namespace APC.Economy
             pending = null;
 
             if (StaffService.Instance != null) StaffService.Instance.ApplyWages(result.WagePlan);
-            GameManager.Instance.Wallet.SettlePiggy(result.ReturnIncome + result.QuotaBonus - result.Wages);
+            GameManager.Instance.Wallet.SettlePiggy(result.QuotaBonus - result.Wages);
             LastSettlement = result.Total;
             BeginPart(result.Part + 1);
         }

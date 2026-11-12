@@ -80,6 +80,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::APC.Logistics.Cargo
   visual: {fileID: 4320342860984176749}
   tapeRenderer: {fileID: 6749765093443665254}
+  boxRenderer: {fileID: 6285049930017513100}
+  returnBoxColor: {r: 0.55, g: 0.55, b: 0.58, a: 1}
+  returnTapeColor: {r: 0.85, g: 0.15, b: 0.15, a: 1}
+  repackedBoxColor: {r: 0.95, g: 0.95, b: 0.95, a: 1}
 --- !u!1 &8229089097521795062
 GameObject:
   m_ObjectHideFlags: 0

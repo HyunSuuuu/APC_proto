@@ -7,12 +7,27 @@ using UnityEngine;
 
 namespace APC.Logistics
 {
+    /// <summary>보관 더미의 쓰임 (GDD 7.2 · 7.7).</summary>
+    public enum StorageKind
+    {
+        /// <summary>하차장 팔레트: 트럭에서 꺼낸 일반 화물만 받는다.</summary>
+        Pallet,
+
+        /// <summary>반품 대기 롤테이너: 반품 상자만 받고 주지 않는다 (검수 테이블이 꺼냄).</summary>
+        Returns,
+
+        /// <summary>재포장 출구: 검수 테이블만 넣고, 선반 빈자리만큼 준다 (팔레트와 같은 규칙).</summary>
+        Repacked,
+    }
+
     /// <summary>
     /// 공용 보관소 본체 (GDD 7.2). 트럭에서 꺼낸 화물만 받고, 품목을 섞어 바닥 팔레트에 쌓는다.
     /// 존은 따로 있다 — 내려놓기 존(트럭 쪽) / 집기 존(선반 쪽).
+    /// 반품 구역의 롤테이너 · 재포장 출구도 같은 더미를 쓴다 (`kind`).
     /// </summary>
     public sealed class SharedStorage : MonoBehaviour
     {
+        [SerializeField] StorageKind kind = StorageKind.Pallet;
         [SerializeField] Transform pileRoot;
         [SerializeField] CargoGridLayout layout = new(5, 4, 0.6f, 0.5f);
         [SerializeField] TMP_Text countLabel;
@@ -29,6 +44,21 @@ namespace APC.Logistics
         public ReadOnlyReactiveProperty<int> Count => count;
         public int Capacity => capacity;
         public IReadOnlyList<Cargo> Items => pile.Items;
+        public StorageKind Kind => kind;
+        public bool HasSpace => pile.Count < capacity;
+
+        /// <summary>반품 구역(롤테이너)이 열렸는가 — 열려야 입고 화물에 반품이 섞인다 (GDD 7.7).</summary>
+        public static bool ReturnsOpen
+        {
+            get
+            {
+                foreach (var storage in Registered)
+                {
+                    if (storage.kind == StorageKind.Returns) return true;
+                }
+                return false;
+            }
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() => Registered.Clear();
@@ -45,21 +75,63 @@ namespace APC.Logistics
             var n = 0;
             foreach (var cargo in pile.Items)
             {
-                if (cargo.Item == item) n++;
+                if (cargo.Item == item && cargo.State == CargoState.Normal) n++; // 반품은 재고가 아니다
             }
             return n;
         }
 
         void Start()
         {
-            capacity = GameManager.Instance.Database.Logistics.SharedStorageCapacity;
+            var config = GameManager.Instance.Database.Logistics;
+            capacity = kind switch
+            {
+                StorageKind.Returns => config.ReturnBinCapacity,
+                StorageKind.Repacked => config.RepackOutputCapacity,
+                _ => config.SharedStorageCapacity,
+            };
             count.Subscribe(n => countLabel.text = $"{n}/{capacity}").AddTo(this);
         }
 
         void OnDestroy() => count.Dispose();
 
-        /// <summary>트럭에서 꺼낸 화물이고 빈자리가 있으면 받는다.</summary>
-        public bool CanAccept(Cargo cargo) => cargo.Origin == CargoOrigin.Truck && pile.Count < capacity;
+        /// <summary>
+        /// 빈자리가 있고: 팔레트 = 트럭에서 꺼낸 일반 화물, 롤테이너 = 반품 상자. 재포장 출구는 사람에게서 받지 않는다 (검수 테이블이 Store).
+        /// </summary>
+        public bool CanAccept(Cargo cargo)
+        {
+            if (pile.Count >= capacity) return false;
+            return kind switch
+            {
+                StorageKind.Pallet => cargo.Origin == CargoOrigin.Truck && cargo.State == CargoState.Normal,
+                StorageKind.Returns => cargo.State == CargoState.Return,
+                _ => false,
+            };
+        }
+
+        /// <summary>반품 상자 1개를 꺼낸다 (검수 테이블). 없으면 null.</summary>
+        public Cargo TakeReturn()
+        {
+            for (var i = pile.Count - 1; i >= 0; i--)
+            {
+                if (pile.Items[i].State != CargoState.Return) continue;
+                var cargo = pile.RemoveAt(i);
+                count.Value = pile.Count;
+                return cargo;
+            }
+            return null;
+        }
+
+        public bool HasReturn
+        {
+            get
+            {
+                foreach (var cargo in pile.Items)
+                {
+                    if (cargo.State == CargoState.Return) return true;
+                }
+                return false;
+            }
+        }
 
         public void Store(Cargo cargo)
         {
@@ -90,7 +162,7 @@ namespace APC.Logistics
         {
             foreach (var storage in Registered)
             {
-                if (storage.pile.Count < storage.capacity) return true;
+                if (storage.kind == StorageKind.Pallet && storage.pile.Count < storage.capacity) return true;
             }
             return false;
         }
@@ -126,7 +198,7 @@ namespace APC.Logistics
         }
 
         /// <summary>그 품목을 선반에 더 보낼 수 있는 수 = 선반 빈자리 − 이미 들고 가는 수 − 분류 알바 예약.</summary>
-        static int ShelfAllowance(ItemDefinition item)
+        public static int ShelfAllowance(ItemDefinition item)
         {
             var warehouse = Warehouse.Instance;
             return warehouse.GetShelfFreeSpace(item) - Warehouse.CountCarried(item, CargoOrigin.Storage) - warehouse.GetReservedShelfSpace(item);

@@ -26,6 +26,17 @@ namespace APC.Data
         [Header("연출")]
         [SerializeField, Min(0.05f), Tooltip("시설 생성 팝 (초)")] float facilityPopDuration = 0.4f;
 
+        [Header("반품 (GDD 7.7, Lv.11 반품 구역)")]
+        [SerializeField, Range(0f, 1f), Tooltip("반품 구역이 열린 뒤 입고 상자 1개가 반품일 확률")] float returnChance = 0.1f;
+        [SerializeField, Min(1)] int returnBinCapacity = 12;
+        [SerializeField, Min(1), Tooltip("재포장 출구 용량. 가득 차면 검수가 멈춘다")] int repackOutputCapacity = 6;
+        [SerializeField, Min(0.05f), Tooltip("반품 상자 1개 검수 + 재포장 게이지 (초)")] float inspectionDuration = 1.5f;
+
+        public float ReturnChance => returnChance;
+        public int ReturnBinCapacity => returnBinCapacity;
+        public int RepackOutputCapacity => repackOutputCapacity;
+        public float InspectionDuration => inspectionDuration;
+
         public int SharedStorageCapacity => sharedStorageCapacity;
         public int ShelfCapacity => shelfCapacity;
         public float TruckReverseDuration => truckReverseDuration;

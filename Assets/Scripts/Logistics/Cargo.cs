@@ -37,11 +37,18 @@ namespace APC.Logistics
 
         [SerializeField, Tooltip("상자 + 테이프. 흔들림·펀치는 여기에만 적용")] Transform visual;
         [SerializeField] Renderer tapeRenderer;
+        [SerializeField, Tooltip("상자 몸통 (반품 = 회색, 재포장 = 흰색)")] Renderer boxRenderer;
+        [SerializeField] Color returnBoxColor = new(0.55f, 0.55f, 0.58f);
+        [SerializeField] Color returnTapeColor = new(0.85f, 0.15f, 0.15f);
+        [SerializeField] Color repackedBoxColor = new(0.95f, 0.95f, 0.95f);
 
         MaterialPropertyBlock block;
 
         public ItemDefinition Item { get; private set; }
         public CargoState State { get; private set; }
+
+        /// <summary>반품을 검수 테이블에서 재포장한 상자 (일반 화물, 흰 상자). 선반에 들어가면 프로토타입 목표 (GDD 1.3).</summary>
+        public bool Repacked { get; private set; }
         public CargoOrigin Origin { get; set; }
         public Transform Visual => visual;
 
@@ -57,6 +64,15 @@ namespace APC.Logistics
         public void SetState(CargoState state)
         {
             State = state;
+            ApplyLook();
+        }
+
+        /// <summary>반품 재포장 (GDD 7.7): 계약 품목 중 하나의 일반 상자가 된다.</summary>
+        public void Repack(ItemDefinition item)
+        {
+            Item = item;
+            State = CargoState.Normal;
+            Repacked = true;
             ApplyLook();
         }
 
@@ -78,15 +94,28 @@ namespace APC.Logistics
             Item = null;
             State = CargoState.Normal;
             Origin = CargoOrigin.None;
+            Repacked = false;
+            ApplyLook();
         }
 
+        /// <summary>테이프 = 품목 색 (반품은 빨간 띠). 상자 = 기본 재질 (반품 회색, 재포장 흰색).</summary>
         void ApplyLook()
         {
             block ??= new MaterialPropertyBlock();
+            var isReturn = State == CargoState.Return;
             tapeRenderer.GetPropertyBlock(block);
-            block.SetColor(BaseColorId, Item != null ? Item.TapeColor : Color.white);
+            block.SetColor(BaseColorId, isReturn ? returnTapeColor : Item != null ? Item.TapeColor : Color.white);
             tapeRenderer.SetPropertyBlock(block);
-            // 반품 스티커는 반품 마일스톤에서 추가한다.
+
+            if (boxRenderer == null) return;
+            if (!isReturn && !Repacked)
+            {
+                boxRenderer.SetPropertyBlock(null);
+                return;
+            }
+            block.Clear();
+            block.SetColor(BaseColorId, isReturn ? returnBoxColor : repackedBoxColor);
+            boxRenderer.SetPropertyBlock(block);
         }
     }
 }
