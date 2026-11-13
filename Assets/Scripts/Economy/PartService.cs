@@ -98,7 +98,7 @@ namespace APC.Economy
 
         void Start()
         {
-            // 계약하는 순간 1파트 시작 (GDD 11.7)
+            // 첫 회사(A사) 입고가 시작되는 순간 = 게임 시작에 1파트 시작 (GDD 11.7)
             ContractService.Instance.OnContracted
                 .Subscribe(_ =>
                 {

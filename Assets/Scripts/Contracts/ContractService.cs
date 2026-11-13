@@ -1,34 +1,17 @@
+using System.Collections;
 using System.Collections.Generic;
 using APC.Core;
 using APC.Data;
 using APC.Logistics;
-using APC.Site;
 using R3;
 using UnityEngine;
 
 namespace APC.Contracts
 {
-    /// <summary>계약할 수 없는 이유 (계약 카드 표시용).</summary>
-    public enum ContractBlock
-    {
-        None,
-
-        /// <summary>이미 계약함.</summary>
-        Contracted,
-
-        /// <summary>해금 레벨 미달.</summary>
-        Level,
-
-        /// <summary>이 회사의 선반 구역이 아직 잠겨 있음 (확장 필요).</summary>
-        ShelfArea,
-
-        /// <summary>선반 구역은 열렸지만 빈 자리가 품목 수보다 적음.</summary>
-        ShelfSlots,
-    }
-
     /// <summary>
-    /// 회사 계약 (GDD 6.3). 계약하면 ① 그 회사 선반 구역에 품목마다 선반 1개가 팝 연출과 함께 생기고 ② 입고 트럭이 오기 시작하고
-    /// ③ 그 회사 주문이 생기기 시작한다 (OrderService가 OnContracted를 구독). 계약 비용은 없고 레벨로만 제한한다. 씬에 하나 둔다.
+    /// 회사 입고 (GDD 6.3). 계약 시스템은 삭제했다 (2026-11-13): 회사는 **입고 시작 레벨이 되면 자동으로** 들어온다.
+    /// 들어오면 ① 입고 트럭이 그 회사도 고르기 시작하고(가중치, StockBalancer) ② 그 회사 주문이 생기기 시작한다 (OrderService가 OnContracted를 구독).
+    /// `Contracted` · `OnContracted` 이름은 기존 구독자를 위해 그대로 둔다 (= 입고 중인 회사). 씬에 하나 둔다.
     /// </summary>
     public sealed class ContractService : MonoBehaviour
     {
@@ -37,10 +20,11 @@ namespace APC.Contracts
         readonly List<CompanyDefinition> contracted = new();
         readonly Subject<CompanyDefinition> contractedSubject = new();
 
+        /// <summary>입고가 시작된 회사 (레벨 순).</summary>
         public IReadOnlyList<CompanyDefinition> Contracted => contracted;
         public bool HasAnyContract => contracted.Count > 0;
 
-        /// <summary>계약이 맺어질 때마다 그 회사를 보낸다.</summary>
+        /// <summary>회사 입고가 시작될 때마다 그 회사를 보낸다.</summary>
         public Observable<CompanyDefinition> OnContracted => contractedSubject;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -57,48 +41,41 @@ namespace APC.Contracts
             Instance = this;
         }
 
+        IEnumerator Start()
+        {
+            // 한 프레임 기다린다: 구독자(OrderService · PartService)가 Start에서 OnContracted를 구독한 뒤에 Lv.1 회사를 보낸다.
+            yield return null;
+            GameManager.Instance.Level.Level.Subscribe(Activate).AddTo(this);
+        }
+
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
             contractedSubject.Dispose();
         }
 
-        public bool IsContracted(CompanyDefinition company) => contracted.Contains(company);
-
-        public bool IsUnlocked(CompanyDefinition company)
-            => GameManager.Instance.Level.Level.CurrentValue >= company.UnlockLevel;
-
-        /// <summary>계약할 수 없는 이유. None이면 계약할 수 있다.</summary>
-        public ContractBlock GetBlock(CompanyDefinition company)
+        void Activate(int level)
         {
-            if (IsContracted(company)) return ContractBlock.Contracted;
-            if (!IsUnlocked(company)) return ContractBlock.Level;
-
-            // 회사마다 자기 선반 구역 (GDD 6.3): 그 구역이 열려 있고, 품목 수만큼 빈 자리가 있어야 한다.
-            var area = company.ShelfAreaId;
-            var grid = SiteGrid.Instance;
-            if (!string.IsNullOrEmpty(area) && grid != null && !grid.IsUnlocked(area)) return ContractBlock.ShelfArea;
-
-            var needed = 0;
-            foreach (var item in company.Items)
+            foreach (var company in GameManager.Instance.Database.Companies)
             {
-                if (!Warehouse.Instance.HasShelf(item)) needed++;
+                if (company.UnlockLevel > level || contracted.Contains(company)) continue;
+                contracted.Add(company);
+                contractedSubject.OnNext(company);
             }
-            return Warehouse.Instance.CountFreeSlots(area) < needed ? ContractBlock.ShelfSlots : ContractBlock.None;
+            BuildMissingShelves();
         }
 
-        public bool TryContract(CompanyDefinition company)
+        // shortcut: 회사별 선반 모듈(M11-5) 전까지 임시 — 입고 중인 회사 품목에 선반이 없으면 그 회사 선반 구역(없으면 아무 곳)의 빈 자리에 1개 세운다. 자리가 없으면 다음 레벨업 때 다시 시도.
+        void BuildMissingShelves()
         {
-            if (company == null || GetBlock(company) != ContractBlock.None) return false;
-
-            contracted.Add(company);
-            // 품목마다 선반 1개 (이미 있는 품목은 건너뜀)
-            foreach (var item in company.Items)
+            foreach (var company in contracted)
             {
-                if (!Warehouse.Instance.HasShelf(item)) Warehouse.Instance.BuildShelf(item, company.ShelfAreaId);
+                foreach (var item in company.Items)
+                {
+                    if (!Warehouse.Instance.HasShelf(item) && Warehouse.Instance.BuildShelf(item, company.ShelfAreaId) == null)
+                        Warehouse.Instance.BuildShelf(item, null);
+                }
             }
-            contractedSubject.OnNext(company);
-            return true;
         }
     }
 }

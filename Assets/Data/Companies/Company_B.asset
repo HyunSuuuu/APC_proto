@@ -13,12 +13,12 @@ MonoBehaviour:
   m_Name: Company_B
   m_EditorClassIdentifier: Assembly-CSharp::APC.Data.CompanyDefinition
   id: B
-  displayName: "\uD68C\uC0AC B"
-  unlockLevel: 7
+  displayName: "B사"
+  unlockLevel: 2
+  weight: 80
+  isLarge: 0
   items:
-  - {fileID: 11400000, guid: dead8f60eb668074498a6a352e3a3862, type: 2}
   - {fileID: 11400000, guid: 7d1b4f5014dbe764d9ada71eca9b2e1b, type: 2}
-  - {fileID: 11400000, guid: db61c0712c7596a4aa02d27ef043dcc5, type: 2}
-  inboundTruckCapacity: 10
-  contractUnitPrice: 14
+  inboundTruckCapacity: 8
+  contractUnitPrice: 12
   shelfAreaId: E1

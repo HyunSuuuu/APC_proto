@@ -35,6 +35,7 @@ namespace APC.Core
 
         public Wallet Wallet { get; private set; }
         public LevelProgress Level { get; private set; }
+        public PlayerUpgrades Upgrades { get; private set; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() => Instance = null;
@@ -59,6 +60,7 @@ namespace APC.Core
             Instance = this;
             Wallet = new Wallet(database.Economy.StartingCash);
             Level = new LevelProgress(database.Levels);
+            Upgrades = new PlayerUpgrades(database.Player, Wallet, Level, database.Economy.XpPurchase);
             ApplyState();
         }
 
@@ -72,6 +74,7 @@ namespace APC.Core
 
             Wallet?.Dispose();
             Level?.Dispose();
+            Upgrades?.Dispose();
             state.Dispose();
             gameSpeed.Dispose();
         }

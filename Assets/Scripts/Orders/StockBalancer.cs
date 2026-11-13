@@ -18,15 +18,11 @@ namespace APC.Orders
 
         // ── 입고 ────────────────────────────────────────────────────────
 
+        /// <summary>입고 트럭 회사 = 회사 가중치 비율로 무작위 (GDD 6.3, 7.8 교착 방지 삭제 2026-11-13).</summary>
         public static CompanyDefinition PickInboundCompany(IReadOnlyList<CompanyDefinition> companies)
         {
             Weights.Clear();
-            foreach (var company in companies)
-            {
-                var shortage = 0f;
-                foreach (var item in company.Items) shortage += Shortage(item);
-                Weights.Add(shortage + 1f); // 부족한 품목이 없어도 고를 수 있게
-            }
+            foreach (var company in companies) Weights.Add(company.Weight);
             return companies[PickIndex(Weights)];
         }
 

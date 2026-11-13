@@ -78,6 +78,13 @@ namespace APC.Logistics
             }
         }
 
+        /// <summary>반경과 상관없이 바로 줍게 한다 (디버그 메뉴). 이미 줍는 중이거나 돈이 없으면 무시.</summary>
+        public void CollectBy(CashCollector collector)
+        {
+            if (collecting || amount <= 0 || collector == null) return;
+            StartCoroutine(Collect(collector));
+        }
+
         /// <summary>맨 위 다발부터 하나씩 대상에게 날려 보낸다. 다발마다 남은 금액을 나눠 싣고, 도착할 때 저금통이 오른다.</summary>
         IEnumerator Collect(CashCollector collector)
         {

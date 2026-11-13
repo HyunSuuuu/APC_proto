@@ -78,6 +78,7 @@ namespace APC.EditorTools
             BuildGuideArrow();
             BuildContractPopup();
             BuildSettlementPopup();
+            BuildUpgradePopup();
             FixCameraButton();
             DisableHudForBootstrap();
             RemoveTestZones();
@@ -436,6 +437,60 @@ namespace APC.EditorTools
             root.SetAsLastSibling();
         }
 
+        // ── 업그레이드 팝업 (사무실 업그레이드 책상) ─────────────────────────
+
+        static void BuildUpgradePopup()
+        {
+            var canvas = GameObject.Find("HUD Canvas").transform;
+            var old = canvas.Find("UpgradePopup");
+            if (old != null) DestroyIfExists(old.gameObject);
+
+            var dark = new Color(0.25f, 0.22f, 0.2f);
+            var sprite = BuiltinSprite("UI/Skin/UISprite.psd");
+            var root = UIRect("UpgradePopup", canvas, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var body = UIRect("Body", root, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var group = body.gameObject.AddComponent<CanvasGroup>();
+            UIImage("Dim", body, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, new Color(0f, 0f, 0f, 0.55f), null).raycastTarget = true;
+
+            var panel = UIImage("Panel", body, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1200f, 560f), new Color(0.97f, 0.96f, 0.93f), sprite);
+            panel.type = Image.Type.Sliced;
+            var p = panel.rectTransform;
+            UIText("Title", p, new Vector2(0.5f, 1f), new Vector2(0f, -66f), new Vector2(800f, 90f), "업그레이드", 56f, TitleFont, dark);
+
+            var close = UIImage("Close", p, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-60f, -60f), new Vector2(90f, 90f), new Color(0.85f, 0.4f, 0.35f), sprite);
+            close.type = Image.Type.Sliced;
+            close.raycastTarget = true;
+            var closeButton = close.gameObject.AddComponent<Button>();
+            UIText("X", close.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(90f, 90f), "X", 48f, TitleFont, Color.white);
+
+            var popup = root.gameObject.AddComponent<UpgradePopup>();
+            string[] names = { "적재 도구", "이동 속도" };
+            string[] rows = { "carryRow", "speedRow" };
+            var so = new SerializedObject(popup);
+            for (var i = 0; i < 2; i++)
+            {
+                var y = -200f - i * 150f;
+                var name = UIText($"Row{i}Name", p, new Vector2(0f, 1f), new Vector2(170f, y), new Vector2(240f, 70f), names[i], 40f, TitleFont, dark);
+                name.alignment = TMPro.TextAlignmentOptions.Left;
+                var value = UIText($"Row{i}Value", p, new Vector2(0f, 1f), new Vector2(570f, y), new Vector2(560f, 70f), "", 32f, BodyFont, dark);
+                value.alignment = TMPro.TextAlignmentOptions.Left;
+                value.enableAutoSizing = true;
+                value.fontSizeMin = 20f;
+                value.fontSizeMax = 32f;
+                var buy = DialogButton($"Row{i}Buy", p, new Vector2(400f, 280f + y), "₩0", new Color(0.3f, 0.75f, 0.4f));
+                var row = so.FindProperty(rows[i]);
+                row.FindPropertyRelative("valueLabel").objectReferenceValue = value;
+                row.FindPropertyRelative("buyButton").objectReferenceValue = buy;
+                row.FindPropertyRelative("buyLabel").objectReferenceValue = buy.GetComponentInChildren<TMPro.TMP_Text>();
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+            SetRef(popup, "body", body.gameObject);
+            SetRef(popup, "group", group);
+            SetRef(popup, "panel", p);
+            SetRef(popup, "closeButton", closeButton);
+            root.SetAsLastSibling();
+        }
+
         /// <summary>카메라 버튼 글자를 한글이 나오는 TMP로 바꾼다 (M1에서 만든 버튼은 기본 Text).</summary>
         static void FixCameraButton()
         {
@@ -543,14 +598,13 @@ namespace APC.EditorTools
             var dim = UIImage("Dim", body, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, new Color(0f, 0f, 0f, 0.55f), null);
             dim.raycastTarget = true;
 
-            // 계약 PC 팝업: 계약 | 고용 탭 (GDD 11.1)
+            // 계약 PC 팝업: 고용 | 배치 탭 (GDD 11.1, 계약 탭은 2026-11-13 삭제)
             var panel = UIImage("Panel", body, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1500f, 900f),
                 new Color(0.97f, 0.96f, 0.93f), BuiltinSprite("UI/Skin/UISprite.psd"));
             panel.type = Image.Type.Sliced;
             var panelRect = panel.rectTransform;
-            var contractTab = TabButton("ContractTab", panelRect, new Vector2(150f, -60f), "계약");
-            var hireTab = TabButton("HireTab", panelRect, new Vector2(390f, -60f), "고용");
-            var rosterTab = TabButton("RosterTab", panelRect, new Vector2(630f, -60f), "배치");
+            var hireTab = TabButton("HireTab", panelRect, new Vector2(150f, -60f), "고용");
+            var rosterTab = TabButton("RosterTab", panelRect, new Vector2(390f, -60f), "배치");
 
             var close = UIImage("Close", panelRect, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-60f, -60f), new Vector2(90f, 90f),
                 new Color(0.85f, 0.4f, 0.35f), BuiltinSprite("UI/Skin/UISprite.psd"));
@@ -559,58 +613,16 @@ namespace APC.EditorTools
             var closeButton = close.gameObject.AddComponent<Button>();
             UIText("X", close.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(90f, 90f), "X", 48f, TitleFont, Color.white);
 
-            var contractPage = UIRect("ContractPage", panelRect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            var cards = UIRect("Cards", contractPage, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -50f), new Vector2(960f, 440f));
-            var layout = cards.gameObject.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = 40f;
-            layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.childControlWidth = false;
-            layout.childControlHeight = false;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = false;
-
-            var cardImage = UIImage("CardTemplate", cards, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(420f, 420f),
-                Color.white, BuiltinSprite("UI/Skin/UISprite.psd"));
-            cardImage.type = Image.Type.Sliced;
-            var card = cardImage.rectTransform;
-            var nameLabel = UIText("Name", card, new Vector2(0.5f, 1f), new Vector2(0f, -60f), new Vector2(380f, 70f), "회사", 46f, TitleFont, new Color(0.25f, 0.22f, 0.2f));
-            var iconRow = UIRect("Icons", card, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -150f), new Vector2(380f, 70f));
-            var iconLayout = iconRow.gameObject.AddComponent<HorizontalLayoutGroup>();
-            iconLayout.spacing = 14f;
-            iconLayout.childAlignment = TextAnchor.MiddleCenter;
-            iconLayout.childControlWidth = false;
-            iconLayout.childControlHeight = false;
-            iconLayout.childForceExpandWidth = false;
-            iconLayout.childForceExpandHeight = false;
-            var icon = UIImage("IconTemplate", iconRow, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(64f, 64f),
-                Color.white, BuiltinSprite("UI/Skin/UISprite.psd"));
-            var infoLabel = UIText("Info", card, new Vector2(0.5f, 1f), new Vector2(0f, -255f), new Vector2(380f, 100f), "입고 트럭 : 8\n단가 : 10", 34f, BodyFont, new Color(0.35f, 0.33f, 0.3f));
-            var blockLabel = UIText("Block", card, new Vector2(0.5f, 1f), new Vector2(0f, -335f), new Vector2(380f, 50f), "Lv.7 해금", 34f, BodyFont, new Color(0.75f, 0.25f, 0.2f));
-            cardImage.raycastTarget = true; // 도장을 놓을 곳 (계약은 버튼 대신 도장, GDD 6.3)
-
-            var contractCard = card.gameObject.AddComponent<ContractCard>();
-            SetRef(contractCard, "nameLabel", nameLabel);
-            SetRef(contractCard, "infoLabel", infoLabel);
-            SetRef(contractCard, "blockLabel", blockLabel);
-            SetRef(contractCard, "iconRow", iconRow);
-            SetRef(contractCard, "iconTemplate", icon);
-            StampOverlay(contractCard, card, "[ 계약 ]", new Vector2(0f, 35f));
-
             var popup = root.gameObject.AddComponent<ContractPopup>();
             SetRef(popup, "body", body.gameObject);
             SetRef(popup, "group", group);
             SetRef(popup, "panel", panelRect);
             SetRef(popup, "closeButton", closeButton);
-            SetRef(popup, "cardContainer", cards);
-            SetRef(popup, "cardTemplate", contractCard);
-            SetRef(popup, "contractTab", contractTab);
             SetRef(popup, "hireTab", hireTab);
-            SetRef(popup, "contractPage", contractPage.gameObject);
             SetRef(popup, "hirePage", BuildHirePage(panelRect).gameObject);
-            SetRef(popup, "stampConfig", StampConfigAsset());
             SetRef(popup, "rosterTab", rosterTab);
             SetRef(popup, "rosterPage", BuildRosterPage(panelRect).gameObject);
-            SetRef(popup, "stampArea", BuildStamp(panelRect)); // 계약 · 고용 탭이 같이 쓰는 도장 (카드보다 위에 그려지게 마지막에)
+            SetRef(popup, "stampArea", BuildStamp(panelRect)); // 고용 탭 도장 (카드보다 위에 그려지게 마지막에)
             root.SetAsLastSibling();
         }
 

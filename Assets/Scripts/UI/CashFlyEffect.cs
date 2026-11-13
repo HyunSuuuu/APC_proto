@@ -8,7 +8,7 @@ using UnityEngine.UI;
 namespace APC.UI
 {
     /// <summary>
-    /// 주운 현금이 HUD 저금통 아이콘으로 날아가는 연출 (GDD 7.6 · 12.1). 달러 아이콘(`Art/Temp/Dollor`)이 플레이어 위치에서
+    /// 주운 현금이 HUD 저금통 아이콘으로 날아가는 연출 (GDD 7.6 · 12.1). 달러 아이콘(`Art/Temp/Dollor`)이 플레이어 위치 둘레 원(`startRadius`) 안 무작위 지점에서
     /// 포물선(2차 베지어)을 그리며 저금통 아이콘으로 날아가고, 도착하면 콜백(저금통 += 금액)과 아이콘 튐.
     /// DOTween으로 움직인다 (파티클은 움직이는 UI 목표 · 도착 콜백을 다루기 어려움). 값은 CashFlyConfig (속도 · 크기 그래프 포함).
     /// HUD Canvas(Screen Space Overlay)에 둔다.
@@ -52,7 +52,7 @@ namespace APC.UI
 
             var c = CashFlyConfig.OrDefault(config);
             var scale = canvas != null ? canvas.scaleFactor : 1f;
-            Vector2 start = worldCamera.WorldToScreenPoint(worldPosition);
+            Vector2 start = (Vector2)worldCamera.WorldToScreenPoint(worldPosition) + UnityEngine.Random.insideUnitCircle * (c.StartRadius * scale);
             Vector2 end = target.position; // Screen Space Overlay: 월드 = 화면 좌표
             var control = (start + end) * 0.5f + Vector2.up * (c.ArcHeight * scale);
 

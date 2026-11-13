@@ -27,6 +27,7 @@ namespace APC.Debugging
         static Rect panelScreenRect;
 
         bool open;
+        Vector2 scroll;
         GUIStyle labelStyle;
         GUIStyle buttonStyle;
         GUIStyle headerStyle;
@@ -79,19 +80,23 @@ namespace APC.Debugging
             if (!open) return;
 
             var area = new Rect(12f, 130f, PanelWidth, ReferenceHeight - 210f);
+            // 아래가 잘리므로 드래그(마우스 · 터치) · 휠로 스크롤. 버튼 위에서 끌어도 스크롤된다
+            var e = Event.current;
+            if (e.type == EventType.MouseDrag && area.Contains(e.mousePosition))
+            {
+                scroll.y -= e.delta.y;
+                e.Use();
+            }
             GUILayout.BeginArea(area);
+            scroll = GUILayout.BeginScrollView(scroll);
             GUILayout.BeginVertical(GUI.skin.box);
             var gm = GameManager.Instance;
             if (gm == null) GUILayout.Label("GameManager not found", labelStyle);
             else DrawContent(gm);
             GUILayout.EndVertical();
-            if (Event.current.type == EventType.Repaint)
-            {
-                var box = GUILayoutUtility.GetLastRect();
-                box.position += area.position;
-                panelScreenRect = ToScreenRect(box, scale);
-            }
+            GUILayout.EndScrollView();
             GUILayout.EndArea();
+            if (e.type == EventType.Repaint) panelScreenRect = ToScreenRect(area, scale); // 스크롤 영역 전체를 조이스틱에서 막는다
         }
 
         /// <summary>IMGUI 좌표(왼쪽 위 원점, 기준 해상도) → 화면 좌표(왼쪽 아래 원점, px)</summary>
@@ -112,6 +117,7 @@ namespace APC.Debugging
                 if (GUILayout.Button($"+{amount:N0}", buttonStyle)) gm.Wallet.Add(amount);
             }
             GUILayout.EndHorizontal();
+            DrawCashZones();
 
             Header("Level");
             GUILayout.BeginHorizontal();
@@ -137,6 +143,25 @@ namespace APC.Debugging
             DrawOrders();
             DrawStaff();
             DrawSite(gm);
+        }
+
+        /// <summary>현금 존 테스트: 첫 현금 존에 돈 쌓기 / 모든 현금 존의 돈을 플레이어가 줍기 (걸어가지 않고 연출 · 저금통 확인).</summary>
+        void DrawCashZones()
+        {
+            var zones = FindObjectsByType<APC.Logistics.CashZone>(FindObjectsSortMode.None);
+            if (zones.Length == 0) return;
+            var stored = 0;
+            foreach (var zone in zones) stored += zone.StoredCash;
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Zone +200", buttonStyle)) zones[0].AddCash(200);
+            GUI.enabled = stored > 0 && APC.Logistics.CashCollector.All.Count > 0;
+            if (GUILayout.Button($"Collect {stored:N0}", buttonStyle))
+            {
+                foreach (var zone in zones) zone.CollectBy(APC.Logistics.CashCollector.All[0]);
+            }
+            GUI.enabled = true;
+            GUILayout.EndHorizontal();
         }
 
         /// <summary>알바 테스트 (M6-5 고용 데스크 전까지): 역할 지정 / 빈 역할 자동 배정 생성. 고용금 · 최대 인원 없음.</summary>

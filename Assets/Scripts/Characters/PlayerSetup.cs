@@ -1,18 +1,21 @@
 using APC.Core;
 using APC.Interaction;
 using APC.Logistics;
+using R3;
 using UnityEngine;
 
 namespace APC.Characters
 {
-    /// <summary>플레이어의 운반 · 상호작용 수치를 PlayerConfig에서 적용한다 (GDD 5.1). 업그레이드(2순위)도 여기서 갱신한다.</summary>
+    /// <summary>플레이어의 운반 · 상호작용 수치를 PlayerConfig에서 적용한다 (GDD 5.1). 적재 수는 업그레이드 단계(`PlayerUpgrades`)를 따른다.</summary>
     [RequireComponent(typeof(CarryStack), typeof(Interactor))]
     public sealed class PlayerSetup : MonoBehaviour
     {
         void Start()
         {
             var config = GameManager.Instance.Database.Player;
-            GetComponent<CarryStack>().SetCapacity(config.MaxCarry);
+            var stack = GetComponent<CarryStack>();
+            var upgrades = GameManager.Instance.Upgrades;
+            upgrades.CarryStep.Subscribe(_ => stack.SetCapacity(upgrades.Capacity)).AddTo(this); // 업그레이드 책상 (GDD 5.1)
             var interactor = GetComponent<Interactor>();
             interactor.Configure(config.PickInterval, config.InteractionDelay);
             interactor.ConfigureRules(taskLock: true, config.TransferSwitchCooldown); // GDD 5.3 — 플레이어만

@@ -8,11 +8,11 @@ FBXHeaderExtension:  {
 		Version: 1000
 		Year: 2026
 		Month: 11
-		Day: 12
-		Hour: 14
-		Minute: 40
-		Second: 17
-		Millisecond: 216
+		Day: 13
+		Hour: 12
+		Minute: 22
+		Second: 36
+		Millisecond: 624
 	}
 	Creator: "FBX SDK/FBX Plugins version 2020.3"
 	SceneInfo: "SceneInfo::GlobalInfo", "UserData" {
@@ -28,19 +28,19 @@ FBXHeaderExtension:  {
 			Comment: ""
 		}
 		Properties70:  {
-			P: "DocumentUrl", "KString", "Url", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\objcet\pillar_S.fbx"
-			P: "SrcDocumentUrl", "KString", "Url", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\objcet\pillar_S.fbx"
+			P: "DocumentUrl", "KString", "Url", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\objcet\pillar_s.fbx"
+			P: "SrcDocumentUrl", "KString", "Url", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\objcet\pillar_s.fbx"
 			P: "Original", "Compound", "", ""
 			P: "Original|ApplicationVendor", "KString", "", "", "Autodesk"
 			P: "Original|ApplicationName", "KString", "", "", "3ds Max"
 			P: "Original|ApplicationVersion", "KString", "", "", "2023"
-			P: "Original|DateTime_GMT", "DateTime", "", "", "12/11/2026 05:40:17.216"
-			P: "Original|FileName", "KString", "", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\objcet\pillar_S.fbx"
+			P: "Original|DateTime_GMT", "DateTime", "", "", "13/11/2026 03:22:36.624"
+			P: "Original|FileName", "KString", "", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\objcet\pillar_s.fbx"
 			P: "LastSaved", "Compound", "", ""
 			P: "LastSaved|ApplicationVendor", "KString", "", "", "Autodesk"
 			P: "LastSaved|ApplicationName", "KString", "", "", "3ds Max"
 			P: "LastSaved|ApplicationVersion", "KString", "", "", "2023"
-			P: "LastSaved|DateTime_GMT", "DateTime", "", "", "12/11/2026 05:40:17.216"
+			P: "LastSaved|DateTime_GMT", "DateTime", "", "", "13/11/2026 03:22:36.624"
 			P: "Original|ApplicationActiveProject", "KString", "", "", "C:\Users\ww\Documents\3ds Max 2023"
 			P: "Original|ApplicationNativeFile", "KString", "", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\목업_261111.max"
 		}
@@ -49,10 +49,10 @@ FBXHeaderExtension:  {
 GlobalSettings:  {
 	Version: 1000
 	Properties70:  {
-		P: "UpAxis", "int", "Integer", "",1
+		P: "UpAxis", "int", "Integer", "",2
 		P: "UpAxisSign", "int", "Integer", "",1
-		P: "FrontAxis", "int", "Integer", "",2
-		P: "FrontAxisSign", "int", "Integer", "",1
+		P: "FrontAxis", "int", "Integer", "",1
+		P: "FrontAxisSign", "int", "Integer", "",-1
 		P: "CoordAxis", "int", "Integer", "",0
 		P: "CoordAxisSign", "int", "Integer", "",1
 		P: "OriginalUpAxis", "int", "Integer", "",2
@@ -77,7 +77,7 @@ GlobalSettings:  {
 
 Documents:  {
 	Count: 1
-	Document: 1562233096240, "", "Scene" {
+	Document: 1850941182048, "", "Scene" {
 		Properties70:  {
 			P: "SourceObject", "object", "", ""
 			P: "ActiveAnimStackName", "KString", "", "", ""
@@ -313,7 +313,7 @@ Definitions:  {
 ;------------------------------------------------------------------
 
 Objects:  {
-	Geometry: 1562257546096, "Geometry::", "Mesh" {
+	Geometry: 1850942302912, "Geometry::", "Mesh" {
 		Properties70:  {
 			P: "Color", "ColorRGB", "Color", "",0.890196078431372,0.6,0.6
 		}
@@ -373,22 +373,18 @@ Objects:  {
 			}
 		}
 	}
-	Model: 1563040651888, "Model::pillar_s", "Mesh" {
+	Model: 1850949337344, "Model::pillar_s", "Mesh" {
 		Version: 232
 		Properties70:  {
-			P: "PreRotation", "Vector3D", "Vector", "",-90,-0,0
-			P: "RotationActive", "bool", "", "",1
 			P: "InheritType", "enum", "", "",1
 			P: "ScalingMax", "Vector3D", "Vector", "",0,0,0
-			P: "GeometricTranslation", "Vector3D", "Vector", "",30,29.9999923706055,1.4305112472357e-06
 			P: "DefaultAttributeIndex", "int", "Integer", "",0
-			P: "Lcl Translation", "Lcl Translation", "", "A",0,1.90734886018618e-06,9.53674202719412e-07
 			P: "MaxHandle", "int", "Integer", "UH",45
 		}
 		Shading: T
 		Culling: "CullingOff"
 	}
-	Material: 1562906632928, "Material::Material #51", "" {
+	Material: 1850940429056, "Material::Material #51", "" {
 		Version: 102
 		ShadingModel: "unknown"
 		MultiLayer: 0
@@ -523,7 +519,7 @@ Objects:  {
 			P: "3dsMax|Parameters|displacement_map_amt", "Float", "", "A",1
 		}
 	}
-	Video: 1562257533616, "Video::Map #3", "Clip" {
+	Video: 1850942287552, "Video::Map #3", "Clip" {
 		Type: "Clip"
 		Properties70:  {
 			P: "Path", "KString", "XRefUrl", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\fbx\Color_Pallet.png"
@@ -533,7 +529,7 @@ Objects:  {
 		Filename: "C:\Users\ww\Desktop\ㄱㅈㅇ\fbx\Color_Pallet.png"
 		RelativeFilename: "..\fbx\Color_Pallet.png"
 	}
-	Texture: 1562257549456, "Texture::Map #3", "" {
+	Texture: 1850942287072, "Texture::Map #3", "" {
 		Type: "TextureVideoClip"
 		Version: 202
 		TextureName: "Texture::Map #3"
@@ -549,7 +545,7 @@ Objects:  {
 		Texture_Alpha_Source: "Alpha_Black"
 		Cropping: 0,0,0,0
 	}
-	Implementation: 1563192385888, "Implementation::Material #51_Implementation", "" {
+	Implementation: 1850923038832, "Implementation::Material #51_Implementation", "" {
 		Version: 100
 		Properties70:  {
 			P: "ShaderLanguage", "KString", "", "", "StandardSSL"
@@ -558,7 +554,7 @@ Objects:  {
 			P: "RootBindingName", "KString", "", "", "root"
 		}
 	}
-	BindingTable: 1562904186560, "BindingTable::root 3", "" {
+	BindingTable: 1849973404720, "BindingTable::root 28", "" {
 		Version: 100
 		Properties70:  {
 			P: "TargetName", "KString", "", "", "root"
@@ -678,13 +674,13 @@ Objects:  {
 		Entry: "3dsMax|Parameters|cutout_map_on", "FbxPropertyEntry", "cutout_map_on", "FbxSemanticEntry"
 		Entry: "3dsMax|Parameters|displacement_map_amt", "FbxPropertyEntry", "displacement_map_amt", "FbxSemanticEntry"
 	}
-	AnimationStack: 1563198183760, "AnimStack::Take 001", "" {
+	AnimationStack: 1850945453488, "AnimStack::Take 001", "" {
 		Properties70:  {
 			P: "LocalStop", "KTime", "Time", "",60042005400
 			P: "ReferenceStop", "KTime", "Time", "",60042005400
 		}
 	}
-	AnimationLayer: 1563034559536, "AnimLayer::BaseLayer", "" {
+	AnimationLayer: 1850891009024, "AnimLayer::BaseLayer", "" {
 	}
 }
 
@@ -694,31 +690,31 @@ Objects:  {
 Connections:  {
 	
 	;Model::pillar_s, Model::RootNode
-	C: "OO",1563040651888,0
+	C: "OO",1850949337344,0
 	
 	;AnimLayer::BaseLayer, AnimStack::Take 001
-	C: "OO",1563034559536,1563198183760
+	C: "OO",1850891009024,1850945453488
 	
 	;Geometry::, Model::pillar_s
-	C: "OO",1562257546096,1563040651888
+	C: "OO",1850942302912,1850949337344
 	
 	;Material::Material #51, Model::pillar_s
-	C: "OO",1562906632928,1563040651888
+	C: "OO",1850940429056,1850949337344
 	
 	;Texture::Map #3, Material::Material #51
-	C: "OP",1562257549456,1562906632928, "DiffuseColor"
+	C: "OP",1850942287072,1850940429056, "DiffuseColor"
 	
 	;Texture::Map #3, Material::Material #51
-	C: "OP",1562257549456,1562906632928, "3dsMax|Parameters|base_color_map"
+	C: "OP",1850942287072,1850940429056, "3dsMax|Parameters|base_color_map"
 	
 	;Video::Map #3, Texture::Map #3
-	C: "OO",1562257533616,1562257549456
+	C: "OO",1850942287552,1850942287072
 	
 	;Material::Material #51, Implementation::Material #51_Implementation
-	C: "OO",1562906632928,1563192385888
+	C: "OO",1850940429056,1850923038832
 	
-	;BindingTable::root 3, Implementation::Material #51_Implementation
-	C: "OO",1562904186560,1563192385888
+	;BindingTable::root 28, Implementation::Material #51_Implementation
+	C: "OO",1849973404720,1850923038832
 }
 ;Takes section
 ;----------------------------------------------------

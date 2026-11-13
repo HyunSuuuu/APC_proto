@@ -21,6 +21,7 @@ namespace APC.Characters
 
         CharacterController controller;
         PlayerConfig config;
+        PlayerUpgrades upgrades;
         float verticalVelocity;
 
         /// <summary>현재 입력 크기 0~1 (애니메이션 블렌드용).</summary>
@@ -31,7 +32,11 @@ namespace APC.Characters
 
         void Awake() => controller = GetComponent<CharacterController>();
 
-        void Start() => config = GameManager.Instance.Database.Player;
+        void Start()
+        {
+            config = GameManager.Instance.Database.Player;
+            upgrades = GameManager.Instance.Upgrades;
+        }
 
         void Update()
         {
@@ -43,7 +48,7 @@ namespace APC.Characters
 
             var yaw = cameraRig != null ? cameraRig.Yaw : 0f;
             var direction = Quaternion.Euler(0f, yaw, 0f) * new Vector3(input.x, 0f, input.y);
-            var horizontal = ClampToSite(direction * (config.MoveSpeed * deltaTime));
+            var horizontal = ClampToSite(direction * (upgrades.MoveSpeed * deltaTime));
 
             verticalVelocity = controller.isGrounded
                 ? GroundedVelocity

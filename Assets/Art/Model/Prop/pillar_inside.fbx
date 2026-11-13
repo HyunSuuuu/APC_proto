@@ -8,11 +8,11 @@ FBXHeaderExtension:  {
 		Version: 1000
 		Year: 2026
 		Month: 11
-		Day: 12
-		Hour: 14
-		Minute: 40
-		Second: 58
-		Millisecond: 671
+		Day: 13
+		Hour: 12
+		Minute: 22
+		Second: 6
+		Millisecond: 779
 	}
 	Creator: "FBX SDK/FBX Plugins version 2020.3"
 	SceneInfo: "SceneInfo::GlobalInfo", "UserData" {
@@ -34,13 +34,13 @@ FBXHeaderExtension:  {
 			P: "Original|ApplicationVendor", "KString", "", "", "Autodesk"
 			P: "Original|ApplicationName", "KString", "", "", "3ds Max"
 			P: "Original|ApplicationVersion", "KString", "", "", "2023"
-			P: "Original|DateTime_GMT", "DateTime", "", "", "12/11/2026 05:40:58.671"
+			P: "Original|DateTime_GMT", "DateTime", "", "", "13/11/2026 03:22:06.778"
 			P: "Original|FileName", "KString", "", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\objcet\pillar_inside.fbx"
 			P: "LastSaved", "Compound", "", ""
 			P: "LastSaved|ApplicationVendor", "KString", "", "", "Autodesk"
 			P: "LastSaved|ApplicationName", "KString", "", "", "3ds Max"
 			P: "LastSaved|ApplicationVersion", "KString", "", "", "2023"
-			P: "LastSaved|DateTime_GMT", "DateTime", "", "", "12/11/2026 05:40:58.671"
+			P: "LastSaved|DateTime_GMT", "DateTime", "", "", "13/11/2026 03:22:06.778"
 			P: "Original|ApplicationActiveProject", "KString", "", "", "C:\Users\ww\Documents\3ds Max 2023"
 			P: "Original|ApplicationNativeFile", "KString", "", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\목업_261111.max"
 		}
@@ -49,10 +49,10 @@ FBXHeaderExtension:  {
 GlobalSettings:  {
 	Version: 1000
 	Properties70:  {
-		P: "UpAxis", "int", "Integer", "",1
+		P: "UpAxis", "int", "Integer", "",2
 		P: "UpAxisSign", "int", "Integer", "",1
-		P: "FrontAxis", "int", "Integer", "",2
-		P: "FrontAxisSign", "int", "Integer", "",1
+		P: "FrontAxis", "int", "Integer", "",1
+		P: "FrontAxisSign", "int", "Integer", "",-1
 		P: "CoordAxis", "int", "Integer", "",0
 		P: "CoordAxisSign", "int", "Integer", "",1
 		P: "OriginalUpAxis", "int", "Integer", "",2
@@ -77,7 +77,7 @@ GlobalSettings:  {
 
 Documents:  {
 	Count: 1
-	Document: 1562233092144, "", "Scene" {
+	Document: 1850895709408, "", "Scene" {
 		Properties70:  {
 			P: "SourceObject", "object", "", ""
 			P: "ActiveAnimStackName", "KString", "", "", ""
@@ -226,7 +226,7 @@ Definitions:  {
 ;------------------------------------------------------------------
 
 Objects:  {
-	Geometry: 1562257546096, "Geometry::", "Mesh" {
+	Geometry: 1850942292352, "Geometry::", "Mesh" {
 		Properties70:  {
 			P: "Color", "ColorRGB", "Color", "",0.890196078431372,0.6,0.6
 		}
@@ -273,28 +273,24 @@ Objects:  {
 			}
 		}
 	}
-	Model: 1563034131392, "Model::pillar_inside", "Mesh" {
+	Model: 1850948286416, "Model::pillar_inside", "Mesh" {
 		Version: 232
 		Properties70:  {
-			P: "PreRotation", "Vector3D", "Vector", "",-90,-0,0
-			P: "RotationActive", "bool", "", "",1
 			P: "InheritType", "enum", "", "",1
 			P: "ScalingMax", "Vector3D", "Vector", "",0,0,0
-			P: "GeometricTranslation", "Vector3D", "Vector", "",25,25,-1.19209289550781e-07
 			P: "DefaultAttributeIndex", "int", "Integer", "",0
-			P: "Lcl Translation", "Lcl Translation", "", "A",0,1.19209289550781e-07,-0
 			P: "MaxHandle", "int", "Integer", "UH",178
 		}
 		Shading: T
 		Culling: "CullingOff"
 	}
-	AnimationStack: 1563204235904, "AnimStack::Take 001", "" {
+	AnimationStack: 1850945453904, "AnimStack::Take 001", "" {
 		Properties70:  {
 			P: "LocalStop", "KTime", "Time", "",60042005400
 			P: "ReferenceStop", "KTime", "Time", "",60042005400
 		}
 	}
-	AnimationLayer: 1563204604208, "AnimLayer::BaseLayer", "" {
+	AnimationLayer: 1850891009024, "AnimLayer::BaseLayer", "" {
 	}
 }
 
@@ -304,13 +300,13 @@ Objects:  {
 Connections:  {
 	
 	;Model::pillar_inside, Model::RootNode
-	C: "OO",1563034131392,0
+	C: "OO",1850948286416,0
 	
 	;AnimLayer::BaseLayer, AnimStack::Take 001
-	C: "OO",1563204604208,1563204235904
+	C: "OO",1850891009024,1850945453904
 	
 	;Geometry::, Model::pillar_inside
-	C: "OO",1562257546096,1563034131392
+	C: "OO",1850942292352,1850948286416
 }
 ;Takes section
 ;----------------------------------------------------

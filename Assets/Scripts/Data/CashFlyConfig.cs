@@ -14,6 +14,7 @@ namespace APC.Data
         [SerializeField, Tooltip("속도 그래프: 시간(0~1) → 경로 진행(0~1). 기울기가 클수록 빠르다. 기본 = 천천히 출발해 빨라짐")]
         AnimationCurve moveCurve = new(new Keyframe(0f, 0f, 0f, 0f), new Keyframe(1f, 1f, 2f, 0f));
         [SerializeField, Tooltip("포물선 높이 (HUD 기준 px, 위로 +, 아래로 −)")] float arcHeight = 220f;
+        [SerializeField, Min(0f), Tooltip("출발 위치 랜덤 반경 (HUD 기준 px). 플레이어 화면 위치 중심의 원 안 무작위 지점에서 출발. 0 = 항상 중앙")] float startRadius = 60f;
 
         [Header("크기")]
         [SerializeField, Min(1f), Tooltip("아이콘 기본 크기 (HUD 기준 px)")] float size = 64f;
@@ -26,6 +27,7 @@ namespace APC.Data
 
         public float Duration => duration;
         public float ArcHeight => arcHeight;
+        public float StartRadius => startRadius;
         public float Size => size;
         public float TargetPunch => targetPunch;
         public float TargetPunchDuration => targetPunchDuration;

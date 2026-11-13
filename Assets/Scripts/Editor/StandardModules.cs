@@ -317,6 +317,7 @@ namespace APC.EditorTools
             BuildKit.Cube("Monitor", pc.transform, desk + new Vector3(0f, 1.1f, 0.1f), new Vector3(0.9f, 0.55f, 0.08f), BuildKit.Mat("M_Monitor", new Color(0.15f, 0.2f, 0.3f)));
             BuildKit.GaugeRing(pc, pc.transform);
             BuildPiggyBank(content, new Vector3(-2.6f, 0f, 2.6f));
+            BuildUpgradeDesk(content, new Vector3(2.7f, 0f, 2.47f)); // 계약 PC 오른쪽
 
             // 고용한 알바가 나타나는 곳: 계약 PC 책상 건너편 = PC 존 바로 앞, PC 쪽을 바라봄 (GDD 11.1. 고용은 PC 팝업 고용 탭)
             var spawn = new GameObject("StaffSpawnPoint");
@@ -324,6 +325,20 @@ namespace APC.EditorTools
             spawn.transform.SetPositionAndRotation(new Vector3(2f, 0f, -0.4f), Quaternion.LookRotation(Vector3.forward));
             spawn.AddComponent<StaffSpawnPoint>();
             Label(root, "사무실");
+        }
+
+        /// <summary>
+        /// 사무실 업그레이드 책상 (GDD 5.1): 게이지 존 + 책상. 다 차면 업그레이드 팝업.
+        /// 손으로 고친 사무실 프리팹에는 Rebuild 대신 이것만 따로 불러 붙인다 (`BuildUpgradeDesk(content, 위치)`).
+        /// </summary>
+        public static APC.Economy.UpgradeDesk BuildUpgradeDesk(Transform content, Vector3 position)
+        {
+            var zone = BuildKit.Zone<APC.Economy.UpgradeDesk>(content, "UpgradeDesk", position, new Vector2(2.2f, 2.2f),
+                new Color(0.55f, 0.7f, 0.75f), new Color(0.35f, 0.85f, 1f), "업그레이드");
+            var desk = position + new Vector3(0f, 0f, 1.6f);
+            BuildKit.Cube("Desk", zone.transform, desk + new Vector3(0f, 0.4f, 0f), new Vector3(1.8f, 0.8f, 0.7f), BuildKit.Mat("M_Desk", new Color(0.55f, 0.4f, 0.3f)));
+            BuildKit.GaugeRing(zone, zone.transform);
+            return zone;
         }
 
         /// <summary>사무실 투명 저금통 (GDD 9.5): 반투명 원통(사람 키) + 금색 동전 층(10단계, 아래부터) + 위 금액 글자.</summary>

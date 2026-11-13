@@ -51,7 +51,7 @@ namespace APC.Orders
 
         void Start()
         {
-            // 계약하는 순간 첫 주문 1건 (GDD 8.2 확정). 이후는 간격대로.
+            // 회사 입고가 시작되는 순간 그 회사 주문 1건 (게임 시작 = A사, GDD 8.2). 이후는 간격대로.
             ContractService.Instance.OnContracted
                 .Subscribe(company =>
                 {
