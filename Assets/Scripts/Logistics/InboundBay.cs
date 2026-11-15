@@ -1,6 +1,8 @@
 using System.Collections;
+using System.Collections.Generic;
 using APC.Contracts;
 using APC.Core;
+using APC.Data;
 using APC.Orders;
 using DG.Tweening;
 using UnityEngine;
@@ -30,9 +32,19 @@ namespace APC.Logistics
 
             while (true)
             {
-                yield return new WaitUntil(() => contracts.HasAnyContract);
+                // 그 색 보관 구역(선반)이 없으면 그 색 트럭은 안 나온다 (GDD 6.3)
+                var candidates = new List<CompanyDefinition>();
+                yield return new WaitUntil(() =>
+                {
+                    candidates.Clear();
+                    foreach (var c in contracts.Contracted)
+                    {
+                        if (Warehouse.Instance.HasShelf(c.Items[0])) candidates.Add(c);
+                    }
+                    return candidates.Count > 0;
+                });
 
-                var company = StockBalancer.PickInboundCompany(contracts.Contracted);
+                var company = StockBalancer.PickInboundCompany(candidates);
                 // 로컬 좌표로 움직인다: 확장 모듈은 크기 0에서 커지는 중(FacilityPop)에 첫 트럭이 나오므로,
                 // 월드 좌표를 그때 잡으면 엉뚱한 곳에서 들어온다. 주차 · 생성 지점은 이 베이의 바로 아래 자식.
                 var truck = Instantiate(truckPrefab, transform);

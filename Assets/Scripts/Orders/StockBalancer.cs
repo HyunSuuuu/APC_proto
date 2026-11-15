@@ -10,8 +10,30 @@ namespace APC.Orders
     /// </summary>
     public static class StockBalancer
     {
-        /// <summary>입고 트럭 회사 = 회사 가중치 비율로 무작위 (GDD 6.3).</summary>
-        public static CompanyDefinition PickInboundCompany(IReadOnlyList<CompanyDefinition> companies) => PickByWeight(companies);
+        const int MaxInboundStreak = 3;
+
+        static CompanyDefinition lastInbound;
+        static int inboundStreak;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics()
+        {
+            lastInbound = null;
+            inboundStreak = 0;
+        }
+
+        /// <summary>
+        /// 하차 트럭 색 = 후보(열린 색 중 보관 구역 있는 것)끼리 가중치 비율로 무작위 (GDD 6.3).
+        /// 같은 색은 모든 하차 칸 합쳐 최대 3대 연속, 후보가 1색뿐이면 제한 없음.
+        /// </summary>
+        public static CompanyDefinition PickInboundCompany(List<CompanyDefinition> candidates)
+        {
+            if (inboundStreak >= MaxInboundStreak && candidates.Count > 1) candidates.Remove(lastInbound);
+            var company = PickByWeight(candidates);
+            inboundStreak = company == lastInbound ? inboundStreak + 1 : 1;
+            lastInbound = company;
+            return company;
+        }
 
         /// <summary>주문 회사 = 회사 가중치 비율로 무작위 (GDD 8.1).</summary>
         public static CompanyDefinition PickOrderCompany(IReadOnlyList<CompanyDefinition> companies) => PickByWeight(companies);

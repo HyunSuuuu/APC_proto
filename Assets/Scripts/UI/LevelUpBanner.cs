@@ -51,6 +51,10 @@ namespace APC.UI
             var level = pending.Dequeue();
             titleLabel.text = $"LEVEL UP!  Lv.{level}";
             var note = GameManager.Instance.Database.Levels.GetUnlockNote(level);
+            foreach (var company in GameManager.Instance.Database.Companies)
+            {
+                if (company.UnlockLevel == level) note += $"{(string.IsNullOrEmpty(note) ? "" : "\n")}새 트럭: {company.DisplayName}"; // GDD 6.3
+            }
             noteLabel.text = note;
             noteLabel.gameObject.SetActive(!string.IsNullOrEmpty(note));
             if (burst != null) burst.Play();

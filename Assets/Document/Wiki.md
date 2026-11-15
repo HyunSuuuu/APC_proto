@@ -187,7 +187,7 @@ GaugeZone.Tick → 진행도 += deltaTime / duration → 1이 되면 OnCompleted
 ContractService (Start 한 프레임 뒤) → Level 구독: 레벨 ≥ 회사 unlockLevel인 회사를 입고 시작 (계약 없음, 2026-11-13)
        ├ 첫 OnContracted 이벤트 → OrderService가 첫 주문 1건 · PartService가 1파트 시작 (게임 시작 = A사, 이후 회사는 주문 즉시 생성 없음)
        └ Warehouse.BuildShelf (임시, M11-5 전): 선반 없는 품목에 1개, shelfAreaId → 없으면 아무 빈 자리
-InboundBay 코루틴: HasAnyContract가 true가 되면 트럭을 부르기 시작 (회사 = 가중치 비율)
+InboundBay 코루틴: 선반 있는 입고 색이 생기면 트럭을 부르기 시작 (색 = 가중치 비율, 같은 색 최대 3연속)
 ContractPC (게이지 0.5초) → ContractPopup.Open (고용 탭) → GameManager.OpenPopup (timeScale 0)
 OrderService.Update: 이후 레벨 구간 간격(Lv.1~3 15초)마다 주문 1건 (큐 8건이면 멈춤)
 ```
@@ -250,7 +250,7 @@ CashZone: 플레이어가 반경 1.5m 안에 들어오면 다발이 하나씩 �
 PartService: 파트(180초, 첫 90초)가 끝나면 정산 팝업 → [확인] → Wallet.SettlePiggy (저금통 → 보유 재화) → 다음 파트
 ```
 
-**회사 가중치** (`StockBalancer`, GDD 6.3): 입고 트럭 회사는 입고 중인 회사의 `weight` 비율(100/80/60/40)로 고른다. 교착 방지 규칙(GDD 7.8)은 2026-11-13 삭제 — 흐름이 막혀도 둔다. 주문은 아직 재고 비례 (M11-2에서 바꿈).
+**회사 가중치** (`StockBalancer`, GDD 6.3): 입고 트럭 색은 입고 중이고 선반이 있는 색의 `weight` 비율(40/30/20/10)로 고르고, 같은 색은 최대 3대 연속 (M13-1). 교착 방지 규칙(GDD 7.8)은 2026-11-13 삭제 — 흐름이 막혀도 둔다. 주문은 아직 재고 비례 (M11-2에서 바꿈).
 
 ### 3.7 알바 한 사이클
 
@@ -535,6 +535,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **동작**:
   - `BuildShelf(slot)`: 자리의 품목 · 모양 · 용량으로 선반을 **자리의 자식, 로컬 0**에 세운다 (팝 연출). 같은 색 선반은 여러 개.
   - `NearestShelfWithSpace(item, from)`: 그 색 선반 중 빈자리 있는 가장 가까운 것 (가이드 화살표)
+  - `HasShelf(item)`: 그 색 선반이 하나라도 있나 = 보관 구역이 지어졌나 (하차 트럭 후보, M13-1)
 - **주의**: 선반을 월드 좌표로 세우면 안 된다 — 해금 모듈은 팝 연출로 크기 0에서 시작해 모듈 중심에 붙는다.
   - `GetShelfFreeSpace(item)`: 그 품목 선반들의 빈자리 합
   - `GetStock(item)`: 선반 + 공용 보관소의 그 품목 수 (교착 방지 가중치용)
@@ -550,7 +551,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### InboundBay
 [Logistics/InboundBay.cs](../Scripts/Logistics/InboundBay.cs)
 - **역할**: 하차 베이 1곳. 하차 주차장 모듈 안에 있다. [3.4](#34-입고-트럭-한-대)의 반복을 코루틴으로 실행한다.
-- **연결**: `ContractService.Instance`(계약 여부), `StockBalancer`(트럭 회사 · 실을 품목), `truckPrefab`, `parkPoint`(주차 위치 · 방향), `spawnPoint`(나타나고 사라지는 곳).
+- **동작**: 후보 = 입고 중인 색(`ContractService.Contracted`) 중 **선반이 있는 색**(`Warehouse.HasShelf`)만. 후보가 없으면 기다린다 (GDD 6.3, M13-1).
+- **연결**: `ContractService.Instance`(입고 중인 색), `Warehouse.Instance`(그 색 선반 여부), `StockBalancer`(트럭 색 · 실을 품목), `truckPrefab`, `parkPoint`(주차 위치 · 방향), `spawnPoint`(나타나고 사라지는 곳).
 - **주의**: 트럭은 **베이 기준 로컬 좌표**로 움직인다 (`parkPoint` · `spawnPoint`는 베이 바로 아래 자식이어야 함). 확장 모듈은 크기 0에서 커지는 중(`FacilityPop`)에 첫 트럭이 나오므로, 월드 좌표를 쓰면 엉뚱한 곳에서 들어온다 (2026-11-12 수정). `OutboundBay`도 같다.
 
 #### TruckPickupZone
@@ -655,7 +657,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### StockBalancer
 [Orders/StockBalancer.cs](../Scripts/Orders/StockBalancer.cs)
 - **역할**: 입고 · 주문 회사 고르기 (static 클래스).
-- **동작**: `PickInboundCompany` · `PickOrderCompany` — 둘 다 **회사 `Weight` 비율** (GDD 6.3 · 8.1). `ComposeInboundLoad` — 트럭 전부 그 회사 품목(1종). 교착 방지 가중치(재고 · 부족량)는 M11-2에서 삭제.
+- **동작**: `PickInboundCompany` · `PickOrderCompany` — 둘 다 **회사 `Weight` 비율**(40/30/20/10) (GDD 6.3 · 8.1). `PickInboundCompany`는 **같은 색 최대 3대 연속** — 모든 하차 칸이 같은 정적 카운터를 쓴다. 후보가 1색뿐이면 제한하지 않는다 (M13-1). `ComposeInboundLoad` — 트럭 전부 그 회사 품목(1종). 교착 방지 가중치(재고 · 부족량)는 M11-2에서 삭제.
 
 ### 4.7b Economy — 파트 · 정산 · 저금통
 
@@ -732,7 +734,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### LevelUpBanner
 [UI/LevelUpBanner.cs](../Scripts/UI/LevelUpBanner.cs)
-- **역할**: 레벨업 연출 v1 — 화면 중앙 `LEVEL UP! Lv.N` + 해금 한 줄(`LevelTable.GetUnlockNote`)이 약 2초 떴다 사라지고, 플레이어 위 색종이 파티클(`LevelUpConfetti`)이 터진다.
+- **역할**: 레벨업 연출 v1 — 화면 중앙 `LEVEL UP! Lv.N` + 해금 한 줄(`LevelTable.GetUnlockNote`) + 그 레벨에 합류하는 `새 트럭: 색`(`CompanyDefinition.UnlockLevel`)이 약 2초 떴다 사라지고, 플레이어 위 색종이 파티클(`LevelUpConfetti`)이 터진다.
 - **주의**: 게임을 멈추지 않고 입력도 막지 않는다 (CanvasGroup `blocksRaycasts = false`). 여러 레벨이 한꺼번에 오르면 차례로 보여준다.
 
 #### GuideArrow

@@ -52,6 +52,16 @@ namespace APC.Logistics
             return best;
         }
 
+        /// <summary>그 품목 선반이 하나라도 있나 (= 그 색 보관 구역이 지어졌나, GDD 6.3).</summary>
+        public bool HasShelf(ItemDefinition item)
+        {
+            foreach (var shelf in shelves)
+            {
+                if (shelf.Item == item) return true;
+            }
+            return false;
+        }
+
         /// <summary>선반 자리에 그 자리의 품목 · 모양 · 용량으로 선반을 세운다 (팝 연출). ShelfSlot.Start가 부른다.</summary>
         public Shelf BuildShelf(ShelfSlot slot)
         {
