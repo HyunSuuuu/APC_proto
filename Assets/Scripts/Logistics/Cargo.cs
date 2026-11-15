@@ -50,6 +50,9 @@ namespace APC.Logistics
         /// <summary>반품을 검수 테이블에서 재포장한 상자 (일반 화물, 흰 상자). 선반에 들어가면 프로토타입 목표 (GDD 1.3).</summary>
         public bool Repacked { get; private set; }
         public CargoOrigin Origin { get; set; }
+
+        /// <summary>트럭에서 꺼낸 화물이 가야 할 하차 칸 공간 (하차 칸마다 따로, GDD 7.2). 그 밖에는 null.</summary>
+        public SharedStorage Home { get; set; }
         public Transform Visual => visual;
 
         internal CargoPool Pool { get; set; }
@@ -94,6 +97,7 @@ namespace APC.Logistics
             Item = null;
             State = CargoState.Normal;
             Origin = CargoOrigin.None;
+            Home = null;
             Repacked = false;
             ApplyLook();
         }

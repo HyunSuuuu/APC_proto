@@ -7,7 +7,7 @@ namespace APC.Data
     public sealed class LogisticsConfig : ScriptableObject
     {
         [Header("보관")]
-        [SerializeField, Min(1)] int sharedStorageCapacity = 20;
+        [SerializeField, Min(1), Tooltip("하차 칸 상자 두는 공간 용량 (하차 칸마다 따로, GDD 7.2 임시)")] int sharedStorageCapacity = 10;
         [SerializeField, Min(1), Tooltip("선반 1개 용량 (GDD 7.3, 1단계 6). 팔레트 랙은 ShelfSlot.capacity")] int shelfCapacity = 6;
 
         [Header("입고 트럭")]

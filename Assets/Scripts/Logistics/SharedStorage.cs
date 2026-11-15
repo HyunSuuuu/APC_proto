@@ -45,6 +45,9 @@ namespace APC.Logistics
         public int Capacity => capacity;
         public IReadOnlyList<Cargo> Items => pile.Items;
         public StorageKind Kind => kind;
+
+        /// <summary>수량 글자 (떠오르는 알림 글자의 폰트 · 모양 원본으로도 쓴다).</summary>
+        public TMP_Text CountLabel => countLabel;
         public bool HasSpace => pile.Count < capacity;
 
         /// <summary>반품 구역(롤테이너)이 열렸는가 — 열려야 입고 화물에 반품이 섞인다 (GDD 7.7).</summary>
@@ -95,14 +98,14 @@ namespace APC.Logistics
         void OnDestroy() => count.Dispose();
 
         /// <summary>
-        /// 빈자리가 있고: 팔레트 = 트럭에서 꺼낸 일반 화물, 롤테이너 = 반품 상자. 재포장 출구는 사람에게서 받지 않는다 (검수 테이블이 Store).
+        /// 빈자리가 있고: 팔레트 = **이 하차 칸 트럭**에서 꺼낸 일반 화물 (하차 칸마다 따로, GDD 7.2), 롤테이너 = 반품 상자. 재포장 출구는 사람에게서 받지 않는다 (검수 테이블이 Store).
         /// </summary>
         public bool CanAccept(Cargo cargo)
         {
             if (pile.Count >= capacity) return false;
             return kind switch
             {
-                StorageKind.Pallet => cargo.Origin == CargoOrigin.Truck && cargo.State == CargoState.Normal,
+                StorageKind.Pallet => cargo.Origin == CargoOrigin.Truck && cargo.State == CargoState.Normal && cargo.Home == this,
                 StorageKind.Returns => cargo.State == CargoState.Return,
                 _ => false,
             };
@@ -156,16 +159,6 @@ namespace APC.Logistics
 
         /// <summary>TakeForShelves로 꺼낼 화물이 있는가 (꺼내지 않음, 분류 알바용).</summary>
         public bool HasCargoForShelves() => FindForShelves() >= 0;
-
-        /// <summary>빈자리가 남은 공용 보관소가 있는가 (하차 알바가 트럭에서 집을 가치가 있나).</summary>
-        public static bool AnyHasSpace()
-        {
-            foreach (var storage in Registered)
-            {
-                if (storage.kind == StorageKind.Pallet && storage.pile.Count < storage.capacity) return true;
-            }
-            return false;
-        }
 
         /// <summary>
         /// 분류 알바 예약용: 지금 집으면 선반에 갈 화물을 품목별로 최대 max개까지 센다 (꺼내지 않음).

@@ -308,9 +308,8 @@ namespace APC.Staff
             _ => candidate is ShelfZone,
         };
 
-        // 하차는 팔레트에 빈자리가 있을 때만 (들고 갈 곳이 없으면 집지 않는다). 분류 · 피킹은 존 규칙에 이미 빈자리 · 수요가 들어 있다.
-        bool HasWork(CargoZone candidate)
-            => candidate.HasCargoFor(interactor) && (Role != StaffRole.Unload || SharedStorage.AnyHasSpace());
+        // 하차 칸 공간 빈자리 · 선반 빈자리 · 수요는 존 규칙(HasCargoFor)에 이미 들어 있다.
+        bool HasWork(CargoZone candidate) => candidate.HasCargoFor(interactor);
 
         void Go(CargoZone target, WorkSlot targetSlot, bool drop, bool park)
         {
@@ -442,7 +441,7 @@ namespace APC.Staff
                 case TruckPickupZone pickup when pickup.Bay.DockedTruck != null:
                 {
                     var truck = pickup.Bay.DockedTruck;
-                    var count = Mathf.Min(room, truck.Available);
+                    var count = Mathf.Min(room, Mathf.Min(truck.Available, pickup.Room)); // 그 칸 공간 빈자리까지 (GDD 8.4)
                     if (count <= 0) return;
                     truck.Reserve(count);
                     releaseReservation = () => { if (truck != null) truck.Unreserve(count); };

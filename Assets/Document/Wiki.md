@@ -257,7 +257,7 @@ PartService: 파트(180초, 첫 90초)가 끝나면 정산 팝업 → [확인] �
 ```
 StaffWorker (thinkInterval 0.25초마다 판단)
  ├ 빈손 + 역할 존에 할 일 있음 → 존의 가장 가까운 빈 WorkSlot 예약 → Moving
- │    · 예약 (3역할, 출발할 때): 하차 = 트럭 `Reserve(min(남은 적재, Available))`, 분류 = 선반 빈자리 `ReserveShelfSpace`(품목별), 피킹 = `OrderService.Reserve(min(남은 적재, 수요))`
+ │    · 예약 (3역할, 출발할 때): 하차 = 트럭 `Reserve(min(남은 적재, Available, 그 칸 Room))`, 분류 = 선반 빈자리 `ReserveShelfSpace`(품목별), 피킹 = `OrderService.Reserve(min(남은 적재, 수요))`
  ├ 도착 → Interactor.Target = 그 존, AllowDrop/AllowPick 설정 → Working
  │    · 슬롯에서 interactionDelay(0.5초) 뒤부터 CargoZone.Tick (슬롯 밖이면 상호작용 없음)
  │    · 내려놓기 대상 = 들고 있는 화물을 받는 존 (역할을 바꿔도 원래 목적지로)
@@ -459,7 +459,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### Cargo
 [Logistics/Cargo.cs](../Scripts/Logistics/Cargo.cs)
-- **역할**: 화물 1개. 품목(`Item`), 상태(`State`: Normal / Return), 출처(`Origin`: None / Truck / Storage / Shelf), `Repacked`(반품을 재포장한 일반 상자).
+- **역할**: 화물 1개. 품목(`Item`), 상태(`State`: Normal / Return), 출처(`Origin`: None / Truck / Storage / Shelf), `Repacked`(반품을 재포장한 일반 상자), `Home`(트럭에서 꺼낸 화물이 가야 할 하차 칸 공간, `TruckPickupZone`이 넣음 — 하차 칸마다 따로, M13-2).
 - **동작**: 루트는 위치 이동(DOTween), 자식 `Visual`은 흔들림 · 펀치만 받는다. 색은 `MaterialPropertyBlock` — 테이프 = 품목 색(반품은 빨간 띠), 상자(`boxRenderer`) = 기본 재질(반품 회색, 재포장 흰색). `Repack(item)` = 그 품목의 Normal 상자 + `Repacked`.
 - **주의**: **`Instantiate`/`Destroy` 하지 않는다.** `CargoPool.Instance.Spawn`으로 꺼내고 `Release()`로 돌려준다. 반환 시 트윈 · 상태 · Origin이 모두 초기화된다.
 
@@ -494,8 +494,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### SharedStorage
 [Logistics/SharedStorage.cs](../Scripts/Logistics/SharedStorage.cs)
-- **역할**: 보관 더미. `kind`(`StorageKind`)로 쓰임이 갈린다 — **Pallet**(하차장 팔레트: 트럭에서 꺼낸 일반 화물만), **Returns**(반품 대기 롤테이너: 반품 상자만 받고 주지 않음), **Repacked**(재포장 출구: 검수 테이블만 `Store`, 팔레트처럼 선반 빈자리만큼 준다). 용량은 `LogisticsConfig` (팔레트 20 · 롤테이너 12 · 출구 6).
-- **동작**: `CanAccept`(kind별 조건 + 빈자리), `TakeReturn()` · `HasReturn`(검수 테이블), static `ReturnsOpen`(롤테이너가 있으면 반품이 섞임), `HasSpace`, `Store`, `TakeForShelves`(선반에 갈 자리가 있는 품목만, 최근에 들어온 것부터 꺼내고 Origin을 Storage로 바꿈), `CountOf(item)`(반품 제외), `HasCargoForShelves()`(알바 판단용, 꺼내지 않음), static `AnyHasSpace()`(팔레트만), `PlanForShelves(max)`(분류 알바 예약용: 지금 집으면 선반에 갈 품목별 수를 최대 max까지 센다, 꺼내지 않음). `TakeForShelves`의 판정은 `FindForShelves`로 분리했다. 모듈 안에 있으므로 `SharedStorage.All`에 스스로 등록한다.
+- **역할**: 보관 더미. `kind`(`StorageKind`)로 쓰임이 갈린다 — **Pallet**(하차장 팔레트: 트럭에서 꺼낸 일반 화물만), **Returns**(반품 대기 롤테이너: 반품 상자만 받고 주지 않음), **Repacked**(재포장 출구: 검수 테이블만 `Store`, 팔레트처럼 선반 빈자리만큼 준다). 용량은 `LogisticsConfig` (팔레트 = 하차 칸 공간 10 · 롤테이너 12 · 출구 6). 팔레트는 하차장 모듈 Content에 붙고, 같은 모듈의 `InboundBay.Storage`가 이것을 가리킨다.
+- **동작**: `CanAccept`(kind별 조건 + 빈자리, 팔레트는 `cargo.Home == this`인 트럭 화물만), `CountLabel`(떠오르는 글자 원본), `TakeReturn()` · `HasReturn`(검수 테이블), static `ReturnsOpen`(롤테이너가 있으면 반품이 섞임), `HasSpace`, `Store`, `TakeForShelves`(선반에 갈 자리가 있는 품목만, 최근에 들어온 것부터 꺼내고 Origin을 Storage로 바꿈), `CountOf(item)`(반품 제외), `HasCargoForShelves()`(알바 판단용, 꺼내지 않음), `PlanForShelves(max)`(분류 알바 예약용: 지금 집으면 선반에 갈 품목별 수를 최대 max까지 센다, 꺼내지 않음). `TakeForShelves`의 판정은 `FindForShelves`로 분리했다. 모듈 안에 있으므로 `SharedStorage.All`에 스스로 등록한다.
 - **`ShelfAllowance(item)`**: 그 품목을 선반에 더 보낼 수 있는 수 = 선반 빈자리 − 들고 가는 수 − 분류 알바 예약. `FindForShelves`(→ `TakeForShelves` · `HasCargoForShelves`)가 이 값으로 판정한다.
 - **연결**: 하차장 모듈마다 팔레트 하나, 반품 구역에 롤테이너 · 출구 하나씩. 각각 둘레의 `StorageZone` 하나로 넣고 꺼낸다 (분류 알바 · 하차 알바가 그대로 씀).
 - **주의**: 플레이어 · 분류 알바가 같은 `ShelfAllowance`를 쓴다. 예약된 수만큼은 플레이어도 덜 받는다.
@@ -551,13 +551,14 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### InboundBay
 [Logistics/InboundBay.cs](../Scripts/Logistics/InboundBay.cs)
 - **역할**: 하차 베이 1곳. 하차 주차장 모듈 안에 있다. [3.4](#34-입고-트럭-한-대)의 반복을 코루틴으로 실행한다.
-- **동작**: 후보 = 입고 중인 색(`ContractService.Contracted`) 중 **선반이 있는 색**(`Warehouse.HasShelf`)만. 후보가 없으면 기다린다 (GDD 6.3, M13-1).
+- **동작**: 후보 = 입고 중인 색(`ContractService.Contracted`) 중 **선반이 있는 색**(`Warehouse.HasShelf`)만. 후보가 없으면 기다린다 (GDD 6.3, M13-1). `Storage` = 이 칸의 상자 두는 공간 (`Awake`에서 `GetComponentInParent<SharedStorage>()`, M13-2).
 - **연결**: `ContractService.Instance`(입고 중인 색), `Warehouse.Instance`(그 색 선반 여부), `StockBalancer`(트럭 색 · 실을 품목), `truckPrefab`, `parkPoint`(주차 위치 · 방향), `spawnPoint`(나타나고 사라지는 곳).
 - **주의**: 트럭은 **베이 기준 로컬 좌표**로 움직인다 (`parkPoint` · `spawnPoint`는 베이 바로 아래 자식이어야 함). 확장 모듈은 크기 0에서 커지는 중(`FacilityPop`)에 첫 트럭이 나오므로, 월드 좌표를 쓰면 엉뚱한 곳에서 들어온다 (2026-11-12 수정). `OutboundBay`도 같다.
 
 #### TruckPickupZone
 [Logistics/TruckPickupZone.cs](../Scripts/Logistics/TruckPickupZone.cs)
-- **역할**: 주차한 트럭 뒷문 앞의 집기 존. `bay.DockedTruck`에서 화물을 꺼낸다. 트럭이 없거나 이동 중이면 아무것도 안 준다. `Bay` 프로퍼티로 베이를 노출한다 (알바가 예약할 트럭을 찾음). `HasCargoFor`(알바 판단용)는 트럭의 `Available > 0`일 때만 참이다. 플레이어는 예약과 무관하게 꺼낸다.
+- **역할**: 주차한 트럭 뒷문 앞의 집기 존. `bay.DockedTruck`에서 화물을 꺼낸다. 트럭이 없거나 이동 중이면 아무것도 안 준다. `Bay` 프로퍼티로 베이를 노출한다 (알바가 예약할 트럭을 찾음). `HasCargoFor`(알바 판단용)는 트럭의 `Available > 0`이고 `Room > 0`일 때만 참이다.
+- **동작** (M13-2, GDD 7.2): `Room` = 이 칸 공간 용량 − 공간 수 − 이 칸 트럭에서 꺼내 든 수(플레이어 · 알바, `Cargo.Home`) − 트럭 예약. 0이면 플레이어도 알바도 못 꺼낸다 → 공간이 넘치지 않는다. 플레이어가 막히면 트럭 위에 `FloatingNotice` '공간 가득' (1.5초마다 최대 1번). 꺼낸 화물에 `Home = bay.Storage`를 넣는다.
 
 #### OutboundBay
 [Logistics/OutboundBay.cs](../Scripts/Logistics/OutboundBay.cs)
@@ -731,6 +732,11 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### LevelView
 [UI/LevelView.cs](../Scripts/UI/LevelView.cs)
 - **역할**: HUD 좌상단 `Lv.N`(줄바꿈 없이 자동 크기) + 경험치 아이콘(`Art/Temp/Star`, Build Site, **XP가 오를 때마다 통통 튐** `xpIconPunch`) + 경험치 바 + **누적** `TotalXp/NextLevelXp` (Lv.1 `0/30` → Lv.2 `30/80`). 바는 이번 레벨 안에서 찬 비율로 부드럽게 차고, 레벨이 오르면 패널이 튄다.
+
+#### FloatingNotice
+[UI/FloatingNotice.cs](../Scripts/UI/FloatingNotice.cs)
+- **역할**: 월드에 잠깐 떠올랐다(0.8m, 1초) 사라지는 빨간 알림 글자 (static). `Show(template, position, text)` — 원본 월드 글자(폰트 · 외곽선 · `Billboard`)를 복제해 쓴다.
+- **연결**: `TruckPickupZone`('공간 가득', 원본 = 하차 칸 공간 수량 글자). M13-3 '넣을 수 없음' · '가득' · '선반 가득'도 이것을 쓴다.
 
 #### LevelUpBanner
 [UI/LevelUpBanner.cs](../Scripts/UI/LevelUpBanner.cs)

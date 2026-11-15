@@ -182,7 +182,7 @@ namespace APC.EditorTools
             pileRoot.SetParent(content, false);
             pileRoot.position = pallet + new Vector3(0f, 0.1f, 0f);
             BuildKit.SetRef(storage, "pileRoot", pileRoot);
-            BuildKit.SetRef(storage, "countLabel", BuildKit.BillboardLabel(content, "0/20", pallet + new Vector3(0f, 2.2f, 0f), 7f));
+            BuildKit.SetRef(storage, "countLabel", BuildKit.BillboardLabel(content, "0/10", pallet + new Vector3(0f, 2.2f, 0f), 7f));
 
             // 팔레트(2.8 × 2.4)를 0.7m씩 두른 존. 하차 존(x −4.6 ~ −2.6)과 겹치지 않는다.
             var zone = BuildKit.Zone<StorageZone>(content, "Zone", pallet, new Vector2(4.2f, 3.8f),

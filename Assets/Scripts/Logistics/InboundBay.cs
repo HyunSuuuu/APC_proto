@@ -25,6 +25,11 @@ namespace APC.Logistics
         /// <summary>주차해서 화물을 내주는 중인 트럭. 없으면 null.</summary>
         public InboundTruck DockedTruck { get; private set; }
 
+        /// <summary>이 하차 칸의 상자 두는 공간 (하차장 모듈 Content에 붙은 팔레트, GDD 7.2).</summary>
+        public SharedStorage Storage { get; private set; }
+
+        void Awake() => Storage = GetComponentInParent<SharedStorage>();
+
         IEnumerator Start()
         {
             var config = GameManager.Instance.Database.Logistics;
