@@ -3,7 +3,9 @@ using APC.Data;
 using APC.Interaction;
 using APC.Logistics;
 using APC.Orders;
+using APC.Site;
 using DG.Tweening;
+using R3;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -31,7 +33,8 @@ namespace APC.Staff
 
         enum Search { None, NoSlot, Found }
 
-        [SerializeField, Tooltip("역할 색을 칠할 몸통")] Renderer body;
+        [SerializeField, Tooltip("역할 색을 칠할 것 (모델이 있으면 발밑 원판)")] Renderer body;
+        [SerializeField, Tooltip("외형 후보 (생성될 때 하나만 무작위로 켠다, GDD 11 · M10-6). 비우면 그대로")] GameObject[] models;
         [SerializeField, Tooltip("미지급 표시 (머리 위 빨간 ₩, 꺼진 채)")] GameObject unpaidIcon;
         [SerializeField, Tooltip("퇴사할 때 깜빡이는 색")] Color angryColor = new(0.9f, 0.1f, 0.1f);
 
@@ -78,6 +81,11 @@ namespace APC.Staff
             interactor = GetComponent<Interactor>();
             stack = GetComponent<CarryStack>();
             interactor.RestrictToTarget = true; // 목표 존의 작업 지점에서만 상호작용
+            if (models != null && models.Length > 0)
+            {
+                var pick = Random.Range(0, models.Length);
+                for (var i = 0; i < models.Length; i++) models[i].SetActive(i == pick);
+            }
             if (unpaidIcon != null)
             {
                 iconBaseY = unpaidIcon.transform.localPosition.y;
@@ -109,7 +117,7 @@ namespace APC.Staff
             SetOwed(0);
             if (agent.isOnNavMesh) agent.isStopped = true;
             var roleColor = rules.GetRoleColor(Role);
-            var bodyTransform = body.transform;
+            var bodyTransform = models != null && models.Length > 0 ? models[0].transform.parent : body.transform; // 모델이면 모델째 뛴다
             DOTween.Sequence()
                 .Append(DOVirtual.Float(0f, 1f, 0.9f, t => SetColor(Color.Lerp(roleColor, angryColor, Mathf.PingPong(t * 6f, 1f)))))
                 .Join(bodyTransform.DOLocalJump(bodyTransform.localPosition, 0.5f, 2, 0.9f))
@@ -152,6 +160,37 @@ namespace APC.Staff
             Fired = true;
             if (StaffService.Instance != null) StaffService.Instance.Remove(this);
             if (!dropping || State is not (Phase.Moving or Phase.Working)) Abort();
+        }
+
+        void Start()
+        {
+            if (SiteGrid.Instance != null) SiteGrid.Instance.OnMoved.Subscribe(_ => Repath()).AddTo(this);
+        }
+
+        /// <summary>
+        /// 모듈 재배치 (GDD 4.4): 가던 · 기다리던 · 일하던 작업 지점이 옮겨갔으면 새 자리로 다시 간다.
+        /// 작업 지점(WorkSlot)은 모듈 안에 있어 같이 옮겨지므로 예약 · 대상 존은 그대로다.
+        /// </summary>
+        void Repath()
+        {
+            if (slot == null || leaving || !agent.isOnNavMesh) return;
+            var target = slot.transform.position;
+            switch (State)
+            {
+                case Phase.Moving or Phase.Parked when (agent.destination - target).sqrMagnitude > 1f:
+                    if (State == Phase.Parked)
+                    {
+                        parking = true;
+                        State = Phase.Moving;
+                    }
+                    agent.SetDestination(target);
+                    break;
+                case Phase.Working when (transform.position - target).sqrMagnitude > 1f:
+                    interactor.Target = null;
+                    State = Phase.Moving;
+                    agent.SetDestination(target);
+                    break;
+            }
         }
 
         void OnDisable()

@@ -129,7 +129,6 @@ namespace APC.Staff
 
             gm.Wallet.TrySpend(GetHireCost(candidate));
             candidate.Hired = true;
-            gm.Level.AddXp(gm.Database.Economy.XpPurchase); // 시설 구매 · 알바 고용 +5 (GDD 10.1)
             candidatesChanged.OnNext(Unit.Default);
             return true;
         }

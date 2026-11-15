@@ -9,8 +9,8 @@ using UnityEngine;
 namespace APC.Orders
 {
     /// <summary>
-    /// 주문 큐 (GDD 8.2~8.4). 계약하면 첫 주문이 바로 생기고, 이후 레벨 구간의 간격마다 1건씩 생긴다 (큐 최대 8건).
-    /// 출고 베이가 가장 오래된 대기 주문을 가져가고(AssignOldestWaiting), 다 실으면 Complete로 보상을 받는다.
+    /// 주문 큐 (GDD 8.1~8.4). 게임 시작 때 첫 주문이 바로 생기고, 이후 레벨 구간의 간격마다 회사 가중치로 1건씩 생긴다 (큐 최대 8건).
+    /// 출고 베이가 채울 수 있는 가장 오래된 대기 주문을 가져가고(AssignOldestWaiting), 다 실으면 Complete로 보상을 받는다.
     /// 씬에 하나 둔다 (Site/Logistics).
     /// </summary>
     public sealed class OrderService : MonoBehaviour
@@ -33,7 +33,8 @@ namespace APC.Orders
         /// <summary>출발해서 큐에서 빠진 주문.</summary>
         public Observable<Order> OnRemoved => removed;
 
-        public bool HasWaiting => FindOldest(OrderState.Waiting) != null;
+        /// <summary>상차장에 배정할 수 있는 대기 주문이 있는가 (채울 수 없는 주문은 건너뜀, GDD 8.3).</summary>
+        public bool HasWaiting => FindOldestFillable() != null;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() => Instance = null;
@@ -51,8 +52,9 @@ namespace APC.Orders
 
         void Start()
         {
-            // 회사 입고가 시작되는 순간 그 회사 주문 1건 (게임 시작 = A사, GDD 8.2). 이후는 간격대로.
+            // 게임 시작 때 첫 회사(A사) 주문 1건만 바로 (GDD 8.2). 이후 새 회사도 간격대로.
             ContractService.Instance.OnContracted
+                .Take(1)
                 .Subscribe(company =>
                 {
                     TryGenerate(company);
@@ -90,17 +92,18 @@ namespace APC.Orders
             var gm = GameManager.Instance;
             if (company == null || company.Items.Count == 0 || orders.Count >= gm.Database.Orders.MaxQueuedOrders) return null;
 
-            var bracket = gm.Database.Orders.GetBracket(gm.Level.Level.CurrentValue);
-            var order = new Order(nextNumber++, company, ComposeLines(company, bracket));
+            // 회사 = 품목 1종 (GDD 6.2)
+            var lines = new List<OrderLine> { new(company.Items[0], gm.Database.Orders.RollQuantity()) };
+            var order = new Order(nextNumber++, company, lines);
             orders.Add(order);
             added.OnNext(order);
             return order;
         }
 
-        /// <summary>출고 베이용: 가장 오래된 대기 주문을 배정한다 (GDD 8.3). 없으면 null.</summary>
+        /// <summary>출고 베이용: 채울 수 있는 가장 오래된 대기 주문을 배정한다 (GDD 8.3). 없으면 null.</summary>
         public Order AssignOldestWaiting()
         {
-            var order = FindOldest(OrderState.Waiting);
+            var order = FindOldestFillable();
             order?.SetState(OrderState.Arriving);
             return order;
         }
@@ -115,10 +118,8 @@ namespace APC.Orders
         {
             if (!orders.Remove(order)) return 0;
 
-            var economy = GameManager.Instance.Database.Economy;
             order.SetState(OrderState.Departed);
-            removed.OnNext(order);
-            GameManager.Instance.Level.AddXp(order.IsCompound ? economy.XpCompoundOrder : economy.XpSingleOrder);
+            removed.OnNext(order); // 출고 XP 없음 (GDD 10.1, 2026-11-14)
             return order.GetReward();
         }
 
@@ -137,14 +138,6 @@ namespace APC.Orders
             return need - Warehouse.CountCarried(item, CargoOrigin.Shelf) - booked;
         }
 
-        /// <summary>큐 전체(대기 포함)의 남은 수량. 입고 구성 가중치(GDD 7.8)가 쓴다.</summary>
-        public int GetQueuedDemand(ItemDefinition item)
-        {
-            var need = 0;
-            foreach (var order in orders) need += order.GetRemaining(item);
-            return need;
-        }
-
         /// <summary>알바가 작업을 고를 때 수요를 예약한다 (M6). 같은 수요를 여러 알바가 중복으로 가져가지 않게.</summary>
         public void Reserve(ItemDefinition item, int count)
         {
@@ -158,40 +151,16 @@ namespace APC.Orders
             reserved[item] = Mathf.Max(0, current - count);
         }
 
-        Order FindOldest(OrderState state)
+        Order FindOldestFillable()
         {
             foreach (var order in orders)
             {
-                if (order.State.CurrentValue == state) return order;
+                if (order.State.CurrentValue == OrderState.Waiting && CanFill(order)) return order;
             }
             return null;
         }
 
-        static List<OrderLine> ComposeLines(CompanyDefinition company, OrderRules.Bracket bracket)
-        {
-            var pool = new List<ItemDefinition>(company.Items);
-            var lines = new List<OrderLine>();
-
-            var compound = pool.Count >= 2 && Random.value < bracket.compoundChance;
-            if (!compound)
-            {
-                lines.Add(new OrderLine(StockBalancer.PickOrderItem(pool), bracket.singleQuantity.Roll()));
-                return lines;
-            }
-
-            var kinds = Mathf.Clamp(bracket.compoundKinds.Roll(), 2, pool.Count);
-            var total = 0;
-            for (var k = 0; k < kinds; k++)
-            {
-                var item = StockBalancer.PickOrderItem(pool);
-                pool.Remove(item);
-                var kindsLeft = kinds - k - 1;
-                var max = Mathf.Max(1, bracket.compoundMaxTotal - total - kindsLeft); // 남은 품목도 최소 1개씩
-                var quantity = Mathf.Clamp(bracket.compoundQuantityPerItem.Roll(), 1, max);
-                total += quantity;
-                lines.Add(new OrderLine(item, quantity));
-            }
-            return lines;
-        }
+        // shortcut: 대형(D사) 주문은 지게차가 없어 못 채운다 — M11-8에서 지게차 보유 검사로 바꾼다.
+        static bool CanFill(Order order) => !order.Company.IsLarge;
     }
 }

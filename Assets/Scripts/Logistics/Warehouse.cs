@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using APC.Core;
 using APC.Data;
 using APC.Interaction;
-using APC.Site;
 using UnityEngine;
 
 namespace APC.Logistics
@@ -37,82 +36,34 @@ namespace APC.Logistics
             if (Instance == this) Instance = null;
         }
 
-        public bool HasShelf(ItemDefinition item) => FindShelf(item) != null;
-
-        public Shelf FindShelf(ItemDefinition item)
+        /// <summary>그 품목 선반 중 빈자리가 있고 from에서 가장 가까운 것 (같은 색 선반이 여럿, GDD 7.3). 없으면 null.</summary>
+        public Shelf NearestShelfWithSpace(ItemDefinition item, Vector3 from)
         {
+            Shelf best = null;
+            var bestDistance = float.MaxValue;
             foreach (var shelf in shelves)
             {
-                if (shelf.Item == item) return shelf;
-            }
-            return null;
-        }
-
-        /// <summary>
-        /// 선반 구역(areaId = SiteLayout 배치 id)의 열린 빈 자리 중 순서가 가장 빠른 자리에 선반을 세운다 (팝 연출).
-        /// areaId가 비어 있으면 아무 구역이나. 자리가 없으면 null.
-        /// 품목당 선반은 1개뿐이다 — 이미 있으면 새로 만들지 않고 그 선반을 돌려준다.
-        /// </summary>
-        public Shelf BuildShelf(ItemDefinition item, string areaId)
-        {
-            var existing = FindShelf(item);
-            if (existing != null)
-            {
-                Debug.LogWarning($"[Warehouse] {item.Id} 선반이 이미 있습니다 (품목당 1개).", this);
-                return existing;
-            }
-
-            var slot = FindFreeSlot(areaId);
-            if (slot != null)
-            {
-                var shelf = Instantiate(shelfPrefab, slot.transform.position, slot.transform.rotation, slot.transform);
-                shelf.name = $"Shelf_{item.Id}";
-                shelf.Setup(item, GameManager.Instance.Database.Logistics.ShelfCapacity);
-                slot.Occupant = shelf;
-                shelves.Add(shelf);
-                FacilityPop.Play(shelf.transform);
-                return shelf;
-            }
-
-            Debug.LogWarning($"[Warehouse] {item.Id} 선반을 세울 빈 자리가 '{areaId}'에 없습니다.", this);
-            return null;
-        }
-
-        /// <summary>그 선반 구역의 지금 쓸 수 있는 빈 자리 수 (계약 가능 여부 확인용).</summary>
-        public int CountFreeSlots(string areaId)
-        {
-            var level = GameManager.Instance.Level.Level.CurrentValue;
-            var count = 0;
-            foreach (var slot in ShelfSlot.All)
-            {
-                if (slot.Occupant == null && slot.UnlockLevel <= level && InArea(slot, areaId)) count++;
-            }
-            return count;
-        }
-
-        ShelfSlot FindFreeSlot(string areaId)
-        {
-            var level = GameManager.Instance.Level.Level.CurrentValue;
-            ShelfSlot best = null;
-            foreach (var candidate in ShelfSlot.All)
-            {
-                if (candidate.Occupant != null || candidate.UnlockLevel > level || !InArea(candidate, areaId)) continue;
-                if (best == null || candidate.Order < best.Order) best = candidate; // 같은 순서면 먼저 붙은 모듈
+                if (shelf.Item != item || !shelf.HasSpace) continue;
+                var d = (shelf.transform.position - from).sqrMagnitude;
+                if (d >= bestDistance) continue;
+                bestDistance = d;
+                best = shelf;
             }
             return best;
         }
 
-        /// <summary>자리가 그 배치(모듈) 안에 있는가. areaId가 비어 있으면 어디든 된다.</summary>
-        static bool InArea(ShelfSlot slot, string areaId)
+        /// <summary>선반 자리에 그 자리의 품목 · 모양 · 용량으로 선반을 세운다 (팝 연출). ShelfSlot.Start가 부른다.</summary>
+        public Shelf BuildShelf(ShelfSlot slot)
         {
-            if (string.IsNullOrEmpty(areaId)) return true;
-            var grid = SiteGrid.Instance;
-            if (grid == null) return false;
-            foreach (var entry in grid.Entries)
-            {
-                if (entry.id == areaId) return entry.instance != null && slot.transform.IsChildOf(entry.instance.transform);
-            }
-            return false;
+            var prefab = slot.ShelfPrefab != null ? slot.ShelfPrefab : shelfPrefab;
+            var shelf = Instantiate(prefab, slot.transform); // 로컬 0: 해금 모듈은 팝 연출로 크기 0에서 시작해 월드 좌표로 놓으면 모듈 중심에 붙는다
+
+            shelf.name = $"Shelf_{slot.Item.Id}";
+            shelf.Setup(slot.Item, slot.Capacity > 0 ? slot.Capacity : GameManager.Instance.Database.Logistics.ShelfCapacity);
+            slot.Occupant = shelf;
+            shelves.Add(shelf);
+            FacilityPop.Play(shelf.transform);
+            return shelf;
         }
 
         readonly Dictionary<ItemDefinition, int> reservedShelfSpace = new();

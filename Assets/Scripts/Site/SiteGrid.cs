@@ -26,6 +26,7 @@ namespace APC.Site
         [SerializeField] List<Entry> entries = new();
 
         readonly Subject<string> unlocked = new();
+        readonly Subject<Unit> movedSubject = new();
         readonly HashSet<Vector2Int> openCells = new(); // (열, 행)
         SiteLayout layout;
 
@@ -33,6 +34,9 @@ namespace APC.Site
 
         /// <summary>모듈이 붙을 때마다 그 id를 보낸다 (네비메시 재굽기 · 저장 등). 묶음 해금이면 모듈마다 한 번씩.</summary>
         public Observable<string> OnUnlocked => unlocked;
+
+        /// <summary>모듈 재배치가 적용될 때 (네비메시 재굽기 · 알바 길 다시 찾기 · 발판 자리, GDD 4.4).</summary>
+        public Observable<Unit> OnMoved => movedSubject;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() => Instance = null;
@@ -58,9 +62,20 @@ namespace APC.Site
         {
             if (Instance == this) Instance = null;
             unlocked.Dispose();
+            movedSubject.Dispose();
         }
 
         public bool IsUnlocked(string id) => Find(id)?.instance != null;
+
+        /// <summary>모듈 인스턴스의 배치 id (없으면 null).</summary>
+        public string IdOf(SiteModule module)
+        {
+            foreach (var entry in entries)
+            {
+                if (entry.instance == module) return entry.id;
+            }
+            return null;
+        }
 
         /// <summary>
         /// 잠긴 모듈을 붙인다 (팝 연출). **같이 해금되는 묶음 전체**(SiteLayout.unlockWith)가 한꺼번에 열린다 —
@@ -87,24 +102,102 @@ namespace APC.Site
                 return false;
             }
 
-            var module = Instantiate(placement.module, layout.GetModuleCenter(placement, placement.module.Size),
-                SiteLayout.GetRotation(placement), transform);
+            var position = layout.GetModuleCenter(placement, placement.module.Size);
+            var cells = SiteLayout.GetCells(placement);
+            if (cells.Count == 1 && openCells.Contains(cells[0]))
+            {
+                // 빈 공간 칸에 놓이는 모듈: 처음 칸이 재배치로 차 있으면 가장 가까운 빈 공간 (GDD 4.2 · 4.4, 발판 자리와 같은 규칙)
+                if (!TryFindEmptyCell(cells[0], out var cell))
+                {
+                    Debug.LogWarning($"[SiteGrid] '{id}'를 놓을 빈 공간이 없습니다.", this);
+                    return false;
+                }
+                cells[0] = cell;
+                position = layout.CellCenter(cell.y, cell.x);
+            }
+
+            HideEmptyTiles(cells);
+            var module = Instantiate(placement.module, position, SiteLayout.GetRotation(placement), transform);
             module.name = $"Module_{id}";
             entry.instance = module;
-            OpenCells(placement);
+            foreach (var cell in cells) openCells.Add(cell);
             FacilityPop.Play(module.transform);
             unlocked.OnNext(id);
             return true;
         }
 
-        /// <summary>그 위치가 열린 칸 안인가.</summary>
-        public bool IsWalkable(Vector3 worldPosition)
+        /// <summary>그 칸들의 빈 공간 타일을 끈다 (GDD 4.2). 끈 타일도 붙어 있는 것으로 친다 (instance 유지).</summary>
+        void HideEmptyTiles(List<Vector2Int> cells)
+        {
+            foreach (var cell in cells)
+            {
+                var tile = ModuleAt(cell);
+                if (tile != null && tile.Kind == SiteModule.ModuleKind.Empty) tile.gameObject.SetActive(false);
+            }
+        }
+
+        /// <summary>월드 위치 → 칸 (x = 열, y = 행).</summary>
+        public Vector2Int WorldToCell(Vector3 worldPosition)
         {
             var size = layout.CellSize;
-            var column = Mathf.FloorToInt(worldPosition.x / size + 0.5f);
-            var row = 1 + Mathf.FloorToInt(-worldPosition.z / size + 0.5f);
-            return openCells.Contains(new Vector2Int(column, row));
+            return new Vector2Int(Mathf.FloorToInt(worldPosition.x / size + 0.5f), 1 + Mathf.FloorToInt(-worldPosition.z / size + 0.5f));
         }
+
+        /// <summary>칸 중심 월드 위치.</summary>
+        public Vector3 CellCenter(Vector2Int cell) => layout.CellCenter(cell.y, cell.x);
+
+        /// <summary>
+        /// 지금 그 칸에 있는 모듈 (켜진 것만, 1칸 모듈 기준 — 재배치로 config 칸과 다를 수 있어 실제 위치로 찾는다). 없으면 null.
+        /// </summary>
+        public SiteModule ModuleAt(Vector2Int cell)
+        {
+            foreach (var entry in entries)
+            {
+                if (entry.instance == null || !entry.instance.gameObject.activeSelf) continue;
+                if (WorldToCell(entry.instance.transform.position) == cell) return entry.instance;
+            }
+            return null;
+        }
+
+        /// <summary>칸이 열린 빈 공간(켜진 빈 공간 타일)인가.</summary>
+        public bool IsEmptyTile(Vector2Int cell) => ModuleAt(cell) is { Kind: SiteModule.ModuleKind.Empty };
+
+        /// <summary>preferred가 빈 공간이면 그 칸, 아니면 가장 가까운 빈 공간 칸. 빈 공간이 없으면 false.</summary>
+        public bool TryFindEmptyCell(Vector2Int preferred, out Vector2Int cell)
+        {
+            cell = preferred;
+            var best = float.MaxValue;
+            foreach (var entry in entries)
+            {
+                if (entry.instance == null || entry.instance.Kind != SiteModule.ModuleKind.Empty || !entry.instance.gameObject.activeSelf) continue;
+                var candidate = WorldToCell(entry.instance.transform.position);
+                var distance = (candidate - preferred).sqrMagnitude;
+                if (distance >= best) continue;
+                best = distance;
+                cell = candidate;
+            }
+            return best < float.MaxValue;
+        }
+
+        /// <summary>
+        /// 모듈 재배치 적용 (GDD 4.4, 사무실 PC `모듈` 탭을 닫을 때). 모듈 → 새 칸. 보관 · 반품 · 빈 공간 모듈의 자리 맞바꿈이라 열린 칸은 그대로다.
+        /// 모듈 통째로 옮기므로 선반 · 상자 · 작업 지점이 같이 간다. 옮긴 모듈은 팝 연출, 하나라도 옮겼으면 OnMoved.
+        /// </summary>
+        public void ApplyArrangement(IReadOnlyDictionary<SiteModule, Vector2Int> arrangement)
+        {
+            var moved = false;
+            foreach (var pair in arrangement)
+            {
+                if (pair.Key == null || WorldToCell(pair.Key.transform.position) == pair.Value) continue;
+                pair.Key.transform.position = CellCenter(pair.Value);
+                if (pair.Key.Kind != SiteModule.ModuleKind.Empty) FacilityPop.Play(pair.Key.transform);
+                moved = true;
+            }
+            if (moved) movedSubject.OnNext(Unit.Default);
+        }
+
+        /// <summary>그 위치가 열린 칸 안인가.</summary>
+        public bool IsWalkable(Vector3 worldPosition) => openCells.Contains(WorldToCell(worldPosition));
 
         /// <summary>반지름 radius인 원(네 모서리)이 모두 열린 칸 안인가.</summary>
         public bool IsAreaWalkable(Vector3 center, float radius)

@@ -15,7 +15,7 @@ namespace APC.Data
         [SerializeField, Tooltip("이 회사 품목 (1종)")] List<ItemDefinition> items = new();
         [SerializeField, Min(1)] int inboundTruckCapacity = 8;
         [SerializeField, Min(0), Tooltip("단가: 출고 상자 1개당 현금 (GDD 6.2, 8.5). 출발 순간 실린 상자 수 × 이 값")] int contractUnitPrice = 10;
-        [SerializeField, Tooltip("이 회사 선반이 생기는 선반 구역 = SiteLayout 배치 id (예: R1C2 = 선반 구역 A, E2 = 선반 구역 B). 거기 자리가 없으면 아무 빈 자리. 비우면 아무 빈 자리 (M11-5 선반 모듈 전 임시)")]
+        [SerializeField, Tooltip("이 회사 선반이 생기는 선반 구역 = SiteLayout 배치 id (예: StoreA1 = A보관, StoreB = B보관). 거기 자리가 없으면 아무 빈 자리. 비우면 아무 빈 자리 (M11-5 선반 모듈 전 임시)")]
         string shelfAreaId;
 
         public string Id => id;

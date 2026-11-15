@@ -161,13 +161,16 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 | `SiteModule` (모듈 프리팹 루트) | 크기(칸), 칸 경계 기즈모. 안에 바닥 · 존 · 시설을 담는다. 루트 = 차지하는 칸들의 중심 |
 | `SiteLayout` (config, `Assets/Data`) | 배치 목록: id, 모듈 프리팹, 행 · 열(왼쪽 위 칸), 회전(0/90/180/270), 시작 여부, **해금 레벨 · 비용**, **같이 해금(`unlockWith`)** |
 | `SiteGrid` (씬) | 붙은 모듈 목록 + 열린 칸 집합. `Unlock(id)` = 모듈을 팝 연출로 붙이고 칸을 엶, `OnUnlocked` 이벤트, `IsAreaWalkable` = 열린 칸 안인지 |
-| `SiteUnlocker` (SiteGrid 오브젝트) | 잠긴 대표 배치가 **해금 레벨이 되고 열린 칸과 맞닿으면 자동으로 해금**한다 (비용 없음). 다음 해금 1곳에 공사장 울타리(`ConstructionFence`, `잠금해제 : LV N`) |
+| `SiteUnlocker` (SiteGrid 오브젝트) | 다음 해금 1곳에 공사장 울타리(`ConstructionFence`, `잠금해제 : LV N`). 레벨이 되면 울타리 옆에 **해금 발판**(`ExpansionPad`, `SiteLayout.cost`)이 나오고 돈을 다 채우면 해금 (레벨 자동 해금은 2026-11-14 삭제) |
 | 하차 · 상차장 모듈 (`Module_Lot*`) | 가장자리용. 주차장은 칸 **바깥 −x**, 회전으로 방향을 정한다 (0 = 서, 90 = 북, 180 = 동, 270 = 남). `_M`은 주차 칸을 반대로 비킨 판 |
 | `SiteNavMesh` (Site 루트, `NavMeshSurface`) | 열린 모듈 바닥 충돌체에만 네비메시를 굽고, 해금마다 다시 굽는다 (임시 Ground는 `NavMeshModifier`로 제외) |
 | `Build Site` (메뉴 `APC > Setup`) | config대로 시작 모듈을 **프리팹 인스턴스로** 씬에 굽는다. 잠긴 칸에는 아무것도 두지 않는다. HUD 자식 UI는 꺼진 채 저장하고 `UiBootstrap`이 켠다 |
 | `New Module` (메뉴 `APC > Module`) | 빈 n × m 모듈 틀(바닥 + `Content`)을 `Assets/Prefabs/Modules`에 만든다 |
 | `Rebuild Standard Modules` | 기본 모듈 프리팹을 코드 기준으로 다시 만든다 (덮어쓰기 — 프리팹에서 고친 내용은 사라짐) |
+| `Apply Layout 6x4` (메뉴 `APC > Setup`, M12-1) | SiteLayout · 회사 선반 구역을 6 × 4 기본값으로(GDD 4.2), 보관 · 반품 · 쓰레기장 · 빈 공간 모듈만 다시 만들고 Build Site. 사무실 · 하차 · 상차 프리팹 · 레벨 표는 그대로 (옛 `Apply Layout v0.3` 대체) |
 | `Apply M6 Staff` (메뉴 `APC > Setup`) | 기본 모듈 · 선반 · 알바 프리팹(`StaffWorker.prefab`)을 덮어쓰고 Build Site. config는 건드리지 않는다 |
+| `Apply Character Models` (메뉴 `APC > Art`) | 플레이어 · 알바 모델(`Art/Model/Worker`, Generic 리그 `Bip001`) + 공용 Animator Controller `Ani/Character.controller`(idle · walk · carry · pull). 재질은 모델별 `M_Char_*`(URP Lit + `*_P.psd`, fbx 기본 재질은 텍스처 없음). 알바 프리팹(`Apply M6 Staff` 포함)은 모델이 자동으로 들어간다 |
+| `Build Test Module` · `Log Prop Sizes` (메뉴 `APC > Art`) | Prop fbx 모델로 모듈 겉모습을 만드는 시험 도구. 바닥 타일 1장 = 1m, 모듈 1칸 = 10m (타일 10 × 10). fbx마다 import 스케일이 달라 **메시 실제 크기를 재서** 맞춘다. 공용 재질 `Assets/Art/Materials/M_Prop.mat`(`Color_Pallet.png`). fbx 기본 재질은 3ds Max 셰이더 그래프(`PhysicalMaterial3DsMax`)라 텍스처가 없다 → `M_Prop`으로 바꿔 씌운다. import `globalScale`은 모두 1 (`floor1_basic`만 10이던 것을 1로 고침, 2026-11-14) — 바닥 타일 1장 = 1 × 0.3 × 1m |
 
 **새 모듈 추가 절차**
 1. `APC > Module > New Module...` → 이름 · 크기 입력 → 생성

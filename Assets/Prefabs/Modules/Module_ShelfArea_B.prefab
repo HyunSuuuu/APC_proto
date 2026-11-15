@@ -48,6 +48,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::APC.Site.SiteModule
   size: {x: 1, y: 1}
   cellSize: 10
+  kind: 2
 --- !u!1 &3306851485767198927
 GameObject:
   m_ObjectHideFlags: 0
@@ -128,6 +129,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 22ef9b6a7d81d854494cf8c7473b3d9f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.Logistics.ShelfSlot
+  item: {fileID: 11400000, guid: 7d1b4f5014dbe764d9ada71eca9b2e1b, type: 2}
+  shelfPrefab: {fileID: 0}
+  capacity: 0
   unlockLevel: 1
   order: 0
 --- !u!1 &4442330865660543364
@@ -174,6 +178,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 22ef9b6a7d81d854494cf8c7473b3d9f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.Logistics.ShelfSlot
+  item: {fileID: 11400000, guid: 7d1b4f5014dbe764d9ada71eca9b2e1b, type: 2}
+  shelfPrefab: {fileID: 0}
+  capacity: 0
   unlockLevel: 1
   order: 3
 --- !u!1 &4673939926726879170
@@ -220,6 +227,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 22ef9b6a7d81d854494cf8c7473b3d9f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.Logistics.ShelfSlot
+  item: {fileID: 11400000, guid: 7d1b4f5014dbe764d9ada71eca9b2e1b, type: 2}
+  shelfPrefab: {fileID: 0}
+  capacity: 0
   unlockLevel: 1
   order: 1
 --- !u!1 &5727117479444006691
@@ -248,7 +258,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5727117479444006691}
-  m_LocalRotation: {x: -0.61237246, y: 0.35355344, z: -0.35355344, w: -0.61237246}
+  m_LocalRotation: {x: -0.6532815, y: 0.2705981, z: -0.2705981, w: -0.6532815}
   m_LocalPosition: {x: 0, y: 0, z: -3.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -329,7 +339,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uC120\uBC18 \uAD6C\uC5ED B"
+  m_text: "B\uBCF4\uAD00"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 514cfe7e93fffc24896d2931eb3bb791, type: 2}
   m_sharedMaterial: {fileID: 6426207802273365101, guid: 514cfe7e93fffc24896d2931eb3bb791, type: 2}
@@ -460,6 +470,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 22ef9b6a7d81d854494cf8c7473b3d9f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.Logistics.ShelfSlot
+  item: {fileID: 11400000, guid: 7d1b4f5014dbe764d9ada71eca9b2e1b, type: 2}
+  shelfPrefab: {fileID: 0}
+  capacity: 0
   unlockLevel: 1
   order: 2
 --- !u!1 &8342392013339905594

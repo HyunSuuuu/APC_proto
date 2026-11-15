@@ -26,8 +26,9 @@ namespace APC.Site
             surface = GetComponent<NavMeshSurface>();
             Build();
 
-            if (SiteGrid.Instance != null)
-                SiteGrid.Instance.OnUnlocked.Subscribe(_ => ScheduleBuild()).AddTo(this);
+            if (SiteGrid.Instance == null) return;
+            SiteGrid.Instance.OnUnlocked.Subscribe(_ => ScheduleBuild()).AddTo(this);
+            SiteGrid.Instance.OnMoved.Subscribe(_ => ScheduleBuild()).AddTo(this); // 모듈 재배치 (GDD 4.4)
         }
 
         /// <summary>묶음 해금처럼 한꺼번에 여러 모듈이 붙어도 한 번만 굽는다.</summary>

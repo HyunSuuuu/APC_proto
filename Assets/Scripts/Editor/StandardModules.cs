@@ -23,37 +23,50 @@ namespace APC.EditorTools
         static readonly Color LabelColor = new(0.35f, 0.35f, 0.35f);
 
         /// <summary>
-        /// SiteLayout id → 기본 모듈 (처음 배치할 때 config에 채운다). 같은 모듈을 여러 칸에 재사용한다.
-        /// 하차 · 상차장은 회전으로 주차장 방향을 정한다 (로컬 −x = 바깥). 같은 모서리를 향하는 두 주차장은
-        /// 트럭이 겹치지 않게 주차 칸을 반대로 비킨 모듈(_M)을 쓴다 (4 · 2 → 1번 쪽, 8 · 6 → 9번 쪽).
+        /// SiteLayout id → 기본 모듈 (처음 배치할 때 config에 채운다). 같은 모듈을 여러 칸에 재사용한다. 6 × 4 배치 (GDD 4.2).
+        /// 하차 · 상차장은 회전으로 주차장 방향을 정한다 (로컬 −x = 바깥, 0 = 왼쪽 · 90 = 위 · 180 = 오른쪽 · 270 = 아래).
+        /// 같은 바깥 칸으로 트럭이 들어오는 두 주차장은 주차 칸을 서로 먼 쪽으로 비킨다 (_M = 반대쪽).
         /// </summary>
-        public static readonly IReadOnlyDictionary<string, (string asset, int rotation)> DefaultAssignments =
-            new Dictionary<string, (string, int)>
-            {
-                ["R1C1"] = ("Module_Office", 0),            // 7
-                ["R1C2"] = ("Module_LotOutbound_M", 180),   // 8 — 트럭은 오른쪽에서
-                ["R2C1"] = ("Module_LotInbound", 270),      // 4 — 트럭은 아래에서
-                ["R2C2"] = ("Module_ShelfArea_A", 0),       // 5
-                ["R2C3"] = ("Module_LotOutbound", 90),      // 6 — 트럭은 위에서
-                ["R3C2"] = ("Module_LotInbound_M", 0),      // 2 — 트럭은 왼쪽에서
-                ["E1"] = ("Module_ShelfArea_B", 0),         // 3
-                ["E2"] = ("Module_LotInbound", 270),        // 4번 왼쪽
-                ["E3"] = ("Module_LotOutbound", 90),        // 6번 오른쪽
-                ["E4"] = ("Module_Returns", 0),             // 3번 오른쪽
-            };
+        public static readonly IReadOnlyDictionary<string, (string asset, int rotation)> DefaultAssignments = BuildAssignments();
 
-        static readonly (string asset, Action<GameObject> build)[] Builders =
+        static Dictionary<string, (string, int)> BuildAssignments()
         {
-            ("Module_LotInbound", root => BuildLot(root, inbound: true, parkSide: 1f)),
-            ("Module_LotInbound_M", root => BuildLot(root, inbound: true, parkSide: -1f)),
-            ("Module_LotOutbound", root => BuildLot(root, inbound: false, parkSide: 1f)),
-            ("Module_LotOutbound_M", root => BuildLot(root, inbound: false, parkSide: -1f)),
-            ("Module_ShelfArea_A", root => BuildShelfArea(root, "선반 구역 A")),
-            ("Module_ShelfArea_B", root => BuildShelfArea(root, "선반 구역 B")),
-            ("Module_Office", BuildOffice),
-            ("Module_Returns", BuildReturns),
-            // 빈 타일 (바닥만). 다른 배치와 같이 해금되게 묶어 ㄱ자 같은 구역을 만든다 (SiteLayout.unlockWith).
-            ("Module_Empty", _ => { }),
+            var map = new Dictionary<string, (string, int)>
+            {
+                ["Office"] = ("Module_Office", 0),
+                ["Trash"] = ("Module_Trash", 0),
+                ["In1"] = ("Module_LotInbound_M", 0),       // (4,2) 트럭 왼쪽에서, 주차 칸은 아래쪽
+                ["StoreA1"] = ("Module_ShelfArea_A", 0),
+                ["Out1"] = ("Module_LotOutbound_M", 180),   // (2,4) 트럭 오른쪽에서, 주차 칸은 위쪽
+                ["StoreB"] = ("Module_ShelfArea_B", 0),
+                ["Ret1"] = ("Module_Returns", 0),
+                ["StoreC"] = ("Module_ShelfArea_C", 0),
+                ["In2"] = ("Module_LotInbound", 270),       // (3,1) 트럭 아래에서, 주차 칸은 왼쪽
+                ["StoreD"] = ("Module_ShelfArea_D", 0),
+                ["StoreA2"] = ("Module_ShelfArea_A", 0),
+                ["Out2"] = ("Module_LotOutbound", 90),      // (3,5) 트럭 위에서, 주차 칸은 오른쪽
+                ["Ret2"] = ("Module_Returns", 0),
+                ["Out3"] = ("Module_LotOutbound", 90),      // (3,6) 트럭 위에서
+            };
+            foreach (var placement in APC.Data.SiteLayout.EmptyCells) map[placement] = ("Module_Empty", 0);
+            return map;
+        }
+
+        static readonly (string asset, SiteModule.ModuleKind kind, Action<GameObject> build)[] Builders =
+        {
+            ("Module_LotInbound", SiteModule.ModuleKind.Fixed, root => BuildLot(root, inbound: true, parkSide: 1f)),
+            ("Module_LotInbound_M", SiteModule.ModuleKind.Fixed, root => BuildLot(root, inbound: true, parkSide: -1f)),
+            ("Module_LotOutbound", SiteModule.ModuleKind.Fixed, root => BuildLot(root, inbound: false, parkSide: 1f)),
+            ("Module_LotOutbound_M", SiteModule.ModuleKind.Fixed, root => BuildLot(root, inbound: false, parkSide: -1f)),
+            ("Module_ShelfArea_A", SiteModule.ModuleKind.Movable, root => BuildShelfArea(root, "A")),
+            ("Module_ShelfArea_B", SiteModule.ModuleKind.Movable, root => BuildShelfArea(root, "B")),
+            ("Module_ShelfArea_C", SiteModule.ModuleKind.Movable, root => BuildShelfArea(root, "C")),
+            ("Module_ShelfArea_D", SiteModule.ModuleKind.Movable, root => BuildShelfArea(root, "D", PalletRackPrefab())),
+            ("Module_Office", SiteModule.ModuleKind.Fixed, BuildOffice),
+            ("Module_Returns", SiteModule.ModuleKind.Movable, BuildReturns),
+            ("Module_Trash", SiteModule.ModuleKind.Fixed, root => Label(root, "쓰레기장")), // 기능 미정 (GDD 18장 29번)
+            // 빈 공간 (바닥만): 걸어 다닐 수 있고, 해금 모듈이 이 칸에 붙으면 꺼진다 (GDD 4.2)
+            ("Module_Empty", SiteModule.ModuleKind.Empty, _ => { }),
         };
 
         /// <summary>v0.3에서 쓰지 않게 된 프리팹 (Apply Layout v0.3이 지운다).</summary>
@@ -61,7 +74,6 @@ namespace APC.EditorTools
         {
             $"{ModuleFactory.ModuleFolder}/Module_Storage.prefab", $"{ModuleFactory.ModuleFolder}/Module_OutboundArea.prefab",
             $"{ModuleFactory.ModuleFolder}/Module_Packing.prefab", $"{ModuleFactory.ModuleFolder}/Module_ShelfArea.prefab",
-            $"{PrefabRoot}/ExpansionPad.prefab",
         };
 
         [MenuItem("APC/Module/Rebuild Standard Modules (덮어쓰기)")]
@@ -73,7 +85,7 @@ namespace APC.EditorTools
 
         public static void EnsureAll(bool overwrite)
         {
-            foreach (var (asset, _) in Builders)
+            foreach (var (asset, _, _) in Builders)
             {
                 if (!overwrite && ModuleFactory.Load(asset) != null) continue;
                 Rebuild(asset);
@@ -83,10 +95,11 @@ namespace APC.EditorTools
         /// <summary>기본 모듈 하나를 코드 기준으로 다시 만든다 (같은 경로에 덮어써서 참조는 유지된다).</summary>
         public static void Rebuild(string asset)
         {
-            foreach (var (name, build) in Builders)
+            foreach (var (name, kind, build) in Builders)
             {
                 if (name != asset) continue;
                 var root = ModuleFactory.CreateEmpty(asset, Vector2Int.one, BuildKit.Database.Site.CellSize);
+                root.GetComponent<SiteModule>().Configure(Vector2Int.one, BuildKit.Database.Site.CellSize, kind);
                 build(root);
                 ModuleFactory.Save(root, asset);
                 return;
@@ -286,9 +299,18 @@ namespace APC.EditorTools
             return zone;
         }
 
-        /// <summary>정사각형 선반 자리 4개 (2 × 2). 회사 하나의 선반(품목당 1개)이 들어간다. 선반 사이는 통로.</summary>
-        static void BuildShelfArea(GameObject root, string title)
+        /// <summary>
+        /// 색 보관 구역 (GDD 4.2 · 7.3): + 모양 통로를 뺀 네 모서리에 그 색 선반 자리 4개.
+        /// 자리마다 품목을 넣어 두어 모듈이 붙는 순간 선반 4개가 함께 생긴다 (ShelfSlot.Start). rack = 선반 대신 쓸 모양 (D 팔레트 랙).
+        /// </summary>
+        static void BuildShelfArea(GameObject root, string companyId, Shelf rack = null)
         {
+            APC.Data.ItemDefinition item = null;
+            foreach (var company in BuildKit.Database.Companies)
+            {
+                if (company.Id == companyId && company.Items.Count > 0) item = company.Items[0];
+            }
+            if (item == null) Debug.LogWarning($"[StandardModules] 회사 '{companyId}' 품목이 없어 선반 없이 만듭니다.");
             var content = ModuleFactory.Content(root);
             var offsets = new[]
             {
@@ -302,8 +324,11 @@ namespace APC.EditorTools
                 var slot = slotGo.AddComponent<ShelfSlot>();
                 BuildKit.SetInt(slot, "unlockLevel", 1);
                 BuildKit.SetInt(slot, "order", i);
+                BuildKit.SetRef(slot, "item", item);
+                BuildKit.SetRef(slot, "shelfPrefab", rack);
+                BuildKit.SetInt(slot, "capacity", rack != null ? 4 : 0); // 팔레트 랙 4 `임시` (GDD 7.3)
             }
-            Label(root, title);
+            Label(root, $"{companyId}보관");
         }
 
         /// <summary>사무실 (7번). 계약 PC는 오른쪽 위.</summary>
@@ -317,7 +342,6 @@ namespace APC.EditorTools
             BuildKit.Cube("Monitor", pc.transform, desk + new Vector3(0f, 1.1f, 0.1f), new Vector3(0.9f, 0.55f, 0.08f), BuildKit.Mat("M_Monitor", new Color(0.15f, 0.2f, 0.3f)));
             BuildKit.GaugeRing(pc, pc.transform);
             BuildPiggyBank(content, new Vector3(-2.6f, 0f, 2.6f));
-            BuildUpgradeDesk(content, new Vector3(2.7f, 0f, 2.47f)); // 계약 PC 오른쪽
 
             // 고용한 알바가 나타나는 곳: 계약 PC 책상 건너편 = PC 존 바로 앞, PC 쪽을 바라봄 (GDD 11.1. 고용은 PC 팝업 고용 탭)
             var spawn = new GameObject("StaffSpawnPoint");
@@ -325,20 +349,6 @@ namespace APC.EditorTools
             spawn.transform.SetPositionAndRotation(new Vector3(2f, 0f, -0.4f), Quaternion.LookRotation(Vector3.forward));
             spawn.AddComponent<StaffSpawnPoint>();
             Label(root, "사무실");
-        }
-
-        /// <summary>
-        /// 사무실 업그레이드 책상 (GDD 5.1): 게이지 존 + 책상. 다 차면 업그레이드 팝업.
-        /// 손으로 고친 사무실 프리팹에는 Rebuild 대신 이것만 따로 불러 붙인다 (`BuildUpgradeDesk(content, 위치)`).
-        /// </summary>
-        public static APC.Economy.UpgradeDesk BuildUpgradeDesk(Transform content, Vector3 position)
-        {
-            var zone = BuildKit.Zone<APC.Economy.UpgradeDesk>(content, "UpgradeDesk", position, new Vector2(2.2f, 2.2f),
-                new Color(0.55f, 0.7f, 0.75f), new Color(0.35f, 0.85f, 1f), "업그레이드");
-            var desk = position + new Vector3(0f, 0f, 1.6f);
-            BuildKit.Cube("Desk", zone.transform, desk + new Vector3(0f, 0.4f, 0f), new Vector3(1.8f, 0.8f, 0.7f), BuildKit.Mat("M_Desk", new Color(0.55f, 0.4f, 0.3f)));
-            BuildKit.GaugeRing(zone, zone.transform);
-            return zone;
         }
 
         /// <summary>사무실 투명 저금통 (GDD 9.5): 반투명 원통(사람 키) + 금색 동전 층(10단계, 아래부터) + 위 금액 글자.</summary>
@@ -428,6 +438,55 @@ namespace APC.EditorTools
             var body = root.AddComponent<BoxCollider>();
             body.center = new Vector3(0f, 0.9f, 0f);
             body.size = new Vector3(1.6f, 1.8f, 1.6f);
+            var obstacle = root.AddComponent<NavMeshObstacle>();
+            obstacle.shape = NavMeshObstacleShape.Box;
+            obstacle.center = body.center;
+            obstacle.size = body.size;
+            obstacle.carving = true;
+            root.AddComponent<NavMeshModifier>().ignoreFromBuild = true;
+
+            PrefabUtility.SaveAsPrefabAsset(root, path);
+            UnityEngine.Object.DestroyImmediate(root);
+            return AssetDatabase.LoadAssetAtPath<Shelf>(path);
+        }
+
+        /// <summary>
+        /// D 가구 구역 팔레트 랙 (GDD 7.3): 낮은 나무 팔레트 2 × 2 한 단 (용량 4는 자리에서). 둘레 존 · 장애물은 선반과 같다.
+        /// 지게차 전용 규칙은 M11-8에서 붙인다.
+        /// </summary>
+        public static Shelf PalletRackPrefab(bool overwrite = false)
+        {
+            var path = $"{PrefabRoot}/PalletRack.prefab";
+            var existing = AssetDatabase.LoadAssetAtPath<Shelf>(path);
+            if (existing != null && !overwrite) return existing;
+
+            var root = new GameObject("PalletRack");
+            var frame = BuildKit.Mat("M_RackFrame", new Color(0.9f, 0.5f, 0.15f));
+            foreach (var x in new[] { -0.77f, 0.77f })
+            foreach (var z in new[] { -0.77f, 0.77f })
+                BuildKit.Cube("Post", root.transform, new Vector3(x, 0.6f, z), new Vector3(0.1f, 1.2f, 0.1f), frame);
+            BuildKit.Cube("Pallet", root.transform, new Vector3(0f, 0.08f, 0f), new Vector3(1.6f, 0.16f, 1.6f), BuildKit.Mat("M_Pallet", new Color(0.7f, 0.52f, 0.32f)));
+            var icon = BuildKit.Cube("ItemIcon", root.transform, new Vector3(0f, 1.9f, 0f), new Vector3(0.6f, 0.06f, 0.6f), BuildKit.Mat("M_Tape", Color.white));
+            var boxRoot = new GameObject("Boxes").transform;
+            boxRoot.SetParent(root.transform, false);
+            var label = BuildKit.BillboardLabel(root.transform, "0/4", new Vector3(0f, 2.4f, 0f), 6f);
+
+            var zone = BuildKit.Zone<ShelfZone>(root.transform, "Zone", Vector3.zero, new Vector2(3.2f, 3.2f),
+                new Color(0.8f, 0.62f, 0.45f), new Color(1f, 0.6f, 0.2f), null);
+
+            var shelf = root.AddComponent<Shelf>();
+            BuildKit.SetRef(shelf, "boxRoot", boxRoot);
+            BuildKit.SetRef(shelf, "iconRenderer", icon.GetComponent<Renderer>());
+            BuildKit.SetRef(shelf, "countLabel", label);
+            BuildKit.SetInt(shelf, "boxesPerSide", 2);
+            BuildKit.SetFloat(shelf, "boxSpacing", 0.75f);
+            BuildKit.SetFloat(shelf, "firstLevelHeight", 0.16f);
+            BuildKit.SetRef(zone, "shelf", shelf);
+            WorkSlots(zone, new Vector3(-1.4f, 0f, 0f), new Vector3(1.4f, 0f, 0f), new Vector3(0f, 0f, -1.4f), new Vector3(0f, 0f, 1.4f));
+
+            var body = root.AddComponent<BoxCollider>();
+            body.center = new Vector3(0f, 0.6f, 0f);
+            body.size = new Vector3(1.6f, 1.2f, 1.6f);
             var obstacle = root.AddComponent<NavMeshObstacle>();
             obstacle.shape = NavMeshObstacleShape.Box;
             obstacle.center = body.center;
@@ -534,33 +593,56 @@ namespace APC.EditorTools
         }
 
         /// <summary>
-        /// v0.3 배치 적용: SiteLayout · 레벨 표 · 회사 선반 구역을 기본값으로, 기본 모듈 · 선반 · 울타리 프리팹을 다시 만들고,
-        /// 안 쓰는 프리팹을 지운 뒤 Build Site. config를 손으로 고쳤다면 그 값은 사라진다.
+        /// 모듈 해금 발판 (GDD 9.2 · 9.3): 바닥 존 + 원형 게이지 + 남은 금액 + 이름. 위치 · 이름 · 비용은 실행 중 SiteUnlocker가 정한다.
         /// </summary>
-        [MenuItem("APC/Setup/Apply Layout v0.3 (config · 프리팹 덮어쓰기)")]
-        static void ApplyLayoutV3()
+        public static ExpansionPad ExpansionPadPrefab(bool overwrite = false)
         {
-            if (!EditorUtility.DisplayDialog("v0.3 배치 적용", "SiteLayout · 레벨 표 · 회사 선반 구역을 기본값으로 되돌리고 기본 프리팹을 덮어씁니다.", "적용", "취소")) return;
-            ApplyLayoutV3Internal();
+            var path = $"{PrefabRoot}/ExpansionPad.prefab";
+            var existing = AssetDatabase.LoadAssetAtPath<ExpansionPad>(path);
+            if (existing != null && !overwrite) return existing;
+
+            var holder = new GameObject("Holder");
+            var pad = BuildKit.Zone<ExpansionPad>(holder.transform, "ExpansionPad", Vector3.zero, new Vector2(2.2f, 2.2f),
+                new Color(0.45f, 0.75f, 0.45f), new Color(0.35f, 0.95f, 0.4f), null);
+            var root = pad.gameObject;
+            root.transform.SetParent(null, false);
+            UnityEngine.Object.DestroyImmediate(holder);
+
+            BuildKit.GaugeRing(pad, root.transform);
+            var cost = BuildKit.FlatLabel(root.transform, "100", new Vector3(0f, 0.08f, 0f), 4.2f, Color.white);
+            cost.name = "CostLabel";
+            cost.font = BuildKit.TitleFont;
+            var title = BuildKit.FlatLabel(root.transform, "확장", new Vector3(0f, 0.03f, -1.7f), 3.2f, Color.white);
+            title.name = "NameLabel";
+            BuildKit.SetRef(pad, "costLabel", cost);
+            BuildKit.SetRef(pad, "nameLabel", title);
+
+            PrefabUtility.SaveAsPrefabAsset(root, path);
+            UnityEngine.Object.DestroyImmediate(root);
+            return AssetDatabase.LoadAssetAtPath<ExpansionPad>(path);
         }
 
-        public static void ApplyLayoutV3Internal()
+        /// <summary>
+        /// 6 × 4 배치 적용 (GDD 4.2, M12-1): SiteLayout · 회사 선반 구역을 기본값으로, 보관 · 반품 · 쓰레기장 · 빈 공간 모듈을 다시 만들고
+        /// (사무실 · 하차 · 상차 프리팹은 손으로 고친 값이 있어 덮어쓰지 않음), 안 쓰는 프리팹을 지운 뒤 Build Site. 레벨 표는 건드리지 않는다.
+        /// </summary>
+        [MenuItem("APC/Setup/Apply Layout 6x4 (config · 프리팹 덮어쓰기)")]
+        static void ApplyLayout()
+        {
+            if (!EditorUtility.DisplayDialog("6 × 4 배치 적용", "SiteLayout · 회사 선반 구역을 기본값으로 되돌리고 보관 · 반품 · 빈 공간 모듈을 덮어씁니다.", "적용", "취소")) return;
+            ApplyLayoutInternal();
+        }
+
+        public static void ApplyLayoutInternal()
         {
             var database = BuildKit.Database;
             database.Site.ResetModules();
             EditorUtility.SetDirty(database.Site);
 
-            database.Levels.ResetLevels();
-            var levels = new SerializedObject(database.Levels);
-            levels.FindProperty("overflowBaseXp").intValue = 350;
-            levels.ApplyModifiedPropertiesWithoutUndo();
-            EditorUtility.SetDirty(database.Levels);
-
             foreach (var company in database.Companies)
             {
                 var so = new SerializedObject(company);
-                var area = so.FindProperty("shelfAreaId");
-                area.stringValue = company.Id == "A" ? "R2C2" : company.Id == "B" ? "E1" : area.stringValue;
+                so.FindProperty("shelfAreaId").stringValue = company.Id == "A" ? "StoreA1" : $"Store{company.Id}";
                 so.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(company);
             }
@@ -569,8 +651,9 @@ namespace APC.EditorTools
             {
                 if (AssetDatabase.LoadMainAssetAtPath(obsolete) != null) AssetDatabase.DeleteAsset(obsolete);
             }
-            EnsureAll(overwrite: true);
-            ShelfPrefab(overwrite: true);
+            EnsureAll(overwrite: false);
+            foreach (var asset in new[] { "Module_ShelfArea_A", "Module_ShelfArea_B", "Module_ShelfArea_C", "Module_ShelfArea_D", "Module_Returns", "Module_Trash", "Module_Empty" })
+                Rebuild(asset);
             ConstructionFencePrefab(overwrite: true);
             AssetDatabase.SaveAssets();
 
@@ -578,8 +661,8 @@ namespace APC.EditorTools
         }
 
         /// <summary>
-        /// 알바 (M6): 임시 캡슐(역할 색은 실행 중 칠함) + 머리 위 운반 스택 + NavMeshAgent(회피 끔 = 겹쳐 지나감).
-        /// 충돌체가 없어 플레이어와 부딪히지 않는다.
+        /// 알바 (M6): 모델 macaron · rabbit 중 하나(생성 때 무작위, `Model` 아래) + 발밑 역할 색 원판 + 머리 위 운반 스택
+        /// + NavMeshAgent(회피 끔 = 겹쳐 지나감) + CharacterAnimator. 충돌체가 없어 플레이어와 부딪히지 않는다.
         /// </summary>
         public static StaffWorker StaffWorkerPrefab(bool overwrite = false)
         {
@@ -587,21 +670,26 @@ namespace APC.EditorTools
             var existing = AssetDatabase.LoadAssetAtPath<StaffWorker>(path);
             if (existing != null && !overwrite) return existing;
 
+            CharacterArt.PrepareAssets();
             var root = new GameObject("StaffWorker");
-            var capsule = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            capsule.name = "Body";
-            UnityEngine.Object.DestroyImmediate(capsule.GetComponent<Collider>());
-            capsule.transform.SetParent(root.transform, false);
-            capsule.transform.localPosition = new Vector3(0f, 0.6f, 0f);
-            capsule.transform.localScale = new Vector3(0.6f, 0.6f, 0.6f); // 높이 1.2 (플레이어보다 작게)
-            var body = capsule.GetComponent<Renderer>();
+            var modelRoot = new GameObject("Model").transform;
+            modelRoot.SetParent(root.transform, false);
+            var models = new GameObject[CharacterArt.Workers.Length];
+            for (var i = 0; i < models.Length; i++) models[i] = CharacterArt.Model(CharacterArt.Workers[i], modelRoot);
+
+            // 역할 색 원판 (GDD 11.3 — 역할은 색으로 구분). 모델은 텍스처라 칠하지 않는다.
+            var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            ring.name = "RoleRing";
+            UnityEngine.Object.DestroyImmediate(ring.GetComponent<Collider>());
+            ring.transform.SetParent(root.transform, false);
+            ring.transform.localPosition = new Vector3(0f, 0.02f, 0f);
+            ring.transform.localScale = new Vector3(0.8f, 0.01f, 0.8f);
+            var body = ring.GetComponent<Renderer>();
             body.sharedMaterial = BuildKit.Mat("M_Staff", Color.white);
-            // 앞쪽 표시 (눈 띠)
-            BuildKit.Cube("Face", root.transform, new Vector3(0f, 0.95f, 0.28f), new Vector3(0.3f, 0.08f, 0.05f), BuildKit.Mat("M_StaffFace", new Color(0.15f, 0.15f, 0.18f)));
 
             var anchor = new GameObject("StackAnchor").transform;
             anchor.SetParent(root.transform, false);
-            anchor.localPosition = new Vector3(0f, 1.35f, 0f);
+            anchor.localPosition = new Vector3(0f, 2f, 0f); // 모델 키 1.7 ~ 1.9m 위
 
             var agent = root.AddComponent<NavMeshAgent>();
             agent.radius = 0.3f;
@@ -615,6 +703,7 @@ namespace APC.EditorTools
             var stack = root.AddComponent<CarryStack>();
             BuildKit.SetRef(stack, "anchor", anchor);
             BuildKit.SetRef(root.AddComponent<Interactor>(), "stack", stack);
+            BuildKit.SetRef(root.AddComponent<APC.Characters.CharacterAnimator>(), "stack", stack);
             // 미지급 표시 (GDD 11.7): 머리 위 빨간 ₩ (외곽선), 꺼진 채 — StaffWorker.SetOwed가 켜고 둥실거림
             var icon = BuildKit.BillboardLabel(root.transform, "₩", Vector3.zero, 9f);
             icon.name = "UnpaidIcon";
@@ -625,6 +714,7 @@ namespace APC.EditorTools
             var worker = root.AddComponent<StaffWorker>();
             BuildKit.SetRef(worker, "body", body);
             BuildKit.SetRef(worker, "unpaidIcon", icon.gameObject);
+            BuildKit.SetList(worker, "models", models);
 
             PrefabUtility.SaveAsPrefabAsset(root, path);
             UnityEngine.Object.DestroyImmediate(root);

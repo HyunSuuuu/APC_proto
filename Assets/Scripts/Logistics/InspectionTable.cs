@@ -34,8 +34,7 @@ namespace APC.Logistics
 
             cargo.Repack(candidates[Random.Range(0, candidates.Count)]);
             if (workPoint != null) cargo.transform.position = workPoint.position;
-            output.Store(cargo); // 테이블 위에서 출구로 날아간다
-            GameManager.Instance.Level.AddXp(GameManager.Instance.Database.Economy.XpReturnInspection);
+            output.Store(cargo); // 테이블 위에서 출구로 날아간다 (검수 XP 없음, GDD 10.1)
         }
 
         /// <summary>

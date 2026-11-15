@@ -10,15 +10,21 @@ namespace APC.Site
     [DisallowMultipleComponent]
     public sealed class SiteModule : MonoBehaviour
     {
+        /// <summary>재배치 규칙 (GDD 4.4): 고정(사무실 · 쓰레기장 · 하차 · 상차) / 빈 공간 / 옮길 수 있음(보관 · 반품).</summary>
+        public enum ModuleKind { Fixed, Empty, Movable }
+
         [SerializeField, Tooltip("차지하는 칸 수 (x = 가로 열, y = 세로 행). 회전 0° 기준")] Vector2Int size = Vector2Int.one;
         [SerializeField, Min(1f), Tooltip("칸 한 변 (m). SiteLayout의 칸 크기와 같아야 한다")] float cellSize = 10f;
+        [SerializeField, Tooltip("빈 공간 = 해금 모듈이 그 칸에 붙으면 꺼진다. 옮길 수 있음 = 보관 · 반품 (GDD 4.4)")] ModuleKind kind;
 
         public Vector2Int Size => size;
         public float CellSize => cellSize;
+        public ModuleKind Kind => kind;
 
         /// <summary>에디터 생성용.</summary>
-        public void Configure(Vector2Int moduleSize, float moduleCellSize)
+        public void Configure(Vector2Int moduleSize, float moduleCellSize, ModuleKind moduleKind = ModuleKind.Fixed)
         {
+            kind = moduleKind;
             size = new Vector2Int(Mathf.Max(1, moduleSize.x), Mathf.Max(1, moduleSize.y));
             cellSize = Mathf.Max(1f, moduleCellSize);
         }

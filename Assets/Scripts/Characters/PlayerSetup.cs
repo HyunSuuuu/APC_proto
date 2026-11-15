@@ -15,7 +15,12 @@ namespace APC.Characters
             var config = GameManager.Instance.Database.Player;
             var stack = GetComponent<CarryStack>();
             var upgrades = GameManager.Instance.Upgrades;
-            upgrades.CarryStep.Subscribe(_ => stack.SetCapacity(upgrades.Capacity)).AddTo(this); // 업그레이드 책상 (GDD 5.1)
+            var animator = GetComponent<CharacterAnimator>();
+            upgrades.CarryStep.Subscribe(step =>
+            {
+                stack.SetCapacity(upgrades.Capacity); // 업그레이드 탭 (GDD 5.1)
+                if (animator != null) animator.UsePull = step > 0; // 구루마 · 롤테이너는 끌고 다닌다
+            }).AddTo(this);
             var interactor = GetComponent<Interactor>();
             interactor.Configure(config.PickInterval, config.InteractionDelay);
             interactor.ConfigureRules(taskLock: true, config.TransferSwitchCooldown); // GDD 5.3 — 플레이어만

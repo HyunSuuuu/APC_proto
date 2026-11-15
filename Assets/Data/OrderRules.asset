@@ -15,42 +15,15 @@ MonoBehaviour:
   brackets:
   - minLevel: 1
     spawnInterval: 15
-    compoundChance: 0
-    singleQuantity:
-      min: 2
-      max: 4
-    compoundKinds:
-      min: 2
-      max: 2
-    compoundQuantityPerItem:
-      min: 1
-      max: 3
-    compoundMaxTotal: 8
   - minLevel: 4
     spawnInterval: 12
-    compoundChance: 0.6
-    singleQuantity:
-      min: 2
-      max: 4
-    compoundKinds:
-      min: 2
-      max: 2
-    compoundQuantityPerItem:
-      min: 1
-      max: 3
-    compoundMaxTotal: 8
-  - minLevel: 7
-    spawnInterval: 12
-    compoundChance: 0.6
-    singleQuantity:
-      min: 2
-      max: 4
-    compoundKinds:
-      min: 2
-      max: 3
-    compoundQuantityPerItem:
-      min: 1
-      max: 3
-    compoundMaxTotal: 8
+  quantityWeights:
+  - quantity: 3
+    weight: 40
+  - quantity: 4
+    weight: 30
+  - quantity: 5
+    weight: 20
+  - quantity: 6
+    weight: 10
   maxQueuedOrders: 8
-  inboundMinWeight: 0.1

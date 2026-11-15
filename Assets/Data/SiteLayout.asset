@@ -14,99 +14,223 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::APC.Data.SiteLayout
   cellSize: 10
   modules:
-  - id: R1C1
+  - id: Office
     module: {fileID: 6676918541067930893, guid: 4f7eac6a3c902d94e8fde7a217ab200f, type: 3}
-    row: 1
+    row: 2
     column: 1
     rotation: 0
     isStartArea: 1
     unlockLevel: 1
+    cost: 0
     unlockWith: 
-    content: "\uC0AC\uBB34\uC2E4 (7\uBC88 \u2014 \uACC4\uC57D PC, \uACE0\uC6A9 \uB370\uC2A4\uD06C,
-      \uBC30\uCE58 \uD604\uD669\uD310)"
-  - id: R1C2
-    module: {fileID: 3356708243036896552, guid: 3873f222ab25c7b40bb1dbad458046ac, type: 3}
+    content: "\uC0AC\uBB34\uC2E4 (\uACC4\uC57D PC \xB7 \uC800\uAE08\uD1B5)"
+  - id: Trash
+    module: {fileID: 2504881746386014823, guid: 746745a9abd3d4b4ba4c3e811b83359b, type: 3}
     row: 1
+    column: 3
+    rotation: 0
+    isStartArea: 1
+    unlockLevel: 1
+    cost: 0
+    unlockWith: 
+    content: "\uC4F0\uB808\uAE30\uC7A5 (\uAE30\uB2A5 \uBBF8\uC815)"
+  - id: In1
+    module: {fileID: 5740824032745028593, guid: 8e547ddb107c7634991b1d8e5a618413, type: 3}
+    row: 4
     column: 2
+    rotation: 0
+    isStartArea: 1
+    unlockLevel: 1
+    cost: 0
+    unlockWith: 
+    content: "\uD558\uCC28\uC7A5 1 (\uD314\uB808\uD2B8, \uD2B8\uB7ED\uC740 \uC67C\uCABD\uC5D0\uC11C)"
+  - id: StoreA1
+    module: {fileID: 2131418914713283060, guid: dce0a5745f7d609498d2c3c29d485dbf, type: 3}
+    row: 3
+    column: 3
+    rotation: 0
+    isStartArea: 1
+    unlockLevel: 1
+    cost: 0
+    unlockWith: 
+    content: "A\uBCF4\uAD00 (A\uC0AC \uC120\uBC18)"
+  - id: Out1
+    module: {fileID: 3356708243036896552, guid: 3873f222ab25c7b40bb1dbad458046ac, type: 3}
+    row: 2
+    column: 4
     rotation: 180
     isStartArea: 1
     unlockLevel: 1
+    cost: 0
     unlockWith: 
-    content: "\uC0C1\uCC28\uC7A5 1 (8\uBC88 \u2014 \uD2B8\uB7ED\uC740 \uC624\uB978\uCABD\uC5D0\uC11C)"
-  - id: R2C1
-    module: {fileID: 2737670130235483938, guid: b9055c8b03ad52f4b98cab154148e486, type: 3}
-    row: 2
-    column: 1
-    rotation: 270
-    isStartArea: 1
-    unlockLevel: 1
-    unlockWith: 
-    content: "\uD558\uCC28\uC7A5 1 (4\uBC88 \u2014 \uD314\uB808\uD2B8, \uD2B8\uB7ED\uC740
-      \uC544\uB798\uC5D0\uC11C)"
-  - id: R2C2
-    module: {fileID: 2131418914713283060, guid: dce0a5745f7d609498d2c3c29d485dbf, type: 3}
-    row: 2
-    column: 2
-    rotation: 0
-    isStartArea: 1
-    unlockLevel: 1
-    unlockWith: 
-    content: "\uC120\uBC18 \uAD6C\uC5ED A (5\uBC88 \u2014 \uD68C\uC0AC A \uC120\uBC18)"
-  - id: R2C3
-    module: {fileID: 1742887013649320008, guid: 41f6f2f958a668e42a752d101e972e97, type: 3}
-    row: 2
-    column: 3
-    rotation: 90
-    isStartArea: 1
-    unlockLevel: 1
-    unlockWith: 
-    content: "\uC0C1\uCC28\uC7A5 2 (6\uBC88 \u2014 \uD2B8\uB7ED\uC740 \uC704\uC5D0\uC11C)"
-  - id: R3C2
-    module: {fileID: 5740824032745028593, guid: 8e547ddb107c7634991b1d8e5a618413, type: 3}
-    row: 3
-    column: 2
-    rotation: 0
-    isStartArea: 1
-    unlockLevel: 1
-    unlockWith: 
-    content: "\uD558\uCC28\uC7A5 2 (2\uBC88 \u2014 \uD314\uB808\uD2B8, \uD2B8\uB7ED\uC740
-      \uC67C\uCABD\uC5D0\uC11C)"
-  - id: E1
+    content: "\uC0C1\uCC28\uC7A5 1 (\uD2B8\uB7ED\uC740 \uC624\uB978\uCABD\uC5D0\uC11C)"
+  - id: StoreB
     module: {fileID: 8514350855265840824, guid: caba838a98994544db2661500ef057c6, type: 3}
-    row: 3
+    row: 4
+    column: 4
+    rotation: 0
+    isStartArea: 0
+    unlockLevel: 1
+    cost: 100
+    unlockWith: 
+    content: "B\uBCF4\uAD00 (B\uC0AC \uC120\uBC18)"
+  - id: Ret1
+    module: {fileID: 3080453124129573179, guid: aa607e879dcaf664eb00ce8ef069554c, type: 3}
+    row: 2
     column: 3
+    rotation: 0
+    isStartArea: 0
+    unlockLevel: 2
+    cost: 150
+    unlockWith: 
+    content: "\uBC18\uD488 1 (\uAC80\uC218)"
+  - id: StoreC
+    module: {fileID: 6132962087463957709, guid: e989b06427aa505448f3822662a2ca4c, type: 3}
+    row: 4
+    column: 5
     rotation: 0
     isStartArea: 0
     unlockLevel: 3
+    cost: 250
     unlockWith: 
-    content: "\uC120\uBC18 \uAD6C\uC5ED B (3\uBC88 \u2014 \uD68C\uC0AC B \uC120\uBC18)"
-  - id: E2
+    content: "C\uBCF4\uAD00 (C\uC0AC \uC120\uBC18)"
+  - id: In2
     module: {fileID: 2737670130235483938, guid: b9055c8b03ad52f4b98cab154148e486, type: 3}
-    row: 2
-    column: 0
+    row: 3
+    column: 1
     rotation: 270
     isStartArea: 0
-    unlockLevel: 5
+    unlockLevel: 4
+    cost: 300
     unlockWith: 
-    content: "\uD558\uCC28\uC7A5 3 (4\uBC88 \uC67C\uCABD \u2014 \uD2B8\uB7ED\uC740
-      \uC544\uB798\uC5D0\uC11C)"
-  - id: E3
+    content: "\uD558\uCC28\uC7A5 2 (\uD314\uB808\uD2B8, \uD2B8\uB7ED\uC740 \uC544\uB798\uC5D0\uC11C)"
+  - id: StoreD
+    module: {fileID: 3608372291748767733, guid: 6fc7424f3f183fa41a032347f89e4074, type: 3}
+    row: 4
+    column: 6
+    rotation: 0
+    isStartArea: 0
+    unlockLevel: 5
+    cost: 500
+    unlockWith: 
+    content: "D\uBCF4\uAD00 (D\uC0AC \uB300\uD615 \uC120\uBC18)"
+  - id: StoreA2
+    module: {fileID: 2131418914713283060, guid: dce0a5745f7d609498d2c3c29d485dbf, type: 3}
+    row: 4
+    column: 3
+    rotation: 0
+    isStartArea: 0
+    unlockLevel: 6
+    cost: 350
+    unlockWith: 
+    content: "A\uBCF4\uAD00 2 (A\uC0AC \uC120\uBC18)"
+  - id: Out2
     module: {fileID: 1742887013649320008, guid: 41f6f2f958a668e42a752d101e972e97, type: 3}
-    row: 2
-    column: 4
+    row: 3
+    column: 5
     rotation: 90
     isStartArea: 0
     unlockLevel: 7
+    cost: 400
     unlockWith: 
-    content: "\uC0C1\uCC28\uC7A5 3 (6\uBC88 \uC624\uB978\uCABD \u2014 \uD2B8\uB7ED\uC740
-      \uC704\uC5D0\uC11C)"
-  - id: E4
+    content: "\uC0C1\uCC28\uC7A5 2 (\uD2B8\uB7ED\uC740 \uC704\uC5D0\uC11C)"
+  - id: Ret2
     module: {fileID: 3080453124129573179, guid: aa607e879dcaf664eb00ce8ef069554c, type: 3}
+    row: 3
+    column: 2
+    rotation: 0
+    isStartArea: 0
+    unlockLevel: 8
+    cost: 450
+    unlockWith: 
+    content: "\uBC18\uD488 2 (\uAC80\uC218)"
+  - id: Out3
+    module: {fileID: 1742887013649320008, guid: 41f6f2f958a668e42a752d101e972e97, type: 3}
+    row: 3
+    column: 6
+    rotation: 90
+    isStartArea: 0
+    unlockLevel: 9
+    cost: 500
+    unlockWith: 
+    content: "\uC0C1\uCC28\uC7A5 3 (\uD2B8\uB7ED\uC740 \uC704\uC5D0\uC11C)"
+  - id: Empty_R1C1
+    module: {fileID: 6141205791527666534, guid: 4f211b464a8c29645b465ea755c40002, type: 3}
+    row: 1
+    column: 1
+    rotation: 0
+    isStartArea: 1
+    unlockLevel: 1
+    cost: 0
+    unlockWith: 
+    content: "\uBE48 \uACF5\uAC04"
+  - id: Empty_R1C2
+    module: {fileID: 6141205791527666534, guid: 4f211b464a8c29645b465ea755c40002, type: 3}
+    row: 1
+    column: 2
+    rotation: 0
+    isStartArea: 1
+    unlockLevel: 1
+    cost: 0
+    unlockWith: 
+    content: "\uBE48 \uACF5\uAC04"
+  - id: Empty_R2C2
+    module: {fileID: 6141205791527666534, guid: 4f211b464a8c29645b465ea755c40002, type: 3}
+    row: 2
+    column: 2
+    rotation: 0
+    isStartArea: 1
+    unlockLevel: 1
+    cost: 0
+    unlockWith: 
+    content: "\uBE48 \uACF5\uAC04"
+  - id: Empty_R2C3
+    module: {fileID: 6141205791527666534, guid: 4f211b464a8c29645b465ea755c40002, type: 3}
+    row: 2
+    column: 3
+    rotation: 0
+    isStartArea: 1
+    unlockLevel: 1
+    cost: 0
+    unlockWith: 
+    content: "\uBE48 \uACF5\uAC04"
+  - id: Empty_R3C2
+    module: {fileID: 6141205791527666534, guid: 4f211b464a8c29645b465ea755c40002, type: 3}
+    row: 3
+    column: 2
+    rotation: 0
+    isStartArea: 1
+    unlockLevel: 1
+    cost: 0
+    unlockWith: 
+    content: "\uBE48 \uACF5\uAC04"
+  - id: Empty_R3C4
+    module: {fileID: 6141205791527666534, guid: 4f211b464a8c29645b465ea755c40002, type: 3}
     row: 3
     column: 4
     rotation: 0
-    isStartArea: 0
-    unlockLevel: 11
+    isStartArea: 1
+    unlockLevel: 1
+    cost: 0
     unlockWith: 
-    content: "\uBC18\uD488 \uAD6C\uC5ED (3\uBC88 \uC624\uB978\uCABD \u2014 \uBC18\uD488
-      \uB300\uAE30 \uB864\uD14C\uC774\uB108, \uAC80\uC218 \uD14C\uC774\uBE14)"
+    content: "\uBE48 \uACF5\uAC04"
+  - id: Empty_R4C3
+    module: {fileID: 6141205791527666534, guid: 4f211b464a8c29645b465ea755c40002, type: 3}
+    row: 4
+    column: 3
+    rotation: 0
+    isStartArea: 1
+    unlockLevel: 1
+    cost: 0
+    unlockWith: 
+    content: "\uBE48 \uACF5\uAC04"
+  - id: Empty_R4C4
+    module: {fileID: 6141205791527666534, guid: 4f211b464a8c29645b465ea755c40002, type: 3}
+    row: 4
+    column: 4
+    rotation: 0
+    isStartArea: 1
+    unlockLevel: 1
+    cost: 0
+    unlockWith: 
+    content: "\uBE48 \uACF5\uAC04"

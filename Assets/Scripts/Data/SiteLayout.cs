@@ -8,8 +8,8 @@ namespace APC.Data
 {
     /// <summary>
     /// 부지 배치 config (GDD 4.2, 9.3): 어떤 모듈을 어디(행 · 열 · 회전)에 붙이고, 몇 레벨에 해금하는지.
-    /// R = 행 (R1이 위, 아래로 늘어남), C = 열. 시작 부지는 키패드 3 × 3 (7 8 9 / 4 5 6 / 1 2 3 = R1~R3 × C1~C3).
-    /// 확장은 레벨이 되면 자동으로 붙는다 (SiteUnlocker). 하차 · 상차장은 가장자리 모듈이라 회전으로 주차장 방향을 정한다.
+    /// R = 행 (R1이 위, 아래로 늘어남), C = 열. 부지는 가로 6 × 세로 4 (R1~R4 × C1~C6, GDD 4.2).
+    /// 확장은 레벨이 되면 해금 발판이 나타나고, 돈을 채우면 붙는다 (SiteUnlocker). 하차 · 상차장은 가장자리 모듈이라 회전으로 주차장 방향을 정한다.
     /// </summary>
     [CreateAssetMenu(menuName = "APC/Data/Site Layout", fileName = "SiteLayout")]
     public sealed class SiteLayout : ScriptableObject
@@ -23,7 +23,8 @@ namespace APC.Data
             [Min(0), Tooltip("모듈이 차지하는 칸 중 왼쪽 위 칸의 열")] public int column;
             [Tooltip("Y 회전 (0 / 90 / 180 / 270). 하차 · 상차장 모듈은 로컬 −x가 주차장(바깥) 쪽: 0 = 서, 90 = 북, 180 = 동, 270 = 남")] public int rotation;
             [Tooltip("처음부터 열려 있는 모듈")] public bool isStartArea;
-            [Min(1), Tooltip("이 레벨이 되면 자동으로 해금 (비용 없음)")] public int unlockLevel;
+            [Min(1), Tooltip("이 레벨이 되면 해금 발판이 나타난다")] public int unlockLevel;
+            [Min(0), Tooltip("해금 발판 비용 (보유 재화)")] public int cost;
             [Tooltip("다른 배치의 id를 적으면 그 배치가 해금될 때 같이 해금된다 (ㄱ자 구역 등). 이때 이 배치의 시작 여부 · 레벨은 쓰지 않는다. 비워 두면 자기 레벨로 해금")]
             public string unlockWith;
             public string content;
@@ -134,25 +135,45 @@ namespace APC.Data
         }
 #endif
 
-        /// <summary>배치 목록을 GDD 기본값으로 되돌린다 (모듈 참조는 Build Site가 채움). 메뉴 APC > Setup > Apply Layout v0.3.</summary>
+        /// <summary>배치 목록을 GDD 기본값으로 되돌린다 (모듈 참조는 Build Site가 채움). 메뉴 APC > Setup > Apply Layout 6x4.</summary>
         [ContextMenu("배치 목록을 GDD 기본값으로 되돌리기 (모듈 참조는 Build Site가 채움)")]
         public void ResetModules() => modules = DefaultModules();
 
-        // 키패드:  7 8 9 = R1 · 4 5 6 = R2 · 1 2 3 = R3 (C1~C3). 1 · 9는 없는 칸 (주차장 자리).
-        static List<ModulePlacement> DefaultModules() => new()
+        // Lv.1 빈 공간 8칸 (행, 열) — 처음부터 열림. id = Empty_R{행}C{열}
+        static readonly Vector2Int[] EmptyRowColumns = { new(1, 1), new(1, 2), new(2, 2), new(2, 3), new(3, 2), new(3, 4), new(4, 3), new(4, 4) };
+
+        /// <summary>빈 공간 배치 id (기본 모듈 배정용).</summary>
+        public static IEnumerable<string> EmptyCells
         {
-            // 시작 부지
-            new ModulePlacement { id = "R1C1", row = 1, column = 1, isStartArea = true, unlockLevel = 1, content = "사무실 (7번 — 계약 PC, 고용 데스크, 배치 현황판)" },
-            new ModulePlacement { id = "R1C2", row = 1, column = 2, rotation = 180, isStartArea = true, unlockLevel = 1, content = "상차장 1 (8번 — 트럭은 오른쪽에서)" },
-            new ModulePlacement { id = "R2C1", row = 2, column = 1, rotation = 270, isStartArea = true, unlockLevel = 1, content = "하차장 1 (4번 — 팔레트, 트럭은 아래에서)" },
-            new ModulePlacement { id = "R2C2", row = 2, column = 2, isStartArea = true, unlockLevel = 1, content = "선반 구역 A (5번 — 회사 A 선반)" },
-            new ModulePlacement { id = "R2C3", row = 2, column = 3, rotation = 90, isStartArea = true, unlockLevel = 1, content = "상차장 2 (6번 — 트럭은 위에서)" },
-            new ModulePlacement { id = "R3C2", row = 3, column = 2, isStartArea = true, unlockLevel = 1, content = "하차장 2 (2번 — 팔레트, 트럭은 왼쪽에서)" },
-            // 확장 (레벨이 되면 자동 해금)
-            new ModulePlacement { id = "E1", row = 3, column = 3, unlockLevel = 3, content = "선반 구역 B (3번 — 회사 B 선반)" },
-            new ModulePlacement { id = "E2", row = 2, column = 0, rotation = 270, unlockLevel = 5, content = "하차장 3 (4번 왼쪽 — 트럭은 아래에서)" },
-            new ModulePlacement { id = "E3", row = 2, column = 4, rotation = 90, unlockLevel = 7, content = "상차장 3 (6번 오른쪽 — 트럭은 위에서)" },
-            new ModulePlacement { id = "E4", row = 3, column = 4, unlockLevel = 11, content = "반품 구역 (3번 오른쪽 — 반품 대기 롤테이너, 검수 테이블)" },
-        };
+            get { foreach (var rc in EmptyRowColumns) yield return $"Empty_R{rc.x}C{rc.y}"; }
+        }
+
+        // 6 × 4 (GDD 4.2, 2026-11-14). 행 1~4 (위 → 아래) · 열 1~6 (왼쪽 → 오른쪽). 회전은 StandardModules.DefaultAssignments가 채운다.
+        // 빈 공간 칸에 놓이는 해금 모듈(B보관 · 반품 · A보관 2)은 그 칸의 빈 공간과 같은 칸을 쓴다 — 해금되면 빈 공간이 꺼진다 (SiteGrid).
+        static List<ModulePlacement> DefaultModules()
+        {
+            var list = new List<ModulePlacement>
+            {
+                // Lv.1 시작 모듈
+                new() { id = "Office", row = 2, column = 1, isStartArea = true, unlockLevel = 1, content = "사무실 (계약 PC · 저금통)" },
+                new() { id = "Trash", row = 1, column = 3, isStartArea = true, unlockLevel = 1, content = "쓰레기장 (기능 미정)" },
+                new() { id = "In1", row = 4, column = 2, isStartArea = true, unlockLevel = 1, content = "하차장 1 (팔레트, 트럭은 왼쪽에서)" },
+                new() { id = "StoreA1", row = 3, column = 3, isStartArea = true, unlockLevel = 1, content = "A보관 (A사 선반)" },
+                new() { id = "Out1", row = 2, column = 4, isStartArea = true, unlockLevel = 1, content = "상차장 1 (트럭은 오른쪽에서)" },
+                // 해금 모듈 (레벨 · 비용 임시, GDD 4.2 표)
+                new() { id = "StoreB", row = 4, column = 4, unlockLevel = 1, cost = 100, content = "B보관 (B사 선반)" },
+                new() { id = "Ret1", row = 2, column = 3, unlockLevel = 2, cost = 150, content = "반품 1 (검수)" },
+                new() { id = "StoreC", row = 4, column = 5, unlockLevel = 3, cost = 250, content = "C보관 (C사 선반)" },
+                new() { id = "In2", row = 3, column = 1, unlockLevel = 4, cost = 300, content = "하차장 2 (팔레트, 트럭은 아래에서)" },
+                new() { id = "StoreD", row = 4, column = 6, unlockLevel = 5, cost = 500, content = "D보관 (D사 대형 선반)" },
+                new() { id = "StoreA2", row = 4, column = 3, unlockLevel = 6, cost = 350, content = "A보관 2 (A사 선반)" },
+                new() { id = "Out2", row = 3, column = 5, unlockLevel = 7, cost = 400, content = "상차장 2 (트럭은 위에서)" },
+                new() { id = "Ret2", row = 3, column = 2, unlockLevel = 8, cost = 450, content = "반품 2 (검수)" },
+                new() { id = "Out3", row = 3, column = 6, unlockLevel = 9, cost = 500, content = "상차장 3 (트럭은 위에서)" },
+            };
+            foreach (var rc in EmptyRowColumns)
+                list.Add(new ModulePlacement { id = $"Empty_R{rc.x}C{rc.y}", row = rc.x, column = rc.y, isStartArea = true, unlockLevel = 1, content = "빈 공간" });
+            return list;
+        }
     }
 }

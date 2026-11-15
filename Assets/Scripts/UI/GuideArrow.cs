@@ -108,8 +108,8 @@ namespace APC.UI
                     if (warehouse == null) return null;
                     foreach (var item in stack.Items)
                     {
-                        var shelf = warehouse.FindShelf(item.Item);
-                        if (shelf == null || !shelf.HasSpace) continue;
+                        var shelf = warehouse.NearestShelfWithSpace(item.Item, from);
+                        if (shelf == null) continue;
                         var d = (shelf.transform.position - from).sqrMagnitude;
                         if (d >= bestDistance) continue;
                         bestDistance = d;

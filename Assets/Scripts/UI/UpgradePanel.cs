@@ -8,11 +8,11 @@ using UnityEngine.UI;
 namespace APC.UI
 {
     /// <summary>
-    /// 업그레이드 팝업 (사무실 업그레이드 책상, GDD 5.1 · 9.4). 줄마다 `지금 → 다음` 값과 비용 버튼.
+    /// 계약 PC 팝업의 업그레이드 탭 (GDD 5.1 · 9.4). 줄마다 `지금 → 다음` 값과 비용 버튼.
     /// 레벨이 모자라면 `Lv.N 해금`, 돈이 모자라면 버튼이 꺼진다 (보유 재화만, 저금통은 못 씀). 최대면 `최대`.
-    /// 이 오브젝트는 항상 켜 두고 자식 body만 켜고 끈다. 열려 있는 동안 게임이 멈춘다.
+    /// 열고 닫기 · 게임 멈춤은 ContractPopup이 한다.
     /// </summary>
-    public sealed class UpgradePopup : MonoBehaviour
+    public sealed class UpgradePanel : MonoBehaviour
     {
         [System.Serializable]
         struct Row
@@ -22,28 +22,13 @@ namespace APC.UI
             public TMP_Text buyLabel;
         }
 
-        [SerializeField] GameObject body;
-        [SerializeField] CanvasGroup group;
-        [SerializeField] RectTransform panel;
-        [SerializeField] Button closeButton;
         [SerializeField, Tooltip("적재 도구 줄")] Row carryRow;
         [SerializeField, Tooltip("이동 속도 줄")] Row speedRow;
 
-        Sequence transition;
-        bool open;
-
-        public static UpgradePopup Instance { get; private set; }
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() => Instance = null;
-
         void Awake()
         {
-            Instance = this;
-            closeButton.onClick.AddListener(Close);
             carryRow.buyButton.onClick.AddListener(() => Buy(PlayerUpgradeKind.Carry));
             speedRow.buyButton.onClick.AddListener(() => Buy(PlayerUpgradeKind.MoveSpeed));
-            body.SetActive(false);
         }
 
         void Start()
@@ -53,46 +38,7 @@ namespace APC.UI
             gm.Level.Level.Subscribe(_ => Refresh()).AddTo(this);
         }
 
-        void OnDestroy()
-        {
-            if (Instance == this) Instance = null;
-        }
-
-        public void Open()
-        {
-            if (open) return;
-            open = true;
-            Refresh();
-            body.SetActive(true);
-            GameManager.Instance.OpenPopup();
-
-            transition?.Kill();
-            group.alpha = 0f;
-            panel.localScale = Vector3.one * 0.85f;
-            transition = DOTween.Sequence()
-                .Append(group.DOFade(1f, 0.15f))
-                .Join(panel.DOScale(1f, 0.25f).SetEase(Ease.OutBack))
-                .SetUpdate(true)
-                .SetLink(gameObject);
-        }
-
-        public void Close()
-        {
-            if (!open) return;
-            open = false;
-
-            transition?.Kill();
-            transition = DOTween.Sequence()
-                .Append(group.DOFade(0f, 0.12f))
-                .Join(panel.DOScale(0.9f, 0.12f))
-                .SetUpdate(true)
-                .SetLink(gameObject)
-                .OnComplete(() =>
-                {
-                    body.SetActive(false);
-                    GameManager.Instance.ClosePopup();
-                });
-        }
+        void OnEnable() => Refresh();
 
         void Buy(PlayerUpgradeKind kind)
         {

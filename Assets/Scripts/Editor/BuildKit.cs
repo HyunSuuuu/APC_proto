@@ -259,6 +259,13 @@ namespace APC.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        public static void SetFloat(Object target, string property, float value)
+        {
+            var so = new SerializedObject(target);
+            so.FindProperty(property).floatValue = value;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         public static void SetList(Object target, string property, IReadOnlyList<Object> values)
         {
             var so = new SerializedObject(target);

@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using APC.Core;
 using APC.Data;
-using APC.Logistics;
 using R3;
 using UnityEngine;
 
@@ -61,20 +60,6 @@ namespace APC.Contracts
                 if (company.UnlockLevel > level || contracted.Contains(company)) continue;
                 contracted.Add(company);
                 contractedSubject.OnNext(company);
-            }
-            BuildMissingShelves();
-        }
-
-        // shortcut: 회사별 선반 모듈(M11-5) 전까지 임시 — 입고 중인 회사 품목에 선반이 없으면 그 회사 선반 구역(없으면 아무 곳)의 빈 자리에 1개 세운다. 자리가 없으면 다음 레벨업 때 다시 시도.
-        void BuildMissingShelves()
-        {
-            foreach (var company in contracted)
-            {
-                foreach (var item in company.Items)
-                {
-                    if (!Warehouse.Instance.HasShelf(item) && Warehouse.Instance.BuildShelf(item, company.ShelfAreaId) == null)
-                        Warehouse.Instance.BuildShelf(item, null);
-                }
             }
         }
     }

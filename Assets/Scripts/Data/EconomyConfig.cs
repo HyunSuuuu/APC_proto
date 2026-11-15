@@ -32,11 +32,8 @@ namespace APC.Data
         [SerializeField, Min(1), Tooltip("저금통 가득 기준 최소값")] int piggyFullMin = 300;
         [SerializeField, Min(1f), Tooltip("저금통 가득 기준 = MAX(최소값, 직전 파트 정산액 × 이 값)")] float piggyFullRatio = 1.2f;
 
-        [Header("경험치 (출고 트럭 출발 순간)")]
-        [SerializeField, Min(0)] int xpSingleOrder = 10;
-        [SerializeField, Min(0)] int xpCompoundOrder = 20;
-        [SerializeField, Min(0), Tooltip("시설 구매 · 업그레이드 · 알바 고용 (구매 패드)")] int xpPurchase = 5;
-        [SerializeField, Min(0), Tooltip("반품 재포장 1개")] int xpReturnInspection = 5;
+        [Header("경험치 — 해금 · 업그레이드로만 얻는다 (GDD 10.1, 2026-11-14)")]
+        [SerializeField, Min(0), Tooltip("모듈 해금 발판 · 업그레이드 1번")] int xpPurchase = 3;
 
         public int StartingCash => startingCash;
         public float PadFillDuration => padFillDuration;
@@ -53,9 +50,6 @@ namespace APC.Data
         public int PiggyStepCount => piggyStepCount;
         public int PiggyFullMin => piggyFullMin;
         public float PiggyFullRatio => piggyFullRatio;
-        public int XpSingleOrder => xpSingleOrder;
-        public int XpCompoundOrder => xpCompoundOrder;
         public int XpPurchase => xpPurchase;
-        public int XpReturnInspection => xpReturnInspection;
     }
 }

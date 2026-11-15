@@ -85,7 +85,7 @@ Editor ─→ 전부   (런타임 코드는 Editor를 참조하지 않는다)
 | `Site` | NavMeshSurface, SiteNavMesh + 아래 참고 | **Build Site** (지우고 다시 만듦) |
 | └ `Ground` | 초록 바닥 (임시 — 모듈 바닥으로 충분해지면 삭제 예정). NavMeshModifier로 네비메시에서 제외 | Build Site |
 | └ `Logistics` | Warehouse, ContractService, OrderService, PartService, StaffService | Build Site |
-| └ `SiteGrid` | SiteGrid, SiteUnlocker + 시작 모듈 프리팹 인스턴스 6개 (키패드 7 · 8 · 4 · 5 · 6 · 2). 실행 중 해금 모듈 · 공사장 울타리가 여기 붙음. 사무실 모듈 안에 `StaffSpawnPoint`(알바 생성 위치) | Build Site |
+| └ `SiteGrid` | SiteGrid, SiteUnlocker + 시작 모듈 프리팹 인스턴스 13개 (모듈 5 + 빈 공간 8, GDD 4.2 6 × 4). 실행 중 해금 모듈 · 공사장 울타리가 여기 붙음. 사무실 모듈 안에 `StaffSpawnPoint`(알바 생성 위치) | Build Site |
 
 ---
 
@@ -118,7 +118,7 @@ void OnDestroy() { if (Instance == this) Instance = null; }
 |---|---|
 | `InteractionZone.All` (private, 공개 `Active`) | `InteractionZone.FindAt` — 위치로 존 찾기 |
 | `Interactor.All` | `Warehouse.CountCarried` — 들고 있는 화물 집계 |
-| `ShelfSlot.All` | `Warehouse.BuildShelf` — 선반 세울 자리 찾기 |
+| `ShelfSlot.All` | `SiteUnlocker` — 패드가 선반 자리를 피함 |
 | `SharedStorage.All` | `Warehouse.GetStock` — 재고 집계 |
 | `CashCollector.All` | `CashZone` — 현금을 흡수할 대상 찾기 |
 
@@ -185,7 +185,7 @@ GaugeZone.Tick → 진행도 += deltaTime / duration → 1이 되면 OnCompleted
 
 ```
 ContractService (Start 한 프레임 뒤) → Level 구독: 레벨 ≥ 회사 unlockLevel인 회사를 입고 시작 (계약 없음, 2026-11-13)
-       ├ OnContracted 이벤트 → OrderService가 그 회사 주문 1건 · PartService가 1파트 시작 (게임 시작 = A사)
+       ├ 첫 OnContracted 이벤트 → OrderService가 첫 주문 1건 · PartService가 1파트 시작 (게임 시작 = A사, 이후 회사는 주문 즉시 생성 없음)
        └ Warehouse.BuildShelf (임시, M11-5 전): 선반 없는 품목에 1개, shelfAreaId → 없으면 아무 빈 자리
 InboundBay 코루틴: HasAnyContract가 true가 되면 트럭을 부르기 시작 (회사 = 가중치 비율)
 ContractPC (게이지 0.5초) → ContractPopup.Open (고용 탭) → GameManager.OpenPopup (timeScale 0)
@@ -210,15 +210,20 @@ OrderService.Update: 이후 레벨 구간 간격(Lv.1~3 15초)마다 주문 1건
 SiteLayout(config) : 어떤 모듈을 어디(행·열·회전)에, 언제(레벨·비용) 붙일지
    │  에디터 Build Site → 시작 모듈만 프리팹 인스턴스로 씬에 굽기
    ▼
-SiteUnlocker : 레벨이 바뀔 때마다 확인 → 해금 레벨이 됐고 열린 칸과 맞닿은 잠긴 배치를 바로 Unlock (비용 없음)
-   │  다음 해금 1곳(맞닿은 잠긴 배치 중 해금 레벨이 가장 낮은 것)에 공사장 울타리 + `잠금해제 : LV N`
-   ▼
+SiteUnlocker : 잠긴 칸이 있는 다음 구역 1곳에 공사장 울타리 + `잠금해제 : LV N`
+   │  다음 해금 배치(레벨 가장 낮은 1곳)의 레벨이 되면 ExpansionPad(남은 금액)
+   │    — 빈 공간 칸 모듈이면 그 칸 중앙, 잠긴 칸이면 울타리 옆 열린 칸 → 플레이어가 서 있으면 보유 재화로 채움
+   ▼  다 채우면 SiteGrid.Unlock + XP +3
 SiteGrid(씬) : 붙은 모듈 목록 + 열린 칸 집합
-   │  Unlock(id) → 모듈 Instantiate → 칸 열기 → 팝 연출 → OnUnlocked
+   │  Unlock(id) → 그 칸의 빈 공간 타일 끄기 → 모듈 Instantiate → 칸 열기 → 팝 연출 → OnUnlocked
    ▼
 PlayerMover : 이동 전에 SiteGrid.IsAreaWalkable로 열린 칸 안인지 확인
 SiteNavMesh : 팝 연출이 끝나면 네비메시 다시 굽기 (알바용)
 SiteUnlocker : 울타리를 다음 구역으로 옮김
+
+모듈 재배치 (GDD 4.4): 계약 PC `모듈` 탭(ModulePanel) 미니맵에서 끌어 놓기 → 팝업 닫을 때
+SiteGrid.ApplyArrangement → 모듈 통째로 이동(선반 · 상자 · 작업 지점 함께) → OnMoved
+   → SiteNavMesh 다시 굽기 · StaffWorker.Repath · SiteUnlocker 빈 공간 발판 자리
 ```
 
 잠긴 칸에는 아무것도 없다 (보이지 않고 들어갈 수 없음). 해금하면 그 모듈 안의 `ShelfSlot`, `InboundBay` 등이 켜지면서 스스로 동작을 시작한다.
@@ -231,7 +236,7 @@ SiteUnlocker : 울타리를 다음 구역으로 옮김
 
 ```
 OrderService.TryGenerate ─ 상태 Waiting ("대기" 카드가 큐 왼쪽에 추가)
-   │  OutboundBay: 대기 주문이 있으면 AssignOldestWaiting → Arriving
+   │  OutboundBay: 채울 수 있는 대기 주문이 있으면 AssignOldestWaiting → Arriving (대형 주문은 지게차 전까지 건너뜀)
    ▼  출고 트럭이 나타나 후진 주차 (outboundReverseDuration 3초)
 MarkDocked ─ 상태 Docked ("도착") → 이때부터 수요(GetDemand)에 잡힌다
    │  플레이어: 선반 둘레 존에서 수요만큼 집음 → 상차 존에 내려놓음 → Order.TryLoad
@@ -289,8 +294,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### PlayerUpgrades
 [Core/PlayerUpgrades.cs](../Scripts/Core/PlayerUpgrades.cs)
 - **역할**: 플레이어 업그레이드 단계 (GDD 5.1): `Carry`(적재 도구 손 → 구루마 → 롤테이너) · `MoveSpeed`. 단계 0 = `PlayerConfig` 기본값, 그 뒤는 `PlayerConfig.CarrySteps` · `SpeedSteps`. `GameManager.Upgrades`.
-- **동작**: `TryBuy(kind)` — 다음 단계가 있고 레벨 ≥ `unlockLevel`이고 **보유 재화**(`Wallet.TrySpend`)가 되면 단계 +1, XP `XpPurchase`. `Capacity` · `MoveSpeed`가 지금 값. `CarryStep` · `SpeedStep`은 R3.
-- **연결**: `PlayerSetup`(적재 수 구독), `PlayerMover`(매 프레임 속도), `UpgradePopup`.
+- **동작**: `TryBuy(kind)` — 다음 단계가 있고 레벨 ≥ `unlockLevel`이고 **보유 재화**(`Wallet.TrySpend`)가 되면 단계 +1, XP `XpPurchase`(+3). `Capacity` · `MoveSpeed`가 지금 값. `CarryStep` · `SpeedStep`은 R3.
+- **연결**: `PlayerSetup`(적재 수 구독), `PlayerMover`(매 프레임 속도), `UpgradePanel`.
 
 #### LevelProgress
 [Core/LevelProgress.cs](../Scripts/Core/LevelProgress.cs)
@@ -330,7 +335,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
   | 필드 | 뜻 |
   |---|---|
-  | `id` | `R2C2`(시작 칸, 행 · 열) 또는 `E1`(확장 칸). 키패드 7 8 9 / 4 5 6 / 1 2 3 = R1~R3 × C1~C3 |
+  | `id` | 역할 이름 (`Office` · `Trash` · `In1` · `Out1` · `StoreA1` · `StoreB` · `Ret1` …) 또는 빈 공간 `Empty_R{행}C{열}`. 부지 6 × 4 = R1~R4 × C1~C6 (GDD 4.2) |
   | `module` | 붙일 모듈 프리팹 (비어 있으면 Build Site가 기본 모듈로 채움) |
   | `row`, `column` | 모듈이 차지하는 칸 중 **왼쪽 위** 칸 |
   | `rotation` | 0 / 90 / 180 / 270. 상차 주차장은 하차 주차장을 180° 돌린 것 |
@@ -343,6 +348,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
   - `GetDisplayName(id)`: content의 괄호 앞부분 (예: "선반 구역 B") — 계약 카드 · 패드 이름용.
   - `GetCells(placement)`: 배치가 차지하는 칸들 (회전 반영).
   - 같이 해금: `GetUnlockRoot(id)`(사슬을 따라 대표 id), `GetUnlockGroup(rootId)`(대표 + 묶인 배치 전부), `IsStartOpen(placement)`(묶인 배치는 대표의 시작 여부를 따름). 에디터에서 없는 id · 자기 자신을 적으면 경고한다.
+  - 빈 공간 칸에 놓이는 해금 모듈(B보관 · 반품 · A보관 2)은 그 칸의 `Empty_…` 배치와 **같은 칸**을 쓴다. 해금되면 `SiteGrid`가 빈 공간 타일을 끈다. `EmptyCells` = 빈 공간 id 목록.
 - **주의**: 인스펙터 우클릭 메뉴 "배치 목록을 GDD 기본값으로 되돌리기"는 목록을 덮어쓴다.
 
 #### ControlsConfig
@@ -384,6 +390,13 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### PlayerSetup
 [Characters/PlayerSetup.cs](../Scripts/Characters/PlayerSetup.cs)
 - **역할**: `PlayerConfig` 값을 `CarryStack`(최대 적재 = `PlayerUpgrades.Capacity`, 단계가 오르면 다시 넣음)과 `Interactor`(집기 간격, 대기 시간)에 넣는다. 알바는 `StaffWorker`가 같은 컴포넌트에 스탯 기반 값을 넣는다.
+- **동작**: 적재 도구가 구루마 이상(`CarryStep > 0`)이면 `CharacterAnimator.UsePull`을 켠다.
+
+#### CharacterAnimator
+[Characters/CharacterAnimator.cs](../Scripts/Characters/CharacterAnimator.cs)
+- **역할**: 캐릭터 모델 애니 (플레이어 · 알바 공용). 상태 = 멈춤 `idle`, 빈손 이동 `walk`, 상자 들고 이동 `carry`, 끌기 도구로 이동 `pull`.
+- **동작**: `LateUpdate`에서 위치 변화로 실제 속도를 재고(`moveThreshold` 0.15 m/s), 상태가 바뀔 때만 `CrossFadeInFixedTime`(0.12초). Animator는 자식 중 켜진 모델의 것을 찾는다 (알바 모델 교체 대응). `Time.deltaTime` 0(팝업 멈춤)이면 그대로.
+- **연결**: `stack`(`CarryStack`), 컨트롤러 `Assets/Art/Model/Ani/Character.controller`(상태 이름 = 클립 이름). 만들기는 `CharacterArt`(에디터).
 
 ### 4.4 Interaction — 상호작용 존
 
@@ -433,8 +446,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### PurchasePad (추상)
 [Interaction/PurchasePad.cs](../Scripts/Interaction/PurchasePad.cs)
-- **역할**: 구매 패드의 바탕 (GDD 9.2, 업그레이드 등. 확장은 v0.3부터 레벨 자동 해금이라 쓰지 않음). `GaugeZone`을 상속해 **진행도 = 낸 금액 / 비용**으로 바꾼 것.
-- **동작**: 멈춰 서 있으면 `비용 × deltaTime / padFillDuration(1.5초)`씩 `Wallet.SpendUpTo`로 낸다. 모자라면 가진 만큼만 내고 멈추며 낸 금액은 유지된다. 다 차면 `OnPurchased` → XP(`xpPurchase`) → 작아지며 사라짐. 남은 금액은 `costLabel`에 표시.
+- **역할**: 구매 패드의 바탕 (GDD 9.2). 하위 클래스: `ExpansionPad`(모듈 해금 발판). `GaugeZone`을 상속해 **진행도 = 낸 금액 / 비용**으로 바꾼 것.
+- **동작**: 멈춰 서 있으면 `비용 × deltaTime / padFillDuration(1.5초)`씩 `Wallet.SpendUpTo`로 낸다. 모자라면 가진 만큼만 내고 멈추며 낸 금액은 유지된다. 다 차면 `OnPurchased` → XP(`xpPurchase` +3) → 작아지며 사라짐. 남은 금액은 `costLabel`에 표시.
 - **하위 클래스가 정하는 것**: `SetupPad(이름, 비용)` 호출, `OnPurchased`(시설 생성 · 해금 등).
 - **주의**: `CashCollector`가 있는 대상(플레이어)만 돈을 낸다. 업그레이드 · 시설 구매 패드(M8, M10)도 이걸 상속한다.
 
@@ -512,16 +525,17 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### ShelfSlot
 [Logistics/ShelfSlot.cs](../Scripts/Logistics/ShelfSlot.cs)
-- **역할**: 선반 구역 모듈 안의 "선반을 세울 자리". 켜질 때 `ShelfSlot.All`에 스스로 등록한다.
-- **동작**: `unlockLevel`(이 레벨부터 사용 가능), `order`(모듈 안에서 세우는 순서), `Occupant`(세워진 선반), `WorldFootprint`(선반 + 앞뒤 존이 차지하는 바닥 — 패드가 피함).
-- **주의**: `OnEnable` 순서는 보장되지 않으므로, 순서가 중요하면 `order`를 쓴다.
+- **역할**: 색 보관 구역 모듈의 네 모서리 "선반 자리" (GDD 4.2 · 7.3). 켜질 때 `ShelfSlot.All`에 스스로 등록하고, **`Start`에서 자기 선반을 세운다** → 구역 모듈이 생기는(해금 · 시작) 순간 선반 4개가 함께 생긴다 (M11-5, 2026-11-15).
+- **동작**: `item`(구역 색 품목, 비우면 안 세움), `shelfPrefab`(비우면 Warehouse 기본 선반, D = 팔레트 랙), `capacity`(0 = `LogisticsConfig.shelfCapacity` 6, 랙 4), `unlockLevel`, `order`, `Occupant`(세워진 선반), `WorldFootprint`(선반 + 존이 차지하는 바닥 — 패드가 피함).
+- **연결**: `Warehouse.BuildShelf(slot)`. 값은 `StandardModules.BuildShelfArea`가 프리팹에 넣는다.
 
 #### Warehouse
 [Logistics/Warehouse.cs](../Scripts/Logistics/Warehouse.cs)
 - **역할**: 창고 전체의 선반 목록과 재고 집계. 씬에 하나 (`Site/Logistics`).
 - **동작**:
-  - `BuildShelf(item, areaId)`: 그 선반 구역(배치 id의 모듈) 안에서 비어 있고 현재 레벨로 열린 `ShelfSlot` 중 `order`가 가장 작은 곳에 선반을 세운다 (팝 연출). **품목당 1개** — 이미 있으면 그 선반을 돌려준다.
-  - `HasShelf(item)` / `FindShelf(item)`, `CountFreeSlots(areaId)`(계약 가능 확인용)
+  - `BuildShelf(slot)`: 자리의 품목 · 모양 · 용량으로 선반을 **자리의 자식, 로컬 0**에 세운다 (팝 연출). 같은 색 선반은 여러 개.
+  - `NearestShelfWithSpace(item, from)`: 그 색 선반 중 빈자리 있는 가장 가까운 것 (가이드 화살표)
+- **주의**: 선반을 월드 좌표로 세우면 안 된다 — 해금 모듈은 팝 연출로 크기 0에서 시작해 모듈 중심에 붙는다.
   - `GetShelfFreeSpace(item)`: 그 품목 선반들의 빈자리 합
   - `GetStock(item)`: 선반 + 공용 보관소의 그 품목 수 (교착 방지 가중치용)
   - `CountCarried(item, origin)`: 모든 interactor가 들고 있는 수 (중복 운반 방지, 수요 계산)
@@ -579,7 +593,9 @@ StaffWorker (thinkInterval 0.25초마다 판단)
   - 가는 중 대상이 사라지면 예약을 풀고, `thinkInterval`(0.25초)마다 다시 고른다. 가는 중 확인(`StillValid`)은 예약을 잠깐 풀고 다시 확인해 다시 잡는다.
   - 할 일이 없으면 역할 존의 빈 슬롯에서 `Parked`로 기다린다. 빈 슬롯이 없으면 그 자리에서 `Waiting`.
   - 도착 후 3초 + 대기 시간 동안 존이 잡히지 않으면 경고 로그 `작업 지점 … 밖에 있습니다`.
+  - 외형: 프리팹 `Model` 아래 `models`(macaron · rabbit) 중 하나를 `Awake`에서 무작위로 켠다 (M10-6 일부, 저장은 아직). 역할 색은 모델이 아니라 발밑 원판 `RoleRing`(`body`)에 칠한다. 퇴사 연출은 `Model`째 뛴다.
   - 해고(`Fire`): 바로 `StaffService` 명단에서 빠진다. 배달하러 가는 중 · 내려놓는 중이면 끝내고, 아니면 일을 멈춘다. 손에 화물이 있으면 배달부터 하고, 빈손이 되면 `Leave()` — 생성 지점으로 걸어가 도착하면 `Destroy`.
+  - 모듈 재배치(GDD 4.4): `SiteGrid.OnMoved` → `Repath()`. 가던(`Moving`) · 기다리던(`Parked`) · 일하던(`Working`) 작업 지점이 1m 넘게 옮겨갔으면 그 지점으로 다시 간다 (`Working`이면 `Moving`으로). 예약 · 대상 존은 모듈과 같이 옮겨지므로 그대로.
   - 시급(GDD 11.7): `Owed`(밀린 시급) · `PartShare`(이번 파트 비율, 고용 파트는 남은 시간 비율). `SetOwed`가 머리 위 `unpaidIcon`(빨간 ₩)을 켜고 둥실거리게 한다. `Quit()` = `Fire()` + 몸통 빨간 깜빡임 · 두 번 점프(0.9초, 그동안 `agent.isStopped`).
   - 프리팹에 충돌체가 없고 회피를 끈다 (`StaffWorkerPrefab`, 머리 위 `UnpaidIcon` 꺼진 채). 플레이어 · 알바와 겹쳐 지나간다.
 
@@ -588,7 +604,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 알바 명단 · 고용 후보 · 고용 (GDD 11.1). 씬 `Site/Logistics`에 하나 (`Instance`).
 - **동작**:
   - 후보: `Candidates`(`StaffCandidate` = 스탯 + `Hired`, `StaffRules.candidateCount` 3명). `PartService.Part`를 구독해 **파트가 바뀔 때마다**(구독 순간 = 처음 후보 포함) `RefreshCandidates()`, 고용 탭 [새로고침]도 같은 함수. 바뀌면 `OnCandidatesChanged`.
-  - 고용: `GetBlock(candidate)` = `Hired` / `MaxStaff`(`Workers.Count >= LevelProgress.MaxStaff`) / `Cash`(보유 재화 < 고용금) / `None`. `TryHire(candidate, out block)` = 막히지 않으면 빈 역할로 생성 → `Wallet.TrySpend(고용금)` → `Hired = true` → XP `xpPurchase`(+5) → `OnCandidatesChanged`.
+  - 고용: `GetBlock(candidate)` = `Hired` / `MaxStaff`(`Workers.Count >= LevelProgress.MaxStaff`) / `Cash`(보유 재화 < 고용금) / `None`. `TryHire(candidate, out block)` = 막히지 않으면 빈 역할로 생성 → `Wallet.TrySpend(고용금)` → `Hired = true` → `OnCandidatesChanged`. 고용 XP 없음 (2026-11-14).
   - 생성: `Spawn(role, stats)` = 사무실 생성 지점(`StaffSpawnPoint`, PC 존 바로 앞)에 `StaffWorker` 프리팹 + 팝 연출. `Spawn(role)`은 무작위 스탯(디버그 메뉴용, 고용금 · 최대 인원 없음).
   - 명단 변경: `SetRole(worker, role)` · `Fire(worker)`(고용금 환불 없음), 고용 · 해고 · 역할 변경마다 `OnWorkersChanged`. 알바 번호(`Number`)는 해고해도 다시 쓰지 않는다.
   - 시급: `GetPartWage(worker)` = `올림(시급 × PartShare)`. `PlanWages(쓸 수 있는 돈)` → `WagePlan`(`Paid` · `PaidWorkers` · `Unpaid`(알바, 밀린 금액) · `Quitting`) — 고용 순서대로 `Owed + 이번 시급`을 전액 지급, 못 받으면 `Owed`가 없으면 미지급 · 있으면 퇴사. `ApplyWages(plan)` = `SetOwed` · `Quit` 적용, 남은 알바 `PartShare = 1`, `OnWorkersChanged`.
@@ -607,7 +623,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### ContractService
 [Contracts/ContractService.cs](../Scripts/Contracts/ContractService.cs)
 - **역할**: 회사 입고 상태 (GDD 6.3, 계약 삭제 2026-11-13). 씬에 하나 (`Site/Logistics`). 이름은 그대로 둠.
-- **동작**: `Start`에서 한 프레임 기다린 뒤 레벨을 구독해, 레벨 ≥ `UnlockLevel`인 회사를 `Contracted`(= 입고 중인 회사)에 넣고 `OnContracted`를 보낸다. 그 뒤 선반 없는 품목에 선반 1개를 세운다 (임시: `shelfAreaId` → 자리 없으면 아무 빈 자리, 둘 다 없으면 다음 레벨업 때 재시도). `HasAnyContract`.
+- **동작**: `Start`에서 한 프레임 기다린 뒤 레벨을 구독해, 레벨 ≥ `UnlockLevel`인 회사를 `Contracted`(= 입고 중인 회사)에 넣고 `OnContracted`를 보낸다. `HasAnyContract`. 선반은 세우지 않는다 (구역 모듈의 `ShelfSlot`이 세움, M11-5).
 - **연결**: `InboundBay`(트럭), `OrderService`(`OnContracted` → 첫 주문), `PartService`(→ 1파트), `InspectionTable`(재포장 후보).
 - **주의**: 임시 선반 생성은 M11-5(회사별 선반 모듈)에서 지운다.
 
@@ -623,24 +639,23 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### Order
 [Orders/Order.cs](../Scripts/Orders/Order.cs)
 - **역할**: 주문 1건 (MonoBehaviour 아님). 번호, 회사, 품목 줄(`OrderLine`: 품목 · 수량 · 실은 수), 상태(`OrderState`: Waiting → Arriving → Docked → Departed).
-- **동작**: `TryLoad(item)`(1개 실음, `Changed` 알림), `GetRemaining(item)`, `IsFulfilled`, `IsCompound`, `LoadedCount`, `GetReward()`(= 실린 상자 수 × 회사 계약 단가, 복합 배율 없음).
+- **동작**: `TryLoad(item)`(1개 실음, `Changed` 알림), `GetRemaining(item)`, `IsFulfilled`, `LoadedCount`, `GetReward()`(= 실린 상자 수 × 회사 계약 단가). 줄은 항상 1개 (단일 주문, M11-2).
 - **주의**: 상태는 `OrderService`만 바꾼다 (`SetState`는 internal).
 
 #### OrderService
 [Orders/OrderService.cs](../Scripts/Orders/OrderService.cs)
 - **역할**: 주문 큐. 씬에 하나 (`Site/Logistics`).
 - **동작**:
-  - 생성: 계약 순간 1건 + 레벨 구간 간격마다 1건 (`Time.deltaTime` 누적이라 팝업 · 일시정지 중엔 멈춤). 큐가 `maxQueuedOrders`면 멈춘다. 구성은 `OrderRules` 구간(단일/복합 확률, 수량).
-  - 진행: `AssignOldestWaiting` → `MarkDocked` → `Complete`(큐에서 빼고 XP 지급, 보상 금액 반환).
-  - 수요: `GetDemand(item)` = Docked 주문의 남은 수 − 선반에서 꺼내 들고 있는 수 − 예약 수. `GetQueuedDemand(item)` = 큐 전체 남은 수.
+  - 생성: 첫 `OnContracted`(게임 시작 = A사) 때만 1건 바로 + 레벨 구간 간격마다 1건, 회사 = `StockBalancer.PickOrderCompany` (`Time.deltaTime` 누적이라 팝업 · 일시정지 중엔 멈춤). 큐가 `maxQueuedOrders`면 멈춘다. 구성 = 회사 품목 1종 × `OrderRules.RollQuantity()`(수량 가중치 표).
+  - 진행: `AssignOldestWaiting`(채울 수 있는 가장 오래된 대기 주문 — `CanFill`, 지금은 대형 회사 주문 제외) → `MarkDocked` → `Complete`(큐에서 빼고 보상 금액 반환, 출고 XP 없음). `HasWaiting`도 같은 기준.
+  - 수요: `GetDemand(item)` = Docked 주문의 남은 수 − 선반에서 꺼내 들고 있는 수 − 예약 수.
   - 예약: `Reserve` / `Unreserve` — M6 알바가 작업을 고를 때 쓴다.
 - **연결**: `OnAdded` / `OnRemoved` → `OrderQueueView`. `OutboundBay`, `ShelfZone`, `StockBalancer`가 읽는다.
 
 #### StockBalancer
 [Orders/StockBalancer.cs](../Scripts/Orders/StockBalancer.cs)
-- **역할**: 입고 · 주문 회사 / 품목 고르기 (static 클래스).
-- **동작**: `PickInboundCompany` — **회사 `Weight` 비율** (GDD 6.3, 2026-11-13). `ComposeInboundLoad` — 회사 품목이 1종이라 트럭 전부 그 품목. `PickOrderCompany` / `PickOrderItem` — 재고 + 1에 비례 (M11-2에서 회사 가중치로 바꿀 예정).
-- **주의**: 재고는 `Warehouse.GetStock`(선반 + 보관소)이다. 트럭에 실려 오는 중이거나 들고 있는 화물은 세지 않는다.
+- **역할**: 입고 · 주문 회사 고르기 (static 클래스).
+- **동작**: `PickInboundCompany` · `PickOrderCompany` — 둘 다 **회사 `Weight` 비율** (GDD 6.3 · 8.1). `ComposeInboundLoad` — 트럭 전부 그 회사 품목(1종). 교착 방지 가중치(재고 · 부족량)는 M11-2에서 삭제.
 
 ### 4.7b Economy — 파트 · 정산 · 저금통
 
@@ -650,11 +665,6 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **동작**: 첫 계약 순간 1파트 시작(첫 파트 90초, 이후 180초). `Time.deltaTime`으로 흐르므로 팝업 · 일시정지 중엔 멈춘다. 0초가 되면(또는 `EndPart()`) 정산 내역 `SettlementResult`(출고 수입 = 저금통, 보너스는 아직 0, 시급 = `StaffService.PlanWages(저금통 + 보유 재화)`의 `WagePlan.Paid`)를 `OnSettlementReady`로 보냄 → 팝업 [확인] 시 `Confirm()` → `StaffService.ApplyWages` → `Wallet.SettlePiggy(−시급)` → 다음 파트.
 - **연결**: `Part` · `Remaining`(R3, HUD 시계), `LastSettlement` · `PiggyFullAmount`(저금통 가득 기준), `DeparturesThisPart`(할당량 M10, `OrderService.OnRemoved`로 셈), `CurrentPartLength`(고용한 파트의 시급 비율).
 - **주의**: 정산 대기 중(`IsRunning = false`)에는 시간이 흐르지 않는다. 시급 계획은 팝업이 열릴 때 만들고 [확인] 때 적용한다 (그사이 게임이 멈춰 있어 바뀌지 않음). 보너스(M10)는 `EndPart`에서 채운다. 반품은 재포장 후 일반 주문으로 출고되므로 따로 수입 줄이 없다 (GDD 7.7).
-
-#### UpgradeDesk
-[Economy/UpgradeDesk.cs](../Scripts/Economy/UpgradeDesk.cs)
-- **역할**: 사무실 업그레이드 책상 게이지 존 (GDD 5.1). 다 차면 `UpgradePopup.Instance.Open()`, 나가면 게이지를 되돌린다 (`ContractPC`와 같은 구조).
-- **주의**: 사무실 프리팹에는 `StandardModules.BuildUpgradeDesk(content, 위치)`로만 붙였다 (사무실 프리팹은 손으로 고친 배치라 Rebuild 금지).
 
 #### PiggyBankView
 [Economy/PiggyBankView.cs](../Scripts/Economy/PiggyBankView.cs)
@@ -668,6 +678,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Site/SiteModule.cs](../Scripts/Site/SiteModule.cs)
 - **역할**: 모듈 프리팹의 루트. 크기(칸 수, 회전 0° 기준)와 칸 크기를 가지고, Scene 뷰에 칸 경계를 그린다.
 - **구조**: `Module_이름` (SiteModule) → `Floor`(걷는 바닥, 충돌 있음) + `Content`(존 · 시설을 넣는 곳). 루트 위치 = 차지하는 칸들의 중심.
+- **`Kind`** (GDD 4.4): `Fixed`(사무실 · 쓰레기장 · 하차 · 상차) / `Empty`(빈 공간 `Module_Empty`) / `Movable`(보관 `Module_ShelfArea_A~D` · 반품 `Module_Returns`). M12-2 재배치가 쓴다. `StandardModules.Builders`가 정한다.
 
 #### SiteGrid
 [Site/SiteGrid.cs](../Scripts/Site/SiteGrid.cs)
@@ -677,13 +688,25 @@ StaffWorker (thinkInterval 0.25초마다 판단)
   - `Unlock(id)`: **같이 해금되는 묶음 전체**를 연다 — 묶음 안 어느 id를 넘겨도 같다. 모듈마다 config에서 배치를 찾아 만들고, 칸을 열고, 팝 연출 후 `OnUnlocked`를 보낸다(모듈마다 한 번). 새로 붙은 모듈이 없으면 false.
   - `IsWalkable(위치)` / `IsAreaWalkable(중심, 반지름)`: 열린 칸 안인지 (반지름은 네 모서리로 검사).
   - `IsCellOpen(cell)`: 칸 (열, 행)이 열렸나 (인접 확인용).
-- **주의**: `Unlock`은 레벨 · 인접 조건을 확인하지 않는다. 그 조건은 `SiteUnlocker`가 확인한다 (디버그 메뉴는 조건 없이 연다).
+  - 빈 공간: `Unlock`이 붙일 모듈의 칸에 있는 `Empty` 모듈을 **끈다** (`SetActive(false)`, instance는 남아 해금된 것으로 침 → 바닥 충돌체가 빠져 네비메시에서도 빠짐). 빈 공간 칸에 놓이는 1칸 모듈은 처음 칸이 차 있으면 `TryFindEmptyCell`(가장 가까운 빈 공간)에 붙는다 — 발판 자리와 같은 규칙.
+  - 칸 조회는 **모듈 실제 위치**로 한다 (재배치 뒤 config `row` · `column`과 다름): `WorldToCell`, `CellCenter(cell)`, `ModuleAt(cell)`(켜진 모듈), `IsEmptyTile(cell)`, `TryFindEmptyCell(preferred)`, `IdOf(module)`.
+  - 재배치(M12-2, GDD 4.4): `ApplyArrangement(모듈 → 칸)` — 보관 · 반품 · 빈 공간 모듈의 자리 맞바꿈이라 열린 칸은 그대로. 모듈 **통째로** 옮기므로 선반 · 상자 · 작업 지점이 같이 간다. 옮긴 모듈은 팝 연출, `OnMoved`(네비메시 · 알바 · 발판이 구독).
+- **주의**: `Unlock`은 레벨 · 인접 조건을 확인하지 않는다. 그 조건은 `SiteUnlocker`가 확인한다 (디버그 메뉴는 조건 없이 연다). 재배치는 1칸 모듈만 가정한다.
 
 #### SiteUnlocker
 [Site/SiteUnlocker.cs](../Scripts/Site/SiteUnlocker.cs)
-- **역할**: 레벨로 부지 확장 (SiteGrid 오브젝트, GDD 9.3). 잠긴 **대표 배치**가 ① 해금 레벨이 됐고 ② 묶음이 열린 칸과 맞닿아 있으면(섬 금지) 바로 `Unlock` — 비용 · 패드 없음.
-- **동작**: 레벨이 바뀔 때마다(시작 포함) `Refresh` — 더 열 것이 없을 때까지 반복. 그다음 **다음 해금 1곳**(맞닿은 잠긴 배치 중 해금 레벨이 가장 낮은 것)의 칸마다 `ConstructionFence`를 팝으로 놓고, 표지는 한 곳에만. 디버그 해금(`OnUnlocked`) 때도 울타리를 다시 고른다.
-- **연결**: `fencePrefab`(`Assets/Prefabs/ConstructionFence.prefab`), `FencedId`(테스트용).
+- **역할**: 해금 발판으로 부지 확장 (SiteGrid 오브젝트, GDD 9.2 · 9.3). 레벨 자동 해금은 없다 (2026-11-14).
+- **동작**: 레벨 · 해금(`OnUnlocked`) · 재배치(`OnMoved`)마다 `Refresh`. `NextRoot(lockedCellsOnly)` = 열린 칸과 맞닿은 잠긴 대표 배치 중 해금 레벨이 가장 낮은 것.
+  - ① 울타리: **잠긴 칸이 있는** 다음 배치(`NextRoot(true)`)의 칸마다 `ConstructionFence`를 팝으로 놓고, 표지는 한 곳에만. 빈 공간 칸 모듈은 울타리 없음.
+  - ② 발판: 다음 배치(`NextRoot(false)`, 빈 공간 칸 모듈 포함)의 `unlockLevel`이 되면 `ExpansionPad`를 팝으로 놓는다. 칸이 모두 열려 있으면(빈 공간 칸 모듈) **그 칸 중앙**, 차 있으면 가장 가까운 빈 공간 중앙 (`SiteGrid.TryFindEmptyCell`). 이미 놓인 빈 공간 발판은 재배치로 칸이 차면 가장 가까운 빈 공간으로 옮긴다 (채운 돈 유지, 빈 공간이 없으면 숨김). 잠긴 칸이면 맞닿은 열린 칸(host)의 경계 안쪽 (위 · 왼 · 오른 · 아래 host 순, 다른 존 · 선반과 겹치지 않는 자리). 발판은 한 번에 하나.
+- **연결**: `fencePrefab`(`Assets/Prefabs/ConstructionFence.prefab`), `padPrefab`(`Assets/Prefabs/ExpansionPad.prefab`), `SiteLayout`의 `unlockLevel` · `cost`, `FencedId`(테스트용).
+- **주의**: 발판 대상이 바뀌면(디버그 해금 등) 옛 발판을 지운다.
+
+#### ExpansionPad
+[Site/ExpansionPad.cs](../Scripts/Site/ExpansionPad.cs)
+- **역할**: 모듈 해금 발판 (`PurchasePad`, GDD 9.2). 바닥 존 + 원형 게이지 + 남은 금액 + 모듈 이름.
+- **동작**: `Setup(placementId, 이름, 비용)`. 다 내면 `SiteGrid.Unlock(placementId)` → XP +3 → 사라짐.
+- **연결**: `SiteUnlocker`가 만든다. 프리팹은 `StandardModules.ExpansionPadPrefab()` (M5에 있다가 v0.3에서 지웠던 것을 M11-3 때 되살림).
 
 #### ConstructionFence
 [Site/ConstructionFence.cs](../Scripts/Site/ConstructionFence.cs)
@@ -692,7 +715,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### SiteNavMesh
 [Site/SiteNavMesh.cs](../Scripts/Site/SiteNavMesh.cs)
 - **역할**: 부지 네비메시 (M6 알바 대비). Site 루트의 `NavMeshSurface`가 **자식 충돌체 = 열린 모듈 바닥**에만 굽는다. 잠긴 칸엔 바닥이 없으니 알바도 열린 칸 안에서만 다닌다.
-- **동작**: 시작 시 한 번, `OnUnlocked`마다 팝 연출(`facilityPopDuration`)이 끝난 뒤 다시 굽는다 (묶음 해금이어도 한 번).
+- **동작**: 시작 시 한 번, `OnUnlocked` · `OnMoved`(모듈 재배치)마다 팝 연출(`facilityPopDuration`)이 끝난 뒤 다시 굽는다 (묶음 해금이어도 한 번).
 - **주의**: 초록 Ground는 `NavMeshModifier.ignoreFromBuild`로 제외. 선반은 `BoxCollider` + `NavMeshObstacle`(carve)로 알바가 돌아가고, `NavMeshModifier`(ignoreFromBuild)로 바닥에 구워지지 않는다. 트럭은 장애물로 두지 않는다 (주차 칸이 부지 밖).
 
 ### 4.9 UI
@@ -737,11 +760,23 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 파트 종료 정산 팝업 (게임 멈춤). 출고 수입 · 할당량 보너스 · 알바 시급 · 합계가 줄마다 차례로 올라가고(`SetUpdate(true)`), 다 오르면 [확인]이 켜진다. [확인] → 닫고 `ClosePopup` → `PartService.Confirm()`. 아래 `staffLabel`에 미지급 · 퇴사 알바 명단 + 경고(`WagePlan`), 합계가 음수면 `negativeColor`.
 - **주의**: 루트는 항상 켜 두고 `body`만 켜고 끈다 (계약 팝업과 같은 구조).
 
-#### UpgradePopup
-[UI/UpgradePopup.cs](../Scripts/UI/UpgradePopup.cs)
-- **역할**: 업그레이드 팝업 (게임 멈춤). 줄 2개(적재 도구 · 이동 속도): `지금 이름 값 → 다음 이름 값` + 버튼(`₩비용` / `Lv.N 해금` / `최대`). 돈 · 레벨이 바뀌면 다시 그린다.
-- **동작**: 버튼 → `PlayerUpgrades.TryBuy`, 성공하면 값 글자가 튐. X로 닫는다.
-- **주의**: 루트는 항상 켜 두고 `body`만 켜고 끈다. Build Site가 만든다 (`BuildUpgradePopup`).
+#### UpgradePanel
+[UI/UpgradePanel.cs](../Scripts/UI/UpgradePanel.cs)
+- **역할**: 계약 PC 팝업의 업그레이드 탭 페이지 (GDD 5.1, M11-3). 줄 2개(적재 도구 · 이동 속도): `지금 이름 값 → 다음 이름 값` + 버튼(`₩비용` / `Lv.N 해금` / `최대`). 돈 · 레벨이 바뀌거나 탭이 켜지면 다시 그린다.
+- **동작**: 버튼 → `PlayerUpgrades.TryBuy`(보유 재화 · XP +3), 성공하면 값 글자가 튐. 열고 닫기 · 게임 멈춤은 `ContractPopup`.
+- **주의**: Build Site가 `ContractPopup` 안에 만든다 (`BuildUpgradePage`). 옛 `UpgradePopup`(따로 뜨던 팝업) · `UpgradeDesk`(사무실 책상)는 M11-3에서 삭제 — 스크립트 GUID는 `UpgradePanel`이 이어받음.
+
+#### ModulePanel
+[UI/ModulePanel.cs](../Scripts/UI/ModulePanel.cs)
+- **역할**: 계약 PC 팝업의 `모듈` 탭 페이지 (GDD 4.4, M12-2). 6 × 4 부지 미니맵에서 보관 · 반품 칸을 끌어다 놓아 자리를 바꾼다.
+- **동작**: `Begin()`(팝업 열 때) = `SiteGrid.ModuleAt`으로 칸마다 모듈을 찍어 `original` · `staged`에 둔다. `Drop(source, target)` = 대상이 빈 공간 · 보관 · 반품이면 `staged`에서 자리 맞바꿈(이동 · 교체), 고정 모듈 · 잠긴 칸 · 바깥이면 실패(칸 흔들림 + 사유 글자 1.5초). [되돌리기] = `staged` ← `original`. `Apply()`(팝업 닫을 때) = `SiteGrid.ApplyArrangement`.
+  - 칸 색: 빈 공간 흰색, 고정 어두운 회색, 보관 = 그 회사 품목 띠 색(id `Store` + 회사 id), 반품 파랑, 잠긴 칸 반투명 회색 `잠김`. 부지 밖 칸은 숨김. 이름 = `SiteLayout.GetDisplayName`.
+- **연결**: `cellTemplate`(`ModuleCell`, 꺼진 채 · 위치 = (1,1) 칸) → 실행 때 24칸 생성(`cellStep` 210 × 160). Build Site의 `BuildModulePage`가 만든다.
+- **주의**: 미니맵 변경은 닫기 전까지 부지에 적용되지 않는다 (탭을 바꿔도 유지).
+
+#### ModuleCell
+[UI/ModuleCell.cs](../Scripts/UI/ModuleCell.cs)
+- **역할**: 미니맵 칸 1개. `Cell`(열, 행) · `Draggable`(Movable 모듈만). 끌면 맨 위로 올라가 손가락을 따라가고, 놓으면 레이캐스트로 아래 칸을 찾아 `ModulePanel.Drop`.
 
 #### OrderQueueView
 [UI/OrderQueueView.cs](../Scripts/UI/OrderQueueView.cs)
@@ -756,8 +791,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### ContractPopup
 [UI/ContractPopup.cs](../Scripts/UI/ContractPopup.cs)
-- **역할**: 계약 PC 팝업 — `고용 | 배치` 탭 (GDD 11.1, 11.3, 12.3, 계약 탭은 2026-11-13 삭제). 열려 있는 동안 게임이 멈춘다. 고용 탭(`HirePanel`)은 고용해도 열린 채다.
-- **동작**: `Open` → `GameManager.OpenPopup` → 고용 탭. `SelectTab(Tab)`이 `hirePage` / `rosterPage`를 켜고 끄고 탭 버튼 색을 바꾼다. 배치 탭에선 도장 · 안내 글자 묶음(`stampArea`)을 숨긴다. `Close` → 닫힘 연출이 끝나면 `ClosePopup`. 트윈은 `SetUpdate(true)`.
+- **역할**: 계약 PC 팝업 — `고용 | 배치 | 업그레이드 | 모듈` 탭 (GDD 4.4, 5.1, 11.1, 11.3, 12.3, 계약 탭은 2026-11-13 삭제). 열려 있는 동안 게임이 멈춘다. 고용 탭(`HirePanel`)은 고용해도 열린 채다.
+- **동작**: `Open` → `modulePage.Begin()`(지금 배치를 미니맵에) → `GameManager.OpenPopup` → 고용 탭. `SelectTab(Tab)`이 `hirePage` / `rosterPage` / `upgradePage` / `modulePage`를 켜고 끄고 탭 버튼 색을 바꾼다. 도장 · 안내 글자 묶음(`stampArea`)은 고용 탭에서만 보인다. `Close` → `modulePage.Apply()`(모듈 재배치 적용) → 닫힘 연출이 끝나면 `ClosePopup`. 트윈은 `SetUpdate(true)`.
 - **주의**: 루트 오브젝트는 항상 켜 두고 자식 `body`만 켜고 끈다 (꺼져 있으면 `Instance`가 등록되지 않음). Build Site가 UI를 통째로 다시 만든다.
 
 #### StampCard (추상)
@@ -827,10 +862,14 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | 메뉴 | 스크립트 | 하는 일 |
 |---|---|---|
 | `APC > Setup > Run M0 Setup` | [ProjectBootstrap](../Scripts/Editor/ProjectBootstrap.cs) | 폴더, 가로 화면 설정, 데이터 에셋(GDD 수치), Game 씬. **이미 있는 에셋 · 씬은 건드리지 않고** 빈 참조만 채운다 |
-| `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground(네비메시 제외) · NavMeshSurface · Logistics(Warehouse · ContractService · OrderService · StaffService) → 시작 모듈 인스턴스 + SiteUnlocker → HUD(레벨 · 현금 · 레벨업 배너 + 색종이 · 주문서 큐 · 계약 PC 팝업(고용 · 배치 탭) · 정산 팝업 · 현금 아이콘 층 `CashFly`, 자식은 꺼진 채 저장 + `UiBootstrap`) → 플레이어 위치 + CashCollector → 씬 저장 |
+| `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground(네비메시 제외) · NavMeshSurface · Logistics(Warehouse · ContractService · OrderService · StaffService) → 시작 모듈 인스턴스 + SiteUnlocker → HUD(레벨 · 현금 · 레벨업 배너 + 색종이 · 주문서 큐 · 계약 PC 팝업(고용 · 배치 · 업그레이드 · 모듈 탭) · 정산 팝업 · 현금 아이콘 층 `CashFly`, 자식은 꺼진 채 저장 + `UiBootstrap`) → 플레이어 위치 + CashCollector → 씬 저장 |
 | `APC > Setup > Apply M6 Staff (프리팹 덮어쓰기)` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 · 선반 · 알바 프리팹(`StaffWorker.prefab`)을 덮어쓰고 Build Site. config(SiteLayout · 레벨 표)는 건드리지 않는다 |
 | `APC > Module > New Module...` | [ModuleFactory](../Scripts/Editor/ModuleFactory.cs) (`ModuleCreatorWindow`) | 빈 n × m 모듈 틀을 `Assets/Prefabs/Modules/Module_이름.prefab`으로 만든다 |
-| `APC > Module > Rebuild Standard Modules` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 10종(빈 타일 `Module_Empty` 포함)을 코드 기준으로 **덮어써서** 다시 만든다 |
+| `APC > Art > Build Test Module` | [ArtModuleBuilder](../Scripts/Editor/ArtModuleBuilder.cs) | 아트 시험용 빈 모듈 `Assets/Prefabs/Modules/Test/Module_ArtTest.prefab`: 바닥 `floor1_basic.fbx` 10 × 10장(1장 = 1m, 메시 실제 크기를 재서 맞춤) + 공용 재질 `M_Prop`(`Color_Pallet.png`). 바닥 충돌체는 그대로 두고 큐브 렌더러만 끔. 게임 배치(SiteLayout)에는 안 들어감 |
+| `APC > Art > Apply Character Models` | [CharacterArt](../Scripts/Editor/CharacterArt.cs) | 캐릭터 모델 적용: 애니 idle · walk · carry · pull 반복 켜기, 모델 아바타 생성, 재질 `M_Char_모델`(`*_P.psd`), 컨트롤러 `Ani/Character.controller`. 씬 Player에 `player` 모델 + `CharacterAnimator`(임시 몸통 렌더러는 끔, 스택 높이 1.6) → 씬 저장, 알바 프리팹 다시 만들기(`StaffWorkerPrefab`) |
+| `APC > Art > Log Prop Sizes` | [ArtModuleBuilder](../Scripts/Editor/ArtModuleBuilder.cs) | `Art/Model/Prop` fbx마다 실제 크기(m)와 import `globalScale`을 콘솔에 찍는다 (스케일 통일 기준) |
+| `APC > Module > Rebuild Standard Modules` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 12종(빈 공간 `Module_Empty` · 쓰레기장 `Module_Trash` 포함)을 코드 기준으로 **덮어써서** 다시 만든다 (사무실도 덮어씀) |
+| `APC > Setup > Apply Layout 6x4` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 6 × 4 배치 적용 (M12-1): SiteLayout · 회사 선반 구역(`StoreA1` · `StoreB~D`)을 기본값으로, 보관 A~D · 반품 · 쓰레기장 · 빈 공간 모듈만 다시 만들고(사무실 · 하차 · 상차는 그대로), Build Site. 레벨 표는 안 건드림 |
 
 #### StandardModules
 - **역할**: 기본 모듈 프리팹의 내용을 코드로 정의한다. `DefaultAssignments`(SiteLayout id → 기본 모듈 · 회전)와 `Builders`(모듈 이름 → 만드는 함수) 두 표가 핵심이다. 시설 프리팹(`Shelf`, `InboundTruck`, `OutboundTruck`, `CashBundle`, `ConstructionFence`)도 여기서 만든다.
@@ -838,8 +877,9 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **M6 추가**: `WorkSlots(zone, offsets)`로 작업 지점을 존마다 둔다 (하차 · 상차 존 2 · 팔레트 4 · 선반 4). 선반 프리팹에 `BoxCollider`(1.6×1.8×1.6) + `NavMeshObstacle`(carve) + `NavMeshModifier`(ignoreFromBuild). 사무실 모듈에 `StaffSpawnPoint`. `StaffWorkerPrefab(overwrite)` = 캡슐 + `StackAnchor`(1.35) + `NavMeshAgent`(반경 0.3 · 높이 1.2 · 회피 없음) + `CarryStack` + `Interactor` + `StaffWorker`, 충돌체 없음.
 - **M9 반품 구역(`BuildReturns`, `Module_Returns`)**: 왼쪽 위 롤테이너(`SharedStorage` Returns, 3 × 2 × 2층) + `StorageZone`(작업 지점 2, 하차 알바 배달용), 오른쪽 위 검수 테이블(`InspectionTable` + 게이지 링 + 테이블 · `workPoint`), 오른쪽 아래 재포장 출구(`SharedStorage` Repacked, 3 × 2) + `StorageZone`(작업 지점 2, 분류 알바용). 보관 더미는 `Storage(...)` 헬퍼로 각자 오브젝트에 붙인다.
 - **사무실 주의**: `Module_Office.prefab`은 사용자가 손으로 위치를 고쳤다 (2026-11-12). `EnsureAll(true)` · Apply 메뉴는 이를 덮어쓰므로, 다른 모듈만 고칠 땐 `Rebuild("Module_…")`로 그 모듈만.
-- **메뉴 `APC > Setup > Apply Layout v0.3`**(`ApplyLayoutV3Internal`): SiteLayout · 레벨 표 · 회사 선반 구역을 기본값으로, 기본 프리팹 덮어쓰기, `ObsoleteAssets` 삭제, Build Site.
-- **동작**: `EnsureAll(overwrite)`, `Rebuild(asset)`(모듈 하나만 다시), `ShelfPrefab(overwrite)` · `OutboundTruckPrefab(overwrite)`. 같은 경로에 덮어쓰므로 GUID와 참조는 유지된다.
+- **메뉴 `APC > Setup > Apply Layout 6x4`**(`ApplyLayoutInternal`, 옛 v0.3 메뉴 대체): SiteLayout · 회사 선반 구역을 기본값으로, 보관 · 반품 · 쓰레기장 · 빈 공간 모듈 다시 만들기, `ObsoleteAssets` 삭제, Build Site. 레벨 표는 건드리지 않는다.
+- **6 × 4 트럭 방향** (`DefaultAssignments`): `In1` (4,2) 회전 0 `_M`, `In2` (3,1) 270, `Out1` (2,4) 180 `_M`, `Out2` (3,5) · `Out3` (3,6) 90. (4,1) · (2,5) 바깥 칸에 트럭 두 대가 들어오므로 주차 칸을 서로 먼 쪽으로 비켰다 (모서리가 조금 겹침).
+- **동작**: `EnsureAll(overwrite)`, `Rebuild(asset)`(모듈 하나만 다시), `ShelfPrefab(overwrite)` · `PalletRackPrefab(overwrite)`(D 가구 구역, 2 × 2 한 단) · `OutboundTruckPrefab(overwrite)`. 보관 구역 `BuildShelfArea(root, 회사 id, rack)` = 네 모서리 `ShelfSlot`에 그 회사 품목 · 랙 · 용량을 넣는다. 같은 경로에 덮어쓰므로 GUID와 참조는 유지된다.
 - **주의**: 평소에는 **없는 프리팹만** 만든다. 프리팹을 손으로 고쳤다면 Rebuild를 누르지 않는다 (덮어씀). 좌표는 모듈 중심 기준(1칸 = −5 ~ +5)이고, 주차장의 바깥쪽은 −x다. 코드를 바꿨는데 프리팹이 이미 있으면 해당 프리팹만 `Rebuild`/`overwrite: true`로 다시 만든다.
 
 #### BuildKit

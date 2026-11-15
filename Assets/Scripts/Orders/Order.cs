@@ -58,7 +58,6 @@ namespace APC.Orders
 
         public CompanyDefinition Company { get; }
         public IReadOnlyList<OrderLine> Lines => lines;
-        public bool IsCompound => lines.Count > 1;
         public ReadOnlyReactiveProperty<OrderState> State => state;
 
         /// <summary>상차될 때마다 알린다 (카드 · 트럭 표시 갱신).</summary>
