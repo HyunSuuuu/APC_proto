@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using APC.Core;
 using APC.Data;
+using APC.Site;
 using APC.Economy;
 using R3;
 using UnityEngine;
@@ -11,9 +12,15 @@ namespace APC.Staff
     /// <summary>고용 탭 후보 1명 (GDD 11.1). 고용하면 Hired가 켜지고 다음 교체(파트 · 새로고침)까지 그 자리에 남는다.</summary>
     public sealed class StaffCandidate
     {
-        public StaffCandidate(StaffStats stats) => Stats = stats;
+        public StaffCandidate(StaffStats stats, bool costume)
+        {
+            Stats = stats;
+            Costume = costume;
+        }
 
         public StaffStats Stats { get; }
+        /// <summary>코스튬 알바 (아니면 물류 유니폼, GDD 11.1).</summary>
+        public bool Costume { get; }
         public bool Hired { get; internal set; }
     }
 
@@ -46,7 +53,7 @@ namespace APC.Staff
     {
         public static StaffService Instance { get; private set; }
 
-        static readonly StaffRole[] RoleOrder = { StaffRole.Unload, StaffRole.Sort, StaffRole.Pick };
+        static readonly StaffRole[] RoleOrder = { StaffRole.Unload, StaffRole.Sort, StaffRole.Pick, StaffRole.Returns };
 
         [SerializeField] StaffWorker workerPrefab;
 
@@ -102,7 +109,7 @@ namespace APC.Staff
         {
             var rules = GameManager.Instance.Database.Staff;
             candidates.Clear();
-            for (var i = 0; i < rules.CandidateCount; i++) candidates.Add(new StaffCandidate(rules.RollStats()));
+            for (var i = 0; i < rules.CandidateCount; i++) candidates.Add(new StaffCandidate(rules.RollStats(), rules.RollCostume()));
             candidatesChanged.OnNext(Unit.Default);
         }
 
@@ -124,7 +131,7 @@ namespace APC.Staff
             if (block != HireBlock.None) return false;
 
             var gm = GameManager.Instance;
-            var worker = Spawn(NextEmptyRole(), candidate.Stats);
+            var worker = Spawn(NextEmptyRole(), candidate.Stats, candidate.Costume);
             if (worker == null) return false;
 
             gm.Wallet.TrySpend(GetHireCost(candidate));
@@ -133,13 +140,14 @@ namespace APC.Staff
             return true;
         }
 
-        /// <summary>빈 역할 (하차 → 분류 → 피킹 순, GDD 11.1). 모두 차 있으면 인원이 가장 적은 역할.</summary>
+        /// <summary>빈 직무 (하차 → 보관 → 상차 → 반품 순, GDD 11.1). 모두 차 있으면 인원이 가장 적은 직무. 열리지 않은 직무(반품)는 건너뛴다.</summary>
         public StaffRole NextEmptyRole()
         {
             var best = RoleOrder[0];
             var bestCount = int.MaxValue;
             foreach (var role in RoleOrder)
             {
+                if (!IsRoleOpen(role)) continue;
                 var count = CountRole(role);
                 if (count >= bestCount) continue;
                 best = role;
@@ -147,6 +155,11 @@ namespace APC.Staff
             }
             return best;
         }
+
+        /// <summary>반품 직무는 반품 구역(Ret1)을 지은 뒤에 열린다 (GDD 11.3).</summary>
+        // shortcut: 첫 반품 구역 id `Ret1`로만 본다 — 반품 구역이 여러 종류가 되면 SiteGrid에서 Kind로 찾기
+        public bool IsRoleOpen(StaffRole role)
+            => role != StaffRole.Returns || (SiteGrid.Instance != null && SiteGrid.Instance.IsUnlocked("Ret1"));
 
         public int CountRole(StaffRole role)
         {
@@ -159,10 +172,14 @@ namespace APC.Staff
         }
 
         /// <summary>디버그용: 무작위 스탯으로 바로 만든다 (고용금 · 최대 인원 없음).</summary>
-        public StaffWorker Spawn(StaffRole role) => Spawn(role, GameManager.Instance.Database.Staff.RollStats());
+        public StaffWorker Spawn(StaffRole role)
+        {
+            var rules = GameManager.Instance.Database.Staff;
+            return Spawn(role, rules.RollStats(), rules.RollCostume());
+        }
 
         /// <summary>사무실 생성 지점(PC 책상 건너편)에 알바 1명을 만든다. 네비메시가 없으면 null.</summary>
-        public StaffWorker Spawn(StaffRole role, StaffStats stats)
+        public StaffWorker Spawn(StaffRole role, StaffStats stats, bool costume)
         {
             var spawn = StaffSpawnPoint.Current;
             var position = spawn != null ? spawn.transform.position : transform.position;
@@ -175,7 +192,7 @@ namespace APC.Staff
             var worker = Instantiate(workerPrefab, hit.position, spawn != null ? spawn.transform.rotation : Quaternion.identity, transform);
             worker.Number = ++hireCount;
             worker.name = $"Staff_{worker.Number}";
-            worker.Setup(role, stats);
+            worker.Setup(role, stats, costume);
             worker.PartShare = CurrentPartShare();
             workers.Add(worker);
             FacilityPop.Play(worker.transform);

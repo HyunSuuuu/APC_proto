@@ -31,7 +31,7 @@ namespace APC.UI
             var changed = Candidate != candidate;
             Candidate = candidate;
             var stats = candidate.Stats;
-            titleLabel.text = $"후보 {number}";
+            titleLabel.text = candidate.Costume ? $"후보 {number}  <size=70%><color=#D9662B>코스튬</color></size>" : $"후보 {number}";
             speedLabel.text = $"이동 속도  {stats.moveSpeed}  <size=70%>({rules.GetMoveSpeed(stats.moveSpeed):0.0} m/s)</size>";
             carryLabel.text = $"적재량  {stats.carry}  <size=70%>({rules.GetCarryCapacity(stats.carry)}개)</size>";
             costLabel.text = $"고용금 {rules.GetHireCost(stats.Total):N0}";

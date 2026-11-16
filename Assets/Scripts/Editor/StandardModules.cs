@@ -661,7 +661,7 @@ namespace APC.EditorTools
         }
 
         /// <summary>
-        /// 알바 (M6): 모델 macaron · rabbit 중 하나(생성 때 무작위, `Model` 아래) + 발밑 역할 색 원판 + 머리 위 운반 스택
+        /// 알바 (M6): 모델 uniformT(유니폼) · macaron · rabbit · SBS(코스튬) 중 하나(고용 때 정함, `Model` 아래) + 발밑 역할 색 원판 + 머리 위 운반 스택
         /// + NavMeshAgent(회피 끔 = 겹쳐 지나감) + CharacterAnimator. 충돌체가 없어 플레이어와 부딪히지 않는다.
         /// </summary>
         public static StaffWorker StaffWorkerPrefab(bool overwrite = false)

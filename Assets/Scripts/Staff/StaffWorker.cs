@@ -34,7 +34,7 @@ namespace APC.Staff
         enum Search { None, NoSlot, Found }
 
         [SerializeField, Tooltip("역할 색을 칠할 것 (모델이 있으면 발밑 원판)")] Renderer body;
-        [SerializeField, Tooltip("외형 후보 (생성될 때 하나만 무작위로 켠다, GDD 11 · M10-6). 비우면 그대로")] GameObject[] models;
+        [SerializeField, Tooltip("외형 후보. [0] = 물류 유니폼, [1..] = 코스튬 (Setup에서 하나만 켠다, GDD 11.1). 비우면 그대로")] GameObject[] models;
         [SerializeField, Tooltip("미지급 표시 (머리 위 빨간 ₩, 꺼진 채)")] GameObject unpaidIcon;
         [SerializeField, Tooltip("퇴사할 때 깜빡이는 색")] Color angryColor = new(0.9f, 0.1f, 0.1f);
 
@@ -58,6 +58,7 @@ namespace APC.Staff
         Tween iconTween;
 
         public StaffRole Role { get; private set; }
+        public bool Costume { get; private set; }
         public StaffStats Stats { get; private set; }
         public Phase State { get; private set; }
         public CarryStack Stack => stack;
@@ -81,11 +82,6 @@ namespace APC.Staff
             interactor = GetComponent<Interactor>();
             stack = GetComponent<CarryStack>();
             interactor.RestrictToTarget = true; // 목표 존의 작업 지점에서만 상호작용
-            if (models != null && models.Length > 0)
-            {
-                var pick = Random.Range(0, models.Length);
-                for (var i = 0; i < models.Length; i++) models[i].SetActive(i == pick);
-            }
             if (unpaidIcon != null)
             {
                 iconBaseY = unpaidIcon.transform.localPosition.y;
@@ -129,8 +125,15 @@ namespace APC.Staff
                 .SetLink(gameObject);
         }
 
-        public void Setup(StaffRole role, StaffStats stats)
+        /// <param name="costume">true면 models[1..] 중 무작위 코스튬, 아니면 models[0] 물류 유니폼 (GDD 11.1).</param>
+        public void Setup(StaffRole role, StaffStats stats, bool costume)
         {
+            if (models != null && models.Length > 0)
+            {
+                var pick = costume && models.Length > 1 ? Random.Range(1, models.Length) : 0;
+                for (var i = 0; i < models.Length; i++) models[i].SetActive(i == pick);
+                Costume = pick > 0;
+            }
             rules = GameManager.Instance.Database.Staff;
             Stats = stats;
             agent.speed = rules.GetMoveSpeed(stats.moveSpeed);
@@ -305,7 +308,8 @@ namespace APC.Staff
         {
             StaffRole.Unload => candidate is TruckPickupZone,
             StaffRole.Sort => candidate is StorageZone,
-            _ => candidate is ShelfZone,
+            StaffRole.Pick => candidate is ShelfZone,
+            _ => false, // shortcut: 반품 직무 작업은 M13-12 — 그 전엔 제자리 대기
         };
 
         // 하차 칸 공간 빈자리 · 선반 빈자리 · 수요는 존 규칙(HasCargoFor)에 이미 들어 있다.

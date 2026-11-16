@@ -652,17 +652,17 @@ namespace APC.EditorTools
             var header = UIText("Header", page, new Vector2(0f, 1f), new Vector2(380f, -150f), new Vector2(700f, 60f), "알바 0/1", 36f, BodyFont, dark);
             header.alignment = TMPro.TextAlignmentOptions.Left;
 
-            var roles = new[] { StaffRole.Unload, StaffRole.Sort, StaffRole.Pick };
-            var names = new[] { "하차", "분류", "피킹" };
+            var roles = new[] { StaffRole.Unload, StaffRole.Sort, StaffRole.Pick, StaffRole.Returns };
+            var names = new[] { "하차", "보관", "상차", "반품" }; // GDD 11.3 직무 4열
             var columns = new List<Object>();
             for (var i = 0; i < roles.Length; i++)
             {
-                var bg = UIImage($"Column_{roles[i]}", page, center, center, new Vector2(-560f + 380f * i, -60f), new Vector2(360f, 640f), new Color(0.9f, 0.88f, 0.85f), sprite);
+                var bg = UIImage($"Column_{roles[i]}", page, center, center, new Vector2(-600f + 290f * i, -60f), new Vector2(270f, 640f), new Color(0.9f, 0.88f, 0.85f), sprite);
                 bg.type = Image.Type.Sliced;
                 bg.raycastTarget = true; // 카드를 놓을 곳
-                var title = UIText("Title", bg.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -40f), new Vector2(340f, 60f), $"{names[i]} (0)", 38f, TitleFont, dark);
-                UIImage("Bar", bg.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -78f), new Vector2(320f, 8f), rules.GetRoleColor(roles[i]), sprite);
-                var content = UIRect("Content", bg.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -365f), new Vector2(340f, 540f));
+                var title = UIText("Title", bg.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -40f), new Vector2(250f, 60f), $"{names[i]} (0)", 38f, TitleFont, dark);
+                UIImage("Bar", bg.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -78f), new Vector2(240f, 8f), rules.GetRoleColor(roles[i]), sprite);
+                var content = UIRect("Content", bg.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -365f), new Vector2(260f, 540f));
                 var layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
                 layout.spacing = 10f;
                 layout.childAlignment = TextAnchor.UpperCenter;
@@ -673,22 +673,22 @@ namespace APC.EditorTools
                 columns.Add(Column(bg.gameObject, false, roles[i], title, names[i], content));
             }
 
-            var fireImage = UIImage("Column_Fire", page, center, center, new Vector2(590f, -60f), new Vector2(300f, 640f), new Color(0.95f, 0.86f, 0.83f), sprite);
+            var fireImage = UIImage("Column_Fire", page, center, center, new Vector2(575f, -60f), new Vector2(280f, 640f), new Color(0.95f, 0.86f, 0.83f), sprite);
             fireImage.type = Image.Type.Sliced;
             fireImage.raycastTarget = true;
-            UIText("Label", fireImage.rectTransform, center, Vector2.zero, new Vector2(280f, 200f), "해고\n<size=60%>여기에 놓기</size>", 52f, TitleFont, red);
+            UIText("Label", fireImage.rectTransform, center, Vector2.zero, new Vector2(260f, 200f), "해고\n<size=60%>여기에 놓기</size>", 52f, TitleFont, red);
             Column(fireImage.gameObject, true, StaffRole.Unload, null, "해고", null);
 
             // 끄는 카드를 올려 둘 층 (레이아웃 밖) + 카드 템플릿
             var dragLayer = UIRect("DragLayer", page, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            var cardImage = UIImage("CardTemplate", dragLayer, center, center, Vector2.zero, new Vector2(340f, 100f), Color.white, sprite);
+            var cardImage = UIImage("CardTemplate", dragLayer, center, center, Vector2.zero, new Vector2(250f, 100f), Color.white, sprite);
             cardImage.type = Image.Type.Sliced;
             cardImage.raycastTarget = true; // 끌 수 있게
             cardImage.gameObject.AddComponent<CanvasGroup>();
             var bar = UIImage("Color", cardImage.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(22f, 0f), new Vector2(16f, 76f), Color.white, sprite);
-            var nameLabel = UIText("Name", cardImage.rectTransform, new Vector2(0.5f, 1f), new Vector2(20f, -30f), new Vector2(280f, 44f), "알바 1", 34f, TitleFont, dark);
+            var nameLabel = UIText("Name", cardImage.rectTransform, new Vector2(0.5f, 1f), new Vector2(15f, -30f), new Vector2(200f, 44f), "알바 1", 32f, TitleFont, dark);
             nameLabel.alignment = TMPro.TextAlignmentOptions.Left;
-            var statsLabel = UIText("Stats", cardImage.rectTransform, new Vector2(0.5f, 1f), new Vector2(20f, -72f), new Vector2(280f, 36f), "이동 1 · 적재 1 · 시급 8", 26f, BodyFont, soft);
+            var statsLabel = UIText("Stats", cardImage.rectTransform, new Vector2(0.5f, 1f), new Vector2(15f, -72f), new Vector2(200f, 36f), "이동 1 · 적재 1 · 시급 8", 20f, BodyFont, soft);
             statsLabel.alignment = TMPro.TextAlignmentOptions.Left;
             var card = cardImage.gameObject.AddComponent<RosterCard>();
             SetRef(card, "colorBar", bar);

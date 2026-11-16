@@ -173,6 +173,7 @@ namespace APC.Debugging
             if (GUILayout.Button("Unload", buttonStyle)) staff.Spawn(StaffRole.Unload);
             if (GUILayout.Button("Sort", buttonStyle)) staff.Spawn(StaffRole.Sort);
             if (GUILayout.Button("Pick", buttonStyle)) staff.Spawn(StaffRole.Pick);
+            if (GUILayout.Button("Returns", buttonStyle)) staff.Spawn(StaffRole.Returns);
             GUILayout.EndHorizontal();
             foreach (var worker in staff.Workers)
             {

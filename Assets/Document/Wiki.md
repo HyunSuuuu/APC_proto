@@ -320,7 +320,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | [LevelTable](../Scripts/Data/LevelTable.cs) | `LevelTable` | 레벨별 필요 XP · 최대 알바 · 해금 메모. 목록 이후 레벨은 공식으로 계산 |
 | [EconomyConfig](../Scripts/Data/EconomyConfig.cs) | `EconomyConfig` | 시작 보유 재화, 구매 패드 시간, 업그레이드 비용, **현금 더미**(다발 금액 · 최대 보이는 수 · 흡수 반경 · 날아가는 간격/시간), **파트 · 정산**(파트 길이 180 · 저금통 단계 3 · 가득 기준), 경험치 |
 | [OrderRules](../Scripts/Data/OrderRules.cs) | `OrderRules` | 상차 트럭 1대 합계 수량 가중치(3~6 = 40/30/20/10), 두 색 확률 `twoColorChance`(0.5) |
-| [StaffRules](../Scripts/Data/StaffRules.cs) | `StaffRules` | 알바 스탯 생성 · 스탯 효과 · 고용금 · 시급 · 역할 색 · 작업 대기 · 집기 간격 (M6) |
+| [StaffRules](../Scripts/Data/StaffRules.cs) | `StaffRules` | 알바 스탯 생성 · 스탯 효과 · 고용금 · 시급 · 직무 색(4개) · 코스튬 확률(`costumeChance` 0.1) · 작업 대기 · 집기 간격 (M6, M13-7) |
 | [PlayerConfig](../Scripts/Data/PlayerConfig.cs) | `PlayerConfig` | 이동 속도 · 회전 속도 · 뛰기 기준, 기본 적재(손 3개), **업그레이드 단계** `carrySteps` · `speedSteps` (`PlayerUpgradeStep` 이름 · 값 · 해금 레벨 · 비용), 집기 간격, **상호작용 대기 시간**, 내려놓기 ↔ 집기 전환 쿨타임 |
 | [ControlsConfig](../Scripts/Data/ControlsConfig.cs) | `ControlsConfig` | 조이스틱 반경, 카메라 각도 · 렌즈 · 줌 · 복귀 시간 |
 | [CarryConfig](../Scripts/Data/CarryConfig.cs) | `CarryConfig` | 상자 높이, 비행 · 착지 연출, 스택 흔들림 스프링, MAX 표시 |
@@ -593,13 +593,13 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### StaffWorker
 [Staff/StaffWorker.cs](../Scripts/Staff/StaffWorker.cs)
 - **역할**: 알바 1명. 플레이어와 같은 `Interactor` · `CarryStack`을 쓰고, 이동은 `NavMeshAgent`가 한다 ([GDD 11](GDD.md#11-알바생)).
-- **동작**: 상태 `Phase` = `Idle / Moving / Working / Parked / Waiting`. 집는 곳은 역할로 정한다 (하차 `TruckPickupZone`, 분류 `StorageZone`, 피킹 `ShelfZone`). 내려놓는 곳은 들고 있는 화물을 받는 존(`CargoZone.CanReceiveAny`)이라서, 역할을 바꿔도 화물은 원래 목적지로 간다. 가장 가까운 빈 `WorkSlot`을 출발할 때 예약하고, 도착하면 `Interactor.Target`을 그 존으로 두고 `AllowDrop` · `AllowPick`을 작업에 맞춘다. 옮길 것이 `workIdleTimeout`(0.5초) 동안 없거나 가득 · 빈손이 되면 작업을 끝낸다. 예약은 3역할 공통 ([GDD 8.4](GDD.md#84-수요-계산)): 출발할 때 가져갈 만큼 `Reserve()`로 잡고, 도착하면 `ReleaseReservation()`으로 푼다. 해제는 `releaseReservation` 함수 하나. 하차 = `InboundTruck.Reserve`, 분류 = `Warehouse.ReserveShelfSpace`(`PlanForShelves` 품목별), 피킹 = `OrderService.Reserve`.
-- **연결**: `Setup(role, stats)`(`StaffService.Spawn`이 부른다), `SetRole(role)`(역할 변경 — 배치 탭), `Fire()`(해고), `Role` · `Stats` · `State` · `Stack` · `Number`(고용 순 번호, `DisplayName` = `알바 N`) · `Fired`. 설정값은 `StaffRules`.
+- **동작**: 상태 `Phase` = `Idle / Moving / Working / Parked / Waiting`. 집는 곳은 직무로 정한다 (하차 `TruckPickupZone`, 보관(`Sort`) `StorageZone`, 상차(`Pick`) `ShelfZone`, 반품은 아직 없음 → 제자리 대기, M13-12). 내려놓는 곳은 들고 있는 화물을 받는 존(`CargoZone.CanReceiveAny`)이라서, 역할을 바꿔도 화물은 원래 목적지로 간다. 가장 가까운 빈 `WorkSlot`을 출발할 때 예약하고, 도착하면 `Interactor.Target`을 그 존으로 두고 `AllowDrop` · `AllowPick`을 작업에 맞춘다. 옮길 것이 `workIdleTimeout`(0.5초) 동안 없거나 가득 · 빈손이 되면 작업을 끝낸다. 예약은 3역할 공통 ([GDD 8.4](GDD.md#84-수요-계산)): 출발할 때 가져갈 만큼 `Reserve()`로 잡고, 도착하면 `ReleaseReservation()`으로 푼다. 해제는 `releaseReservation` 함수 하나. 하차 = `InboundTruck.Reserve`, 분류 = `Warehouse.ReserveShelfSpace`(`PlanForShelves` 품목별), 피킹 = `OrderService.Reserve`.
+- **연결**: `Setup(role, stats, costume)`(`StaffService.Spawn`이 부른다), `SetRole(role)`(역할 변경 — 배치 탭), `Fire()`(해고), `Role` · `Stats` · `State` · `Stack` · `Number`(고용 순 번호, `DisplayName` = `알바 N`) · `Fired`. 설정값은 `StaffRules`.
 - **주의**:
   - 가는 중 대상이 사라지면 예약을 풀고, `thinkInterval`(0.25초)마다 다시 고른다. 가는 중 확인(`StillValid`)은 예약을 잠깐 풀고 다시 확인해 다시 잡는다.
   - 할 일이 없으면 역할 존의 빈 슬롯에서 `Parked`로 기다린다. 빈 슬롯이 없으면 그 자리에서 `Waiting`.
   - 도착 후 3초 + 대기 시간 동안 존이 잡히지 않으면 경고 로그 `작업 지점 … 밖에 있습니다`.
-  - 외형: 프리팹 `Model` 아래 `models`(macaron · rabbit) 중 하나를 `Awake`에서 무작위로 켠다 (M10-6 일부, 저장은 아직). 역할 색은 모델이 아니라 발밑 원판 `RoleRing`(`body`)에 칠한다. 퇴사 연출은 `Model`째 뛴다.
+  - 외형 (GDD 11.1): 프리팹 `Model` 아래 `models` = [0] `uniformT`(물류 유니폼) · [1..] macaron · rabbit · SBS(코스튬). `Setup`에서 `costume`이면 코스튬 중 무작위, 아니면 유니폼을 켠다 (`Costume`). 역할 색은 모델이 아니라 발밑 원판 `RoleRing`(`body`)에 칠한다. 퇴사 연출은 `Model`째 뛴다.
   - 해고(`Fire`): 바로 `StaffService` 명단에서 빠진다. 배달하러 가는 중 · 내려놓는 중이면 끝내고, 아니면 일을 멈춘다. 손에 화물이 있으면 배달부터 하고, 빈손이 되면 `Leave()` — 생성 지점으로 걸어가 도착하면 `Destroy`.
   - 모듈 재배치(GDD 4.4): `SiteGrid.OnMoved` → `Repath()`. 가던(`Moving`) · 기다리던(`Parked`) · 일하던(`Working`) 작업 지점이 1m 넘게 옮겨갔으면 그 지점으로 다시 간다 (`Working`이면 `Moving`으로). 예약 · 대상 존은 모듈과 같이 옮겨지므로 그대로.
   - 시급(GDD 11.7): `Owed`(밀린 시급) · `PartShare`(이번 파트 비율, 고용 파트는 남은 시간 비율). `SetOwed`가 머리 위 `unpaidIcon`(빨간 ₩)을 켜고 둥실거리게 한다. `Quit()` = `Fire()` + 몸통 빨간 깜빡임 · 두 번 점프(0.9초, 그동안 `agent.isStopped`).
@@ -609,12 +609,12 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Staff/StaffService.cs](../Scripts/Staff/StaffService.cs)
 - **역할**: 알바 명단 · 고용 후보 · 고용 (GDD 11.1). 씬 `Site/Logistics`에 하나 (`Instance`).
 - **동작**:
-  - 후보: `Candidates`(`StaffCandidate` = 스탯 + `Hired`, `StaffRules.candidateCount` 3명). `PartService.Part`를 구독해 **파트가 바뀔 때마다**(구독 순간 = 처음 후보 포함) `RefreshCandidates()`, 고용 탭 [새로고침]도 같은 함수. 바뀌면 `OnCandidatesChanged`.
+  - 후보: `Candidates`(`StaffCandidate` = 스탯 + `Costume`(`StaffRules.RollCostume`, 10%) + `Hired`, `StaffRules.candidateCount` 3명). `PartService.Part`를 구독해 **파트가 바뀔 때마다**(구독 순간 = 처음 후보 포함) `RefreshCandidates()`, 고용 탭 [새로고침]도 같은 함수. 바뀌면 `OnCandidatesChanged`.
   - 고용: `GetBlock(candidate)` = `Hired` / `MaxStaff`(`Workers.Count >= LevelProgress.MaxStaff`) / `Cash`(보유 재화 < 고용금) / `None`. `TryHire(candidate, out block)` = 막히지 않으면 빈 역할로 생성 → `Wallet.TrySpend(고용금)` → `Hired = true` → `OnCandidatesChanged`. 고용 XP 없음 (2026-11-14).
-  - 생성: `Spawn(role, stats)` = 사무실 생성 지점(`StaffSpawnPoint`, PC 존 바로 앞)에 `StaffWorker` 프리팹 + 팝 연출. `Spawn(role)`은 무작위 스탯(디버그 메뉴용, 고용금 · 최대 인원 없음).
+  - 생성: `Spawn(role, stats, costume)` = 사무실 생성 지점(`StaffSpawnPoint`, PC 존 바로 앞)에 `StaffWorker` 프리팹 + 팝 연출. `Spawn(role)`은 무작위 스탯(디버그 메뉴용, 고용금 · 최대 인원 없음).
   - 명단 변경: `SetRole(worker, role)` · `Fire(worker)`(고용금 환불 없음), 고용 · 해고 · 역할 변경마다 `OnWorkersChanged`. 알바 번호(`Number`)는 해고해도 다시 쓰지 않는다.
   - 시급: `GetPartWage(worker)` = `올림(시급 × PartShare)`. `PlanWages(쓸 수 있는 돈)` → `WagePlan`(`Paid` · `PaidWorkers` · `Unpaid`(알바, 밀린 금액) · `Quitting`) — 고용 순서대로 `Owed + 이번 시급`을 전액 지급, 못 받으면 `Owed`가 없으면 미지급 · 있으면 퇴사. `ApplyWages(plan)` = `SetOwed` · `Quit` 적용, 남은 알바 `PartShare = 1`, `OnWorkersChanged`.
-  - `Workers`는 고용 순서대로 (시급 지급 순서, GDD 11.7). `NextEmptyRole()` = 빈 역할 (하차 → 분류 → 피킹 순, 다 차면 인원이 가장 적은 역할). `CountRole(role)`.
+  - `Workers`는 고용 순서대로 (시급 지급 순서, GDD 11.7). `NextEmptyRole()` = 빈 직무 (하차 → 보관 → 상차 → 반품 순, 다 차면 인원이 가장 적은 직무, 열리지 않은 직무는 건너뜀). `IsRoleOpen(role)` = 반품은 `SiteGrid.IsUnlocked("Ret1")` 뒤에만. `CountRole(role)`.
 - **연결**: `StaffSpawnPoint.Current`, `StaffRules`, `PartService`(후보 교체), `HirePanel`(고용 탭), `RosterPanel`(배치 탭), 디버그 메뉴 `Staff` 절.
 - **주의**: 네비메시가 없으면 `Spawn`은 null이고 고용도 실패한다 (돈은 나가지 않음).
 
@@ -823,9 +823,9 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### RosterPanel
 [UI/RosterPanel.cs](../Scripts/UI/RosterPanel.cs)
-- **역할**: 계약 PC 팝업의 배치 탭 (GDD 11.3). 위 왼쪽 `알바 n/최대`, 하차 · 분류 · 피킹 3열(`RosterColumn`, 제목에 인원 수) + 오른쪽 해고 칸 + 해고 확인 창.
-- **동작**: `StaffService.OnWorkersChanged` · `OnEnable`마다 `Refresh` — 카드(`RosterCard`)를 명단 수만큼 만들어 두고 `Workers[i]`에 묶어 그 역할 열 `Content`로 옮긴다. `Drop(card, column)`: 역할 열이면 `StaffService.SetRole`, 해고 칸이면 확인 창 → [해고] `StaffService.Fire` / [취소]. 어디에 놓든 카드는 다시 그린 자리로 돌아간다.
-- **연결**: `RosterColumn` × 3 + 해고 칸, `RosterCard` 템플릿, `dragLayer`(끄는 카드를 올려 두는 층).
+- **역할**: 클립보드 책상 팝업의 배치 탭 (GDD 11.3). 위 왼쪽 `알바 n/최대`, 하차 · 보관 · 상차 · 반품 4열(`RosterColumn`, 제목에 인원 수, 열리지 않은 반품 열은 회색 `(잠김)`) + 오른쪽 해고 칸 + 해고 확인 창.
+- **동작**: `StaffService.OnWorkersChanged` · `OnEnable`마다 `Refresh` — 카드(`RosterCard`)를 명단 수만큼 만들어 두고 `Workers[i]`에 묶어 그 역할 열 `Content`로 옮긴다. `Drop(card, column)`: 열린 직무 열이면 `StaffService.SetRole`(잠긴 열은 무시), 해고 칸이면 확인 창 → [해고] `StaffService.Fire` / [취소]. 어디에 놓든 카드는 다시 그린 자리로 돌아간다.
+- **연결**: `RosterColumn` × 4 + 해고 칸, `RosterCard` 템플릿, `dragLayer`(끄는 카드를 올려 두는 층).
 - **주의**: 한 열에 카드가 5장쯤 들어간다 (스크롤 없음). 탭이 꺼지면 확인 창도 닫힌다.
 
 #### RosterCard
@@ -835,7 +835,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### RosterColumn
 [UI/RosterColumn.cs](../Scripts/UI/RosterColumn.cs)
-- **역할**: 배치 탭의 칸 — 역할 열(`role`, 제목 · `Content` 세로 레이아웃) 또는 해고 칸(`fire`). 배경 Image의 `raycastTarget`을 켜 둔다 (카드를 놓을 곳).
+- **역할**: 배치 탭의 칸 — 직무 열(`role`, 제목 · `Content` 세로 레이아웃) 또는 해고 칸(`fire`). `SetCount(count, open)` — 닫힌 직무는 제목 `(잠김)` · 배경 어둡게. 배경 Image의 `raycastTarget`을 켜 둔다 (카드를 놓을 곳).
 
 #### CameraModeButton
 [UI/CameraModeButton.cs](../Scripts/UI/CameraModeButton.cs)
@@ -869,7 +869,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | `APC > Setup > Apply M6 Staff (프리팹 덮어쓰기)` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 · 선반 · 알바 프리팹(`StaffWorker.prefab`)을 덮어쓰고 Build Site. config(SiteLayout · 레벨 표)는 건드리지 않는다 |
 | `APC > Module > New Module...` | [ModuleFactory](../Scripts/Editor/ModuleFactory.cs) (`ModuleCreatorWindow`) | 빈 n × m 모듈 틀을 `Assets/Prefabs/Modules/Module_이름.prefab`으로 만든다 |
 | `APC > Art > Build Test Module` | [ArtModuleBuilder](../Scripts/Editor/ArtModuleBuilder.cs) | 아트 시험용 빈 모듈 `Assets/Prefabs/Modules/Test/Module_ArtTest.prefab`: 바닥 `floor1_basic.fbx` 10 × 10장(1장 = 1m, 메시 실제 크기를 재서 맞춤) + 공용 재질 `M_Prop`(`Color_Pallet.png`). 바닥 충돌체는 그대로 두고 큐브 렌더러만 끔. 게임 배치(SiteLayout)에는 안 들어감 |
-| `APC > Art > Apply Character Models` | [CharacterArt](../Scripts/Editor/CharacterArt.cs) | 캐릭터 모델 적용: 애니 idle · walk · carry · pull 반복 켜기, 모델 아바타 생성, 재질 `M_Char_모델`(`*_P.psd`), 컨트롤러 `Ani/Character.controller`. 씬 Player에 `player` 모델 + `CharacterAnimator`(임시 몸통 렌더러는 끔, 스택 높이 1.6) → 씬 저장, 알바 프리팹 다시 만들기(`StaffWorkerPrefab`) |
+| `APC > Art > Apply Character Models` | [CharacterArt](../Scripts/Editor/CharacterArt.cs) | 캐릭터 모델 적용: 애니 idle · walk · carry · pull 반복 켜기, 모델 아바타 생성, 재질 `M_Char_모델`(`*_P.psd`, 없으면 부위별 `M_Char_모델_hair · _skin · _cloth` — uniformT: 메시 이름 hair / face · arm / 나머지, SBS: top · bottom = `_body` / 나머지 `_head`), 컨트롤러 `Ani/Character.controller`. 씬 Player에 `player` 모델 + `CharacterAnimator`(임시 몸통 렌더러는 끔, 스택 높이 1.6) → 씬 저장, 알바 프리팹 다시 만들기(`StaffWorkerPrefab`) |
 | `APC > Art > Log Prop Sizes` | [ArtModuleBuilder](../Scripts/Editor/ArtModuleBuilder.cs) | `Art/Model/Prop` fbx마다 실제 크기(m)와 import `globalScale`을 콘솔에 찍는다 (스케일 통일 기준) |
 | `APC > Module > Rebuild Standard Modules` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 12종(빈 공간 `Module_Empty` · 쓰레기장 `Module_Trash` 포함)을 코드 기준으로 **덮어써서** 다시 만든다 (사무실도 덮어씀) |
 | `APC > Setup > Apply Layout 6x4` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 6 × 4 배치 적용 (M12-1): SiteLayout · 회사 선반 구역(`StoreA1` · `StoreB~D`)을 기본값으로, 보관 A~D · 반품 · 쓰레기장 · 빈 공간 모듈만 다시 만들고(사무실 · 하차 · 상차는 그대로), Build Site. 레벨 표는 안 건드림 |

@@ -9,13 +9,14 @@ using UnityEngine.UI;
 namespace APC.UI
 {
     /// <summary>
-    /// 계약 PC 팝업의 배치 탭 (GDD 11.3): 하차 · 분류 · 피킹 3열에 알바 카드, 열 제목에 인원 수, 오른쪽 해고 칸.
+    /// 클립보드 책상 팝업의 배치 탭 (GDD 11.3): 하차 · 보관 · 상차 · 반품 4열에 알바 카드, 열 제목에 인원 수, 오른쪽 해고 칸.
+    /// 반품 열은 반품 구역을 지은 뒤에 열린다 (StaffService.IsRoleOpen). 잠긴 열에 놓으면 제자리.
     /// 카드를 다른 열로 끌면 역할 변경, 해고 칸에 놓으면 확인 창 → [해고] (고용금은 돌려받지 않음).
     /// 명단 규칙은 StaffService가 정한다.
     /// </summary>
     public sealed class RosterPanel : MonoBehaviour
     {
-        [SerializeField, Tooltip("역할 열 (하차 · 분류 · 피킹)")] RosterColumn[] columns;
+        [SerializeField, Tooltip("직무 열 (하차 · 보관 · 상차 · 반품)")] RosterColumn[] columns;
         [SerializeField] RosterCard cardTemplate;
         [SerializeField, Tooltip("끄는 동안 카드를 올려 둘 곳 (레이아웃 밖, 맨 위)")] RectTransform dragLayer;
         [SerializeField, Tooltip("알바 n/최대")] TMP_Text headerLabel;
@@ -56,7 +57,7 @@ namespace APC.UI
             if (column != null && worker != null && staff != null)
             {
                 if (column.Fire) AskFire(worker);
-                else staff.SetRole(worker, column.Role);
+                else if (staff.IsRoleOpen(column.Role)) staff.SetRole(worker, column.Role);
             }
             Refresh();
         }
@@ -87,7 +88,7 @@ namespace APC.UI
             if (staff == null || gm == null) return;
 
             var workers = staff.Workers;
-            headerLabel.text = $"알바 {workers.Count}/{staff.MaxStaff}   ·   카드를 끌어 역할 변경";
+            headerLabel.text = $"알바 {workers.Count}/{staff.MaxStaff}   ·   카드를 끌어 직무 변경";
             while (cards.Count < workers.Count) cards.Add(Instantiate(cardTemplate, dragLayer));
 
             for (var i = 0; i < cards.Count; i++)
@@ -102,7 +103,7 @@ namespace APC.UI
                 card.transform.SetAsLastSibling();
             }
 
-            foreach (var column in columns) column.SetCount(staff.CountRole(column.Role));
+            foreach (var column in columns) column.SetCount(staff.CountRole(column.Role), staff.IsRoleOpen(column.Role));
         }
 
         RosterColumn ColumnFor(StaffWorker worker)
