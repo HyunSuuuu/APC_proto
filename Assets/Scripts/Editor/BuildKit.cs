@@ -168,15 +168,17 @@ namespace APC.EditorTools
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             go.transform.position = position;
-            var floor = Cube("Floor", go.transform, position + new Vector3(0f, 0.01f, 0f), new Vector3(zoneSize.x, 0.02f, zoneSize.y), Mat("M_ZoneFloor", Color.white));
+            // 바닥 판 · 글자는 구매 패드(확장 패드)만. 나머지 존은 에디터 기즈모로만 보인다 (2026-11-16)
+            var pad = typeof(PurchasePad).IsAssignableFrom(typeof(T));
+            var floor = pad ? Cube("Floor", go.transform, position + new Vector3(0f, 0.01f, 0f), new Vector3(zoneSize.x, 0.02f, zoneSize.y), Mat("M_ZoneFloor", Color.white)) : null;
             var zone = go.AddComponent<T>();
             var so = new SerializedObject(zone);
             so.FindProperty("size").vector2Value = zoneSize;
-            so.FindProperty("floor").objectReferenceValue = floor.GetComponent<Renderer>();
+            so.FindProperty("floor").objectReferenceValue = floor != null ? floor.GetComponent<Renderer>() : null;
             so.FindProperty("idleColor").colorValue = idle;
             so.FindProperty("activeColor").colorValue = active;
             so.ApplyModifiedPropertiesWithoutUndo();
-            if (!string.IsNullOrEmpty(label))
+            if (pad && !string.IsNullOrEmpty(label))
                 FlatLabel(go.transform, label, position + new Vector3(0f, 0.03f, -zoneSize.y * 0.5f - 0.7f), 3.6f, Color.white);
             return zone;
         }

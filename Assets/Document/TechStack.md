@@ -9,6 +9,7 @@
 | 엔진 | Unity **6000.3.26f1** |
 | 렌더 파이프라인 | URP 17.3.0 — 모바일은 `Assets/Settings/Mobile_RPAsset` |
 | 타깃 | Android / iOS, **가로 고정** (현재 Player 설정은 자동 회전 → 변경 필요) |
+| 테스트 빌드 | **Windows x64** (Mono), 버전 `0.1.0`, 창 모드 1280 × 720 · 크기 조절 · 백그라운드 실행, 빌드 씬 = `Game.unity`만 (2026-11-17). `DebugMenu`는 Development Build에서만 보인다 |
 | 입력 처리 | Input System 전용 (`Active Input Handling = Input System Package`) |
 | IDE | VS Code (`com.unity.ide.visualstudio`로 csproj 생성) |
 

@@ -221,8 +221,7 @@ namespace APC.EditorTools
             BuildKit.Cube("Table", table.transform, desk + new Vector3(0f, 0.4f, 0f), new Vector3(1.8f, 0.8f, 0.8f), BuildKit.Mat("M_InspectTable", new Color(0.8f, 0.8f, 0.82f)));
             var workPoint = new GameObject("WorkPoint").transform;
             workPoint.SetParent(table.transform, false);
-            workPoint.position = desk + new Vector3(0f, 0.9f, 0f);
-            BuildKit.GaugeRing(table, table.transform);
+            workPoint.position = desk + new Vector3(0f, 0.9f, 0f); // 게이지는 플레이어 머리 위 HeadGaugeBar
 
             // 재포장 출구 (오른쪽 아래): 3 × 2 = 6
             var outPos = new Vector3(1.8f, 0f, -2f);
@@ -339,8 +338,7 @@ namespace APC.EditorTools
                 new Color(0.75f, 0.68f, 0.5f), new Color(1f, 0.85f, 0.3f), "계약 PC");
             var desk = new Vector3(2f, 0f, 3.6f);
             BuildKit.Cube("Desk", pc.transform, desk + new Vector3(0f, 0.4f, 0f), new Vector3(1.8f, 0.8f, 0.7f), BuildKit.Mat("M_Desk", new Color(0.55f, 0.4f, 0.3f)));
-            BuildKit.Cube("Monitor", pc.transform, desk + new Vector3(0f, 1.1f, 0.1f), new Vector3(0.9f, 0.55f, 0.08f), BuildKit.Mat("M_Monitor", new Color(0.15f, 0.2f, 0.3f)));
-            BuildKit.GaugeRing(pc, pc.transform);
+            BuildKit.Cube("Monitor", pc.transform, desk + new Vector3(0f, 1.1f, 0.1f), new Vector3(0.9f, 0.55f, 0.08f), BuildKit.Mat("M_Monitor", new Color(0.15f, 0.2f, 0.3f))); // 게이지는 플레이어 머리 위 HeadGaugeBar
             BuildPiggyBank(content, new Vector3(-2.6f, 0f, 2.6f));
 
             // 고용한 알바가 나타나는 곳: 계약 PC 책상 건너편 = PC 존 바로 앞, PC 쪽을 바라봄 (GDD 11.1. 고용은 PC 팝업 고용 탭)

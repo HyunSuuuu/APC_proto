@@ -29,7 +29,7 @@ namespace APC.Logistics
     {
         [SerializeField] StorageKind kind = StorageKind.Pallet;
         [SerializeField] Transform pileRoot;
-        [SerializeField] CargoGridLayout layout = new(5, 4, 0.6f, 0.5f);
+        [SerializeField, Tooltip("하차 칸 = 2 × 2 한 층(4개)씩 위로 쌓기 (2026-11-17)")] CargoGridLayout layout = new(2, 2, 0.6f, 0.5f);
         [SerializeField] TMP_Text countLabel;
 
         static readonly List<SharedStorage> Registered = new();

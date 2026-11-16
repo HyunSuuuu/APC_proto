@@ -421,6 +421,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **하위 클래스가 정하는 것**: `Tick`(필수), `WaitsForReadyDelay`, `FloorProgress`, `OnEnter`/`OnExit`.
 - **겹침 확인**: `WorldRect`(바닥 사각형), `AnyOverlap(rect)`(어떤 존과든 겹치나 — 나중에 놓는 패드 자리 찾기), `FootprintRect(transform, half)`(로컬 사각형 → 월드).
 - **주의**: 루트 크기(scale)는 1로 둔다. `OnEnable`/`OnDisable`/`Update`를 덮어쓸 때는 `base.` 호출을 잊지 않는다.
+- **바닥 판 없음** (2026-11-17): 확장 패드 말고는 `floor`가 비어 있고(판 · 바닥 글자 · 바닥 게이지 삭제) 영역은 **에디터 기즈모**(노란 선 상자, `OnDrawGizmos`)로만 보인다. `BuildKit.Zone`도 구매 패드에만 판 · 글자를 만든다.
 
 #### CargoZone (추상)
 [Interaction/CargoZone.cs](../Scripts/Interaction/CargoZone.cs)
@@ -454,7 +455,13 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### GaugeRingView
 [Interaction/GaugeRingView.cs](../Scripts/Interaction/GaugeRingView.cs)
-- **역할**: 게이지 존 바닥의 원형 게이지. `Progress`를 구독해 Image `fillAmount`에 반영한다. `BuildKit.GaugeRing`이 만든다.
+- **역할**: 게이지 존 바닥의 원형 게이지. `Progress`를 구독해 Image `fillAmount`에 반영한다. `BuildKit.GaugeRing`이 만든다. **확장 패드만 쓴다** (2026-11-17, 나머지는 `HeadGaugeBar`).
+
+#### HeadGaugeBar
+[Interaction/HeadGaugeBar.cs](../Scripts/Interaction/HeadGaugeBar.cs)
+- **역할**: 머리 위 가로 게이지 막대 (2026-11-17). 씬 Player에 붙고 자식 `HeadGauge`(월드 캔버스, y 1.9, 1.2 × 0.18m, `Fill` = Filled · Horizontal)를 쓴다.
+- **동작**: `Interactor.CurrentZone`이 `GaugeZone`(구매 패드 제외)이고 진행도가 0~1 사이일 때만 켜고, 매 프레임 카메라 쪽을 본다. 대상 = 고용 · 업그레이드 책상, 검수 테이블.
+- **주의**: 알바 머리 위에는 없다 (플레이어만).
 
 ### 4.5 Logistics — 물류
 
@@ -892,7 +899,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### StandardModules
 - **역할**: 기본 모듈 프리팹의 내용을 코드로 정의한다. `DefaultAssignments`(SiteLayout id → 기본 모듈 · 회전)와 `Builders`(모듈 이름 → 만드는 함수) 두 표가 핵심이다. 시설 프리팹(`Shelf`, `InboundTruck`, `OutboundTruck`, `CashBundle`, `ConstructionFence`)도 여기서 만든다.
-- **하차 · 상차장(`BuildLot`)**: 가장자리용. 주차장은 칸 바깥 −x, 트럭 뒷면이 가장자리(슬라이드 도어 자리)에 닿게 주차. `parkSide`로 주차 칸을 가장자리를 따라 ±2.5m 비킨다 (`_M` 판). 하차장은 안쪽에 팔레트(`SharedStorage` + 둘레 `StorageZone`), 상차장은 상차 존 옆에 현금 존.
+- **하차 · 상차장(`BuildLot`)**: 가장자리용. 주차장은 칸 바깥 −x, 트럭 뒷면이 가장자리(슬라이드 도어 자리)에 닿게 주차. `parkSide`로 주차 칸을 가장자리를 따라 ±2.5m 비킨다 (`_M` 판). 하차장은 안쪽에 팔레트(`SharedStorage` + 둘레 `StorageZone`, 2 × 2 한 층 4개씩 위로 — 필드 기본값), 상차장은 상차 존 옆에 현금 존.
 - **M6 추가**: `WorkSlots(zone, offsets)`로 작업 지점을 존마다 둔다 (하차 · 상차 존 2 · 팔레트 4 · 선반 4). 선반 프리팹에 `BoxCollider`(1.6×1.8×1.6) + `NavMeshObstacle`(carve) + `NavMeshModifier`(ignoreFromBuild). 사무실 모듈에 `StaffSpawnPoint`. `StaffWorkerPrefab(overwrite)` = 캡슐 + `StackAnchor`(1.35) + `NavMeshAgent`(반경 0.3 · 높이 1.2 · 회피 없음) + `CarryStack` + `Interactor` + `StaffWorker`, 충돌체 없음.
 - **M9 반품 구역(`BuildReturns`, `Module_Returns`)**: 왼쪽 위 롤테이너(`SharedStorage` Returns, 3 × 2 × 2층) + `StorageZone`(작업 지점 2, 하차 알바 배달용), 오른쪽 위 검수 테이블(`InspectionTable` + 게이지 링 + 테이블 · `workPoint`), 오른쪽 아래 재포장 출구(`SharedStorage` Repacked, 3 × 2) + `StorageZone`(작업 지점 2, 분류 알바용). 보관 더미는 `Storage(...)` 헬퍼로 각자 오브젝트에 붙인다.
 - **M14-3 모델 주의**: `Shelf` · `PalletRack` · `InboundTruck` · `OutboundTruck` 프리팹과 `Module_Returns` · `Module_Trash` · 하차/상차장 4종 · 사무실 `Decor`의 Prop 모델(`Model` · `Decor` 자식, 재질 `M_Prop`)은 MCP로 프리팹에 직접 넣었다 — 빌더 코드에는 없어서 `overwrite` / `Rebuild`하면 임시 도형으로 돌아간다.
