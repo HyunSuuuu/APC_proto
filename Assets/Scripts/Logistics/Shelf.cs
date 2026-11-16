@@ -17,8 +17,9 @@ namespace APC.Logistics
         [SerializeField, Tooltip("선반 위 품목 색 표시")] Renderer iconRenderer;
         [SerializeField] TMP_Text countLabel;
 
-        [Header("칸 배치 (선반 로컬, 한 단 = 한 변 boxesPerSide × boxesPerSide)")]
+        [Header("칸 배치 (선반 로컬, 한 단 = 가로 boxesPerSide × 세로 boxRows)")]
         [SerializeField, Min(1)] int boxesPerSide = 3;
+        [SerializeField, Min(0), Tooltip("한 단의 세로(z) 줄 수. 0이면 boxesPerSide (정사각형)")] int boxRows;
         [SerializeField, Min(0.1f)] float boxSpacing = 0.52f;
         [SerializeField] float firstLevelHeight = 0.13f;
         [SerializeField, Min(0.1f)] float levelHeight = 0.8f;
@@ -70,11 +71,13 @@ namespace APC.Logistics
 
         Vector3 SlotPosition(int index)
         {
-            var perLevel = boxesPerSide * boxesPerSide;
+            var rows = boxRows > 0 ? boxRows : boxesPerSide;
+            var perLevel = boxesPerSide * rows;
             var level = index / perLevel;
             var inLevel = index % perLevel;
-            var half = (boxesPerSide - 1) * 0.5f;
-            return new Vector3((inLevel % boxesPerSide - half) * boxSpacing, firstLevelHeight + level * levelHeight, (inLevel / boxesPerSide - half) * boxSpacing);
+            var halfX = (boxesPerSide - 1) * 0.5f;
+            var halfZ = (rows - 1) * 0.5f;
+            return new Vector3((inLevel % boxesPerSide - halfX) * boxSpacing, firstLevelHeight + level * levelHeight, (inLevel / boxesPerSide - halfZ) * boxSpacing);
         }
     }
 }

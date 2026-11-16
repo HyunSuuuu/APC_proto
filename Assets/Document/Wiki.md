@@ -509,12 +509,12 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### Shelf
 [Logistics/Shelf.cs](../Scripts/Logistics/Shelf.cs)
 - **역할**: 품목 1종 전용 분류 선반. 칸에 실제 상자가 올라가고 위에 수량(`7/10`)이 뜬다.
-- **동작**: `Setup(item, capacity)`, `Store`, `TakeOne`(마지막에 넣은 상자), `HasSpace` · `FreeSpace`. **정사각형** 1.6m, 한 단 `boxesPerSide`(3) × 3칸. 둘레에 `ShelfZone` 하나.
+- **동작**: `Setup(item, capacity)`, `Store`, `TakeOne`(마지막에 넣은 상자), `HasSpace` · `FreeSpace`. 한 단 = 가로 `boxesPerSide` × 세로 `boxRows`(0이면 정사각형). `Shelf.prefab` = 모델 `Shelf` 1.2배 2개 등 맞대기(2.15 × 1.6m, 3 × 2칸, 첫 단 0.29 · 단 높이 0.59, M14-3), `PalletRack.prefab` = 2 × 2. 둘레에 `ShelfZone` 하나 (선반 3.6 × 3.2).
 - **연결**: `Warehouse.BuildShelf`가 `Shelf.prefab`으로 만든다.
 
 #### ShelfZone
 [Logistics/ShelfZone.cs](../Scripts/Logistics/ShelfZone.cs)
-- **역할**: 정사각형 선반 둘레 존 (3.2m). **내려놓기 먼저** — 같은 품목, Origin = Storage, Normal 상태 화물을 받고 Origin을 Shelf로 바꾼다 (재포장 상자면 `Warehouse.NotifyRepackedShelved`). 내려놓을 것이 없으면 `OrderService.GetDemand(품목) > 0`일 때만 1개씩 꺼낸다 (GDD 8.4). `Shelf` 프로퍼티로 붙은 선반을 읽고, `HasCargoFor`(알바 판단용)를 구현한다.
+- **역할**: 선반 둘레 존 (선반 3.6 × 3.2m · 팔레트 랙 3.2m). **내려놓기 먼저** — 같은 품목, Origin = Storage, Normal 상태 화물을 받고 Origin을 Shelf로 바꾼다 (재포장 상자면 `Warehouse.NotifyRepackedShelved`). 내려놓을 것이 없으면 `OrderService.GetDemand(품목) > 0`일 때만 1개씩 꺼낸다 (GDD 8.4). `Shelf` 프로퍼티로 붙은 선반을 읽고, `HasCargoFor`(알바 판단용)를 구현한다.
 - **알림** (M13-3, 플레이어만): 하나도 못 넣으면 이 색 상자(Origin = Storage)를 들었으면 '가득'(선반 꽉 참), 그 밖의 상자(다른 색 · 트럭 화물 · 반품)면 '넣을 수 없음'. 선반에서 꺼낸 상자(상차로 가는 중)는 안 센다. 글자 원본 = `Shelf.CountLabel`.
 - **주의**: 정차한 트럭이 없으면 수요가 0이라 집지 않는다. 꺼낸 화물의 Origin은 `Shelf` 그대로 — 상차 존만 받는다.
 
@@ -711,6 +711,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 모듈 바닥 타일 데이터 (M14-2): 2m 칸마다 타일 fbx + 회전. 모듈 루트에 붙는다. 실행 중엔 아무것도 안 함.
 - **연결**: 칠하기 · 깔기는 에디터 `ModuleFloorEditor`(인스펙터 팔레트 + 칸 격자) → 자식 `FloorArt`에 저장. 사용법은 TechStack `Add Module Floor`.
   - 재배치(M12-2, GDD 4.4): `ApplyArrangement(모듈 → 칸)` — 보관 · 반품 · 빈 공간 모듈의 자리 맞바꿈이라 열린 칸은 그대로. 모듈 **통째로** 옮기므로 선반 · 상자 · 작업 지점이 같이 간다. 옮긴 모듈은 팝 연출, `OnMoved`(네비메시 · 알바 · 발판이 구독).
+- **주의**: 타일을 Static(정적 배칭)으로 두지 않는다 — 재배치로 모듈이 움직여도 타일이 제자리에 남는다.
 - **주의**: `Unlock`은 레벨 · 인접 조건을 확인하지 않는다. 그 조건은 `SiteUnlocker`가 확인한다 (디버그 메뉴는 조건 없이 연다). 재배치는 1칸 모듈만 가정한다.
 
 #### SiteUnlocker
@@ -893,6 +894,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **하차 · 상차장(`BuildLot`)**: 가장자리용. 주차장은 칸 바깥 −x, 트럭 뒷면이 가장자리(슬라이드 도어 자리)에 닿게 주차. `parkSide`로 주차 칸을 가장자리를 따라 ±2.5m 비킨다 (`_M` 판). 하차장은 안쪽에 팔레트(`SharedStorage` + 둘레 `StorageZone`), 상차장은 상차 존 옆에 현금 존.
 - **M6 추가**: `WorkSlots(zone, offsets)`로 작업 지점을 존마다 둔다 (하차 · 상차 존 2 · 팔레트 4 · 선반 4). 선반 프리팹에 `BoxCollider`(1.6×1.8×1.6) + `NavMeshObstacle`(carve) + `NavMeshModifier`(ignoreFromBuild). 사무실 모듈에 `StaffSpawnPoint`. `StaffWorkerPrefab(overwrite)` = 캡슐 + `StackAnchor`(1.35) + `NavMeshAgent`(반경 0.3 · 높이 1.2 · 회피 없음) + `CarryStack` + `Interactor` + `StaffWorker`, 충돌체 없음.
 - **M9 반품 구역(`BuildReturns`, `Module_Returns`)**: 왼쪽 위 롤테이너(`SharedStorage` Returns, 3 × 2 × 2층) + `StorageZone`(작업 지점 2, 하차 알바 배달용), 오른쪽 위 검수 테이블(`InspectionTable` + 게이지 링 + 테이블 · `workPoint`), 오른쪽 아래 재포장 출구(`SharedStorage` Repacked, 3 × 2) + `StorageZone`(작업 지점 2, 분류 알바용). 보관 더미는 `Storage(...)` 헬퍼로 각자 오브젝트에 붙인다.
+- **M14-3 모델 주의**: `Shelf` · `PalletRack` · `InboundTruck` · `OutboundTruck` 프리팹과 `Module_Returns` · `Module_Trash` · 하차/상차장 4종 · 사무실 `Decor`의 Prop 모델(`Model` · `Decor` 자식, 재질 `M_Prop`)은 MCP로 프리팹에 직접 넣었다 — 빌더 코드에는 없어서 `overwrite` / `Rebuild`하면 임시 도형으로 돌아간다.
 - **사무실 주의**: `Module_Office.prefab`은 사용자가 손으로 위치를 고쳤다 (2026-11-12). `EnsureAll(true)` · Apply 메뉴는 이를 덮어쓰므로, 다른 모듈만 고칠 땐 `Rebuild("Module_…")`로 그 모듈만.
 - **메뉴 `APC > Setup > Apply Layout 6x4`**(`ApplyLayoutInternal`, 옛 v0.3 메뉴 대체): SiteLayout · 회사 선반 구역을 기본값으로, 보관 · 반품 · 쓰레기장 · 빈 공간 모듈 다시 만들기, `ObsoleteAssets` 삭제, Build Site. 레벨 표는 건드리지 않는다.
 - **6 × 4 트럭 방향** (`DefaultAssignments`): `In1` (4,2) 회전 0 `_M`, `In2` (3,1) 270, `Out1` (2,4) 180 `_M`, `Out2` (3,5) · `Out3` (3,6) 90. (4,1) · (2,5) 바깥 칸에 트럭 두 대가 들어오므로 주차 칸을 서로 먼 쪽으로 비켰다 (모서리가 조금 겹침).

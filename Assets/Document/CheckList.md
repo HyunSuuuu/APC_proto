@@ -481,10 +481,18 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
   - 확정 (2026-11-16): 타일 fbx Scale Factor 2(2m, 칸당 5 × 5) · **타일맵처럼 칠하는 에디터 도구** · 벽은 **열린 칸 바깥 테두리만**, 1m 조각 이어 붙이기(허물기 연출 대비), 앞 = `wall_s` · 뒤 = `wall_l` + 기둥 (참고 `Prop/background_test.fbx`)
   - 완료: `ModuleFloor`(모듈 루트, 칸별 타일 · 회전) + `ModuleFloorEditor`(인스펙터 팔레트 20종 · 칸 격자 칠하기 / 회전 / 채우기 / 섞기, `FloorArt`에 깔고 회색 판 렌더러 끔), 메뉴 `APC > Art > Add Module Floor`로 12개 모듈에 붙임. `SiteWalls`(SiteGrid, 해금마다 다시 세움, 하차 · 상차 주차장 쪽 비움, Build Site `AddWalls`). 사무실은 시험으로 `floor1_basic` 전체
   - 테스트: 타일 25장 = 10 × 10m · 윗면 y 0, 시작 벽 156조각 → In2 해금 145조각(칸 사이 벽 사라짐 · 새 테두리), 스크린샷 확인, 에러 0
+  - **버그 고침** (2026-11-16): 사무실 PC로 모듈을 옮겨도 바닥 타일이 제자리에 남음 → 칠하기가 타일에 `BatchingStatic`을 켜서 Play 때 정적 배칭으로 굳은 탓. `ModuleFloorEditor.Rebuild`에서 Static 지정 뺌 + 모듈 프리팹 8개 타일 플래그 4 → 0. Play 확인 아직(MCP 끊김)
   - 남음: 나머지 모듈 바닥 칠하기(사용자), 트럭 출입구 셔터(`truck_parking`) · 바깥 도로 · 창문 벽, 벽 허물기 연출
-- [ ] **M14-3 모듈 임시 모델 교체** — 선반 `Shelf`, 반품 선반 `Return_Storage_Rack`, 하차 칸 공간 `Plastic_Pallet`, 쓰레기장 `Trash_Bin`, 포장대 `Discarded`(?), 트럭 `Truck`, 상자 `Box` (색 띠 유지), 적재 도구 `Hand_Wagon`(구루마) · `Wagon` · `Backet_Wagon` · `Rolltainer`, 지게차 `Forklift`, `Hand_Pallet_Truck` · `Box_Interaction`(?)
+- [x] **M14-3 모듈 임시 모델 교체** — 선반 `Shelf`, 반품 선반 `Return_Storage_Rack`, 하차 칸 공간 `Plastic_Pallet`, 쓰레기장 `Trash_Bin`, 포장대 `Discarded`(?), 트럭 `Truck`, 상자 `Box` (색 띠 유지), 적재 도구 `Hand_Wagon`(구루마) · `Wagon` · `Backet_Wagon` · `Rolltainer`, 지게차 `Forklift`, `Hand_Pallet_Truck` · `Box_Interaction`(?)
   - 확정 (2026-11-16, GDD 15.1 모델 연결): 하차 칸 공간 = **`Box_Interaction`**(그 위에 상자가 쌓임), `Plastic_Pallet` = D 팔레트 랙 · 지게차 포크, 쓰레기장 = **`Discarded`**, 구루마 = **`Wagon`**, 장식 = `Trash_Bin`(사무실) · `Hand_Pallet_Truck` · `Hand_Wagon` · `Backet_Wagon`. **상자는 색별 텍스처를 받을 때까지 임시 유지**. 포장대 · 검수 테이블은 모델 없음 → 임시 유지. 구루마 · 롤테이너 · 지게차 모델은 기능이 생길 때(M13-13 · M13-14 · M11-8) 붙인다
+  - 확정 (2026-11-16): 선반 = `Shelf` 1.2배 **2개 등 맞대기**(2.15 × 1.6m, 단마다 3 × 2)
+  - 완료 (2026-11-16, MCP로 프리팹 직접 수정 — 재질 `M_Prop`, 충돌체 없음): `Shelf.prefab`(`Model` 아래 Shelf × 2, `Shelf.boxRows` 새 필드 = 2, 간격 0.66 · 첫 단 0.29 · 단 높이 0.59, 충돌체 · 장애물 2.16 × 1.6, 존 3.6 × 3.2 · 좌우 작업 지점 ±1.6), `PalletRack.prefab`(바닥 `Plastic_Pallet` 1.4배, 첫 단 0.22 — 주황 기둥은 임시 그대로), `InboundTruck` · `OutboundTruck`(`Truck` 0.85배, 뒷면 z −2.2 그대로 — 1배면 하차 칸 1 · 2 모서리에서 운전석이 닿음), `Module_Returns` 롤테이너 → `Return_Storage_Rack` 1.5배(층 높이 0.84), `Module_Trash` `Discarded` 1.5배, 하차장 · 상차장 4종 `Decor`(`Hand_Pallet_Truck` · `Hand_Wagon` / `Backet_Wagon`, 모서리), 사무실 `Decor/TrashBin`. 하차 칸 `Box_Interaction`은 사용자가 이미 적용
+  - **주의**: `StandardModules.ShelfPrefab` · `PalletRackPrefab` · `TruckPrefab` · `OutboundTruckPrefab`을 `overwrite`로 다시 만들면 임시 모양으로 돌아간다
+  - 테스트: 선반 6/6 · 팔레트 랙 4/4 · 반품 선반 12/12 상자가 단 안에 들어감(스크린샷), 하차 트럭 2대 간격 확인, 하차 · 분류 · 피킹 알바가 넓어진 선반 작업 지점까지 가서 넣음(A 3개), 에러 · 경고 0. 사람 손 테스트 아직
 - [ ] **M14-4 들기 좌표 · 애니 맞춤** — 플레이어 · 알바가 드는 상자 위치를 도구와 애니에 맞춤: 맨손 = 손 바로 위, 구루마 · 롤테이너 = 바닥부터 하나씩 쌓기, 지게차 = 헤드(포크)에 팔레트를 끼우고 그 위에 대형 화물 하나씩. 걷기 · 들기(`carry_move`) · 끌기(`pull`) 애니와 어긋나지 않게
+- [ ] **M14-5 모듈 프리팹 정리** — 편집하기 쉽게 자식 구조를 묶음 (예: 하차 모듈의 공용 보관 오브젝트와 상자가 쌓이는 곳이 따로 있어 둘 다 옮겨야 함 → 한 덩어리로)
+- [ ] **M14-6 하차 · 상차 모듈에 주차장 넣기** — 하차 · 상차 모듈 안에 자식 모듈을 두어 주차장(트럭 자리)까지 모듈 하나로
+- [ ] **M14-7 관상용 배경 모듈** — 비어 있는 주차장 자리를 채워 전체를 정사각형으로 맞추거나 조경을 까는 모듈. 걸을 수 없음, 순수 장식
 
 ---
 
@@ -507,7 +515,7 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
 | M11 물류 개편 | 6 | 3 |
 | M12 6 × 4 배치 · 재배치 | 2 | 2 |
 | M13 변경사항 2 | 18 | 7 |
-| M14 모델 적용 | 4 | 2 |
-| **합계** | **101** | **79** |
+| M14 모델 적용 | 7 | 3 |
+| **합계** | **104** | **80** |
 
 > 2026-11-15: M10 11 → 4 (삭제 3 · M13으로 옮김 4), M11 11 → 6 (M12 · M13이 대신한 5), M13 18 추가.

@@ -178,7 +178,7 @@ namespace APC.EditorTools
                         r.sharedMaterials = shared;
                     }
                 }
-                GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic);
+                // Static 금지: 정적 배칭되면 사무실 PC에서 모듈을 옮겨도 타일이 제자리에 남는다.
             }
 
             // 타일이 있으면 회색 바닥 판은 숨긴다 (충돌체 · 네비메시는 그대로)
