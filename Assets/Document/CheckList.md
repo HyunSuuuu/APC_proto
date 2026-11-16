@@ -5,51 +5,45 @@
 
 ## 인수인계 — 이어받은 사람이 할 일 (2026-11-16 기준)
 
-**2026-11-15 기획 변경 (기능리스트 변경사항 2)**: 목표 **Lv.5**. 계약 → **색 트럭 웨이브**(트럭 색 = 상자 색 = 보관 구역 색, 그 색 구역이 없으면 트럭 안 옴), 공용 보관소 → **하차 칸 상자 공간 10**, 주문서 큐 → **상차 트럭 위 색상별 게이지**, 돈은 그대로 정산 뒤에만 사용(HUD 지갑 한 칸 · 저금통 지폐 3단계), PC 팝업 → **클립보드 책상(고용 · 배치) + 컴퓨터 책상(업그레이드 · 모듈, Lv.2)**, 알바 스탯 삭제 · **직무 하차 · 보관 · 상차 · 반품**, 반품 = 반품 선반 → 검수 → **포장대 재포장** + **쓰레기**, 새 기능 황금 트럭 · 정전(Lv.4) · 구루마 · 롤테이너 · C 전자제품 · D 가구 · 트럭 2단계. 삭제: 저장 · 할당량 · 완료 표시 · 설비 고장 · 첫 파트 90초. → **새 마일스톤 [M13](#m13-변경사항-2--색-분류--직무-4개--반품-재포장--쓰레기--lv5-gdd-2026-11-15)** (GDD 전반 · 18장 32~45번). 아래 '현재 상태'는 코드 기준이라 옛 용어가 남아 있다.
+**2026-11-15 기획 변경 (기능리스트 변경사항 2)**: 목표 **Lv.5**. 계약 → **색 트럭 웨이브**, 공용 보관소 → **하차 칸 상자 공간 10**, 주문서 큐 → **상차 트럭마다 색 주문**, 돈은 정산 뒤에만(HUD 지갑 한 칸 + 저금통 `+N`), PC 팝업 → **클립보드 책상(고용 · 배치) + 컴퓨터 책상(업그레이드 · 모듈, Lv.2)**, **직무 하차 · 보관 · 상차 · 반품**(알바 스탯은 **유지** — 삭제 취소 2026-11-16), 반품 = 반품 선반 → 검수 → **포장대 재포장** + **쓰레기**, 새 기능 황금 트럭 · 정전(Lv.4) · 구루마 · 롤테이너 · C 전자제품 · D 가구 · 트럭 2단계. 삭제: 저장 · 할당량 · 완료 표시 · 설비 고장 · 첫 파트 90초 → [M13](#m13-변경사항-2--색-분류--직무-4개--반품-재포장--쓰레기--lv5-gdd-2026-11-15). **2026-11-16 모델 적용** [M14](#m14-모델-적용--artmodelprop-2026-11-16) 추가 — 모델 작업을 먼저 하고 M13으로 돌아간다.
 
-**현재 상태** (72/97): M0~M7 · M9 완료 (M6 · M9 사람 손 테스트 일부 남음), M8 절반, M10-3 플레이어 업그레이드 코드만, **M11 3/6**, **M12 2/2**, **M13 2/18**. 사람 손 테스트 아직: M11-3 · M11-5 · M12-2 · M13-1 · M13-2.
-- 코드로 지금 되는 것: 혼자서 하차 → 하차 칸 공간 → 선반 → 상차 → 현금 → 저금통 → 파트 정산 사이클. 부지 **6 × 4**(Lv.1 13칸, 해금 발판 9개 Lv.1~9 · ₩100~500 임시), PC 팝업 `고용 | 배치 | 업그레이드 | 모듈`(재배치). XP는 해금 · 업그레이드 +3으로만
-- **색 보관 구역** (M11-5): 구역마다 선반 4개(모서리, 처음부터), 선반 6개, D는 팔레트 랙 4개 — `ShelfSlot`이 스스로 세움
-- **색 트럭 웨이브** (M13-1): 열린 색 중 **선반 있는 색만**, 비율 40/30/20/10, 같은 색 최대 3연속(모든 하차 칸 합쳐서), 상자 10/10/10/4, 레벨업에 `새 트럭: 색`. `CompanyDefinition` 이름은 그대로, `displayName` = 색 이름
-- **하차 칸 공간 10** (M13-2): 하차 칸마다 따로(`Cargo.Home` · `InboundBay.Storage`), 공간 + 손에 든 수 + 예약 = 10이면 플레이어도 알바도 못 꺼냄, 트럭 위 '공간 가득'(`FloatingNotice`)
-- 아직 옛 규칙인 것: 주문 = **주문서 큐 · 1색 주문**(M13-4에서 바꿈), 알바 역할 = 하차 · 분류 · 피킹 + 스탯(M13-7), 반품 = Lv.11 롤테이너 · 검수 테이블(M13-10), 정산 · HUD 돈(M13-5)
+**현재 상태** (79/101): M0~M7 · M9 완료 (M6 · M9 사람 손 테스트 일부 남음), M8 절반, M10-3 플레이어 업그레이드 코드만, **M11 3/6**, **M12 2/2**, **M13 7/18**, **M14 2/4**.
+- 코드로 지금 되는 것: 혼자서 하차 → 하차 칸 공간 → 색 선반 → 상차 트럭(트럭마다 1~2색 주문) → 현금 → 저금통 → 파트 정산(180초, `번 돈 · 알바 월급 · 합계`) 사이클. 부지 **6 × 4**, 해금 발판, 사무실 책상 2개(클립보드 `고용 | 배치` · 컴퓨터 Lv.2 `업그레이드 | 모듈`), 모듈 재배치(끌기 고침 + 원래 자리 표시)
+- 알바: 직무 4개(`StaffRole.Returns`는 반품 구역 `Ret1` 뒤에 열림 · 일은 M13-12 전까지 제자리 대기), 외형 = 유니폼 `uniformT` 90% · 코스튬 macaron · rabbit · SBS 10%
+- 모델 (M14): 사무실 프리팹 소품 교체 · 저금통 지폐 3층(`PiggyBankView.layers`), 바닥 칠하기 도구(`ModuleFloor` · 인스펙터), 바깥 벽 `SiteWalls`(열린 칸 테두리, 해금마다 다시 세움)
+- 아직 옛 규칙인 것: 반품 = Lv.11 롤테이너 · 검수 테이블(M13-10), 레벨 표 · 건설 타일(M13-8)
 
 ### 1. 시작하기 전에
 1. 저장소를 받고 `git lfs install` → `git lfs pull` (폰트 에셋이 LFS)
 2. Unity **6000.3.26f1**로 연다. 처음 열 때 TechStack 3절 확인 (R3 NuGet DLL은 `Assets/Packages`에 커밋돼 있음)
-3. `Assets/Scenes/Game.unity`를 열고 Play. F1 또는 왼쪽 아래 `DEBUG`로 치트 메뉴 (현금 · 레벨업 · 배속 · 주문 추가 · `End Part` · 모듈 해금)
-4. 씬 · 프리팹이 이상하면 메뉴 `APC > Setup > Build Site` (Site · HUD를 지우고 다시 만듦). 알바 프리팹 · 작업 지점 · 선반까지 다시 만들려면 `APC > Setup > Apply M6 Staff`. 배치(SiteLayout)를 기본값으로 되돌리려면 `APC > Setup > Apply Layout 6x4` (레벨 표 · 사무실 프리팹은 안 건드림)
+3. `Assets/Scenes/Game.unity`를 열고 Play. F1 또는 왼쪽 아래 `DEBUG`로 치트 메뉴 (현금 · 레벨업 · 배속 · 알바 · `End Part` · 모듈 해금)
+4. 씬 · 프리팹 재생성 메뉴(`Build Site` · `Apply M6 Staff` · `Rebuild Standard Modules`)는 손으로 고친 프리팹 · HUD를 덮어쓴다 — 아래 2절 '덮어쓰기 금지'를 먼저 본다
 5. 문서를 먼저 읽는다: [GDD](GDD.md) v0.4 (무엇을) → [Wiki](Wiki.md) (코드가 어떻게) → [TechStack](TechStack.md) (도구 · 규칙)
 
-### 2. 다음 작업: **M13-3 색 맞춰 내려놓기** (답 받음) → **M13-4 상차 트럭 색상별 주문** (답 받음) → M13-5 … M13-14 → M11-8 · M11-9 → M13-15 … M13-18 순서대로 하나씩. 사람 손 테스트(M12-2 · M11-3 · M11-5 · M13-1 · M13-2)는 틈날 때
-- **M13-3**: '넣을 수 없음'(하나도 못 넣을 때만) · '가득'(같은 색 선반 꽉 참) · '선반 가득'(공간에서 하나도 못 집음) — 플레이어만, `FloatingNotice` 재사용 (GDD 5.3 · 7.3)
-- **M13-4**: 상차 칸 상자 공간은 **만들지 않음**(선반 → 트럭 직접), 요구 개수는 재고와 상관없이, 요구할 색이 없으면 갈색, 합계 3~6 · 최대 2색 · 돈 = 실은 수 × 색 단가 임시 (GDD 7.4 · 8.1). 기획 원본 기능리스트에는 상차 공간이 아직 있음 — 기획에 알릴 것
-- **2026-11-14 기획 변경**: 부지 가로 6 × 세로 4, 사무실 PC에서 반품 · 보관구역 끌어다 재배치 (GDD 4.2 · 4.4, CL [M12](#m12-6--4-배치--모듈-재배치-gdd-2026-11-14)). M11-4는 M12-1이 대신함
-- 작업 방식: **CL 항목 하나씩** — 시작 전에 기획에 질문 → 답 반영 → 구현 → Play 테스트 → 문서 → 다음. 답을 받자마자 여러 항목을 한꺼번에 구현하지 않는다
-- M11-2: 코드 완료. `OrderService.CanFill`은 지금 대형 회사 주문을 항상 막는다 → M11-8에서 지게차 보유 검사로 바꾼다
-- M11-3: 코드 완료. 테스트 전에 **`APC > Setup > Build Site`를 한 번 실행**해야 업그레이드 탭 · 해금 발판 프리팹 참조가 씬에 들어간다
-- M12-2: 재배치 뒤 모듈 칸은 config(`row` · `column`)와 다르다 — 칸은 `SiteGrid.ModuleAt` · `WorldToCell`(실제 위치)로 본다. 재배치는 저장되지 않는다 (M10 저장 때 모듈 칸도 저장해야 함)
-- **`SiteLayout` id**: `Office` · `Trash` · `In1` · `In2` · `Out1~3` · `StoreA1` · `StoreA2` · `StoreB~D` · `Ret1~2` (디버그 해금 · `SiteGrid.Unlock(id)`). 회사 `shelfAreaId`는 M11-5 뒤로 안 씀. 레벨 표 코드 기본값은 아직 옛 XP(30~400) — 에셋은 3
-- 임시로 둔 것: `CompanyDefinition.isLarge`(표시 + 주문 배정 건너뛰기, M11-8)
+### 2. 다음 작업: **M14-3 모듈 임시 모델 교체** → **M14-4 들기 좌표 · 애니** → M13-8 … M13-14 → M11-8 · M11-9 → M13-15 … M13-18 순서대로 하나씩
+- **M14-3** 전에 물을 것: `Discarded`(포장대?) · `Box_Interaction` 쓰임새. 이름표 그림에는 있는데 fbx가 없는 것: `Return_Inspection_Table` · `Small_Clip_Board` · `Lap_Stand` · `Tape_Stand` · `Open_Box` · `Tape_Cutter` · `Scaner` · `Printer`
+- **M14-2 남은 것**: 사무실 말고 모듈 바닥 칠하기는 **사용자가 직접**(모듈 프리팹 → 루트 인스펙터). 트럭 출입구 셔터(`truck_parking`) · 바깥 도로 · 창문 벽 · 벽 허물기 연출은 아직. 참고 모양 `Prop/background_test.fbx`
+- 사람 손 테스트 아직: M13-5(HUD 저금통 아이콘 위치), M13-7(배치 탭 4열 · 코스튬), M14-1(사무실 배치 초안 — 손으로 조정), M14-2(인스펙터 칠하기 · 벽 모양), 옛 M6 · M9 · M11-3 · M11-5 · M13-1 · M13-2
+- 작업 방식: **CL 항목 하나씩** — 시작 전에 질문(**하나씩**) → GDD · CL 반영 → "시작" 지시 뒤 구현 → Play 테스트 → 문서 → 다음. 인수인계 절은 지시할 때만 고친다
+- **`SiteLayout` id**: `Office` · `Trash` · `In1` · `In2` · `Out1~3` · `StoreA1` · `StoreA2` · `StoreB~D` · `Ret1~2` (디버그 해금 · `SiteGrid.Unlock(id)`). 재배치 뒤 칸은 `SiteGrid.ModuleAt` · `WorldToCell`(실제 위치)로 본다
+- 임시로 둔 것: `CompanyDefinition.isLarge`(주문 배정 건너뛰기, M11-8), 반품 직무 열림 = `Ret1` 해금(`StaffService.IsRoleOpen`)
 - 이미 준비된 것:
-  - 알바: 고용 탭(`HirePanel` · 도장 `Stamp`), 배치 탭(`RosterPanel`), 명단 · 시급 규칙은 `StaffService`. 시급: `PartService.EndPart` → `StaffService.PlanWages` → [확인] `ApplyWages`
-  - 반품: `SharedStorage`의 `StorageKind`(Pallet / Returns / Repacked) + `StorageZone`, 검수 `InspectionTable`, 목표 카운트 `Warehouse.RepackedShelved`
-  - 연출 값 에셋: `StampConfig` · `CashFlyConfig` (Build Site가 있으면 그대로 씀)
-  - 디버그 메뉴 (드래그 스크롤): 현금 · 현금 존 쌓기/줍기 · 레벨업 · `Lv.11` · 배속 · `Staff` 알바 생성 · `End Part` · 주문 추가 · 모듈 해금
-  - 3D 모델: `Assets/Art/Model` — 캐릭터 `Worker/player` · `worker_macaron` · `worker_rabbit` (fbx + 텍스처 psd, Rig Generic), 애니메이션 `Ani/*.anim` (idle · walk · walk2 · carry · pull · change · sit · sit_keep), 소품 · 바닥 · 벽 `Prop/*.fbx` (`Color_Pallet.png` 공용 텍스처)
-    - **캐릭터 적용됨** (2026-11-14, `APC > Art > Apply Character Models`): 플레이어 = `player`, 알바 = macaron · rabbit 생성 때 무작위, 애니 idle / walk / carry / pull(구루마 이상). 역할 색은 발밑 원판. walk2 · change · sit · sit_keep은 아직 안 씀
-    - 모듈 · 소품은 아직 임시 도형. 시험 모듈 `APC > Art > Build Test Module` (바닥 타일 1장 = 1m, 모듈 = 10 × 10장)
-- 자동 테스트(Unity MCP, `.mcp.json`) 팁: 에디터가 뒤에 있으면 Play 프레임 · 컴파일이 멈춘다 → Unity 창을 한 번 클릭하거나 Play 중 `Application.runInBackground = true`. Play 중에 스크립트를 고치면 재컴파일로 상태가 날아가므로 Play를 다시 켠다. 첫 파트(90초)가 끝나면 정산 팝업이 `timeScale 0`으로 멈춘다 → `SettlementPopup.Confirm`(private, 리플렉션)으로 닫는다. 스크린샷은 `Temp/McpShots`에 (Assets에 남기지 않음). 브랜치를 바꿀 때 `Assembly-CSharp.dll` 복사 실패가 나면 스크립트를 다시 컴파일
-- `Module_Office.prefab`은 사용자가 손으로 위치를 고쳤다 — **`Rebuild Standard Modules (덮어쓰기)` · `Apply M6 Staff`를 실행하면 되돌아간다** (모듈 하나만 다시 만들 땐 `StandardModules.Rebuild("Module_…")`)
-- 사람 손 테스트가 남은 것: M6(고용 → 배치 → 시급 미지급 → 퇴사), M9(반품 — M13-10에서 바뀜), M11-3(업그레이드 탭 + M10-3c + 임시 해금 발판), M11-5(선반 여러 개에 넣고 빼기 · 분류 알바 · 화살표), M12-2(`모듈` 탭 재배치), M13-1(색 트럭 · 3연속), M13-2('공간 가득' 위치 · 크기)
+  - 반품: `SharedStorage`의 `StorageKind`(Pallet / Returns / Repacked) + `StorageZone`, 검수 `InspectionTable` — M13-10에서 재사용
+  - 연출 값 에셋: `StampConfig` · `CashFlyConfig` (사용자가 고친 값 — 되돌리지 않는다)
+  - 디버그 메뉴: 현금 · 레벨업 · 배속 · `Staff`(Auto · Unload · Sort · Pick · Returns) · `End Part` · 모듈 해금
+  - 모델: 캐릭터 `Art/Model/Worker`(player · uniformT · macaron · rabbit · SBS, 재질 `M_Char_*` — uniformT · SBS는 부위별), 애니 `Ani`(idle · walk · carry(= `carry_move`) · pull), 소품 `Prop`(재질 `M_Prop` = `Color_Pallet.png`, 이름표 `Prop/오브젝트_모습_이름정리.png`)
+- 자동 테스트(Unity MCP) 팁: Play 중 `Application.runInBackground = true`, Play 직후 첫 호출은 null이 올 수 있음(다시 호출). 팝업은 Open과 같은 프레임에 레이캐스트가 안 됨(다음 호출에서). 스크린샷은 `Assets/Screenshots`에 생기므로 끝나면 지운다. `Assembly-CSharp-Editor.dll` 복사 실패가 나면 다시 컴파일
+- **덮어쓰기 금지**: `Module_Office.prefab` · `StaffWorker.prefab`은 손 · MCP로 고쳤다 — `Rebuild Standard Modules` · `Apply M6 Staff` · `EnsureAll(true)`를 실행하면 되돌아간다. Build Site 전체도 피한다(고용 탭 붉은 글씨 위치를 손으로 옮김) — HUD 일부만 다시 만들 땐 `SiteBuilder`의 해당 함수를 리플렉션으로 부른다
+- 커밋 전에 `Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset`은 `git checkout --`으로 되돌린다
 
 ### 3. 그 뒤
 - **M13-18 통플레이** (Lv.1 → Lv.5), 그다음 M10 2순위 남은 것 (M10-3e 선반 단계 · M10-7 · M10-8 · M10-10). 저장 · 할당량 · 완료 표시는 삭제됨
 
-### 4. 아직 확정 안 된 것 (GDD 18장 10 · 16 · 23~25 · 27 · 28 · 32~45번)
-- M13 항목마다 해당 번호를 시작 전에 기획 확인: 32 찌그러진 확률(1%), 33 쓰레기 나르는 알바(반품 가정), 35 상차 돈 공식, 36 상차 주문 개수, 37 고용 직후 직무, 38 XP '설비' 범위, 39 C 전자제품과 알바, 40 HUD 저금통 아이콘, 41 반품 수치, 42 정전 세부, 43 황금 트럭 금 개수, 44 튜토리얼 5단계, 45 코스튬 확률
-- 10 · 16 알바 고정 수치 · 월급 20, 27 필요 XP(3 · 6 · 6 · 6 · 9), 28 건설 타일 비용 → 통플레이 때 조정. 23~25 지게차 관련은 M11-8 전에 확인
-- 알바 말풍선(GDD 11.6) · 알바 외형 랜덤(M10-6)은 아직 일정 없음. 모델은 들어왔다 — 임시 도형을 모델로 바꾸는 작업(플레이어 · 알바 · 소품)의 순서 · 범위를 기획 확인
+### 4. 아직 확정 안 된 것 (GDD 18장)
+- M13 항목마다 해당 번호를 시작 전에 기획 확인: 32 찌그러진 확률(1%), 33 쓰레기 나르는 알바(반품 가정), 38 XP '설비' 범위, 39 C 전자제품과 알바, 41 반품 수치, 42 정전 세부, 43 황금 트럭 금 개수, 44 튜토리얼 5단계
+- 27 필요 XP(3 · 6 · 6 · 6 · 9), 28 건설 타일 비용, 알바 수치 → 통플레이 때 조정. 23~25 지게차 관련은 M11-8 전에 확인
+- 저금통 지폐 색: GDD 9.5는 '초록 지폐', 모델 `Papper_Money`는 노랑 · 베이지 — 어느 쪽에 맞출지
+- 알바 말풍선(GDD 11.6)은 아직 일정 없음
 
 ### 5. 작업 규칙
 - 매 단계: **시작 전에 질문해 확정 → 구현 → Play 테스트 → 문서 반영(GDD · 체크리스트 · TechStack · Wiki) → 커밋**
@@ -480,8 +474,14 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
 
 > 임시 상자 · 원기둥 모델을 `Art/Model/Prop` fbx로 바꾼다. 이름표: `Prop/오브젝트_모습_이름정리.png`. 게임 규칙은 바꾸지 않는다 (모양 · 좌표만). 손으로 고친 프리팹(`Module_Office` 등)은 덮어쓰지 않고 그 안의 임시 모델만 바꾼다.
 
-- [ ] **M14-1 사무실 꾸미기** — 클립보드 책상 = `Employment_Desk` + `Clip_Board` (2026-11-16 확정), 컴퓨터 책상 = `Office_Desk` + `Office_Computer`, 의자 `Offiice_Chair`, 저금통 `Piggy_Bank` + 지폐 층 `Papper_Money`, 장식 `Office_Shelf`(+ `Office_Shelf_Box` · `Office_Shelf_Document_Dummy_Box`) · `Sofa` · `Sofa_Table` · `Plant_Pot` · `Water_Purifier` · `Desk_Shelf` · `Document_Dummy` · `Bell`. 장식은 동선(게이지 존 · 생성 지점)을 막지 않게 가장자리 위주로 **초안 배치** → 스크린샷 → 사용자가 손으로 조정 (2026-11-16 확정)
-- [ ] **M14-2 바닥 모듈** — 칸 바닥을 `floor_basic1~4` · `floor_basic_green1~3`로, 건물 밖 도로 · 트럭 자리를 `floor_road1~6` · `crosswalk` · `truck_parking`으로, 외곽 `wall_*` · `pillar_*` · `window_*` · `exit_seal`. 모듈 재배치 · 해금(빈 공간 → 모듈)에서 바닥이 같이 바뀌는지
+- [x] **M14-1 사무실 꾸미기** — 클립보드 책상 = `Employment_Desk` + `Clip_Board` (2026-11-16 확정), 컴퓨터 책상 = `Office_Desk` + `Office_Computer`, 의자 `Offiice_Chair`, 저금통 `Piggy_Bank` + 지폐 층 `Papper_Money`, 장식 `Office_Shelf`(+ `Office_Shelf_Box` · `Office_Shelf_Document_Dummy_Box`) · `Sofa` · `Sofa_Table` · `Plant_Pot` · `Water_Purifier` · `Desk_Shelf` · `Document_Dummy` · `Bell`. 장식은 동선(게이지 존 · 생성 지점)을 막지 않게 가장자리 위주로 **초안 배치** → 스크린샷 → 사용자가 손으로 조정 (2026-11-16 확정)
+  - 완료 (2026-11-16): `Module_Office` 프리팹 안 임시 상자를 Prop 모델로 교체 (재질 `M_Prop` = Color_Pallet). 클립보드 책상 `Employment_Desk` + `Clip_Board` · `Bell` · `Desk_Shelf`, 컴퓨터 책상 `Office_Desk` + `Office_Computer`(플레이어 쪽) · `Document_Dummy` + 모니터 면 `Screen` Quad(Lv.2 전 꺼짐). 저금통: 유리통 + 위 `Piggy_Bank` + 지폐 3층(`Papper_Money` × 30, **`PiggyBankView.layers`로 층 켜기**), 금액 글자 y 3.1. 장식 `Decor`: 소파 · 소파 테이블 · 화분 2 · 정수기 · 사무실 선반 2(+ 상자 · 서류함). 의자는 손으로 둔 것 그대로
+  - 테스트: Lv.1 화면 꺼짐 · Lv.2 켜짐, 저금통 0 → 층 0, 200 → 2층, 600 → 3층, 스크린샷으로 배치 · 방향 확인. 에러 0. 배치는 초안 — 사람 손 조정 아직
+- [x] **M14-2 바닥 모듈** — 칸 바닥을 `floor_basic1~4` · `floor_basic_green1~3`로, 건물 밖 도로 · 트럭 자리를 `floor_road1~6` · `crosswalk` · `truck_parking`으로, 외곽 `wall_*` · `pillar_*` · `window_*` · `exit_seal`. 모듈 재배치 · 해금(빈 공간 → 모듈)에서 바닥이 같이 바뀌는지
+  - 확정 (2026-11-16): 타일 fbx Scale Factor 2(2m, 칸당 5 × 5) · **타일맵처럼 칠하는 에디터 도구** · 벽은 **열린 칸 바깥 테두리만**, 1m 조각 이어 붙이기(허물기 연출 대비), 앞 = `wall_s` · 뒤 = `wall_l` + 기둥 (참고 `Prop/background_test.fbx`)
+  - 완료: `ModuleFloor`(모듈 루트, 칸별 타일 · 회전) + `ModuleFloorEditor`(인스펙터 팔레트 20종 · 칸 격자 칠하기 / 회전 / 채우기 / 섞기, `FloorArt`에 깔고 회색 판 렌더러 끔), 메뉴 `APC > Art > Add Module Floor`로 12개 모듈에 붙임. `SiteWalls`(SiteGrid, 해금마다 다시 세움, 하차 · 상차 주차장 쪽 비움, Build Site `AddWalls`). 사무실은 시험으로 `floor1_basic` 전체
+  - 테스트: 타일 25장 = 10 × 10m · 윗면 y 0, 시작 벽 156조각 → In2 해금 145조각(칸 사이 벽 사라짐 · 새 테두리), 스크린샷 확인, 에러 0
+  - 남음: 나머지 모듈 바닥 칠하기(사용자), 트럭 출입구 셔터(`truck_parking`) · 바깥 도로 · 창문 벽, 벽 허물기 연출
 - [ ] **M14-3 모듈 임시 모델 교체** — 선반 `Shelf`, 반품 선반 `Return_Storage_Rack`, 하차 칸 공간 `Plastic_Pallet`, 쓰레기장 `Trash_Bin`, 포장대 `Discarded`(?), 트럭 `Truck`, 상자 `Box` (색 띠 유지), 적재 도구 `Hand_Wagon`(구루마) · `Wagon` · `Backet_Wagon` · `Rolltainer`, 지게차 `Forklift`, `Hand_Pallet_Truck` · `Box_Interaction`(?)
 - [ ] **M14-4 들기 좌표 · 애니 맞춤** — 플레이어 · 알바가 드는 상자 위치를 도구와 애니에 맞춤: 맨손 = 손 바로 위, 구루마 · 롤테이너 = 바닥부터 하나씩 쌓기, 지게차 = 헤드(포크)에 팔레트를 끼우고 그 위에 대형 화물 하나씩. 걷기 · 들기(`carry_move`) · 끌기(`pull`) 애니와 어긋나지 않게
 
@@ -506,7 +506,7 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
 | M11 물류 개편 | 6 | 3 |
 | M12 6 × 4 배치 · 재배치 | 2 | 2 |
 | M13 변경사항 2 | 18 | 7 |
-| M14 모델 적용 | 4 | 0 |
-| **합계** | **101** | **77** |
+| M14 모델 적용 | 4 | 2 |
+| **합계** | **101** | **79** |
 
 > 2026-11-15: M10 11 → 4 (삭제 3 · M13으로 옮김 4), M11 11 → 6 (M12 · M13이 대신한 5), M13 18 추가.

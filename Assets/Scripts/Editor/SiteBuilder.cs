@@ -113,11 +113,24 @@ namespace APC.EditorTools
             AssetDatabase.SaveAssets();
         }
 
+        /// <summary>열린 칸 바깥 테두리 벽 (M14-2). 조각은 `Art/Model/Prop` fbx.</summary>
+        static void AddWalls(GameObject gridGo)
+        {
+            const string prop = "Assets/Art/Model/Prop/";
+            var walls = gridGo.AddComponent<SiteWalls>();
+            SetRef(walls, "lowWall", AssetDatabase.LoadAssetAtPath<GameObject>(prop + "wall_s.fbx"));
+            SetRef(walls, "highWall", AssetDatabase.LoadAssetAtPath<GameObject>(prop + "wall_l.fbx"));
+            SetRef(walls, "lowPillar", AssetDatabase.LoadAssetAtPath<GameObject>(prop + "pillar_s.fbx"));
+            SetRef(walls, "highPillar", AssetDatabase.LoadAssetAtPath<GameObject>(prop + "pillar_L.fbx"));
+            SetRef(walls, "material", AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Materials/M_Prop.mat"));
+        }
+
         static SiteGrid BakeGrid(Transform site, SiteLayout layout)
         {
             var gridGo = new GameObject("SiteGrid");
             gridGo.transform.SetParent(site, false);
             var grid = gridGo.AddComponent<SiteGrid>();
+            AddWalls(gridGo); // M14-2 바깥 벽
             var entries = new List<SiteGrid.Entry>();
 
             foreach (var placement in layout.Modules)

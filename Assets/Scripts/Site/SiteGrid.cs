@@ -212,6 +212,9 @@ namespace APC.Site
         /// <summary>칸 (x = 열, y = 행)이 열려 있는가.</summary>
         public bool IsCellOpen(Vector2Int cell) => openCells.Contains(cell);
 
+        /// <summary>열린 칸 전부 (x = 열, y = 행). 벽(SiteWalls)이 바깥 테두리를 찾을 때 쓴다.</summary>
+        public IReadOnlyCollection<Vector2Int> OpenedCells => openCells;
+
         void OpenCells(SiteLayout.ModulePlacement placement)
         {
             foreach (var cell in SiteLayout.GetCells(placement)) openCells.Add(cell);

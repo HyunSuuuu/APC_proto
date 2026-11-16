@@ -636,7 +636,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### ContractPC
 [Contracts/ContractPC.cs](../Scripts/Contracts/ContractPC.cs)
 - **역할**: 사무실 책상 게이지 존 (GDD 4.3). 사무실 프리팹에 2개: `ClipboardDesk`(`computerDesk` 끔) · `ComputerDesk`(켬, `unlockLevel` 2). 다 차면 `ContractPopup.Instance.Open(computerDesk)`. 나가면 게이지를 되돌린다.
-- **동작**: 컴퓨터 책상은 레벨이 `unlockLevel` 미만이면 `CanProgress`가 false(게이지 안 참)이고 `screen`(모니터 앞 `Screen`, `M_MonitorScreen`)이 꺼진다. 레벨을 구독해 켠다.
+- **동작**: 컴퓨터 책상은 레벨이 `unlockLevel` 미만이면 `CanProgress`가 false(게이지 안 참)이고 `screen`(모니터 면에 붙인 Quad `Screen`, `M_MonitorScreen`)이 꺼진다. 레벨을 구독해 켠다.
 - **주의**: 사무실 모듈 프리팹 안에 있으므로 팝업을 직접 참조하지 않고 `Instance`로 찾는다. 클래스 이름은 옛 계약 PC 그대로. `StandardModules`(Rebuild Standard Modules)는 아직 책상 1개만 만든다 — 프리팹은 손으로 고친 것.
 
 ### 4.7 Orders — 주문
@@ -675,7 +675,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### PiggyBankView
 [Economy/PiggyBankView.cs](../Scripts/Economy/PiggyBankView.cs)
-- **역할**: 사무실 투명 저금통 (사무실 모듈 안). `Wallet.Piggy`에 따라 초록 지폐 층(`M_Coins` 재질, 이름만 옛것)이 **3단계**(`piggyStepCount`)로 차오르고 — 가득 기준을 넘어도 돈은 계속 모이고 모양만 멈춤 —(피벗이 바닥인 `FillPivot`의 y 크기), 돈이 들어오면 통이 튄다. 정산 때 비워진다. 위 글자 = 저금통 금액.
+- **역할**: 사무실 투명 저금통 (사무실 모듈 안). `Wallet.Piggy`에 따라 지폐 층이 **3단계**(`piggyStepCount`)로 차오르고 — 가득 기준을 넘어도 돈은 계속 모이고 모양만 멈춤 —, 돈이 들어오면 통이 튄다. 정산 때 비워진다. 위 글자 = 저금통 금액.
+- **동작**: `layers`(아래부터 `FillPivot/Layer1~3`, 층마다 `Papper_Money` 30개)가 있으면 단계만큼 층을 켜고 새 층은 팝 (M14-1). 없으면 옛 방식 — `fill`(피벗 바닥)의 y 크기. 유리통 위에 `Piggy_Bank` 모델(`PiggyTop`).
 
 ### 4.8 Site — 부지 모듈
 
@@ -696,7 +697,19 @@ StaffWorker (thinkInterval 0.25초마다 판단)
   - `IsWalkable(위치)` / `IsAreaWalkable(중심, 반지름)`: 열린 칸 안인지 (반지름은 네 모서리로 검사).
   - `IsCellOpen(cell)`: 칸 (열, 행)이 열렸나 (인접 확인용).
   - 빈 공간: `Unlock`이 붙일 모듈의 칸에 있는 `Empty` 모듈을 **끈다** (`SetActive(false)`, instance는 남아 해금된 것으로 침 → 바닥 충돌체가 빠져 네비메시에서도 빠짐). 빈 공간 칸에 놓이는 1칸 모듈은 처음 칸이 차 있으면 `TryFindEmptyCell`(가장 가까운 빈 공간)에 붙는다 — 발판 자리와 같은 규칙.
-  - 칸 조회는 **모듈 실제 위치**로 한다 (재배치 뒤 config `row` · `column`과 다름): `WorldToCell`, `CellCenter(cell)`, `ModuleAt(cell)`(켜진 모듈), `IsEmptyTile(cell)`, `TryFindEmptyCell(preferred)`, `IdOf(module)`.
+  - 칸 조회는 **모듈 실제 위치**로 한다 (재배치 뒤 config `row` · `column`과 다름): `WorldToCell`, `CellCenter(cell)`, `ModuleAt(cell)`(켜진 모듈), `IsEmptyTile(cell)`, `TryFindEmptyCell(preferred)`, `IdOf(module)`. `OpenedCells` = 열린 칸 전부 (`SiteWalls`가 씀).
+
+#### SiteWalls
+[Site/SiteWalls.cs](../Scripts/Site/SiteWalls.cs)
+- **역할**: 부지 바깥 벽 (M14-2). 열린 칸과 안 열린 칸 · 부지 밖 사이 변에만 1m 조각(`wall_s` 앞 · `wall_l` 뒤)을 이어 세우고 꼭짓점에 기둥(`pillar_s` · `pillar_L`). 앞 / 뒤 = 변 바깥 방향이 카메라 쪽이면 앞(낮은 벽).
+- **동작**: `Start`와 `SiteGrid.OnUnlocked`마다 `Walls` 자식을 지우고 다시 세운다 → 해금되면 칸 사이 벽이 사라지고 새 테두리에 생긴다. 하차 · 상차장 모듈(`InboundBay` · `OutboundBay`)의 주차장 쪽(모듈 로컬 −x) 변은 비운다.
+- **연결**: Build Site `AddWalls`가 `SiteGrid` 오브젝트에 붙이고 Prop fbx · `M_Prop`을 연결한다.
+- **주의**: 충돌체 없음 (걷는 범위는 `IsWalkable` · 네비메시). 재배치는 열린 칸이 안 바뀌어 다시 세우지 않는다. 허물어지는 연출은 아직.
+
+#### ModuleFloor
+[Site/ModuleFloor.cs](../Scripts/Site/ModuleFloor.cs)
+- **역할**: 모듈 바닥 타일 데이터 (M14-2): 2m 칸마다 타일 fbx + 회전. 모듈 루트에 붙는다. 실행 중엔 아무것도 안 함.
+- **연결**: 칠하기 · 깔기는 에디터 `ModuleFloorEditor`(인스펙터 팔레트 + 칸 격자) → 자식 `FloorArt`에 저장. 사용법은 TechStack `Add Module Floor`.
   - 재배치(M12-2, GDD 4.4): `ApplyArrangement(모듈 → 칸)` — 보관 · 반품 · 빈 공간 모듈의 자리 맞바꿈이라 열린 칸은 그대로. 모듈 **통째로** 옮기므로 선반 · 상자 · 작업 지점이 같이 간다. 옮긴 모듈은 팝 연출, `OnMoved`(네비메시 · 알바 · 발판이 구독).
 - **주의**: `Unlock`은 레벨 · 인접 조건을 확인하지 않는다. 그 조건은 `SiteUnlocker`가 확인한다 (디버그 메뉴는 조건 없이 연다). 재배치는 1칸 모듈만 가정한다.
 
@@ -870,6 +883,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | `APC > Module > New Module...` | [ModuleFactory](../Scripts/Editor/ModuleFactory.cs) (`ModuleCreatorWindow`) | 빈 n × m 모듈 틀을 `Assets/Prefabs/Modules/Module_이름.prefab`으로 만든다 |
 | `APC > Art > Build Test Module` | [ArtModuleBuilder](../Scripts/Editor/ArtModuleBuilder.cs) | 아트 시험용 빈 모듈 `Assets/Prefabs/Modules/Test/Module_ArtTest.prefab`: 바닥 `floor1_basic.fbx` 10 × 10장(1장 = 1m, 메시 실제 크기를 재서 맞춤) + 공용 재질 `M_Prop`(`Color_Pallet.png`). 바닥 충돌체는 그대로 두고 큐브 렌더러만 끔. 게임 배치(SiteLayout)에는 안 들어감 |
 | `APC > Art > Apply Character Models` | [CharacterArt](../Scripts/Editor/CharacterArt.cs) | 캐릭터 모델 적용: 애니 idle · walk · carry · pull 반복 켜기, 모델 아바타 생성, 재질 `M_Char_모델`(`*_P.psd`, 없으면 부위별 `M_Char_모델_hair · _skin · _cloth` — uniformT: 메시 이름 hair / face · arm / 나머지, SBS: top · bottom = `_body` / 나머지 `_head`), 컨트롤러 `Ani/Character.controller`. 씬 Player에 `player` 모델 + `CharacterAnimator`(임시 몸통 렌더러는 끔, 스택 높이 1.6) → 씬 저장, 알바 프리팹 다시 만들기(`StaffWorkerPrefab`) |
+| `APC > Art > Add Module Floor` | [ModuleFloorEditor](../Scripts/Editor/ModuleFloorEditor.cs) | 모든 모듈 프리팹에 `ModuleFloor`를 붙인다. 바닥은 모듈 프리팹 루트 인스펙터에서 칠한다 (TechStack 참고) |
 | `APC > Art > Log Prop Sizes` | [ArtModuleBuilder](../Scripts/Editor/ArtModuleBuilder.cs) | `Art/Model/Prop` fbx마다 실제 크기(m)와 import `globalScale`을 콘솔에 찍는다 (스케일 통일 기준) |
 | `APC > Module > Rebuild Standard Modules` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 12종(빈 공간 `Module_Empty` · 쓰레기장 `Module_Trash` 포함)을 코드 기준으로 **덮어써서** 다시 만든다 (사무실도 덮어씀) |
 | `APC > Setup > Apply Layout 6x4` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 6 × 4 배치 적용 (M12-1): SiteLayout · 회사 선반 구역(`StoreA1` · `StoreB~D`)을 기본값으로, 보관 A~D · 반품 · 쓰레기장 · 빈 공간 모듈만 다시 만들고(사무실 · 하차 · 상차는 그대로), Build Site. 레벨 표는 안 건드림 |

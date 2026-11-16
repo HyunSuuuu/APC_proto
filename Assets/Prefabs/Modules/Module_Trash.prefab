@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3343982709650264127}
   - component: {fileID: 2504881746386014823}
+  - component: {fileID: 2640842808843137079}
   m_Layer: 0
   m_Name: Module_Trash
   m_TagString: Untagged
@@ -49,6 +50,21 @@ MonoBehaviour:
   size: {x: 1, y: 1}
   cellSize: 10
   kind: 0
+--- !u!114 &2640842808843137079
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 148868136391478510}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 538a60011280cbd4fab57bc42899f3e2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::APC.Site.ModuleFloor
+  tileSize: 2
+  tiles: []
+  turns: 
 --- !u!1 &1241471921631588231
 GameObject:
   m_ObjectHideFlags: 0
@@ -75,7 +91,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1241471921631588231}
-  m_LocalRotation: {x: -0.61237246, y: 0.35355344, z: -0.35355344, w: -0.61237246}
+  m_LocalRotation: {x: -0.6532815, y: 0.2705981, z: -0.2705981, w: -0.6532815}
   m_LocalPosition: {x: 0, y: 0, z: -3.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
