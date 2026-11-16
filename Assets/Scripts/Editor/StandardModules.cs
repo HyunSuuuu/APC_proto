@@ -689,7 +689,7 @@ namespace APC.EditorTools
 
             var anchor = new GameObject("StackAnchor").transform;
             anchor.SetParent(root.transform, false);
-            anchor.localPosition = new Vector3(0f, 2f, 0f); // 모델 키 1.7 ~ 1.9m 위
+            anchor.localPosition = new Vector3(0f, 0.55f, 0.45f); // 맨손 = 손 바로 위, 큰 머리를 피해 앞으로 (GDD 5.3)
 
             var agent = root.AddComponent<NavMeshAgent>();
             agent.radius = 0.3f;

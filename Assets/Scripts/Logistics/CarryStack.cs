@@ -51,6 +51,18 @@ namespace APC.Logistics
             capacity.Dispose();
         }
 
+        /// <summary>스택 바닥을 바꾼다 (맨손 ↔ 구루마 · 롤테이너, GDD 5.3). 든 상자는 새 바닥으로 옮겨 다시 쌓는다.</summary>
+        public void UseAnchor(Transform newAnchor)
+        {
+            if (newAnchor == null || newAnchor == anchor) return;
+            bounce?.Kill(true);
+            anchor.localScale = Vector3.one;
+            anchor = newAnchor;
+            foreach (var cargo in items) cargo.transform.SetParent(anchor, true);
+            lastAnchorPosition = anchor.position;
+            if (config != null) Reflow(0);
+        }
+
         /// <summary>최대 적재 수 (플레이어 = PlayerConfig, 알바 = 힘 스탯).</summary>
         public void SetCapacity(int value) => capacity.Value = Mathf.Max(1, value);
 

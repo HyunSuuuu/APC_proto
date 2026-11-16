@@ -390,11 +390,11 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### PlayerSetup
 [Characters/PlayerSetup.cs](../Scripts/Characters/PlayerSetup.cs)
 - **역할**: `PlayerConfig` 값을 `CarryStack`(최대 적재 = `PlayerUpgrades.Capacity`, 단계가 오르면 다시 넣음)과 `Interactor`(집기 간격, 대기 시간)에 넣는다. 알바는 `StaffWorker`가 같은 컴포넌트에 스탯 기반 값을 넣는다.
-- **동작**: 적재 도구가 구루마 이상(`CarryStep > 0`)이면 `CharacterAnimator.UsePull`을 켠다.
+- **동작**: 적재 도구가 구루마 이상(`CarryStep > 0`)이면 `CharacterAnimator.UsePush`를 켜고, `tools[단계 − 1]`(씬 Player `Tools/Wagon` · `Tools/Rolltainer`, 앞에 두고 미는 모델)만 켠 뒤 그 자식 `StackAnchor`로 `CarryStack.UseAnchor` (M14-4). 0단계는 원래 손 앵커.
 
 #### CharacterAnimator
 [Characters/CharacterAnimator.cs](../Scripts/Characters/CharacterAnimator.cs)
-- **역할**: 캐릭터 모델 애니 (플레이어 · 알바 공용). 상태 = 멈춤 `idle`, 빈손 이동 `walk`, 상자 들고 이동 `carry`, 끌기 도구로 이동 `pull`.
+- **역할**: 캐릭터 모델 애니 (플레이어 · 알바 공용). 상태 = 빈손 `idle` / `walk`, 맨손으로 들기 `carry_idle` / `carry_move`, 밀기 도구(`UsePush`) `idle` / `push` (M14-4, 서기 / 걷기).
 - **동작**: `LateUpdate`에서 위치 변화로 실제 속도를 재고(`moveThreshold` 0.15 m/s), 상태가 바뀔 때만 `CrossFadeInFixedTime`(0.12초). Animator는 자식 중 켜진 모델의 것을 찾는다 (알바 모델 교체 대응). `Time.deltaTime` 0(팝업 멈춤)이면 그대로.
 - **연결**: `stack`(`CarryStack`), 컨트롤러 `Assets/Art/Model/Ani/Character.controller`(상태 이름 = 클립 이름). 만들기는 `CharacterArt`(에디터).
 
@@ -471,8 +471,9 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### CarryStack
 [Logistics/CarryStack.cs](../Scripts/Logistics/CarryStack.cs)
-- **역할**: 머리 위 운반 스택. 플레이어와 알바가 같이 쓴다. 품목이 섞여도 된다.
+- **역할**: 운반 스택. 플레이어와 알바가 같이 쓴다. 품목이 섞여도 된다. 바닥(`anchor`)은 맨손 = 손 바로 위 `(0, 0.55, 0.45)`(M14-4, 큰 머리를 피해 앞으로), 도구 = 도구 바닥.
 - **동작**:
+  - `UseAnchor(새 바닥)`: 든 상자를 새 바닥으로 옮겨 다시 쌓는다 (맨손 ↔ 구루마 · 롤테이너)
   - `TryAdd`: 포물선으로 날아와 맨 위에 착지
   - `TakeTopMatching(조건)`: 위에서부터 조건에 맞는 화물을 빼고, 위 상자들을 내려앉힘
   - 매 프레임 관성 기울기: 이동 반대쪽으로 기울고 스프링으로 돌아옴. 위층일수록 많이 기운다.

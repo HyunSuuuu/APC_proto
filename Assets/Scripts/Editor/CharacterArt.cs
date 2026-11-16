@@ -22,7 +22,7 @@ namespace APC.EditorTools
         public const string Player = "player";
         /// <summary>알바 모델. [0] = 물류 유니폼, 나머지 = 코스튬 (GDD 11.1, StaffWorker.models 순서).</summary>
         public static readonly string[] Workers = { "uniformT", "worker_macaron", "worker_rabbit", "SBS" };
-        static readonly string[] States = { "idle", "walk", "carry", "pull" };
+        static readonly string[] States = { "idle", "walk", "carry_idle", "carry_move", "push" };
 
         [MenuItem("APC/Art/Apply Character Models (플레이어 · 알바)")]
         static void Apply()
@@ -88,7 +88,7 @@ namespace APC.EditorTools
             Model(Player, player.transform);
 
             var anchor = player.transform.Find("StackAnchor");
-            if (anchor != null) anchor.localPosition = new Vector3(0f, 1.6f, 0f); // 모델 키 1.4m 바로 위
+            if (anchor != null) anchor.localPosition = new Vector3(0f, 0.55f, 0.45f); // 맨손 = 손 바로 위, 큰 머리를 피해 앞으로 (GDD 5.3)
 
             var animator = player.GetComponent<CharacterAnimator>();
             if (animator == null) animator = player.AddComponent<CharacterAnimator>();
@@ -101,16 +101,15 @@ namespace APC.EditorTools
         static AnimatorController Controller()
         {
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
-            if (controller != null) return controller;
-
-            controller = AnimatorController.CreateAnimatorControllerAtPath(ControllerPath);
+            if (controller == null) controller = AnimatorController.CreateAnimatorControllerAtPath(ControllerPath);
             var machine = controller.layers[0].stateMachine;
-            foreach (var name in States)
+            foreach (var name in States) // 빠진 상태만 더한다 (애니가 늘어도 기존 컨트롤러 유지)
             {
+                if (System.Array.Exists(machine.states, s => s.state.name == name)) continue;
                 var state = machine.AddState(name);
                 state.motion = AssetDatabase.LoadAssetAtPath<AnimationClip>($"{AniFolder}/{name}.anim");
             }
-            machine.defaultState = machine.states[0].state; // idle
+            if (machine.defaultState == null) machine.defaultState = machine.states[0].state; // idle
             return controller;
         }
 
