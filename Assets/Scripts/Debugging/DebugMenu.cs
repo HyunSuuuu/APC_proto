@@ -1,7 +1,5 @@
-using APC.Contracts;
 using APC.Core;
 using APC.Data;
-using APC.Orders;
 using APC.Site;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -140,7 +138,6 @@ namespace APC.Debugging
             if (GUILayout.Button(gm.IsPaused ? "Resume" : "Pause", buttonStyle)) gm.SetPaused(!gm.IsPaused);
 
             DrawPart();
-            DrawOrders();
             DrawStaff();
             DrawSite(gm);
         }
@@ -191,24 +188,9 @@ namespace APC.Debugging
             if (parts == null) return;
 
             Header("Part");
-            GUILayout.Label($"Part {parts.Part.CurrentValue}   {parts.Remaining.CurrentValue:0}s   Departed {parts.DeparturesThisPart}", labelStyle);
+            GUILayout.Label($"Part {parts.Part.CurrentValue}   {parts.Remaining.CurrentValue:0}s", labelStyle);
             GUI.enabled = parts.IsRunning;
             if (GUILayout.Button("End Part", buttonStyle)) parts.EndPart();
-            GUI.enabled = true;
-        }
-
-        /// <summary>주문 테스트: 계약한 회사 중 하나로 주문 1건 추가 (큐 최대 수는 지킨다).</summary>
-        void DrawOrders()
-        {
-            var orders = OrderService.Instance;
-            var contracts = ContractService.Instance;
-            if (orders == null || contracts == null) return;
-
-            Header("Orders");
-            GUILayout.Label($"Queue {orders.Orders.Count}", labelStyle);
-            GUI.enabled = contracts.HasAnyContract;
-            if (GUILayout.Button("Add Order", buttonStyle))
-                orders.TryGenerate(contracts.Contracted[Random.Range(0, contracts.Contracted.Count)]);
             GUI.enabled = true;
         }
 

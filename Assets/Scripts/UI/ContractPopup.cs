@@ -6,7 +6,8 @@ using UnityEngine.UI;
 namespace APC.UI
 {
     /// <summary>
-    /// 계약 PC 팝업 (GDD 4.3, 4.4, 5.1, 11.1, 11.3, 12.3): `고용 | 배치 | 업그레이드 | 모듈` 탭. 열려 있는 동안 게임이 멈춘다.
+    /// 사무실 책상 팝업 (GDD 4.3, 4.4, 5.1, 11.1, 11.3, 12.3). 두 책상이 같이 쓰고 연 책상에 따라 탭이 다르다:
+    /// 클립보드 책상 = `고용 | 배치`, 컴퓨터 책상 = `업그레이드 | 모듈` (Open(computer)). 열려 있는 동안 게임이 멈춘다.
     /// 모듈 탭(ModulePanel)의 재배치는 닫을 때 부지에 적용한다.
     /// 고용 탭(HirePanel)은 오른쪽 아래 도장(Stamp)을 후보 카드에 찍어 고용한다 (고용해도 열린 채). 배치 탭(RosterPanel)은 알바 카드를 끌어 역할 변경 · 해고.
     /// 계약 탭은 계약 시스템 삭제로 없앴다 (2026-11-13, GDD 6.3). 열면 고용 탭.
@@ -33,6 +34,7 @@ namespace APC.UI
         [SerializeField] Color tabOffColor = new(0.75f, 0.72f, 0.68f);
 
         Sequence transition;
+        Vector2 firstTabPosition, secondTabPosition, upgradeTabPosition, moduleTabPosition;
 
         /// <summary>계약 PC(사무실 모듈 프리팹 안)가 씬의 팝업을 찾을 때 쓴다.</summary>
         public static ContractPopup Instance { get; private set; }
@@ -55,16 +57,30 @@ namespace APC.UI
             rosterTab.onClick.AddListener(() => SelectTab(Tab.Roster));
             upgradeTab.onClick.AddListener(() => SelectTab(Tab.Upgrade));
             moduleTab.onClick.AddListener(() => SelectTab(Tab.Module));
+            firstTabPosition = Rect(hireTab).anchoredPosition;
+            secondTabPosition = Rect(rosterTab).anchoredPosition;
+            upgradeTabPosition = Rect(upgradeTab).anchoredPosition;
+            moduleTabPosition = Rect(moduleTab).anchoredPosition;
             body.SetActive(false);
         }
 
-        public void Open()
+        static RectTransform Rect(Button button) => (RectTransform)button.transform;
+
+        /// <param name="computer">true = 컴퓨터 책상 (`업그레이드 | 모듈`), false = 클립보드 책상 (`고용 | 배치`).</param>
+        public void Open(bool computer)
         {
             if (IsOpen) return;
             IsOpen = true;
             body.SetActive(true);
             modulePage.Begin();
-            SelectTab(Tab.Hire);
+            hireTab.gameObject.SetActive(!computer);
+            rosterTab.gameObject.SetActive(!computer);
+            upgradeTab.gameObject.SetActive(computer);
+            moduleTab.gameObject.SetActive(computer);
+            // 컴퓨터 책상 탭을 왼쪽 두 자리로 당긴다
+            Rect(upgradeTab).anchoredPosition = computer ? firstTabPosition : upgradeTabPosition;
+            Rect(moduleTab).anchoredPosition = computer ? secondTabPosition : moduleTabPosition;
+            SelectTab(computer ? Tab.Upgrade : Tab.Hire);
             GameManager.Instance.OpenPopup();
 
             transition?.Kill();

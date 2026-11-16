@@ -76,7 +76,8 @@ namespace APC.EditorTools
             BuildLevelHud();
             BuildCashHud();
             BuildLevelUpBanner();
-            BuildOrderQueue();
+            var oldQueue = GameObject.Find("HUD Canvas").transform.Find("OrderQueue"); // 주문서 큐 삭제 (GDD 12.2, 2026-11-16) — 옛 씬에 남은 것 (꺼져 있어도 찾음)
+            if (oldQueue != null) DestroyIfExists(oldQueue.gameObject);
             BuildGuideArrow();
             BuildContractPopup();
             BuildSettlementPopup();
@@ -320,24 +321,24 @@ namespace APC.EditorTools
             var old = canvas.Find("CashHud");
             if (old != null) DestroyIfExists(old.gameObject);
 
-            // 레벨 패널(330) 오른쪽, 한 패널에 위아래 두 줄 — GDD 12.1: 위 보유 재화(크게) / 아래 저금통 `+N 대기`(작게)
+            // 레벨 패널(330) 오른쪽 — GDD 12.1: **지갑 한 칸** + 패널 바로 오른쪽에 작은 저금통 아이콘 · `+N` (이번 파트 주운 돈, 달러가 날아가는 곳, 2026-11-16)
             var sprite = BuiltinSprite("UI/Skin/UISprite.psd");
-            var panel = UIImage("CashHud", canvas, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(370f, -20f), new Vector2(300f, 112f),
+            var panel = UIImage("CashHud", canvas, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(370f, -20f), new Vector2(300f, 76f),
                 new Color(0f, 0f, 0f, 0.45f), sprite);
             panel.type = Image.Type.Sliced;
             var rect = panel.rectTransform;
             rect.pivot = new Vector2(0f, 1f);
 
-            // 위 줄: 보유 재화
-            UIImage("Icon", rect, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(46f, -38f), new Vector2(52f, 34f),
+            // 지갑
+            UIImage("Icon", rect, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(46f, 0f), new Vector2(52f, 34f),
                 new Color(0.35f, 0.75f, 0.4f), sprite).type = Image.Type.Sliced;
-            var label = UIText("Amount", rect, new Vector2(0f, 1f), new Vector2(190f, -38f), new Vector2(200f, 64f), "0", 50f, TitleFont, Color.white);
+            var label = UIText("Amount", rect, new Vector2(0f, 0.5f), new Vector2(190f, 0f), new Vector2(200f, 64f), "0", 50f, TitleFont, Color.white);
             label.alignment = TMPro.TextAlignmentOptions.Left;
 
-            // 아래 줄: 저금통 (분홍 동그라미 = 돼지 저금통 자리)
-            var piggyIcon = UIImage("PiggyIcon", rect, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(46f, 26f), new Vector2(26f, 26f),
+            // 작은 저금통 (분홍 동그라미 = 돼지 저금통 자리)
+            var piggyIcon = UIImage("PiggyIcon", rect, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(30f, 0f), new Vector2(34f, 34f),
                 new Color(1f, 0.6f, 0.7f), BuiltinSprite("UI/Skin/Knob.psd"));
-            var piggy = UIText("Piggy", rect, new Vector2(0f, 0f), new Vector2(170f, 26f), new Vector2(200f, 36f), "+0 대기", 28f, BodyFont, new Color(1f, 0.82f, 0.86f));
+            var piggy = UIText("Piggy", rect, new Vector2(1f, 0.5f), new Vector2(132f, 0f), new Vector2(160f, 40f), "+0", 32f, TitleFont, new Color(1f, 0.82f, 0.86f));
             piggy.alignment = TMPro.TextAlignmentOptions.Left;
 
             var view = panel.gameObject.AddComponent<CashView>();
@@ -398,20 +399,20 @@ namespace APC.EditorTools
             var p = panel.rectTransform;
             var title = UIText("Title", p, new Vector2(0.5f, 1f), new Vector2(0f, -66f), new Vector2(700f, 90f), "1파트 정산", 56f, TitleFont, dark);
 
-            // 반품은 재포장 후 일반 화물로 출고되므로 따로 수입 줄이 없다 (GDD 7.7)
-            string[] names = { "출고 수입", "할당량 보너스", "알바 시급" };
-            var values = new TMPro.TMP_Text[4];
-            for (var i = 0; i < 4; i++)
+            // 번 돈 · 알바 월급 · 합계 (GDD 9.5, 할당량 보너스 삭제 2026-11-15). 반품은 재포장 후 일반 화물로 출고되므로 따로 수입 줄이 없다 (GDD 7.7)
+            string[] names = { "번 돈", "알바 월급" };
+            var values = new TMPro.TMP_Text[3];
+            for (var i = 0; i < 3; i++)
             {
-                var y = -150f - i * 72f - (i == 3 ? 24f : 0f);
-                var isTotal = i == 3;
+                var y = -150f - i * 72f - (i == 2 ? 24f : 0f);
+                var isTotal = i == 2;
                 var name = UIText($"Row{i}Name", p, new Vector2(0f, 1f), new Vector2(230f, y), new Vector2(380f, 60f), isTotal ? "합계" : names[i], isTotal ? 40f : 34f, isTotal ? TitleFont : BodyFont, dark);
                 name.alignment = TMPro.TextAlignmentOptions.Left;
                 var value = UIText($"Row{i}Value", p, new Vector2(1f, 1f), new Vector2(-190f, y), new Vector2(300f, 60f), "0", isTotal ? 46f : 36f, TitleFont, isTotal ? new Color(0.2f, 0.55f, 0.3f) : dark);
                 value.alignment = TMPro.TextAlignmentOptions.Right;
                 values[i] = value;
             }
-            UIImage("Line", p, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -366f), new Vector2(620f, 4f), new Color(0.25f, 0.22f, 0.2f, 0.3f), null);
+            UIImage("Line", p, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -294f), new Vector2(620f, 4f), new Color(0.25f, 0.22f, 0.2f, 0.3f), null);
             // 미지급 · 퇴사 알바 명단 + 경고 (GDD 11.7)
             var staff = UIText("Staff", p, new Vector2(0.5f, 1f), new Vector2(0f, -490f), new Vector2(680f, 100f), "", 26f, BodyFont, new Color(0.8f, 0.2f, 0.15f));
             staff.enableAutoSizing = true;
@@ -430,9 +431,8 @@ namespace APC.EditorTools
             SetRef(popup, "panel", p);
             SetRef(popup, "titleLabel", title);
             SetRef(popup, "outboundValue", values[0]);
-            SetRef(popup, "bonusValue", values[1]);
-            SetRef(popup, "wageValue", values[2]);
-            SetRef(popup, "totalValue", values[3]);
+            SetRef(popup, "wageValue", values[1]);
+            SetRef(popup, "totalValue", values[2]);
             SetRef(popup, "staffLabel", staff);
             SetRef(popup, "confirmButton", button);
             root.SetAsLastSibling();
@@ -531,69 +531,6 @@ namespace APC.EditorTools
             so.FindProperty("followLabel").stringValue = "카메라";
             so.FindProperty("freeLabel").stringValue = "내 캐릭터로";
             so.ApplyModifiedPropertiesWithoutUndo();
-        }
-
-        // ── HUD: 주문서 큐 (상단 오른쪽) ─────────────────────────────────
-
-        static void BuildOrderQueue()
-        {
-            var canvas = GameObject.Find("HUD Canvas").transform;
-            var old = canvas.Find("OrderQueue");
-            if (old != null) DestroyIfExists(old.gameObject);
-
-            var dark = new Color(0.25f, 0.22f, 0.2f);
-            var sprite = BuiltinSprite("UI/Skin/UISprite.psd");
-
-            var root = UIRect("OrderQueue", canvas, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -20f), Vector2.zero);
-            root.pivot = new Vector2(1f, 1f);
-
-            // 카드 템플릿 (오른쪽 위 기준)
-            var cardImage = UIImage("CardTemplate", root, new Vector2(1f, 1f), new Vector2(1f, 1f), Vector2.zero, new Vector2(170f, 150f),
-                new Color(0.97f, 0.96f, 0.93f), sprite);
-            cardImage.type = Image.Type.Sliced;
-            var card = cardImage.rectTransform;
-            card.pivot = new Vector2(1f, 1f);
-            var group = card.gameObject.AddComponent<CanvasGroup>();
-
-            var number = UIText("Number", card, new Vector2(0f, 1f), new Vector2(42f, -24f), new Vector2(64f, 36f), "#1", 26f, TitleFont, dark);
-            number.alignment = TMPro.TextAlignmentOptions.Left;
-
-            var badge = UIImage("Badge", card, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-50f, -24f), new Vector2(84f, 34f),
-                new Color(0.55f, 0.55f, 0.58f), sprite);
-            badge.type = Image.Type.Sliced;
-            var badgeLabel = UIText("Label", badge.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(84f, 34f), "대기", 24f, TitleFont, Color.white);
-
-            var lines = UIRect("Lines", card, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -46f), new Vector2(150f, 100f));
-            lines.pivot = new Vector2(0.5f, 1f);
-            var layout = lines.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 3f;
-            layout.padding = new RectOffset(16, 0, 0, 0);
-            layout.childAlignment = TextAnchor.UpperLeft;
-            layout.childControlWidth = false;
-            layout.childControlHeight = false;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = false;
-
-            var lineIcon = UIImage("LineTemplate", lines, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(30f, 30f), Color.white, sprite);
-            lineIcon.type = Image.Type.Sliced;
-            var count = UIText("Count", lineIcon.rectTransform, new Vector2(1f, 0.5f), new Vector2(52f, 0f), new Vector2(90f, 32f), "0/3", 28f, TitleFont, dark);
-            count.alignment = TMPro.TextAlignmentOptions.Left;
-
-            var cardView = card.gameObject.AddComponent<OrderCardView>();
-            SetRef(cardView, "group", group);
-            SetRef(cardView, "numberLabel", number);
-            SetRef(cardView, "badge", badge);
-            SetRef(cardView, "badgeLabel", badgeLabel);
-            SetRef(cardView, "lineRoot", lines);
-            SetRef(cardView, "lineTemplate", lineIcon);
-
-            var overflow = UIText("Overflow", root, new Vector2(1f, 1f), Vector2.zero, new Vector2(80f, 56f), "+1", 44f, TitleFont, dark);
-            overflow.rectTransform.pivot = new Vector2(1f, 1f);
-
-            var view = root.gameObject.AddComponent<OrderQueueView>();
-            SetRef(view, "container", root);
-            SetRef(view, "cardTemplate", cardView);
-            SetRef(view, "overflowLabel", overflow);
         }
 
         // ── 계약 팝업 UI ────────────────────────────────────────────────

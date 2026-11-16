@@ -26,6 +26,17 @@ namespace APC.Logistics
         /// <summary>아직 아무도 예약하지 않은 화물 수.</summary>
         public int Available => Mathf.Max(0, load.Count - Reserved);
 
+        /// <summary>아직 트럭에 남은 그 품목 수 (상차 주문 색 후보 확인용, GDD 8.1).</summary>
+        public int CountOf(ItemDefinition item)
+        {
+            var n = 0;
+            foreach (var loaded in load)
+            {
+                if (loaded == item) n++;
+            }
+            return n;
+        }
+
         public void Reserve(int count) => Reserved += count;
         public void Unreserve(int count) => Reserved = Mathf.Max(0, Reserved - count);
 

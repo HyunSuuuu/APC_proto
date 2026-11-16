@@ -7,8 +7,8 @@ using UnityEngine;
 namespace APC.UI
 {
     /// <summary>
-    /// HUD 좌상단 돈 패널 (GDD 12.1, 9.1). 한 패널에 두 줄: 위 = **보유 재화**(크게), 아래 = **저금통**(`+180 대기`, 작게).
-    /// 값이 바뀌면 숫자가 굴러가듯 바뀌고, 오를 때 해당 줄이 튄다. 정산 때 저금통이 줄고 보유 재화가 오르는 모습이 그대로 보인다.
+    /// HUD 좌상단 돈 (GDD 12.1, 9.1): **지갑 한 칸**(크게) + 옆 작은 저금통 아이콘 `+180`(이번 파트 주운 돈, 쓸 수 없음).
+    /// 값이 바뀌면 숫자가 굴러가듯 바뀌고, 오를 때 튄다. 정산 때 저금통이 줄고 지갑이 오르는 모습이 그대로 보인다.
     /// </summary>
     public sealed class CashView : MonoBehaviour
     {
@@ -27,7 +27,7 @@ namespace APC.UI
             wallet.Cash.Subscribe(cash.CountTo).AddTo(this);
 
             if (piggyLabel == null) return;
-            piggy.Bind(this, piggyLabel, v => $"+{v:N0} 대기", piggyLabel.rectTransform);
+            piggy.Bind(this, piggyLabel, v => $"+{v:N0}", piggyLabel.rectTransform);
             wallet.Piggy.Subscribe(piggy.CountTo).AddTo(this);
         }
 

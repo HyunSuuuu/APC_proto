@@ -33,6 +33,25 @@ namespace APC.Logistics
             if (cargo.Repacked && Warehouse.Instance != null) Warehouse.Instance.NotifyRepackedShelved();
         }
 
+        /// <summary>
+        /// 하나도 못 넣었을 때 (플레이어만, GDD 7.3): 이 색 상자를 들었는데 선반이 꽉 찼으면 '가득', 그 밖의 상자면 '넣을 수 없음'.
+        /// 선반에서 꺼낸 상자(상차로 가는 중)는 세지 않는다.
+        /// </summary>
+        protected override void OnNothingDropped(Interactor who)
+        {
+            var sameColor = false;
+            var other = false;
+            foreach (var cargo in who.Stack.Items)
+            {
+                if (cargo.Origin == CargoOrigin.Shelf) continue;
+                if (cargo.Item == shelf.Item && cargo.Origin == CargoOrigin.Storage && cargo.State == CargoState.Normal) sameColor = true;
+                else other = true;
+            }
+            if (!sameColor && !other) return;
+            var anchor = shelf.CountLabel != null ? shelf.CountLabel.transform.position : shelf.transform.position;
+            Notice(who, shelf.CountLabel, anchor + Vector3.up * 0.5f, sameColor ? "가득" : "넣을 수 없음");
+        }
+
         protected override CargoOrigin GiveOrigin => CargoOrigin.Shelf;
 
         protected override bool TryGive(Interactor who, out Cargo cargo)

@@ -33,6 +33,9 @@ namespace APC.Logistics
         public bool HasSpace => pile.Count < capacity;
         public int FreeSpace => Mathf.Max(0, capacity - pile.Count);
 
+        /// <summary>수량 글자 (떠오르는 알림 글자의 원본으로도 쓴다).</summary>
+        public TMP_Text CountLabel => countLabel;
+
         void Awake() => pile = new CargoPile(boxRoot, SlotPosition);
 
         void OnDestroy() => count.Dispose();

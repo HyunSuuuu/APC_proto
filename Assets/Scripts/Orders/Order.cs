@@ -5,31 +5,30 @@ using UnityEngine;
 
 namespace APC.Orders
 {
-    /// <summary>주문 진행 상태 (GDD 12.2 상태 배지).</summary>
+    /// <summary>주문 진행 상태.</summary>
     public enum OrderState
     {
-        /// <summary>큐에서 트럭 배정을 기다림 — 배지 "대기".</summary>
-        Waiting,
-
-        /// <summary>트럭이 배정되어 상차 칸으로 후진 중 — 배지 "도착".</summary>
+        /// <summary>트럭이 상차 칸으로 후진 중.</summary>
         Arriving,
 
-        /// <summary>트럭이 정차해 상차를 받는 중 — 배지 "도착". 수요(GDD 8.4)는 이 상태의 주문만 센다.</summary>
+        /// <summary>트럭이 정차해 상차를 받는 중. 수요(GDD 8.4)는 이 상태의 주문만 센다.</summary>
         Docked,
 
-        /// <summary>다 싣고 출발함. 큐에서 빠진다 — 배지 "출발".</summary>
+        /// <summary>다 싣고 떠남.</summary>
         Departed,
     }
 
-    /// <summary>주문의 품목 1줄 (품목 × 수량).</summary>
+    /// <summary>주문의 색 1줄 (색(회사) × 수량).</summary>
     public sealed class OrderLine
     {
-        public OrderLine(ItemDefinition item, int quantity)
+        public OrderLine(CompanyDefinition company, int quantity)
         {
-            Item = item;
+            Company = company;
+            Item = company.Items[0]; // 회사 = 품목 1종
             Quantity = Mathf.Max(1, quantity);
         }
 
+        public CompanyDefinition Company { get; }
         public ItemDefinition Item { get; }
         public int Quantity { get; }
         public int Loaded { get; internal set; }
@@ -37,26 +36,24 @@ namespace APC.Orders
     }
 
     /// <summary>
-    /// 주문 1건 (GDD 8.1). 한 회사의 품목으로만 구성한다. 출고 트럭 1대가 주문 1건을 맡는다.
+    /// 주문 1건 = 상차 트럭 1대 (GDD 8.1). 색별 필요 개수 (색 최대 2).
     /// 만들고 상태를 바꾸는 것은 OrderService가 한다.
     /// </summary>
     public sealed class Order
     {
         readonly List<OrderLine> lines;
-        readonly ReactiveProperty<OrderState> state = new(OrderState.Waiting);
+        readonly ReactiveProperty<OrderState> state = new(OrderState.Arriving);
         readonly Subject<Unit> changed = new();
 
-        internal Order(int number, CompanyDefinition company, List<OrderLine> lines)
+        internal Order(int number, List<OrderLine> lines)
         {
             Number = number;
-            Company = company;
             this.lines = lines;
         }
 
-        /// <summary>화면 표시용 번호 (#1부터).</summary>
+        /// <summary>번호 (#1부터, 로그용).</summary>
         public int Number { get; }
 
-        public CompanyDefinition Company { get; }
         public IReadOnlyList<OrderLine> Lines => lines;
         public ReadOnlyReactiveProperty<OrderState> State => state;
 
@@ -109,8 +106,13 @@ namespace APC.Orders
             }
         }
 
-        /// <summary>출고 현금 (GDD 8.5): 실린 상자 수 × 회사 계약 단가. 복합 주문 배율 없음.</summary>
-        public int GetReward() => LoadedCount * Company.ContractUnitPrice;
+        /// <summary>돈 (GDD 8.5 `임시`): 줄마다 실린 상자 수 × 그 색 단가의 합.</summary>
+        public int GetReward()
+        {
+            var reward = 0;
+            foreach (var line in lines) reward += line.Loaded * line.Company.ContractUnitPrice;
+            return reward;
+        }
 
         internal void SetState(OrderState value) => state.Value = value;
     }

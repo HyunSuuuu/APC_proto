@@ -1,5 +1,4 @@
 using APC.Interaction;
-using APC.UI;
 using UnityEngine;
 
 namespace APC.Logistics
@@ -10,11 +9,7 @@ namespace APC.Logistics
     /// </summary>
     public sealed class TruckPickupZone : CargoZone
     {
-        const float NoticeInterval = 1.5f;
-
         [SerializeField] InboundBay bay;
-
-        float lastNotice = -99f;
 
         protected override CargoOrigin GiveOrigin => CargoOrigin.Truck;
 
@@ -42,11 +37,7 @@ namespace APC.Logistics
             if (truck == null || !truck.HasCargo) return false;
             if (Room <= 0)
             {
-                if (!who.RestrictToTarget && Time.time - lastNotice >= NoticeInterval) // 플레이어만
-                {
-                    lastNotice = Time.time;
-                    FloatingNotice.Show(bay.Storage.CountLabel, truck.transform.position + Vector3.up * 3.5f, "공간 가득");
-                }
+                Notice(who, bay.Storage.CountLabel, truck.transform.position + Vector3.up * 3.5f, "공간 가득");
                 return false;
             }
 

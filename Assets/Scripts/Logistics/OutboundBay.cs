@@ -8,8 +8,8 @@ namespace APC.Logistics
 {
     /// <summary>
     /// 상차 베이 1곳 (GDD 7.6, 8.3). 상차 주차장 모듈 안에 있다.
-    /// 대기 주문이 있으면 가장 오래된 주문의 트럭이 주차 칸 바깥쪽에 나타나 **후진으로 곧장** 주차하고,
-    /// 주문을 다 실으면 앞으로 나가 사라지며 옆 현금 존에 보상이 쌓인다. InboundBay와 같은 방식이라 모듈이 어디에 붙든 혼자 동작한다.
+    /// 칸이 비면 **새 주문을 바로 만들어**(OrderService.CreateForTruck) 그 트럭이 주차 칸 바깥쪽에 나타나 **후진으로 곧장** 주차하고,
+    /// 주문을 다 실으면 앞으로 나가 사라지며 옆 현금 존에 보상이 쌓인다 (GDD 7.6 · 8.2). InboundBay와 같은 방식이라 모듈이 어디에 붙든 혼자 동작한다.
     /// </summary>
     public sealed class OutboundBay : MonoBehaviour
     {
@@ -30,11 +30,9 @@ namespace APC.Logistics
 
             while (true)
             {
-                yield return new WaitUntil(() => OrderService.Instance != null && OrderService.Instance.HasWaiting);
-
+                Order order = null;
+                yield return new WaitUntil(() => OrderService.Instance != null && (order = OrderService.Instance.CreateForTruck()) != null);
                 var orders = OrderService.Instance;
-                var order = orders.AssignOldestWaiting();
-                if (order == null) continue; // 같은 프레임에 다른 베이가 가져감
 
                 // 로컬 좌표로 움직인다 (확장 모듈이 커지는 중에 나와도 제자리로, InboundBay와 같음)
                 var truck = Instantiate(truckPrefab, transform);

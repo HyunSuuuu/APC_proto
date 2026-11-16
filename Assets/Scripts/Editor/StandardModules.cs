@@ -374,7 +374,7 @@ namespace APC.EditorTools
             coins.transform.SetParent(fill, false);
             coins.transform.localPosition = new Vector3(0f, 0.5f, 0f);
             coins.transform.localScale = new Vector3(radius * 1.8f, 0.5f, radius * 1.8f); // 원통은 높이 2 → 0.5배 = 1
-            coins.GetComponent<Renderer>().sharedMaterial = BuildKit.Mat("M_Coins", new Color(1f, 0.8f, 0.2f));
+            coins.GetComponent<Renderer>().sharedMaterial = BuildKit.Mat("M_Coins", new Color(0.45f, 0.75f, 0.4f)); // 지폐 층 (GDD 9.5, 2026-11-15) — 이름은 옛 동전 그대로
             fill.localScale = new Vector3(1f, 0f, 1f);
 
             var glass = GameObject.CreatePrimitive(PrimitiveType.Cylinder);

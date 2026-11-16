@@ -48,15 +48,18 @@ namespace APC.Logistics
             orderLabel.transform.DOPunchScale(Vector3.one * 0.2f, 0.2f, 6, 0.5f);
         }
 
+        /// <summary>주문 게이지 (GDD 12.2): 색마다 한 줄 `색 이름 실은/필요` + 칸 막대(■ 실음 · □ 남음, 그 색). 다 실은 줄은 초록.</summary>
         void Refresh()
         {
             text.Clear();
             foreach (var line in Order.Lines)
             {
                 if (text.Length > 0) text.Append('\n');
-                var color = ColorUtility.ToHtmlStringRGB(line.Item.TapeColor);
-                text.Append("<color=#").Append(color).Append('>').Append(line.Item.Id).Append("</color> ")
-                    .Append(line.Loaded).Append('/').Append(line.Quantity);
+                var done = line.Remaining <= 0;
+                var color = done ? "4CAF50" : ColorUtility.ToHtmlStringRGB(line.Item.TapeColor);
+                text.Append("<color=#").Append(color).Append('>').Append(line.Company.DisplayName).Append(' ')
+                    .Append(line.Loaded).Append('/').Append(line.Quantity).Append(' ')
+                    .Append('■', line.Loaded).Append('□', line.Remaining).Append("</color>");
             }
             orderLabel.text = text.ToString();
         }

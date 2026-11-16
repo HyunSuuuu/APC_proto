@@ -11,8 +11,8 @@ using UnityEngine.UI;
 namespace APC.UI
 {
     /// <summary>
-    /// 정산 팝업 (GDD 9.5, 12.3). 파트가 끝나면 열리고 게임이 멈춘다. 줄마다 금액이 차례로 올라가고,
-    /// [확인]을 누르면 PartService.Confirm → 저금통이 보유 재화로 옮겨지며(HUD 카운트) 다음 파트가 시작된다.
+    /// 정산 팝업 (GDD 9.5, 12.3). 파트가 끝나면 열리고 게임이 멈춘다. 번 돈 · 알바 월급 · 합계 줄마다 금액이 차례로 올라가고,
+    /// [확인]을 누르면 PartService.Confirm → 저금통이 지갑으로 옮겨지며(HUD 카운트) 다음 파트가 시작된다.
     /// 이 오브젝트는 항상 켜 두고 자식 body만 켜고 끈다.
     /// </summary>
     public sealed class SettlementPopup : MonoBehaviour
@@ -21,9 +21,8 @@ namespace APC.UI
         [SerializeField] CanvasGroup group;
         [SerializeField] RectTransform panel;
         [SerializeField] TMP_Text titleLabel;
-        [SerializeField] TMP_Text outboundValue;
-        [SerializeField] TMP_Text bonusValue;
-        [SerializeField] TMP_Text wageValue;
+        [SerializeField, Tooltip("번 돈")] TMP_Text outboundValue;
+        [SerializeField, Tooltip("알바 월급")] TMP_Text wageValue;
         [SerializeField] TMP_Text totalValue;
         [SerializeField, Tooltip("미지급 · 퇴사 알바 명단 + 경고 (GDD 11.7)")] TMP_Text staffLabel;
         [SerializeField] Button confirmButton;
@@ -56,7 +55,7 @@ namespace APC.UI
             titleLabel.text = $"{result.Part}파트 정산";
             confirmButton.interactable = false;
 
-            foreach (var text in new[] { outboundValue, bonusValue, wageValue, totalValue }) text.text = "0";
+            foreach (var text in new[] { outboundValue, wageValue, totalValue }) text.text = "0";
             staffLabel.text = StaffText(result.WagePlan);
             totalValue.color = result.Total >= 0 ? totalColor : negativeColor;
 
@@ -67,7 +66,6 @@ namespace APC.UI
                 .Append(group.DOFade(1f, 0.15f))
                 .Join(panel.DOScale(1f, 0.25f).SetEase(Ease.OutBack))
                 .Append(Count(outboundValue, result.OutboundIncome, "+"))
-                .Append(Count(bonusValue, result.QuotaBonus, "+"))
                 .Append(Count(wageValue, result.Wages, "−"))
                 .Append(Count(totalValue, result.Total, result.Total >= 0 ? "+" : "−"))
                 .Join(totalValue.rectTransform.DOPunchScale(Vector3.one * 0.15f, 0.3f, 6, 0.5f))

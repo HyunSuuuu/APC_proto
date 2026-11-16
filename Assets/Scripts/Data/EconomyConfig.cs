@@ -27,8 +27,7 @@ namespace APC.Data
 
         [Header("파트 · 정산 (GDD 9.5)")]
         [SerializeField, Min(10f), Tooltip("파트 길이 (초)")] float partLengthSeconds = 180f;
-        [SerializeField, Min(10f), Tooltip("첫 파트만 짧게 (초)")] float firstPartLengthSeconds = 90f;
-        [SerializeField, Min(1), Tooltip("사무실 저금통 높이 단계")] int piggyStepCount = 10;
+        [SerializeField, Min(1), Tooltip("사무실 저금통 지폐 높이 단계 (GDD 9.5, 3단계)")] int piggyStepCount = 3;
         [SerializeField, Min(1), Tooltip("저금통 가득 기준 최소값")] int piggyFullMin = 300;
         [SerializeField, Min(1f), Tooltip("저금통 가득 기준 = MAX(최소값, 직전 파트 정산액 × 이 값)")] float piggyFullRatio = 1.2f;
 
@@ -46,7 +45,6 @@ namespace APC.Data
         public float CashPickupRadius => cashPickupRadius;
         public float CashAbsorbInterval => cashAbsorbInterval;
         public float CashFlyDuration => cashFlyDuration;        public float PartLengthSeconds => partLengthSeconds;
-        public float FirstPartLengthSeconds => firstPartLengthSeconds;
         public int PiggyStepCount => piggyStepCount;
         public int PiggyFullMin => piggyFullMin;
         public float PiggyFullRatio => piggyFullRatio;

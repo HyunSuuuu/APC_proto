@@ -1,4 +1,7 @@
 using APC.Logistics;
+using APC.UI;
+using TMPro;
+using UnityEngine;
 
 namespace APC.Interaction
 {
@@ -10,6 +13,10 @@ namespace APC.Interaction
     /// </summary>
     public abstract class CargoZone : InteractionZone
     {
+        const float NoticeInterval = 1.5f;
+
+        float lastNotice = -99f;
+
         public sealed override void Tick(Interactor who, float deltaTime)
         {
             who.TransferTimer += deltaTime;
@@ -33,6 +40,7 @@ namespace APC.Interaction
                     who.NotifyTransfer(drop: true);
                     return true;
                 }
+                if (stack.Count.CurrentValue > 0) OnNothingDropped(who);
             }
 
             if (stack.IsFull || !who.CanTransfer(drop: false) || !who.CanPickOrigin(GiveOrigin)) return false;
@@ -64,6 +72,17 @@ namespace APC.Interaction
 
         /// <summary>받은 화물을 보관하고 날아오는 연출을 한다. 화물은 이미 스택에서 빠져 있다.</summary>
         protected virtual void Receive(Cargo cargo, Interactor who) { }
+
+        /// <summary>화물을 들고 멈췄는데 하나도 못 내려놓았다 (알림용, GDD 5.3 · 7.3). 기본은 아무것도 안 함.</summary>
+        protected virtual void OnNothingDropped(Interactor who) { }
+
+        /// <summary>떠오르는 알림 글자 ('넣을 수 없음' 등). 플레이어만, 존마다 1.5초에 한 번.</summary>
+        protected void Notice(Interactor who, TMP_Text template, Vector3 position, string text)
+        {
+            if (who.RestrictToTarget || Time.time - lastNotice < NoticeInterval) return; // RestrictToTarget = 알바
+            lastNotice = Time.time;
+            FloatingNotice.Show(template, position, text);
+        }
 
         /// <summary>줄 화물을 꺼낸다. 날아가는 연출은 스택이 한다. 수요 기반 집기(GDD 8.4)는 여기서 거른다.</summary>
         protected virtual bool TryGive(Interactor who, out Cargo cargo)

@@ -7,7 +7,7 @@ using UnityEngine;
 namespace APC.Economy
 {
     /// <summary>
-    /// 사무실 투명 저금통 (GDD 9.5). 이번 파트 저금통 금액만큼 금색 동전 층이 **10단계**로 차오르고, 정산 때 비워진다.
+    /// 사무실 투명 저금통 (GDD 9.5). 이번 파트 저금통 금액만큼 초록 지폐 층이 **3단계**(`EconomyConfig.piggyStepCount`)로 차오르고, 정산 때 비워진다. 꽉 차도 돈은 계속 모인다 (모습만 멈춤).
     /// 가득 기준 = PartService.PiggyFullAmount (MAX(300, 직전 정산액 × 1.2)). 돈이 들어올 때마다 통이 살짝 튄다.
     /// 사무실 모듈 프리팹 안에 있으므로 GameManager · PartService를 Instance로 찾는다.
     /// </summary>

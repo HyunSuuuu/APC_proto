@@ -5,7 +5,7 @@ using UnityEngine;
 namespace APC.Orders
 {
     /// <summary>
-    /// 입고 트럭 · 주문 회사 고르기. 둘 다 회사 가중치(GDD 6.2) 비율로 무작위.
+    /// 하차 트럭 · 상차 주문 색 고르기. 둘 다 회사 가중치(GDD 6.2) 비율로 무작위.
     /// 교착 방지 가중치(재고 · 부족량 비례)는 2026-11-13 기획 변경으로 삭제 (회사 = 품목 1종).
     /// </summary>
     public static class StockBalancer
@@ -35,9 +35,6 @@ namespace APC.Orders
             return company;
         }
 
-        /// <summary>주문 회사 = 회사 가중치 비율로 무작위 (GDD 8.1).</summary>
-        public static CompanyDefinition PickOrderCompany(IReadOnlyList<CompanyDefinition> companies) => PickByWeight(companies);
-
         /// <summary>입고 트럭 1대에 실을 품목 목록 = 그 회사 품목으로 가득.</summary>
         public static List<ItemDefinition> ComposeInboundLoad(CompanyDefinition company)
         {
@@ -46,7 +43,8 @@ namespace APC.Orders
             return load;
         }
 
-        static CompanyDefinition PickByWeight(IReadOnlyList<CompanyDefinition> companies)
+        /// <summary>회사 가중치 비율로 무작위 (하차 트럭 색 · 상차 주문 색, GDD 6.3 · 8.1).</summary>
+        public static CompanyDefinition PickByWeight(IReadOnlyList<CompanyDefinition> companies)
         {
             var total = 0f;
             foreach (var company in companies) total += company.Weight;
