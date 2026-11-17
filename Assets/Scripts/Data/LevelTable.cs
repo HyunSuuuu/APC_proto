@@ -22,25 +22,23 @@ namespace APC.Data
         [ContextMenu("레벨 표를 GDD 기본값으로 되돌리기")]
         public void ResetLevels() => levels = DefaultLevels();
 
-        // GDD 10.3 (v0.4). 확장은 SiteLayout의 해금 레벨과 맞춘다.
+        // GDD 10.3 (2026-11-15 새 표, XP · 최대 알바 임시). 건설 타일 레벨은 SiteLayout의 해금 레벨과 맞춘다.
         static List<Entry> DefaultLevels() => new()
         {
-            new Entry { xpToNext = 30, maxStaff = 1, unlockNote = "시작 부지 · 회사 A 계약 · 선반 2 (A1 · A2) · 하차장 2 · 상차장 2 · 단일 주문" },
-            new Entry { xpToNext = 50, maxStaff = 2, unlockNote = "" },
-            new Entry { xpToNext = 80, maxStaff = 3, unlockNote = "3번 선반 구역 B 확장 · 플레이어 적재량/이동 속도 업그레이드" },
-            new Entry { xpToNext = 110, maxStaff = 4, unlockNote = "복합 주문 시작" },
-            new Entry { xpToNext = 140, maxStaff = 5, unlockNote = "4번 왼쪽 하차장 3 확장 · 선반 용량 업그레이드" },
-            new Entry { xpToNext = 180, maxStaff = 6, unlockNote = "공용 보관소 용량 업그레이드" },
-            new Entry { xpToNext = 220, maxStaff = 6, unlockNote = "회사 B 계약 · 6번 오른쪽 상차장 3 확장" },
-            new Entry { xpToNext = 260, maxStaff = 7, unlockNote = "" },
-            new Entry { xpToNext = 300, maxStaff = 7, unlockNote = "" },
-            new Entry { xpToNext = 350, maxStaff = 8, unlockNote = "" },
-            new Entry { xpToNext = 400, maxStaff = 8, unlockNote = "3번 오른쪽 반품 구역 확장 · 반품 입고 시작 (반품 1개 재출고 = 프로토타입 완료)" },
+            new Entry { xpToNext = 3, maxStaff = 1, unlockNote = "A 갈색 트럭 · 하차 1칸 · 상차 1칸 · 건설: B보관" },
+            new Entry { xpToNext = 6, maxStaff = 2, unlockNote = "B 초록 트럭 합류 · 건설: 반품 1 · 하차 2" },
+            new Entry { xpToNext = 6, maxStaff = 3, unlockNote = "C 파랑 전자제품 트럭 합류 · 건설: C보관" },
+            new Entry { xpToNext = 6, maxStaff = 4, unlockNote = "하차 트럭 2단계 · 건설: 상차 2" },
+            new Entry { xpToNext = 9, maxStaff = 5, unlockNote = "D 주황 가구 트럭 합류 · 건설: D보관" },
+            new Entry { xpToNext = 9, maxStaff = 6, unlockNote = "건설: A보관 2" },
+            new Entry { xpToNext = 9, maxStaff = 6, unlockNote = "건설: 반품 2" },
+            new Entry { xpToNext = 9, maxStaff = 7, unlockNote = "건설: 상차 3" },
+            new Entry { xpToNext = 9, maxStaff = 8, unlockNote = "" },
         };
 
         [Header("목록 이후 레벨: 기본 + 증가 × (Lv − 목록 길이)")]
-        [SerializeField, Min(1)] int overflowBaseXp = 400; // Lv.12 = 400 + 50 × 1
-        [SerializeField, Min(0)] int overflowStepXp = 50;
+        [SerializeField, Min(1)] int overflowBaseXp = 9; // Lv.10~ = 9 (GDD 10.3 9~ 무한 진행)
+        [SerializeField, Min(0)] int overflowStepXp;
         [SerializeField, Min(0)] int overflowMaxStaff = 8;
 
         public int Count => levels.Count;

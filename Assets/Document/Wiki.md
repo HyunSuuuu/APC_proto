@@ -317,7 +317,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | [GameDatabase](../Scripts/Data/GameDatabase.cs) | `GameDatabase` | 아래 테이블 전부의 참조. `Validate`(빠진 참조 검사), `GetCompanyOf(item)` |
 | [ItemDefinition](../Scripts/Data/ItemDefinition.cs) | `Items/Item_A` ~ `Item_D` | 품목 id, 이름, **테이프 색**(A 갈색 · B 초록 · C 파랑 · D 주황), 아이콘, 단가 |
 | [CompanyDefinition](../Scripts/Data/CompanyDefinition.cs) | `Companies/Company_A` ~ `Company_D` | **입고 시작 레벨**(`unlockLevel`), **가중치**(`weight`, 입고 회사 비율), `isLarge`(D사, 지금은 표시만), 품목 1종, 입고 트럭 적재량, **선반 구역**(`shelfAreaId`, 임시), **단가**(`contractUnitPrice`, 출고 상자 1개당 현금) |
-| [LevelTable](../Scripts/Data/LevelTable.cs) | `LevelTable` | 레벨별 필요 XP · 최대 알바 · 해금 메모. 목록 이후 레벨은 공식으로 계산 |
+| [LevelTable](../Scripts/Data/LevelTable.cs) | `LevelTable` | 레벨별 필요 XP · 최대 알바 · 해금 메모 (GDD 10.3 Lv.1~9, M13-8). 목록 이후 레벨은 공식으로 계산 (Lv.10~ = 9 XP · 알바 8) |
 | [EconomyConfig](../Scripts/Data/EconomyConfig.cs) | `EconomyConfig` | 시작 보유 재화, 구매 패드 시간, 업그레이드 비용, **현금 더미**(다발 금액 · 최대 보이는 수 · 흡수 반경 · 날아가는 간격/시간), **파트 · 정산**(파트 길이 180 · 저금통 단계 3 · 가득 기준), 경험치 |
 | [OrderRules](../Scripts/Data/OrderRules.cs) | `OrderRules` | 상차 트럭 1대 합계 수량 가중치(3~6 = 40/30/20/10), 두 색 확률 `twoColorChance`(0.5) |
 | [StaffRules](../Scripts/Data/StaffRules.cs) | `StaffRules` | 알바 스탯 생성 · 스탯 효과 · 고용금 · 시급 · 직무 색(4개) · 코스튬 확률(`costumeChance` 0.1) · 작업 대기 · 집기 간격 (M6, M13-7) |
@@ -731,11 +731,11 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### SiteUnlocker
 [Site/SiteUnlocker.cs](../Scripts/Site/SiteUnlocker.cs)
 - **역할**: 해금 발판으로 부지 확장 (SiteGrid 오브젝트, GDD 9.2 · 9.3). 레벨 자동 해금은 없다 (2026-11-14).
-- **동작**: 레벨 · 해금(`OnUnlocked`) · 재배치(`OnMoved`)마다 `Refresh`. `NextRoot(lockedCellsOnly)` = 열린 칸과 맞닿은 잠긴 대표 배치 중 해금 레벨이 가장 낮은 것.
-  - ① 울타리: **잠긴 칸이 있는** 다음 배치(`NextRoot(true)`)의 칸마다 `ConstructionFence`를 팝으로 놓고, 표지는 한 곳에만. 빈 공간 칸 모듈은 울타리 없음.
-  - ② 발판: 다음 배치(`NextRoot(false)`, 빈 공간 칸 모듈 포함)의 `unlockLevel`이 되면 `ExpansionPad`를 팝으로 놓는다. 칸이 모두 열려 있으면(빈 공간 칸 모듈) **그 칸 중앙**, 차 있으면 가장 가까운 빈 공간 중앙 (`SiteGrid.TryFindEmptyCell`). 이미 놓인 빈 공간 발판은 재배치로 칸이 차면 가장 가까운 빈 공간으로 옮긴다 (채운 돈 유지, 빈 공간이 없으면 숨김). 잠긴 칸이면 맞닿은 열린 칸(host)의 경계 안쪽 (위 · 왼 · 오른 · 아래 host 순, 다른 존 · 선반과 겹치지 않는 자리). 발판은 한 번에 하나.
-- **연결**: `fencePrefab`(`Assets/Prefabs/ConstructionFence.prefab`), `padPrefab`(`Assets/Prefabs/ExpansionPad.prefab`), `SiteLayout`의 `unlockLevel` · `cost`, `FencedId`(테스트용).
-- **주의**: 발판 대상이 바뀌면(디버그 해금 등) 옛 발판을 지운다.
+- **동작**: 레벨 · 해금(`OnUnlocked`) · 재배치(`OnMoved`)마다 `Refresh`. 열린 칸과 맞닿은 잠긴 대표 배치를 모아 (섬 금지) 아래 둘을 정한다 (M13-8, 같은 레벨 여러 개 동시).
+  - ① 울타리: **잠긴 칸이 있는** 배치 중 레벨이 된 것 + 다음 해금 레벨(현재보다 높은 것 중 가장 낮은 레벨) 것 **모두**. 배치마다 칸마다 `ConstructionFence`를 팝으로 놓고, 표지는 배치마다 한 곳. 빈 공간 칸 모듈은 울타리 없음.
+  - ② 발판: `unlockLevel`이 된 배치(빈 공간 칸 모듈 포함) **모두**에 `ExpansionPad`(배치 id별 사전). 칸이 모두 열려 있으면(빈 공간 칸 모듈) **그 칸 중앙**, 차 있으면 가장 가까운 빈 공간 중앙 (`SiteGrid.TryFindEmptyCell`). 이미 놓인 빈 공간 발판은 재배치로 칸이 차면 가장 가까운 빈 공간으로 옮긴다 (채운 돈 유지, 빈 공간이 없으면 숨김). 잠긴 칸이면 맞닿은 열린 칸(host)의 경계 안쪽 (위 · 왼 · 오른 · 아래 host 순, 다른 존 · 선반과 겹치지 않는 자리). 안 지은 이전 레벨 발판도 남는다.
+- **연결**: `fencePrefab`(`Assets/Prefabs/ConstructionFence.prefab`), `padPrefab`(`Assets/Prefabs/ExpansionPad.prefab`), `SiteLayout`의 `unlockLevel` · `cost`.
+- **주의**: 해금된 배치의 발판 · 울타리는 지운다. 빈 공간 칸 발판 둘이 같은 빈 칸을 고르면 겹친다 (재배치로 빈 칸이 모자랄 때만, shortcut).
 
 #### ExpansionPad
 [Site/ExpansionPad.cs](../Scripts/Site/ExpansionPad.cs)
@@ -883,7 +883,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### DebugMenu
 [Debugging/DebugMenu.cs](../Scripts/Debugging/DebugMenu.cs)
 - **역할**: 치트 메뉴 (IMGUI). 에디터와 Development 빌드에서만 동작한다. **왼쪽 아래** `DEBUG` 버튼 또는 F1.
-- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / **현금 존**: `Zone +200`(첫 현금 존에 쌓기) · `Collect n`(모든 현금 존 돈을 반경 무시하고 플레이어가 줍기 — 다발 · 달러 아이콘 연출 그대로, `CashZone.CollectBy`) / 레벨업 · XP +10 · **Lv.11**(반품 구역까지) / 배속 ×1 · ×2 · ×4 / 일시정지 / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick / Returns 생성, **Costume 100%** 토글(켜면 생성 · 고용 탭 새 후보가 모두 코스튬, `StaffRules.ForceCostume`, Play마다 꺼짐), 알바별 `이름 spd cap 상태 들고있는수/최대`.
+- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / **현금 존**: `Zone +200`(첫 현금 존에 쌓기) · `Collect n`(모든 현금 존 돈을 반경 무시하고 플레이어가 줍기 — 다발 · 달러 아이콘 연출 그대로, `CashZone.CollectBy`) / 레벨업 · XP +10 · **Lv.5**(목표 레벨) / 배속 ×1 · ×2 · ×4 / 일시정지 / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick / Returns 생성, **Costume 100%** 토글(켜면 생성 · 고용 탭 새 후보가 모두 코스튬, `StaffRules.ForceCostume`, Play마다 꺼짐), 알바별 `이름 spd cap 상태 들고있는수/최대`.
 - **주의**: IMGUI는 EventSystem에 안 잡히므로 `ContainsScreenPoint`로 `UiHitTest`에 영역을 알려 준다. 새 치트는 `DrawContent`에 추가한다. 패널은 스크롤 뷰 — 마우스 · 터치 드래그(버튼 위에서도) · 휠로 내린다. 조이스틱 차단 영역은 패널 영역 전체.
 
 ### 4.11 Editor — 에디터 도구

@@ -11,8 +11,8 @@ namespace APC.Site
 {
     /// <summary>
     /// 부지 확장 (GDD 4.1, 9.2, 9.3). SiteGrid 오브젝트에 붙는다.
-    /// ① 다음에 해금될 구역 1곳(열린 칸과 맞닿은 잠긴 배치 중 해금 레벨이 가장 낮은 것)을 공사장 울타리 + `잠금해제 : LV N`으로 보여준다.
-    /// ② 다음 해금 배치(빈 공간 칸 모듈 포함, 레벨이 가장 낮은 1곳)의 레벨이 되면 해금 발판(ExpansionPad)이 팝 연출로 나타난다 —
+    /// ① 열린 칸과 맞닿은 잠긴 칸 구역 중 다음 해금 레벨 것 모두(+ 레벨이 됐는데 아직 안 지은 것)를 공사장 울타리 + `잠금해제 : LV N`으로 보여준다.
+    /// ② 레벨이 된 해금 배치(빈 공간 칸 모듈 포함)마다 해금 발판(ExpansionPad)이 팝 연출로 나타난다 (같은 레벨 여러 개 동시, M13-8) —
     ///    빈 공간 칸이면 그 칸 중앙, 잠긴 칸이면 울타리 옆 열린 칸 경계 안쪽. 돈을 다 채우면 해금 + XP.
     /// 레벨 자동 해금은 없다 (2026-11-14). 섬 금지: 열린 칸과 맞닿은 배치만.
     /// </summary>
@@ -27,14 +27,10 @@ namespace APC.Site
         [SerializeField, Min(0.5f), Tooltip("칸 경계에서 발판 중심까지 (m)")] float edgeInset = 1.4f;
         [SerializeField, Tooltip("발판 반 크기 + 여유 (다른 존과 겹침 확인용)")] Vector2 padHalfExtents = new(1.2f, 1.2f);
 
-        readonly List<ConstructionFence> fences = new();
+        readonly Dictionary<string, List<ConstructionFence>> fences = new();
+        readonly Dictionary<string, ExpansionPad> pads = new();
         SiteGrid grid;
         SiteLayout layout;
-        string fencedId;
-        ExpansionPad pad;
-
-        /// <summary>지금 울타리가 쳐진 배치 id (없으면 null).</summary>
-        public string FencedId => fencedId;
 
         void Start()
         {
@@ -48,20 +44,27 @@ namespace APC.Site
 
         public void Refresh()
         {
-            RefreshFence();
-            RefreshPad();
-        }
-
-        /// <summary>열린 칸과 맞닿은 잠긴 배치 중 해금 레벨이 가장 낮은 것. lockedCellsOnly면 잠긴 칸이 있는 배치만 (울타리용).</summary>
-        SiteLayout.ModulePlacement? NextRoot(bool lockedCellsOnly)
-        {
-            SiteLayout.ModulePlacement? next = null;
+            var level = GameManager.Instance.Level.Level.CurrentValue;
+            var open = new List<SiteLayout.ModulePlacement>();
+            var nextLevel = int.MaxValue;
             foreach (var placement in LockedRoots())
             {
-                if (!IsAdjacentToOpen(placement) || (lockedCellsOnly && AllCellsOpen(placement))) continue;
-                if (next == null || placement.unlockLevel < next.Value.unlockLevel) next = placement;
+                if (!IsAdjacentToOpen(placement)) continue;
+                open.Add(placement);
+                if (placement.unlockLevel > level) nextLevel = Mathf.Min(nextLevel, placement.unlockLevel);
             }
-            return next;
+
+            // 울타리 = 잠긴 칸이 있는 배치 중 레벨이 된 것 + 다음 해금 레벨 것 모두, 발판 = 레벨이 된 것 모두 (GDD 9.3, 같은 레벨 여러 개)
+            var fenceIds = new HashSet<string>();
+            var padTargets = new Dictionary<string, SiteLayout.ModulePlacement>();
+            foreach (var placement in open)
+            {
+                var reached = placement.unlockLevel <= level;
+                if (reached) padTargets[placement.id] = placement;
+                if ((reached || placement.unlockLevel == nextLevel) && !AllCellsOpen(placement)) fenceIds.Add(placement.id);
+            }
+            RefreshFences(fenceIds);
+            RefreshPads(padTargets);
         }
 
         /// <summary>묶음의 칸이 모두 이미 열려 있는가 (= 빈 공간 칸에 놓이는 해금 모듈, GDD 4.2).</summary>
@@ -78,83 +81,93 @@ namespace APC.Site
             return true;
         }
 
-        /// <summary>잠긴 칸이 있는 다음 구역에만 울타리 (빈 공간 칸 해금은 울타리 없이 발판만).</summary>
-        void RefreshFence()
+        /// <summary>잠긴 칸이 있는 구역에만 울타리 (빈 공간 칸 해금은 울타리 없이 발판만). 구역마다 표지 하나.</summary>
+        void RefreshFences(HashSet<string> targetIds)
         {
-            var next = NextRoot(lockedCellsOnly: true);
-            var nextId = next?.id;
-            if (nextId == fencedId) return;
-
-            ClearFences();
-            fencedId = nextId;
-            if (next == null || fencePrefab == null) return;
-
-            var first = true;
-            foreach (var id in layout.GetUnlockGroup(next.Value.id))
+            foreach (var id in new List<string>(fences.Keys))
             {
-                if (!layout.TryGetPlacement(id, out var member)) continue;
-                foreach (var cell in SiteLayout.GetCells(member))
+                if (targetIds.Contains(id)) continue;
+                ClearFences(fences[id]);
+                fences.Remove(id);
+            }
+            if (fencePrefab == null) return;
+            foreach (var rootId in targetIds)
+            {
+                if (fences.ContainsKey(rootId) || !layout.TryGetPlacement(rootId, out var root)) continue;
+                var list = new List<ConstructionFence>();
+                var first = true;
+                foreach (var id in layout.GetUnlockGroup(rootId))
                 {
-                    var fence = Instantiate(fencePrefab, layout.CellCenter(cell.y, cell.x), Quaternion.identity, transform);
-                    fence.name = $"Fence_{next.Value.id}";
-                    fence.SetLevel(next.Value.unlockLevel, first); // 표지는 한 곳에만
-                    first = false;
-                    fences.Add(fence);
-                    FacilityPop.Play(fence.transform);
+                    if (!layout.TryGetPlacement(id, out var member)) continue;
+                    foreach (var cell in SiteLayout.GetCells(member))
+                    {
+                        var fence = Instantiate(fencePrefab, layout.CellCenter(cell.y, cell.x), Quaternion.identity, transform);
+                        fence.name = $"Fence_{rootId}";
+                        fence.SetLevel(root.unlockLevel, first); // 표지는 구역마다 한 곳에만
+                        first = false;
+                        list.Add(fence);
+                        FacilityPop.Play(fence.transform);
+                    }
                 }
+                fences[rootId] = list;
             }
         }
 
         /// <summary>
-        /// 다음 해금 배치(레벨 가장 낮은 것 1곳)의 레벨이 되면 발판을 놓는다. 대상이 바뀌었으면 옛 발판을 지운다.
+        /// 레벨이 된 해금 배치마다 발판을 놓는다. 대상에서 빠진 배치(해금됨)의 발판은 지운다.
         /// 빈 공간 칸에 놓이는 모듈이면 그 칸 중앙, 잠긴 칸이면 울타리 옆 열린 칸 가장자리 (GDD 4.2).
         /// </summary>
-        void RefreshPad()
+        void RefreshPads(Dictionary<string, SiteLayout.ModulePlacement> targets)
         {
-            var target = NextRoot(lockedCellsOnly: false);
-            if (pad != null && pad.PlacementId != target?.id)
+            foreach (var id in new List<string>(pads.Keys))
             {
-                if (pad.enabled) Destroy(pad.gameObject); // 구매 완료한 발판은 enabled = false로 스스로 사라지는 중
-                pad = null;
+                if (targets.ContainsKey(id)) continue;
+                var old = pads[id];
+                if (old != null && old.enabled) Destroy(old.gameObject); // 구매 완료한 발판은 enabled = false로 스스로 사라지는 중
+                pads.Remove(id);
             }
-            if (target == null || padPrefab == null) return;
-            var placement = target.Value;
-            var onEmptyCell = AllCellsOpen(placement);
-            if (pad != null)
-            {
-                // 빈 공간 칸 발판: 재배치로 그 칸이 찼으면 가장 가까운 빈 공간으로 옮긴다 (채운 돈 유지, GDD 4.4). 빈 공간이 없으면 숨김
-                if (!onEmptyCell || !pad.enabled) return;
-                var found = grid.TryFindEmptyCell(grid.WorldToCell(pad.transform.position), out var padCell);
-                pad.gameObject.SetActive(found);
-                if (found) pad.transform.position = grid.CellCenter(padCell);
-                return;
-            }
-            if (GameManager.Instance.Level.Level.CurrentValue < placement.unlockLevel) return;
-            Vector3 position;
-            if (onEmptyCell)
-            {
-                // 처음 놓일 칸이 빈 공간이면 그 칸 중앙, 재배치로 차 있으면 가장 가까운 빈 공간 (GDD 4.2). SiteGrid.Attach도 같은 칸을 고른다
-                if (!grid.TryFindEmptyCell(SiteLayout.GetCells(placement)[0], out var cell)) return;
-                position = grid.CellCenter(cell);
-            }
-            else if (!TryFindPadPosition(placement, out position)) return;
+            if (padPrefab == null) return;
 
-            pad = Instantiate(padPrefab, position, Quaternion.identity, transform);
-            pad.name = $"ExpansionPad_{placement.id}";
-            pad.Setup(placement.id, layout.GetDisplayName(placement.id), placement.cost);
-            FacilityPop.Play(pad.transform);
+            foreach (var placement in targets.Values)
+            {
+                var onEmptyCell = AllCellsOpen(placement);
+                if (pads.TryGetValue(placement.id, out var pad) && pad != null)
+                {
+                    // 빈 공간 칸 발판: 재배치로 그 칸이 찼으면 가장 가까운 빈 공간으로 옮긴다 (채운 돈 유지, GDD 4.4). 빈 공간이 없으면 숨김
+                    if (!onEmptyCell || !pad.enabled) continue;
+                    var found = grid.TryFindEmptyCell(grid.WorldToCell(pad.transform.position), out var padCell);
+                    pad.gameObject.SetActive(found);
+                    if (found) pad.transform.position = grid.CellCenter(padCell);
+                    continue;
+                }
+
+                Vector3 position;
+                if (onEmptyCell)
+                {
+                    // 처음 놓일 칸이 빈 공간이면 그 칸 중앙, 재배치로 차 있으면 가장 가까운 빈 공간 (GDD 4.2). SiteGrid.Attach도 같은 칸을 고른다
+                    // shortcut: 빈 공간 칸 발판 두 개가 같은 빈 칸을 고르면 겹친다 — 재배치로 빈 칸이 모자랄 때만, 생기면 다른 발판 칸을 빼고 찾기
+                    if (!grid.TryFindEmptyCell(SiteLayout.GetCells(placement)[0], out var cell)) continue;
+                    position = grid.CellCenter(cell);
+                }
+                else if (!TryFindPadPosition(placement, out position)) continue;
+
+                pad = Instantiate(padPrefab, position, Quaternion.identity, transform);
+                pad.name = $"ExpansionPad_{placement.id}";
+                pad.Setup(placement.id, layout.GetDisplayName(placement.id), placement.cost);
+                pads[placement.id] = pad;
+                FacilityPop.Play(pad.transform);
+            }
         }
 
-        void ClearFences()
+        static void ClearFences(List<ConstructionFence> list)
         {
-            foreach (var fence in fences)
+            foreach (var fence in list)
             {
                 if (fence == null) continue;
                 var t = fence.transform;
                 t.DOKill();
                 t.DOScale(0f, 0.2f).SetEase(Ease.InBack).SetLink(fence.gameObject).OnComplete(() => Destroy(t.gameObject));
             }
-            fences.Clear();
         }
 
         /// <summary>아직 잠긴 대표 배치 (묶인 배치 · 시작 부지 제외).</summary>

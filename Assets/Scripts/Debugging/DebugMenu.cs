@@ -125,9 +125,9 @@ namespace APC.Debugging
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Level Up", buttonStyle)) level.LevelUpNow();
             if (GUILayout.Button("XP +10", buttonStyle)) level.AddXp(10);
-            if (GUILayout.Button("Lv.11", buttonStyle)) // 반품 구역 해금 테스트 (GDD 7.7)
+            if (GUILayout.Button("Lv.5", buttonStyle)) // 목표 레벨 · 모든 보관 구역 건설 타일 (GDD 10.3)
             {
-                while (level.Level.CurrentValue < 11) level.LevelUpNow();
+                while (level.Level.CurrentValue < 5) level.LevelUpNow();
             }
             GUILayout.EndHorizontal();
 
