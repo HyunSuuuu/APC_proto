@@ -6096,7 +6096,7 @@ MonoBehaviour:
   lineDirection: {x: 0, y: 0, z: 1}
   spacing: 7
   truckYaw: 180
-  markerColor: {r: 1, g: 1, b: 1, a: 0.35}
+  markerMaterial: {fileID: 2100000, guid: 1b0e0ecd08924f145959ed18e5ea4dac, type: 2}
 --- !u!1001 &824241699
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -9712,7 +9712,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::APC.Logistics.CarryMaxIndicator
   stack: {fileID: 1153428268}
   label: {fileID: 658829169}
-  gap: 0.5
+  headHeight: 2.2
 --- !u!114 &1153428266
 MonoBehaviour:
   m_ObjectHideFlags: 0

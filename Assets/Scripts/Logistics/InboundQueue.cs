@@ -23,7 +23,7 @@ namespace APC.Logistics
         [SerializeField, Tooltip("맨 앞에서 뒤로 줄이 늘어나는 방향 (월드)")] Vector3 lineDirection = Vector3.forward;
         [SerializeField, Min(1f), Tooltip("대기 자리 간격 (m)")] float spacing = 7f;
         [SerializeField, Tooltip("줄 선 트럭이 보는 방향 (월드 Y 회전)")] float truckYaw = 180f;
-        [SerializeField, Tooltip("대기 자리 표시 색")] Color markerColor = new(1f, 1f, 1f, 0.35f);
+        [SerializeField, Tooltip("대기 자리 표시 재질 (반투명, M_TruckWaitSlot). 빌드에서 Shader.Find는 셰이더가 빠져 null — 에셋으로 둔다")] Material markerMaterial;
 
         public static InboundQueue Instance { get; private set; }
 
@@ -114,17 +114,8 @@ namespace APC.Logistics
             marker.transform.SetPositionAndRotation(SlotPosition(index) + Vector3.up * 0.02f, Quaternion.Euler(0f, truckYaw, 0f));
             marker.transform.localScale = new Vector3(2.6f, 0.02f, 6.4f);
             var renderer = marker.GetComponent<Renderer>();
-            var material = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-            material.SetFloat("_Surface", 1f);
-            material.SetFloat("_Blend", 0f);
-            material.SetOverrideTag("RenderType", "Transparent");
-            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            material.SetInt("_ZWrite", 0);
-            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-            material.SetColor("_BaseColor", markerColor);
-            renderer.sharedMaterial = material;
+            if (markerMaterial != null) renderer.sharedMaterial = markerMaterial;
+            else renderer.enabled = false; // 재질이 없으면 분홍 대신 숨김
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
     }

@@ -575,7 +575,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### InboundQueue
 [Logistics/InboundQueue.cs](../Scripts/Logistics/InboundQueue.cs)
 - **역할**: 하차 트럭 도착 · 차량 대기열 (GDD 7.1, M13-9). SiteGrid 오브젝트에 붙는다 (`SiteBuilder.BakeGrid`).
-- **동작**: 도착 루프 = 줄이 `InboundQueueSize` 미만이고 선반 있는 입고 색이 있을 때 트럭 생성 → 기다리는 베이에 바로 넘기거나 줄 끝에 팝 → `InboundArrivalInterval` 대기. `Request(bay)` = 줄 맨 앞을 넘기고 나머지를 `SlotPosition(i)`로 당김 (0.6초). 시작 때 대기 자리 표시(반투명 판 `TruckWaitSlot_n`) 3개.
+- **동작**: 도착 루프 = 줄이 `InboundQueueSize` 미만이고 선반 있는 입고 색이 있을 때 트럭 생성 → 기다리는 베이에 바로 넘기거나 줄 끝에 팝 → `InboundArrivalInterval` 대기. `Request(bay)` = 줄 맨 앞을 넘기고 나머지를 `SlotPosition(i)`로 당김 (0.6초). 시작 때 대기 자리 표시(반투명 판 `TruckWaitSlot_n`) 3개 — 재질은 에셋 `markerMaterial`(`Art/Materials/M_TruckWaitSlot`, URP Unlit 반투명).
+- **주의**: 실행 코드에서 `Shader.Find`로 재질을 만들지 않는다 — 빌드에서 셰이더가 빠져 null 예외 → 도착 코루틴이 멈춰 **트럭이 안 나오고** 판이 분홍이 됐다 (2026-11-18 빌드 버그).
 - **연결**: `truckPrefab`(`InboundTruck.prefab`), `headPosition`(0, 0, −21 = 서쪽 도로 하차 1 옆) · `lineDirection`(+z) · `spacing` 7 · `truckYaw` 180 `임시`, `LogisticsConfig.InboundArrivalInterval` · `InboundQueueSize`.
 - **주의**: 대기 자리 표시는 기본 큐브 + URP Unlit 재질을 실행 중 만든다 (에셋이 오면 프리팹으로). 줄 자리는 월드 좌표라 부지 · 배경이 바뀌면 같이 고친다.
 
