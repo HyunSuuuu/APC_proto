@@ -6198,6 +6198,7 @@ GameObject:
   - component: {fileID: 811996139}
   - component: {fileID: 811996141}
   - component: {fileID: 811996142}
+  - component: {fileID: 811996143}
   m_Layer: 0
   m_Name: SiteGrid
   m_TagString: Untagged
@@ -6336,6 +6337,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4c64195dac559a942885b38d9baa80b6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.Site.SiteBackground
+--- !u!114 &811996143
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 811996137}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: abbb8506f1eaa1343adafcad1e791bf1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::APC.Logistics.InboundQueue
+  truckPrefab: {fileID: 4984602761534617846, guid: 5e6d6f7a22b565742bca4191a21f5cc0, type: 3}
+  headPosition: {x: 0, y: 0, z: -21}
+  lineDirection: {x: 0, y: 0, z: 1}
+  spacing: 7
+  truckYaw: 180
+  markerColor: {r: 1, g: 1, b: 1, a: 0.35}
 --- !u!1001 &824241699
 PrefabInstance:
   m_ObjectHideFlags: 0

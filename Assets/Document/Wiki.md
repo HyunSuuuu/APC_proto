@@ -194,13 +194,13 @@ OrderService.Update: 이후 레벨 구간 간격(Lv.1~3 15초)마다 주문 1건
 
 ### 3.4 입고 트럭 한 대
 
-`InboundBay`의 코루틴이 반복한다.
+`InboundQueue`가 도착을, `InboundBay`가 주차를 맡는다 (M13-9, GDD 7.1 차량 대기열).
 
-1. 계약이 생길 때까지 대기
-2. `spawnPoint`에 트럭 생성 → 크기 0→1 팝 → `parkPoint`까지 후진 (`truckReverseDuration`)
-3. `DockedTruck` 설정 → 픽업 존이 화물을 꺼낼 수 있음
-4. 화물이 다 빠지면 `spawnPoint`로 나가며 작아짐 → 삭제
-5. `inboundRespawnDelay`만큼 기다렸다가 1로
+1. `InboundQueue`: 시작 때 1대, 그 뒤 `inboundArrivalInterval`(20초)마다 트럭 1대 도착 (색 = 선반 있는 입고 색 중 `StockBalancer`). 기다리는 하차 칸이 있으면 바로 넘기고, 없으면 도로 대기 자리에 줄 (최대 `inboundQueueSize` 3대, 차면 도착 멈춤)
+2. `InboundBay`: 빈 칸이 되면 `Request` → 줄 맨 앞이 작아지며 사라지고 줄이 한 칸씩 당겨짐 (줄이 비면 다음 도착을 기다림)
+3. 받은 트럭을 베이 자식으로 옮겨 `spawnPoint`에서 크기 0→1 팝 → `parkPoint`까지 후진 (`truckReverseDuration`)
+4. `DockedTruck` 설정 → 픽업 존이 화물을 꺼낼 수 있음
+5. 화물이 다 빠지면 `spawnPoint`로 나가며 작아짐 → 삭제 → 2로
 
 도로나 경로가 없어서 주차장 모듈이 어디에 붙든 혼자 동작한다.
 
@@ -561,10 +561,17 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### InboundBay
 [Logistics/InboundBay.cs](../Scripts/Logistics/InboundBay.cs)
-- **역할**: 하차 베이 1곳. 하차 주차장 모듈 안에 있다. [3.4](#34-입고-트럭-한-대)의 반복을 코루틴으로 실행한다.
-- **동작**: 후보 = 입고 중인 색(`ContractService.Contracted`) 중 **선반이 있는 색**(`Warehouse.HasShelf`)만. 후보가 없으면 기다린다 (GDD 6.3, M13-1). `Storage` = 이 칸의 상자 두는 공간 (`Awake`에서 `GetComponentInParent<SharedStorage>()`, M13-2).
-- **연결**: `ContractService.Instance`(입고 중인 색), `Warehouse.Instance`(그 색 선반 여부), `StockBalancer`(트럭 색 · 실을 품목), `truckPrefab`, `parkPoint`(주차 위치 · 방향), `spawnPoint`(나타나고 사라지는 곳).
+- **역할**: 하차 베이 1곳. 하차 주차장 모듈 안에 있다. [3.4](#34-입고-트럭-한-대)의 주차 · 출발을 코루틴으로 실행한다. 트럭 도착 · 색은 `InboundQueue`가 정한다 (M13-9).
+- **동작**: `InboundQueue.Request(this)` → `Receive(truck)`로 받을 때까지 대기. 꺼지면(`OnDisable`) 기다리는 목록에서 빠진다. `Storage` = 이 칸의 상자 두는 공간 (`Awake`에서 `GetComponentInParent<SharedStorage>()`, M13-2).
+- **연결**: `InboundQueue.Instance`, `parkPoint`(주차 위치 · 방향), `spawnPoint`(나타나고 사라지는 곳). `truckPrefab` 필드는 이제 안 씀 (`InboundQueue`가 생성).
 - **주의**: 트럭은 **베이 기준 로컬 좌표**로 움직인다 (`parkPoint` · `spawnPoint`는 베이 바로 아래 자식이어야 함). 확장 모듈은 크기 0에서 커지는 중(`FacilityPop`)에 첫 트럭이 나오므로, 월드 좌표를 쓰면 엉뚱한 곳에서 들어온다 (2026-11-12 수정). `OutboundBay`도 같다.
+
+#### InboundQueue
+[Logistics/InboundQueue.cs](../Scripts/Logistics/InboundQueue.cs)
+- **역할**: 하차 트럭 도착 · 차량 대기열 (GDD 7.1, M13-9). SiteGrid 오브젝트에 붙는다 (`SiteBuilder.BakeGrid`).
+- **동작**: 도착 루프 = 줄이 `InboundQueueSize` 미만이고 선반 있는 입고 색이 있을 때 트럭 생성 → 기다리는 베이에 바로 넘기거나 줄 끝에 팝 → `InboundArrivalInterval` 대기. `Request(bay)` = 줄 맨 앞을 넘기고 나머지를 `SlotPosition(i)`로 당김 (0.6초). 시작 때 대기 자리 표시(반투명 판 `TruckWaitSlot_n`) 3개.
+- **연결**: `truckPrefab`(`InboundTruck.prefab`), `headPosition`(0, 0, −21 = 서쪽 도로 하차 1 옆) · `lineDirection`(+z) · `spacing` 7 · `truckYaw` 180 `임시`, `LogisticsConfig.InboundArrivalInterval` · `InboundQueueSize`.
+- **주의**: 대기 자리 표시는 기본 큐브 + URP Unlit 재질을 실행 중 만든다 (에셋이 오면 프리팹으로). 줄 자리는 월드 좌표라 부지 · 배경이 바뀌면 같이 고친다.
 
 #### TruckPickupZone
 [Logistics/TruckPickupZone.cs](../Scripts/Logistics/TruckPickupZone.cs)

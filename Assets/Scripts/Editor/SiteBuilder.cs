@@ -132,6 +132,7 @@ namespace APC.EditorTools
             var grid = gridGo.AddComponent<SiteGrid>();
             AddWalls(gridGo); // M14-2 바깥 벽
             gridGo.AddComponent<SiteBackground>(); // M14-7 배경 (주차장 바닥)
+            BuildKit.SetRef(gridGo.AddComponent<APC.Logistics.InboundQueue>(), "truckPrefab", StandardModules.TruckPrefab()); // M13-9 트럭 도착 · 대기열
             var entries = new List<SiteGrid.Entry>();
 
             foreach (var placement in layout.Modules)

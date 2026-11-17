@@ -1,9 +1,5 @@
 using System.Collections;
-using System.Collections.Generic;
-using APC.Contracts;
 using APC.Core;
-using APC.Data;
-using APC.Orders;
 using DG.Tweening;
 using UnityEngine;
 
@@ -11,7 +7,7 @@ namespace APC.Logistics
 {
     /// <summary>
     /// 하차 베이 1곳 (GDD 7.1). 주차장 모듈 안에 있다.
-    /// 계약이 있으면 트럭이 주차 칸 바깥쪽에 나타나 **후진으로 곧장** 주차하고, 화물이 다 빠지면 앞으로 나가 사라진다.
+    /// InboundQueue가 넘긴 트럭이 주차 칸 바깥쪽에 나타나 **후진으로 곧장** 주차하고, 화물이 다 빠지면 앞으로 나가 사라진다.
     /// 도로 · 경로가 필요 없어서 모듈이 어디에 붙든 혼자 동작한다.
     /// </summary>
     public sealed class InboundBay : MonoBehaviour
@@ -30,32 +26,31 @@ namespace APC.Logistics
 
         void Awake() => Storage = GetComponentInParent<SharedStorage>();
 
+        InboundTruck received;
+
+        /// <summary>InboundQueue가 이 칸에 트럭을 넘긴다 (도착 · 줄 맨 앞).</summary>
+        public void Receive(InboundTruck truck) => received = truck;
+
+        void OnDisable() => InboundQueue.Instance?.Cancel(this);
+
         IEnumerator Start()
         {
             var config = GameManager.Instance.Database.Logistics;
-            var contracts = ContractService.Instance;
+            yield return new WaitUntil(() => InboundQueue.Instance != null);
 
             while (true)
             {
-                // 그 색 보관 구역(선반)이 없으면 그 색 트럭은 안 나온다 (GDD 6.3)
-                var candidates = new List<CompanyDefinition>();
-                yield return new WaitUntil(() =>
-                {
-                    candidates.Clear();
-                    foreach (var c in contracts.Contracted)
-                    {
-                        if (Warehouse.Instance.HasShelf(c.Items[0])) candidates.Add(c);
-                    }
-                    return candidates.Count > 0;
-                });
+                // 트럭 도착 · 색은 InboundQueue가 정한다 (GDD 7.1 차량 대기열)
+                received = null;
+                InboundQueue.Instance.Request(this);
+                yield return new WaitUntil(() => received != null);
+                var truck = received;
 
-                var company = StockBalancer.PickInboundCompany(candidates);
                 // 로컬 좌표로 움직인다: 확장 모듈은 크기 0에서 커지는 중(FacilityPop)에 첫 트럭이 나오므로,
                 // 월드 좌표를 그때 잡으면 엉뚱한 곳에서 들어온다. 주차 · 생성 지점은 이 베이의 바로 아래 자식.
-                var truck = Instantiate(truckPrefab, transform);
-                truck.Load(company, StockBalancer.ComposeInboundLoad(company));
-
                 var t = truck.transform;
+                t.DOKill();
+                t.SetParent(transform, false);
                 t.SetLocalPositionAndRotation(spawnPoint.localPosition, parkPoint.localRotation);
                 t.localScale = Vector3.zero;
                 yield return DOTween.Sequence()
@@ -68,12 +63,12 @@ namespace APC.Logistics
                 yield return new WaitUntil(() => !truck.HasCargo);
                 DockedTruck = null;
 
-                DOTween.Sequence()
+                yield return DOTween.Sequence()
                     .Append(t.DOLocalMove(spawnPoint.localPosition, config.TruckLeaveDuration).SetEase(Ease.InCubic))
                     .Append(t.DOScale(0f, AppearDuration).SetEase(Ease.InBack))
                     .SetLink(truck.gameObject)
-                    .OnComplete(() => Destroy(truck.gameObject));
-                yield return new WaitForSeconds(config.InboundRespawnDelay);
+                    .OnComplete(() => Destroy(truck.gameObject))
+                    .WaitForCompletion();
             }
         }
 
