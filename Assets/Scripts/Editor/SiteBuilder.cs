@@ -345,8 +345,8 @@ namespace APC.EditorTools
             rect.pivot = new Vector2(0f, 1f);
 
             // 지갑
-            UIImage("Icon", rect, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(46f, 0f), new Vector2(52f, 34f),
-                new Color(0.35f, 0.75f, 0.4f), sprite).type = Image.Type.Sliced;
+            UIImage("Icon", rect, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(46f, 0f), new Vector2(72f, 50f),
+                Color.white, LoadSprite("Assets/Art/Temp/money.png", makeSprite: false)).preserveAspect = true; // 돈 다발 (Art/Temp 잘라 둔 스프라이트)
             var label = UIText("Amount", rect, new Vector2(0f, 0.5f), new Vector2(190f, 0f), new Vector2(200f, 64f), "0", 50f, TitleFont, Color.white);
             label.alignment = TMPro.TextAlignmentOptions.Left;
 

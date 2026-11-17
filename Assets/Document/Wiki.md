@@ -324,7 +324,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | [PlayerConfig](../Scripts/Data/PlayerConfig.cs) | `PlayerConfig` | 이동 속도 · 회전 속도 · 뛰기 기준, 기본 적재(손 3개), **업그레이드 단계** `carrySteps` · `speedSteps` (`PlayerUpgradeStep` 이름 · 값 · 해금 레벨 · 비용), 집기 간격, **상호작용 대기 시간**, 내려놓기 ↔ 집기 전환 쿨타임 |
 | [ControlsConfig](../Scripts/Data/ControlsConfig.cs) | `ControlsConfig` | 조이스틱 반경, 카메라 각도 · 렌즈 · 줌 · 복귀 시간 |
 | [CarryConfig](../Scripts/Data/CarryConfig.cs) | `CarryConfig` | 상자 높이, 비행 · 착지 연출, 스택 흔들림 스프링, MAX 표시 |
-| [LogisticsConfig](../Scripts/Data/LogisticsConfig.cs) | `LogisticsConfig` | 보관소 · 선반 용량, **반품**(반품 확률 10% · 롤테이너 12 · 재포장 출구 6 · 검수 1.5초), 입고 · 출고 트럭 후진 · 출발 · 재등장 시간, 사무실 게이지, 팝 연출 시간 |
+| [LogisticsConfig](../Scripts/Data/LogisticsConfig.cs) | `LogisticsConfig` | 보관소 · 선반 용량, **반품**(반품 확률 · 반품 팔레트 12 · 재포장 입력 6 · 성공 70% · 쓰레기 출력 6 · 재포장 팔레트 6 · 재포장 2초 · 쓰레기 들기 12), 입고 · 출고 트럭 후진 · 출발 · 재등장 시간, 사무실 게이지, 팝 연출 시간 |
 | [SiteLayout](../Scripts/Data/SiteLayout.cs) | `SiteLayout` | 칸 크기, **모듈 배치 목록** (아래 설명) |
 | [CashFlyConfig](../Scripts/Data/CashFlyConfig.cs) | `CashFlyConfig` | 주운 현금 → HUD 저금통 **달러 아이콘 연출**: 비행 시간, **속도 그래프**(`moveCurve`, 시간 0~1 → 경로 진행 0~1, 기울기 = 속도, 1을 넘기면 지나쳤다 돌아옴), 포물선 높이, **출발 랜덤 반경**(`startRadius`, HUD px — 플레이어 화면 위치 둘레 원 안 무작위 지점에서 출발, 0 = 중앙), 기본 크기, **크기 그래프**(`scaleCurve`, 시간 → 배율), 도착 때 저금통 아이콘 튐. Build Site가 `CashFlyEffect`에 직접 연결 (없으면 만듦, 비면 `OrDefault`) |
 | [StampConfig](../Scripts/Data/StampConfig.cs) | `StampConfig` | 계약 PC **도장 연출**: 누르기 배율 · 시간, 카드 위 머무는 시간, 복귀 시간 · 이징, 자국 · 필터, 흔들림 · 사유 시간, 계약 후 팝업 닫힘 지연. **`GameDatabase`가 아니라** Build Site가 `Stamp` · `StampCard` · `ContractPopup`에 직접 연결 (없으면 만들고, 연결이 비면 기본값 `OrDefault`) |
@@ -418,7 +418,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Interaction/InteractionZone.cs](../Scripts/Interaction/InteractionZone.cs)
 - **역할**: 모든 존의 바탕. 영역(`size`, 루트 기준 XZ 사각형), 안에 있는 interactor 목록, 바닥 색 표시, 작업 지점(`Slots`, 자식 `WorkSlot`). `Active`로 켜진 모든 존을 본다.
 - **동작**: `FindAt(위치)`는 등록된 존을 순서대로 보고 처음 맞는 것을 돌려준다. 바닥 색은 `FloorProgress`에 따라 idle → active로 바뀐다 (`MaterialPropertyBlock`으로 재질 복사 없이).
-- **하위 클래스가 정하는 것**: `Tick`(필수), `WaitsForReadyDelay`, `FloorProgress`, `OnEnter`/`OnExit`.
+- **하위 클래스가 정하는 것**: `Tick`(필수), `WaitsForReadyDelay`, `TicksWhileMoving`(true면 멈추지 않아도 Tick — 쓰레기장, M13-11), `FloorProgress`, `OnEnter`/`OnExit`.
 - **겹침 확인**: `WorldRect`(바닥 사각형), `AnyOverlap(rect)`(어떤 존과든 겹치나 — 나중에 놓는 패드 자리 찾기), `FootprintRect(transform, half)`(로컬 사각형 → 월드).
 - **주의**: 루트 크기(scale)는 1로 둔다. `OnEnable`/`OnDisable`/`Update`를 덮어쓸 때는 `base.` 호출을 잊지 않는다.
 - **바닥 판 없음** (2026-11-17): 확장 패드 말고는 `floor`가 비어 있고(판 · 바닥 글자 · 바닥 게이지 삭제) 영역은 **에디터 기즈모**(노란 선 상자, `OnDrawGizmos`)로만 보인다. `BuildKit.Zone`도 구매 패드에만 판 · 글자를 만든다.
@@ -427,7 +427,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Interaction/CargoZone.cs](../Scripts/Interaction/CargoZone.cs)
 - **역할**: 화물을 간격마다 1개씩 옮기는 존. **내려놓기가 집기보다 우선**이다.
 - **하위 클래스가 정하는 것**: `CanReceive`(받을 수 있나) / `Receive`(받아서 보관) / `TryGive`(줄 화물 꺼내기) / **`GiveOrigin`(주는 화물의 출처 — 작업 고정 확인용, 주는 존은 꼭 지정)**. 받기만 하는 존은 `TryGive`를, 주기만 하는 존은 `CanReceive`를 덮어쓰지 않으면 된다.
-- **플레이어 규칙**: 내려놓기 · 집기 전에 `Interactor.CanTransfer`(전환 쿨타임), 집기 전에 `Interactor.CanPickOrigin(GiveOrigin)`(작업 고정)을 확인한다.
+- **플레이어 규칙**: 내려놓기 · 집기 전에 `Interactor.CanTransfer`(전환 쿨타임), 집기 전에 `Interactor.CanPickOrigin(GiveOrigin)`(작업 고정)을 확인한다. 쓰레기는 Origin `Trash`라 작업 고정으로 상자와 섞이지 않는다.
+- **`IgnoresCarryCapacity`**: true면 적재 수(손 3 · 구루마 8 …)를 넘어서도 준다 — 상한은 `TryGive`가 정함 (쓰레기 출력 = `trashCarryMax` 12). `CarryStack.TryAdd(cargo, ignoreCapacity)`.
 - **알바 판단용**: `CanReceiveAny(who)`(들고 있는 것 중 받을 것이 있나), `virtual HasCargoFor(who)`(줄 것이 있나 — 꺼내지 않고 확인만). 하위 클래스는 `HasCargoFor`를 구현한다.
 - **알림** (M13-3): 화물을 들고 하나도 못 내려놓으면 `virtual OnNothingDropped(who)`를 부른다. `Notice(who, template, position, text)` = 플레이어만(`RestrictToTarget`이 아닐 때), 존마다 1.5초에 한 번 `FloatingNotice`.
 - **주의**: `Receive`에서는 화물이 이미 스택에서 빠진 상태다. 날아가는 연출은 받는 쪽(`CargoPile.Add`, `CarryStack.TryAdd`)이 한다.
@@ -444,7 +445,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 멈춰 있으면 게이지가 차고, 다 차면 `OnCompleted`를 한 번 부르는 존. 계약 PC, 구매 패드가 상속한다.
 - **동작**: `Progress`(0~1, R3). 움직이거나 나가면 멈추고 진행도는 유지된다. 처음부터 다시 하려면 `ResetGauge()`.
 - **덮어쓸 수 있는 것**: `Advance`(진행 계산 — 구매 패드는 넣은 돈만큼 진행), `CanProgress`, `Duration`(코드에서 config 값으로 설정).
-- **주의**: 다 찬 뒤에는 `ResetGauge` 전까지 다시 완료되지 않는다. `ContractPC`는 `OnExit`에서 되돌려, 존을 나갔다 들어오면 다시 열린다.
+- **주의**: 다 찬 뒤에는 `ResetGauge` 전까지 다시 완료되지 않는다. `ContractPC`는 `OnExit`에서 되돌려, 존을 나갔다 들어오면 다시 열린다. 여럿이 서 있어도 **한 프레임에 한 번만** 진행한다 (`lastTickFrame`, 플레이어 + 알바 = 1배, M13-12).
 
 #### PurchasePad (추상)
 [Interaction/PurchasePad.cs](../Scripts/Interaction/PurchasePad.cs)
@@ -460,15 +461,15 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### HeadGaugeBar
 [Interaction/HeadGaugeBar.cs](../Scripts/Interaction/HeadGaugeBar.cs)
 - **역할**: 머리 위 가로 게이지 막대 (2026-11-17). 씬 Player에 붙고 자식 `HeadGauge`(월드 캔버스, y 1.9, 1.2 × 0.18m, `Fill` = Filled · Horizontal)를 쓴다.
-- **동작**: `Interactor.CurrentZone`이 `GaugeZone`(구매 패드 제외)이고 진행도가 0~1 사이일 때만 켜고, 매 프레임 카메라 쪽을 본다. 대상 = 고용 · 업그레이드 책상, 검수 테이블.
+- **동작**: `Interactor.CurrentZone`이 `GaugeZone`(구매 패드 제외)이고 진행도가 0~1 사이일 때만 켜고, 매 프레임 카메라 쪽을 본다. 대상 = 고용 · 업그레이드 책상, 재포장 테이블.
 - **주의**: 알바 머리 위에는 없다 (플레이어만).
 
 ### 4.5 Logistics — 물류
 
 #### Cargo
 [Logistics/Cargo.cs](../Scripts/Logistics/Cargo.cs)
-- **역할**: 화물 1개. 품목(`Item`), 상태(`State`: Normal / Return), 출처(`Origin`: None / Truck / Storage / Shelf), `Repacked`(찌그러진 상자를 재포장한 일반 상자), `Home`(트럭에서 꺼낸 화물이 가야 할 하차 칸 공간, `TruckPickupZone`이 넣음 — 하차 칸마다 따로, M13-2).
-- **동작**: 루트는 위치 이동(DOTween), 자식 `Visual`은 흔들림 · 펀치만 받는다. 색은 `MaterialPropertyBlock` — 테이프 = 품목 색(찌그러진 상자도 원래 색 띠), 상자(`boxRenderer`) = 기본 재질(찌그러진 상자만 회색, GDD 7.7). `Repack()` = 같은 품목(색) Normal 상자 + `Repacked` — 겉모습은 일반 상자 (M13-10).
+- **역할**: 화물 1개. 품목(`Item`), 상태(`State`: Normal / Return(찌그러짐) / Trash(포장 쓰레기)), 출처(`Origin`: None / Truck / Storage / Shelf / ReturnPallet(반품 팔레트에서 꺼냄) / Trash), `HeightScale`(쌓기 높이 배율), `Repacked`(찌그러진 상자를 재포장한 일반 상자), `Home`(트럭에서 꺼낸 화물이 가야 할 하차 칸 공간, `TruckPickupZone`이 넣음 — 하차 칸마다 따로, M13-2).
+- **동작**: 루트는 위치 이동(DOTween), 자식 `Visual`은 흔들림 · 펀치만 받는다. 색은 `MaterialPropertyBlock` — 테이프 = 품목 색(찌그러진 상자도 원래 색 띠), 상자(`boxRenderer`) = 기본 재질(찌그러진 = 회색, 재포장 필요 = 밝은 회색 · `Visual` 높이 0.6배, 쓰레기 = 회갈색 · 높이 0.25배 · 띠 숨김 — 임시 모양, GDD 7.7 · 7.9). `Repack()` = 같은 품목(색) Normal 상자 + `Repacked` — 겉모습은 일반 상자 (M13-10).
 - **주의**: **`Instantiate`/`Destroy` 하지 않는다.** `CargoPool.Instance.Spawn`으로 꺼내고 `Release()`로 돌려준다. 반환 시 트윈 · 상태 · Origin이 모두 초기화된다.
 
 #### CargoPool
@@ -481,7 +482,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 운반 스택. 플레이어와 알바가 같이 쓴다. 품목이 섞여도 된다. 바닥(`anchor`)은 맨손 = 손 바로 위 `(0, 0.55, 0.45)`(M14-4, 큰 머리를 피해 앞으로), 도구 = 도구 바닥.
 - **동작**:
   - `UseAnchor(새 바닥)`: 든 상자를 새 바닥으로 옮겨 다시 쌓는다 (맨손 ↔ 구루마 · 롤테이너)
-  - `TryAdd`: 포물선으로 날아와 맨 위에 착지
+  - `TryAdd(cargo, ignoreCapacity)`: 포물선으로 날아와 맨 위에 착지. 칸 높이 = 아래 화물들의 `HeightScale × BoxHeight` 합 (쓰레기는 촘촘히, M13-11)
   - `TakeTopMatching(조건)`: 위에서부터 조건에 맞는 화물을 빼고, 위 상자들을 내려앉힘
   - 매 프레임 관성 기울기: 이동 반대쪽으로 기울고 스프링으로 돌아옴. 위층일수록 많이 기운다.
   - 넣고 뺄 때 출렁 연출
@@ -490,7 +491,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### CarryMaxIndicator
 [Logistics/CarryMaxIndicator.cs](../Scripts/Logistics/CarryMaxIndicator.cs)
-- **역할**: 스택이 가득 차면 맨 위에 "MAX"를 띄우고 맥박처럼 커졌다 작아진다.
+- **역할**: 스택이 가득 차면 **머리 위**(`headHeight` 2.2m, 상자 수와 상관없이)에 MAX 그림을 띄우고 맥박처럼 커졌다 작아진다. `label` = 아무 `Component` — 지금은 씬 Player `MaxIcon`(루트, 연출로 1배 기준) / 자식 `Sprite`(SpriteRenderer `Art/Temp/max`, 높이 1.3m) (2026-11-18, 옛 TMP 'MAX' 글자 대체).
 
 #### CargoPile
 [Logistics/CargoPile.cs](../Scripts/Logistics/CargoPile.cs)
@@ -503,17 +504,18 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### SharedStorage
 [Logistics/SharedStorage.cs](../Scripts/Logistics/SharedStorage.cs)
-- **역할**: 보관 더미. `kind`(`StorageKind`)로 쓰임이 갈린다 — **Pallet**(하차 칸 공간: 이 칸 트럭에서 꺼낸 화물, 찌그러진 상자 포함), **Returns**(반품 팔레트: 하차 칸 공간에서 꺼낸(Origin Storage) 찌그러진 상자만 받고 주지 않음 — 트럭 직행 금지), **Repacked**(재포장 출구: 재포장 작업대만 `Store`, 하차 칸 공간처럼 선반 빈자리만큼 준다). 용량은 `LogisticsConfig` (하차 칸 공간 10 · 반품 팔레트 12 · 출구 6). 팔레트는 하차장 모듈 Content에 붙고, 같은 모듈의 `InboundBay.Storage`가 이것을 가리킨다.
-- **동작**: `CanAccept`(kind별 조건 + 빈자리, 팔레트는 `cargo.Home == this`인 트럭 화물만), `CountLabel`(떠오르는 글자 원본), `TakeReturn()` · `HasReturn`(재포장 작업대), static `ReturnsOpen`(반품 팔레트가 있으면 찌그러진 상자가 섞임), `HasSpace`, `Store`, `TakeForShelves`(선반에 갈 자리가 있는 품목만 + 하차 칸 공간의 찌그러진 상자는 `ReturnAllowance() > 0`일 때만 (M13-10), 최근에 들어온 것부터 꺼내고 Origin을 Storage로 바꿈), `CountOf(item)`(반품 제외), `HasCargoForShelves()`(알바 판단용, 꺼내지 않음), `PlanForShelves(max)`(분류 알바 예약용: 지금 집으면 선반에 갈 품목별 수를 최대 max까지 센다, 꺼내지 않음). `TakeForShelves`의 판정은 `FindForShelves`로 분리했다. 모듈 안에 있으므로 `SharedStorage.All`에 스스로 등록한다.
-- **`ReturnAllowance()`**: 반품 팔레트에 더 보낼 수 있는 찌그러진 상자 수 = 반품 팔레트 빈자리 합 − 하차 칸 공간에서 꺼내 들고 가는 찌그러진 상자. 반품 팔레트 자신은 찌그러진 상자를 주지 않는다 (보관 알바가 다시 집던 버그, M13-10 테스트에서 고침).
+- **역할**: 보관 더미. `kind`(`StorageKind`)로 쓰임이 갈린다 — **Pallet**(하차 칸 공간: 이 칸 트럭에서 꺼낸 화물, 찌그러진 상자 포함), **Returns**(반품 팔레트: 하차 칸 공간에서 꺼낸(Origin Storage) 찌그러진 상자만 받고, 재포장 입력 여유만큼 준다 — Origin ReturnPallet), **RepackInput**(재포장 테이블 입력: Origin ReturnPallet인 찌그러진 상자만 받고 주지 않음), **Trash**(쓰레기 출력: 재포장 테이블만 `Store`, 쓰레기를 Origin Trash로 준다), **Repacked**(재포장 상자 팔레트: 재포장 테이블만 `Store`, 선반 빈자리만큼 준다). 용량은 `LogisticsConfig` (하차 칸 공간 10 · 반품 팔레트 12 · 재포장 입력 6 · 쓰레기 출력 6 · 재포장 팔레트 6). **enum 숫자 고정** (Returns 1 · Repacked 2 · RepackInput 4 · Trash 5, 3 = 삭제된 InspectOutput) — 프리팹에 int로 저장되므로 끼워 넣지 않는다. 팔레트는 하차장 모듈 Content에 붙고, 같은 모듈의 `InboundBay.Storage`가 이것을 가리킨다.
+- **동작**: `CanAccept`(kind별 조건 + 빈자리, 팔레트는 `cargo.Home == this`인 트럭 화물만), `CountLabel`(떠오르는 글자 원본), `Take(state)` · `Has(state)`(재포장 테이블이 꺼냄), static `ReturnsOpen`(반품 팔레트가 있으면 찌그러진 상자가 섞임), `HasSpace`, `Store`, `TakeForShelves`(선반에 갈 자리가 있는 품목만 + 찌그러진 상자는 하차 칸 공간 → 반품 팔레트 여유, 반품 팔레트 → 재포장 입력 여유가 있을 때만 + 쓰레기 출력의 쓰레기, 최근에 들어온 것부터. Origin = Storage / ReturnPallet(반품 팔레트에서) / Trash(쓰레기)), `CountOf(item)`(반품 제외), `HasCargoForShelves()`(알바 판단용, 꺼내지 않음), `PlanForShelves(max)`(분류 알바 예약용: 지금 집으면 선반에 갈 품목별 수를 최대 max까지 센다, 꺼내지 않음). `TakeForShelves`의 판정은 `FindForShelves`로 분리했다. 모듈 안에 있으므로 `SharedStorage.All`에 스스로 등록한다.
+- **`Allowance(종류, 출처)`** (private): 그 종류 더미에 더 보낼 수 있는 찌그러진 상자 수 = 빈자리 합 − 이미 꺼내 들고 가는(그 출처) 찌그러진 상자. 재포장 입력은 받은 상자를 다시 주지 않는다.
 - **`ShelfAllowance(item)`**: 그 품목을 선반에 더 보낼 수 있는 수 = 선반 빈자리 − 들고 가는 수 − 분류 알바 예약. `FindForShelves`(→ `TakeForShelves` · `HasCargoForShelves`)가 이 값으로 판정한다.
-- **연결**: 하차장 모듈마다 팔레트 하나, 반품 구역에 반품 팔레트 · 출구 하나씩. 각각 둘레의 `StorageZone` 하나로 넣고 꺼낸다 (보관 알바가 하차 칸 공간 → 반품 팔레트 · 출구 → 선반을 그대로 함).
+- **연결**: 하차장 모듈마다 팔레트 하나, 반품 구역에 반품 팔레트 · 재포장 입력 · 쓰레기 출력 · 재포장 팔레트 하나씩. 각각 `StorageZone` 하나로 넣고 꺼낸다 (보관 알바 = Pallet · Repacked 존에서 집음, 반품 알바 = Returns · Trash 존에서 집음 — `StaffWorker.IsRoleZone`).
 - **주의**: 플레이어 · 분류 알바가 같은 `ShelfAllowance`를 쓴다. 예약된 수만큼은 플레이어도 덜 받는다.
 
 #### StorageZone
 [Logistics/StorageZone.cs](../Scripts/Logistics/StorageZone.cs)
 - **역할**: 팔레트 둘레 존 (4.2 × 3.8m). **트럭 화물 내려놓기 먼저**(`CanAccept`/`Store`), 내려놓을 것이 없으면 선반에 갈 화물을 집는다(`TakeForShelves`). `ShelfZone`과 같은 구조. `HasCargoFor`(분류 알바가 집기 전에 확인)를 구현한다.
-- **알림** (M13-3, 플레이어만): 팔레트에 상자는 있는데 하나도 못 집으면(그 색 선반이 다 참) '선반 가득'. 반품 팔레트(`Returns`)에서 하나도 못 넣으면 반품 상자면 '가득', 아니면 '넣을 수 없음' (선반에서 꺼낸 상자는 안 셈).
+- **쓰레기 출력** (`Trash`, M13-11): `GiveOrigin` = Trash, 적재 수 무시 · 쓰레기 `trashCarryMax`(12)개까지 (`CanCarryMoreTrash`). 반품 팔레트(`Returns`)는 `GiveOrigin` = ReturnPallet.
+- **알림** (M13-3, 플레이어만): 팔레트에 상자는 있는데 하나도 못 집으면(그 색 선반이 다 참) '선반 가득'. 반품 팔레트 · 재포장 입력에서 하나도 못 넣으면 찌그러진 상자면 '가득', 아니면 '넣을 수 없음' (선반에서 꺼낸 상자는 안 셈).
 
 #### Shelf
 [Logistics/Shelf.cs](../Scripts/Logistics/Shelf.cs)
@@ -527,11 +529,16 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **알림** (M13-3, 플레이어만): 하나도 못 넣으면 이 색 상자(Origin = Storage)를 들었으면 '가득'(선반 꽉 참), 그 밖의 상자(다른 색 · 트럭 화물 · 반품)면 '넣을 수 없음'. 선반에서 꺼낸 상자(상차로 가는 중)는 안 센다. 글자 원본 = `Shelf.CountLabel`.
 - **주의**: 정차한 트럭이 없으면 수요가 0이라 집지 않는다. 꺼낸 화물의 Origin은 `Shelf` 그대로 — 상차 존만 받는다.
 
+#### TrashDropZone
+[Logistics/TrashDropZone.cs](../Scripts/Logistics/TrashDropZone.cs)
+- **역할**: 쓰레기장 쓰레기통 앞 존 (GDD 7.9, M13-11). `CargoZone` + `TicksWhileMoving` = 멈추지 않아도 쓰레기(State Trash)를 간격마다 하나씩 받는다. 받으면 쓰레기통(`bin` = `Content/TrashBin/DropPoint`) 위로 날아가며 작아진 뒤 풀로 돌아간다. 가득 차지 않음, 보상 없음.
+- **연결**: 프리팹 `Module_Trash/Content/TrashDropZone` (쓰레기통 앞 2.4 × 2m). 쓰레기장의 나머지 소품은 꾸미기용 더미 (사용자 배치).
+
 #### RepackTable
 [Logistics/RepackTable.cs](../Scripts/Logistics/RepackTable.cs)
-- **역할**: 반품 재포장 작업대 (GDD 7.7, M13-10 — 옛 `InspectionTable`, 검수 삭제. 파일 · meta를 옮겨 GUID 유지). `GaugeZone`, 지금은 플레이어 전용 (반품 알바 M13-12).
-- **동작**: 작업 위치(존)에 서 있고 반품 팔레트에 찌그러진 상자가 있으며 출구에 빈자리가 있으면 게이지(`repackDuration` 2초 `임시`)가 찬다 → `returnBin.TakeReturn()` → `Cargo.Repack()`(같은 색) → 작업대 위(`workPoint`)에서 출구(`output.Store`)로 날아감 → 게이지 0. 떠나도 게이지 유지. XP 없음.
-- **연결**: `returnBin`(Returns) · `output`(Repacked) · `workPoint`. `StandardModules.BuildReturns`가 만든다.
+- **역할**: 반품 재포장 테이블 (GDD 7.7, 2026-11-17 저녁 — 검수 삭제, 옛 `InspectionTable` 파일은 지움). `GaugeZone` = 길쭉한 테이블 가운데 재포장 자리. 반품 알바(슬롯 1) · 플레이어.
+- **동작**: `HasWork`(입력에 찌그러진 상자 + 재포장 팔레트 · 쓰레기 출력에 빈자리)면 게이지(`repackDuration` 2초 `임시`, 머리 위 막대)가 차고, 작업자는 `workPoint`를 바라본다 → `input.Take(Return)` → `repackSuccessChance`(70%)면 `Cargo.Repack()` 후 팔레트(`output`)에 + 새 쓰레기를 풀에서 꺼내 쓰레기 출력에, 아니면 그 상자를 Trash로 바꿔 쓰레기 출력에 → 게이지 0. 떠나도 게이지 유지. XP 없음. `TrashFull` = 쓰레기 출력 가득 (반품 알바가 쓰레기부터).
+- **연결**: `input`(RepackInput, 옛 필드 `returnBin` — `FormerlySerializedAs`) · `output`(Repacked) · `trash`(Trash) · `workPoint`. 프리팹 `Module_Returns/Content/RepackTableArea`.
 
 #### ShelfSlot
 [Logistics/ShelfSlot.cs](../Scripts/Logistics/ShelfSlot.cs)
@@ -607,7 +614,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### StaffWorker
 [Staff/StaffWorker.cs](../Scripts/Staff/StaffWorker.cs)
 - **역할**: 알바 1명. 플레이어와 같은 `Interactor` · `CarryStack`을 쓰고, 이동은 `NavMeshAgent`가 한다 ([GDD 11](GDD.md#11-알바생)).
-- **동작**: 상태 `Phase` = `Idle / Moving / Working / Parked / Waiting`. 집는 곳은 직무로 정한다 (하차 `TruckPickupZone`, 보관(`Sort`) `StorageZone`, 상차(`Pick`) `ShelfZone`, 반품은 아직 없음 → 제자리 대기, M13-12). 내려놓는 곳은 들고 있는 화물을 받는 존(`CargoZone.CanReceiveAny`)이라서, 역할을 바꿔도 화물은 원래 목적지로 간다. 가장 가까운 빈 `WorkSlot`을 출발할 때 예약하고, 도착하면 `Interactor.Target`을 그 존으로 두고 `AllowDrop` · `AllowPick`을 작업에 맞춘다. 옮길 것이 `workIdleTimeout`(0.5초) 동안 없거나 가득 · 빈손이 되면 작업을 끝낸다. 예약은 3역할 공통 ([GDD 8.4](GDD.md#84-수요-계산)): 출발할 때 가져갈 만큼 `Reserve()`로 잡고, 도착하면 `ReleaseReservation()`으로 푼다. 해제는 `releaseReservation` 함수 하나. 하차 = `InboundTruck.Reserve`, 분류 = `Warehouse.ReserveShelfSpace`(`PlanForShelves` 품목별), 피킹 = `OrderService.Reserve`.
+- **동작**: 상태 `Phase` = `Idle / Moving / Working / Parked / Waiting`. 집는 곳은 직무로 정한다 (하차 `TruckPickupZone`, 보관(`Sort`) `StorageZone` 중 Pallet · Repacked, 상차(`Pick`) `ShelfZone`, 반품 = Returns · Trash `StorageZone` + 재포장 테이블). **반품 알바**(M13-12, `ReturnsWork`): 막히는 곳부터 — `TrashFull`이면 쓰레기 출력에서 줍기 → 재포장(`TryGauge`: 가장 가까운 `RepackTable.HasWork` 테이블 슬롯으로 가서 `gauge`로 두고, `HasWork`인 동안 서 있음) → 반품 팔레트에서 줍기 → 쓰레기 줍기 (`ReturnsFocus`로 `IsRoleZone`을 좁힘). 적재 = `StaffRules.returnsCarry` 12 (스탯 무관, `SetRole`에서). 내려놓는 곳은 들고 있는 화물을 받는 존(`CargoZone.CanReceiveAny`)이라서, 역할을 바꿔도 화물은 원래 목적지로 간다. 가장 가까운 빈 `WorkSlot`을 출발할 때 예약하고, 도착하면 `Interactor.Target`을 그 존으로 두고 `AllowDrop` · `AllowPick`을 작업에 맞춘다. 옮길 것이 `workIdleTimeout`(0.5초) 동안 없거나 가득 · 빈손이 되면 작업을 끝낸다. 예약은 3역할 공통 ([GDD 8.4](GDD.md#84-수요-계산)): 출발할 때 가져갈 만큼 `Reserve()`로 잡고, 도착하면 `ReleaseReservation()`으로 푼다. 해제는 `releaseReservation` 함수 하나. 하차 = `InboundTruck.Reserve`, 분류 = `Warehouse.ReserveShelfSpace`(`PlanForShelves` 품목별), 피킹 = `OrderService.Reserve`.
 - **연결**: `Setup(role, stats, costume)`(`StaffService.Spawn`이 부른다), `SetRole(role)`(역할 변경 — 배치 탭), `Fire()`(해고), `Role` · `Stats` · `State` · `Stack` · `Number`(고용 순 번호, `DisplayName` = `알바 N`) · `Fired`. 설정값은 `StaffRules`.
 - **주의**:
   - 가는 중 대상이 사라지면 예약을 풀고, `thinkInterval`(0.25초)마다 다시 고른다. 가는 중 확인(`StillValid`)은 예약을 잠깐 풀고 다시 확인해 다시 잡는다.
@@ -774,7 +781,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### FloatingNotice
 [UI/FloatingNotice.cs](../Scripts/UI/FloatingNotice.cs)
 - **역할**: 월드에 잠깐 떠올랐다(0.8m, 1초) 사라지는 빨간 알림 글자 (static). `Show(template, position, text)` — 원본 월드 글자(폰트 · 외곽선 · `Billboard`)를 복제해 쓴다.
-- **연결**: `CargoZone.Notice`가 부른다 — `TruckPickupZone`('공간 가득'), `ShelfZone`('넣을 수 없음' · '가득'), `StorageZone`('선반 가득', 반품 선반 '넣을 수 없음' · '가득').
+- **그림**: `ShowIcon(sprite, position, height)` — SpriteRenderer를 만들어 카메라를 보게 두고 같은 연출(떠오르며 투명). '넣을 수 없음' = `CarryConfig.cannotDropIcon`(`Art/Temp/candoit`, 높이 1.2m), `CargoZone.NoticeCannotDrop` (2026-11-18, 옛 글자 대체).
+- **연결**: `CargoZone.Notice` · `NoticeCannotDrop`이 부른다 — `TruckPickupZone`('공간 가득'), `ShelfZone`(금지 그림 · '가득'), `StorageZone`('선반 가득', 반품 팔레트 · 재포장 입력 금지 그림 · '가득').
 
 #### LevelUpBanner
 [UI/LevelUpBanner.cs](../Scripts/UI/LevelUpBanner.cs)
@@ -783,13 +791,13 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### GuideArrow
 [UI/GuideArrow.cs](../Scripts/UI/GuideArrow.cs)
-- **역할**: 가이드 화살표 (플레이어만, GDD 5.3). 들고 있는 화물의 목적지를 가리킨다 — 트럭 화물 → 가장 가까운 빈자리 팔레트(`StorageZone`), 팔레트 화물 → 그 품목 선반, 선반 화물 → 그 품목이 필요한 정차 출고 트럭(`TruckLoadZone`). **손이 비면 숨김.**
+- **역할**: 가이드 화살표 (플레이어만, GDD 5.3). 들고 있는 화물의 목적지를 가리킨다 — 트럭 화물 → 가장 가까운 빈자리 팔레트(`StorageZone`), 팔레트 화물 → 그 품목 선반, 선반 화물 → 그 품목이 필요한 정차 출고 트럭(`TruckLoadZone`), 쓰레기(Origin Trash) → 쓰레기통 앞 `TrashDropZone` (M13-11). **손이 비면 숨김.**
 - **동작**: 0.2초마다 목표를 다시 찾는다. 화면 안 = 목표 위 4m에서 아래를 가리키며 통통, 화면 밖 = 화면 가장자리에서 목표 쪽으로 돌아 길이가 늘었다 줄었다. 삼각형 스프라이트는 코드로 만든 임시.
 - **연결**: HUD `GuideArrow/Arrow` (Build Site), Player의 `CarryStack`.
 
 #### CashView
 [UI/CashView.cs](../Scripts/UI/CashView.cs)
-- **역할**: HUD 왼쪽 위(레벨 패널 오른쪽) 돈 — **지갑 한 칸**(`Wallet.Cash`, 크게) + 패널 바로 오른쪽 작은 저금통 아이콘 `PiggyIcon` · `+N`(`Wallet.Piggy`, 달러가 날아가는 곳, M13-5). 각 숫자가 굴러가듯 바뀌고(`DOVirtual.Float`) 오를 때 튄다. 정산 때 저금통이 줄고 보유 재화가 오르는 모습이 그대로 보인다.
+- **역할**: HUD 왼쪽 위(레벨 패널 오른쪽) 돈 — 아이콘 `Icon` = `Art/Temp/money`(돈 다발, 2026-11-18) + **지갑 한 칸**(`Wallet.Cash`, 크게) + 패널 바로 오른쪽 작은 저금통 아이콘 `PiggyIcon` · `+N`(`Wallet.Piggy`, 달러가 날아가는 곳, M13-5). 각 숫자가 굴러가듯 바뀌고(`DOVirtual.Float`) 오를 때 튄다. 정산 때 저금통이 줄고 보유 재화가 오르는 모습이 그대로 보인다.
 
 #### CashFlyEffect
 [UI/CashFlyEffect.cs](../Scripts/UI/CashFlyEffect.cs)
@@ -914,7 +922,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 기본 모듈 프리팹의 내용을 코드로 정의한다. `DefaultAssignments`(SiteLayout id → 기본 모듈 · 회전)와 `Builders`(모듈 이름 → 만드는 함수) 두 표가 핵심이다. 시설 프리팹(`Shelf`, `InboundTruck`, `OutboundTruck`, `CashBundle`, `ConstructionFence`)도 여기서 만든다.
 - **하차 · 상차장(`BuildLot`)**: 가장자리용. 주차장은 칸 바깥 −x, 트럭 뒷면이 가장자리(슬라이드 도어 자리)에 닿게 주차. `parkSide`로 주차 칸을 가장자리를 따라 ±2.5m 비킨다 (`_M` 판). 하차장은 안쪽에 팔레트(`SharedStorage` + 둘레 `StorageZone`, 2 × 2 한 층 4개씩 위로 — 필드 기본값), 상차장은 상차 존 옆에 현금 존.
 - **M6 추가**: `WorkSlots(zone, offsets)`로 작업 지점을 존마다 둔다 (하차 · 상차 존 2 · 팔레트 4 · 선반 4). 선반 프리팹에 `BoxCollider`(1.6×1.8×1.6) + `NavMeshObstacle`(carve) + `NavMeshModifier`(ignoreFromBuild). 사무실 모듈에 `StaffSpawnPoint`. `StaffWorkerPrefab(overwrite)` = 캡슐 + `StackAnchor`(1.35) + `NavMeshAgent`(반경 0.3 · 높이 1.2 · 회피 없음) + `CarryStack` + `Interactor` + `StaffWorker`, 충돌체 없음.
-- **M9 반품 구역(`BuildReturns`, `Module_Returns`)**: 왼쪽 위 반품 팔레트(`SharedStorage` Returns, 3 × 2 × 2층) + `StorageZone`(작업 지점 2, 보관 알바 배달용), 오른쪽 위 재포장 작업대(`RepackTable` + 테이블 · `workPoint`, M13-10), 오른쪽 아래 재포장 출구(`SharedStorage` Repacked, 3 × 2) + `StorageZone`(작업 지점 2, 분류 알바용). 보관 더미는 `Storage(...)` 헬퍼로 각자 오브젝트에 붙인다.
+- **반품 구역(`BuildReturns`, `Module_Returns`, M13-12)**: 오른쪽 위 반품 팔레트(`Return_Storage_Rack` 모델, `SharedStorage` Returns 3 × 2 × 2단 = 12) + `ReturnBinZone` 슬롯 2, 가운데 길쭉한 재포장 테이블(`RepackTableArea`: 왼쪽 입력 RepackInput 6 + `RepackInputZone` 슬롯 1 · 가운데 `RepackTable` 슬롯 1 · 오른쪽 쓰레기 출력 Trash 6 + `TrashOutputZone` 슬롯 1), 테이블 맞은편 재포장 상자 팔레트(Repacked 3 × 2 + `RepackOutputZone` 슬롯 2). 프리팹은 MCP로 고쳤다 — `BuildReturns`로 다시 만들면 반품 팔레트 모델이 빠진다. 보관 더미는 `Storage(...)` 헬퍼로 각자 오브젝트에 붙인다.
 - **M14-3 모델 주의**: `Shelf` · `PalletRack` · `InboundTruck` · `OutboundTruck` 프리팹과 `Module_Returns` · `Module_Trash` · 하차/상차장 4종 · 사무실 `Decor`의 Prop 모델(`Model` · `Decor` 자식, 재질 `M_Prop`)은 MCP로 프리팹에 직접 넣었다 — 빌더 코드에는 없어서 `overwrite` / `Rebuild`하면 임시 도형으로 돌아간다.
 - **사무실 주의**: `Module_Office.prefab`은 사용자가 손으로 위치를 고쳤다 (2026-11-12). `EnsureAll(true)` · Apply 메뉴는 이를 덮어쓰므로, 다른 모듈만 고칠 땐 `Rebuild("Module_…")`로 그 모듈만.
 - **메뉴 `APC > Setup > Apply Layout 6x4`**(`ApplyLayoutInternal`, 옛 v0.3 메뉴 대체): SiteLayout · 회사 선반 구역을 기본값으로, 보관 · 반품 · 쓰레기장 · 빈 공간 모듈 다시 만들기, `ObsoleteAssets` 삭제, Build Site. 레벨 표는 건드리지 않는다.

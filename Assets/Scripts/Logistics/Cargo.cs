@@ -8,8 +8,11 @@ namespace APC.Logistics
     {
         Normal,
 
-        /// <summary>찌그러진 상자 (반품 구역을 지은 뒤). 보관 선반에 넣을 수 없고 반품 팔레트에만 둔다 (GDD 7.7).</summary>
+        /// <summary>찌그러진 상자 (반품 구역을 지은 뒤). 보관 선반에 넣을 수 없고 반품 팔레트 → 재포장 테이블 입력으로만 간다 (GDD 7.7).</summary>
         Return,
+
+        /// <summary>포장 쓰레기 (재포장 1번 = 1개). 재포장 테이블 쓰레기 출력 → 쓰레기장 (GDD 7.9).</summary>
+        Trash,
     }
 
     /// <summary>화물을 마지막으로 꺼낸 곳. 존이 받을 수 있는지 판단할 때 쓴다 (예: 트럭 → 선반 직행 금지, GDD 7.2).</summary>
@@ -25,6 +28,12 @@ namespace APC.Logistics
 
         /// <summary>분류 선반에 있거나 거기서 꺼냄 → 출고 트럭 상차 존만 받는다.</summary>
         Shelf,
+
+        /// <summary>반품 팔레트에서 꺼낸 찌그러진 상자 → 재포장 테이블 입력만 받는다 (GDD 7.7).</summary>
+        ReturnPallet,
+
+        /// <summary>쓰레기 출력에서 꺼낸 쓰레기 → 쓰레기장만 받는다. 작업 고정으로 상자와 섞이지 않는다 (GDD 5.3 · 7.9).</summary>
+        Trash,
     }
 
     /// <summary>
@@ -39,6 +48,7 @@ namespace APC.Logistics
         [SerializeField] Renderer tapeRenderer;
         [SerializeField, Tooltip("상자 몸통 (찌그러진 상자 = 회색)")] Renderer boxRenderer;
         [SerializeField] Color returnBoxColor = new(0.55f, 0.55f, 0.58f);
+        [SerializeField, Tooltip("포장 쓰레기 (납작한 회갈색 판)")] Color trashColor = new(0.55f, 0.47f, 0.38f);
 
         MaterialPropertyBlock block;
 
@@ -52,6 +62,9 @@ namespace APC.Logistics
         /// <summary>트럭에서 꺼낸 화물이 가야 할 하차 칸 공간 (하차 칸마다 따로, GDD 7.2). 그 밖에는 null.</summary>
         public SharedStorage Home { get; set; }
         public Transform Visual => visual;
+
+        /// <summary>상자 높이 대비 배율 (쓰레기 0.25 — 임시 모양, 쌓을 때 간격에도 쓴다).</summary>
+        public float HeightScale => State == CargoState.Trash ? 0.25f : 1f;
 
         internal CargoPool Pool { get; set; }
 
@@ -99,23 +112,27 @@ namespace APC.Logistics
             ApplyLook();
         }
 
-        /// <summary>테이프 = 품목 색 (찌그러진 상자도 원래 색 띠). 상자 = 기본 재질, 찌그러진 상자만 회색 (GDD 7.7).</summary>
+        /// <summary>
+        /// 테이프 = 품목 색 (찌그러진 상자도 원래 색 띠, 쓰레기는 띠 없음). 상자 = 기본 재질, 찌그러진 = 회색,
+        /// 쓰레기 = 회갈색 · 높이 0.25배 (GDD 7.7 · 7.9 임시 모양).
+        /// </summary>
         void ApplyLook()
         {
             block ??= new MaterialPropertyBlock();
-            var isReturn = State == CargoState.Return;
+            tapeRenderer.enabled = State != CargoState.Trash;
             tapeRenderer.GetPropertyBlock(block);
             block.SetColor(BaseColorId, Item != null ? Item.TapeColor : Color.white);
             tapeRenderer.SetPropertyBlock(block);
+            visual.localScale = new Vector3(1f, HeightScale, 1f);
 
             if (boxRenderer == null) return;
-            if (!isReturn)
+            if (State == CargoState.Normal)
             {
                 boxRenderer.SetPropertyBlock(null);
                 return;
             }
             block.Clear();
-            block.SetColor(BaseColorId, returnBoxColor);
+            block.SetColor(BaseColorId, State == CargoState.Trash ? trashColor : returnBoxColor);
             boxRenderer.SetPropertyBlock(block);
         }
     }

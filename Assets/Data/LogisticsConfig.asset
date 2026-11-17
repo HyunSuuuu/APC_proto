@@ -14,9 +14,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::APC.Data.LogisticsConfig
   sharedStorageCapacity: 10
   shelfCapacity: 6
-  truckArriveDuration: 3
   truckReverseDuration: 2
   truckLeaveDuration: 3
-  inboundRespawnDelay: 4
+  inboundArrivalInterval: 20
+  inboundQueueSize: 3
+  outboundReverseDuration: 3
+  outboundLeaveDuration: 1.5
+  outboundRespawnDelay: 1
   officeGaugeDuration: 0.5
   facilityPopDuration: 0.4
+  returnChance: 0.1
+  returnBinCapacity: 12
+  repackSuccessChance: 0.7
+  trashOutputCapacity: 6
+  trashCarryMax: 12
+  repackInputCapacity: 6
+  repackOutputCapacity: 6
+  repackDuration: 2

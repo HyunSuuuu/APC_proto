@@ -13,11 +13,17 @@ namespace APC.Logistics
         /// <summary>하차장 팔레트: 트럭에서 꺼낸 일반 화물만 받는다.</summary>
         Pallet,
 
-        /// <summary>반품 팔레트: 하차 칸 공간에서 꺼낸 찌그러진 상자만 받고 주지 않는다 (재포장 작업대가 꺼냄).</summary>
-        Returns,
+        /// <summary>반품 팔레트: 하차 칸 공간에서 꺼낸 찌그러진 상자만 받고, 재포장 테이블 입력에 빈자리가 있는 만큼 준다 (Origin = ReturnPallet).</summary>
+        Returns = 1,
 
-        /// <summary>재포장 출구: 재포장 작업대만 넣고, 선반 빈자리만큼 준다 (팔레트와 같은 규칙).</summary>
-        Repacked,
+        /// <summary>재포장 상자 팔레트 (테이블 맞은편): 재포장 테이블만 넣고, 선반 빈자리만큼 준다 (팔레트와 같은 규칙).</summary>
+        Repacked = 2,
+
+        /// <summary>재포장 테이블 입력: 반품 팔레트에서 꺼낸 찌그러진 상자만 받고 주지 않는다 (재포장 테이블이 꺼냄).</summary>
+        RepackInput = 4, // 3 = 옛 InspectOutput (2026-11-17 삭제) — 프리팹에 저장된 숫자를 지키려고 비워 둠
+
+        /// <summary>재포장 테이블 쓰레기 출력: 재포장만 넣는다. 쓰레기를 주고(Origin = Trash) 쓰레기장(`TrashDropZone`)에 버린다.</summary>
+        Trash = 5,
     }
 
     /// <summary>
@@ -90,6 +96,8 @@ namespace APC.Logistics
             {
                 StorageKind.Returns => config.ReturnBinCapacity,
                 StorageKind.Repacked => config.RepackOutputCapacity,
+                StorageKind.RepackInput => config.RepackInputCapacity,
+                StorageKind.Trash => config.TrashOutputCapacity,
                 _ => config.SharedStorageCapacity,
             };
             count.Subscribe(n => countLabel.text = $"{n}/{capacity}").AddTo(this);
@@ -99,7 +107,8 @@ namespace APC.Logistics
 
         /// <summary>
         /// 빈자리가 있고: 하차 칸 공간 = **이 하차 칸 트럭**에서 꺼낸 화물 (찌그러진 상자 포함, 하차 칸마다 따로, GDD 7.2 · 7.7),
-        /// 반품 팔레트 = 하차 칸 공간에서 꺼낸 찌그러진 상자 (트럭 → 반품 팔레트 직행 금지). 재포장 출구는 사람에게서 받지 않는다 (재포장 작업대가 Store).
+        /// 반품 팔레트 = 하차 칸 공간에서 꺼낸 찌그러진 상자 (트럭 직행 금지), 재포장 입력 = 반품 팔레트에서 꺼낸 찌그러진 상자.
+        /// 재포장 상자 팔레트 · 쓰레기 출력은 사람에게서 받지 않는다 (재포장 테이블이 Store).
         /// </summary>
         public bool CanAccept(Cargo cargo)
         {
@@ -108,16 +117,17 @@ namespace APC.Logistics
             {
                 StorageKind.Pallet => cargo.Origin == CargoOrigin.Truck && cargo.Home == this,
                 StorageKind.Returns => cargo.State == CargoState.Return && cargo.Origin == CargoOrigin.Storage,
+                StorageKind.RepackInput => cargo.State == CargoState.Return && cargo.Origin == CargoOrigin.ReturnPallet,
                 _ => false,
             };
         }
 
-        /// <summary>찌그러진 상자 1개를 꺼낸다 (재포장 작업대). 없으면 null.</summary>
-        public Cargo TakeReturn()
+        /// <summary>그 상태의 상자 1개를 꺼낸다 (재포장 테이블 = 찌그러진 상자). 없으면 null.</summary>
+        public Cargo Take(CargoState state)
         {
             for (var i = pile.Count - 1; i >= 0; i--)
             {
-                if (pile.Items[i].State != CargoState.Return) continue;
+                if (pile.Items[i].State != state) continue;
                 var cargo = pile.RemoveAt(i);
                 count.Value = pile.Count;
                 return cargo;
@@ -125,16 +135,13 @@ namespace APC.Logistics
             return null;
         }
 
-        public bool HasReturn
+        public bool Has(CargoState state)
         {
-            get
+            foreach (var cargo in pile.Items)
             {
-                foreach (var cargo in pile.Items)
-                {
-                    if (cargo.State == CargoState.Return) return true;
-                }
-                return false;
+                if (cargo.State == state) return true;
             }
+            return false;
         }
 
         public void Store(Cargo cargo)
@@ -153,7 +160,7 @@ namespace APC.Logistics
             if (i < 0) return null;
 
             var cargo = pile.RemoveAt(i);
-            cargo.Origin = CargoOrigin.Storage;
+            cargo.Origin = cargo.State == CargoState.Trash ? CargoOrigin.Trash : kind == StorageKind.Returns ? CargoOrigin.ReturnPallet : CargoOrigin.Storage;
             count.Value = pile.Count;
             return cargo;
         }
@@ -186,18 +193,30 @@ namespace APC.Logistics
             for (var i = pile.Count - 1; i >= 0; i--)
             {
                 var candidate = pile.Items[i];
-                if (candidate.State == CargoState.Normal ? ShelfAllowance(candidate.Item) > 0 : kind == StorageKind.Pallet && ReturnAllowance() > 0) return i; // 반품 팔레트는 찌그러진 상자를 다시 주지 않는다
+                var ok = candidate.State switch
+                {
+                    CargoState.Normal => ShelfAllowance(candidate.Item) > 0,
+                    CargoState.Return => kind switch
+                    {
+                        StorageKind.Pallet => Allowance(StorageKind.Returns, CargoOrigin.Storage) > 0,
+                        StorageKind.Returns => Allowance(StorageKind.RepackInput, CargoOrigin.ReturnPallet) > 0,
+                        _ => false, // 재포장 입력은 다시 주지 않는다
+                    },
+                    CargoState.Trash => kind == StorageKind.Trash, // 쓰레기 출력 → 쓰레기장 (M13-11)
+                    _ => false,
+                };
+                if (ok) return i;
             }
             return -1;
         }
 
-        /// <summary>반품 팔레트에 더 보낼 수 있는 찌그러진 상자 수 = 반품 팔레트 빈자리 − 하차 칸 공간에서 꺼내 들고 가는 찌그러진 상자.</summary>
-        public static int ReturnAllowance()
+        /// <summary>그 종류 더미에 더 보낼 수 있는 찌그러진 상자 수 = 빈자리 합 − 이미 꺼내 들고 가는(그 출처) 찌그러진 상자.</summary>
+        static int Allowance(StorageKind target, CargoOrigin origin)
         {
             var free = 0;
             foreach (var storage in Registered)
             {
-                if (storage.kind == StorageKind.Returns) free += storage.capacity - storage.pile.Count;
+                if (storage.kind == target) free += storage.capacity - storage.pile.Count;
             }
             if (free <= 0) return 0;
             foreach (var who in APC.Interaction.Interactor.All)
@@ -205,7 +224,7 @@ namespace APC.Logistics
                 if (who.Stack == null) continue;
                 foreach (var cargo in who.Stack.Items)
                 {
-                    if (cargo.State == CargoState.Return && cargo.Origin == CargoOrigin.Storage) free--;
+                    if (cargo.State == CargoState.Return && cargo.Origin == origin) free--;
                 }
             }
             return free;

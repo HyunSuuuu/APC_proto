@@ -33,6 +33,9 @@ namespace APC.Staff
 
         enum Search { None, NoSlot, Found }
 
+        /// <summary>반품 알바가 지금 찾는 일 (GDD 11.3 '막히는 곳부터').</summary>
+        enum ReturnsFocus { Any, TrashFull, Pallet, Trash }
+
         [SerializeField, Tooltip("역할 색을 칠할 것 (모델이 있으면 발밑 원판)")] Renderer body;
         [SerializeField, Tooltip("외형 후보. [0] = 물류 유니폼, [1..] = 코스튬 (Setup에서 하나만 켠다, GDD 11.1). 비우면 그대로")] GameObject[] models;
         [SerializeField, Tooltip("미지급 표시 (머리 위 빨간 ₩, 꺼진 채)")] GameObject unpaidIcon;
@@ -45,6 +48,8 @@ namespace APC.Staff
         MaterialPropertyBlock block;
 
         CargoZone zone;
+        RepackTable gauge; // 반품 알바가 서서 재포장하는 테이블 (zone 대신)
+        ReturnsFocus focus;
         WorkSlot slot;
         bool dropping;
         bool parking;
@@ -137,7 +142,6 @@ namespace APC.Staff
             rules = GameManager.Instance.Database.Staff;
             Stats = stats;
             agent.speed = rules.GetMoveSpeed(stats.moveSpeed);
-            stack.SetCapacity(rules.GetCarryCapacity(stats.carry));
             interactor.Configure(rules.PickInterval, rules.InteractionDelay);
             SetRole(role);
         }
@@ -149,6 +153,7 @@ namespace APC.Staff
         public void SetRole(StaffRole role)
         {
             Role = role;
+            stack.SetCapacity(role == StaffRole.Returns ? rules.ReturnsCarry : rules.GetCarryCapacity(Stats.carry)); // 반품 알바는 스탯 무관 12 (GDD 11.3)
             SetColor(rules.GetRoleColor(role));
             if (State == Phase.Parked || (State == Phase.Moving && !dropping)) Abort();
         }
@@ -256,6 +261,8 @@ namespace APC.Staff
                 return;
             }
 
+            if (Role == StaffRole.Returns && ReturnsWork()) return;
+
             var result = Find(drop: false, park: false, out var pickZone, out var pickSlot);
             if (result == Search.Found)
             {
@@ -307,10 +314,76 @@ namespace APC.Staff
         bool IsRoleZone(CargoZone candidate) => Role switch
         {
             StaffRole.Unload => candidate is TruckPickupZone,
-            StaffRole.Sort => candidate is StorageZone,
+            StaffRole.Sort => candidate is StorageZone storage && storage.Storage.Kind is StorageKind.Pallet or StorageKind.Repacked, // 반품 팔레트 · 재포장 입력 · 쓰레기는 반품 알바 (GDD 7.7)
             StaffRole.Pick => candidate is ShelfZone,
-            _ => false, // shortcut: 반품 직무 작업은 M13-12 — 그 전엔 제자리 대기
+            StaffRole.Returns => candidate is StorageZone returns && focus switch
+            {
+                ReturnsFocus.TrashFull => returns.Storage.Kind == StorageKind.Trash && !returns.Storage.HasSpace,
+                ReturnsFocus.Pallet => returns.Storage.Kind == StorageKind.Returns,
+                ReturnsFocus.Trash => returns.Storage.Kind == StorageKind.Trash,
+                _ => returns.Storage.Kind is StorageKind.Returns or StorageKind.Trash,
+            },
+            _ => false,
         };
+
+        /// <summary>
+        /// 반품 알바 (GDD 11.3): 막히는 곳부터 — 쓰레기 출력이 가득 차 재포장이 막혔으면 쓰레기, 아니면 재포장 → 반품 팔레트에서 테이블 입력 채우기 → 쓰레기.
+        /// 무언가를 시작했으면 true.
+        /// </summary>
+        bool ReturnsWork()
+        {
+            if (TryPickFocus(ReturnsFocus.TrashFull))
+            {
+                focus = ReturnsFocus.Trash; // 줍는 동안 가득이 풀려도 계속 줍는다
+                return true;
+            }
+            if (TryGauge()) return true;
+            if (TryPickFocus(ReturnsFocus.Pallet) || TryPickFocus(ReturnsFocus.Trash)) return true;
+            focus = ReturnsFocus.Any; // 할 일 없음 → 아래에서 역할 존에 가서 기다린다
+            return false;
+        }
+
+        bool TryPickFocus(ReturnsFocus next)
+        {
+            focus = next;
+            if (Find(drop: false, park: false, out var pickZone, out var pickSlot) != Search.Found) return false;
+            Go(pickZone, pickSlot, drop: false, park: false);
+            return true;
+        }
+
+        /// <summary>재포장할 수 있는 가장 가까운 테이블의 빈 슬롯으로 간다.</summary>
+        bool TryGauge()
+        {
+            RepackTable best = null;
+            WorkSlot bestSlot = null;
+            var bestDistance = float.MaxValue;
+            var from = transform.position;
+            foreach (var candidate in InteractionZone.Active)
+            {
+                if (candidate is not RepackTable table || !table.HasWork) continue;
+                var free = WorkSlot.FindNearestFree(table.Slots, this, from);
+                if (free == null) continue;
+                var distance = (free.transform.position - from).sqrMagnitude;
+                if (distance >= bestDistance) continue;
+                best = table;
+                bestSlot = free;
+                bestDistance = distance;
+            }
+            if (best == null) return false;
+
+            if (slot != null && slot != bestSlot) slot.Release(this);
+            ReleaseReservation();
+            zone = null;
+            gauge = best;
+            slot = bestSlot;
+            slot.TryClaim(this);
+            dropping = false;
+            parking = false;
+            interactor.Target = null;
+            agent.SetDestination(slot.transform.position);
+            State = Phase.Moving;
+            return true;
+        }
 
         // 하차 칸 공간 빈자리 · 선반 빈자리 · 수요는 존 규칙(HasCargoFor)에 이미 들어 있다.
         bool HasWork(CargoZone candidate) => candidate.HasCargoFor(interactor);
@@ -347,6 +420,7 @@ namespace APC.Staff
         /// <summary>가는 중인 목표가 아직 유효한가. 예약은 잠깐 풀고 다시 확인해 다시 잡는다 (자기 예약 때문에 일이 없어 보이지 않게).</summary>
         bool StillValid()
         {
+            if (gauge != null) return gauge.isActiveAndEnabled && gauge.HasWork;
             if (zone == null || !zone.isActiveAndEnabled) return false;
             if (dropping) return zone.CanReceiveAny(interactor);
 
@@ -361,7 +435,7 @@ namespace APC.Staff
             ReleaseReservation(); // 도착하면 존이 실제 수요로 판단한다 (들고 있는 수가 예약을 대신함)
             interactor.AllowDrop = dropping;
             interactor.AllowPick = !dropping;
-            interactor.Target = zone;
+            interactor.Target = gauge != null ? gauge : zone;
             workTime = 0f;
             idleTime = 0f;
             lastCount = stack.Count.CurrentValue;
@@ -371,6 +445,12 @@ namespace APC.Staff
         void TickWork(float deltaTime)
         {
             workTime += deltaTime;
+            if (gauge != null) // 재포장: 할 수 있는 동안 서 있는다 (게이지는 테이블이 채운다)
+            {
+                var stuckAtTable = workTime >= rules.InteractionDelay + StuckTimeout && interactor.CurrentZone != gauge;
+                if (!gauge.HasWork || stuckAtTable) FinishWork();
+                return;
+            }
             var count = stack.Count.CurrentValue;
             if (count != lastCount)
             {
@@ -427,6 +507,7 @@ namespace APC.Staff
             if (slot != null) slot.Release(this);
             slot = null;
             zone = null;
+            gauge = null;
             parking = false;
             interactor.Target = null;
         }

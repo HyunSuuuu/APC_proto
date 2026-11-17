@@ -193,47 +193,49 @@ namespace APC.EditorTools
         }
 
         /// <summary>
-        /// 반품 구역 (GDD 7.7, M13-10): 반품 팔레트(하차 칸 공간에서 온 찌그러진 상자만, 보관 알바도 배달) + 재포장 작업대(플레이어 게이지)
-        /// + 재포장 출구(같은 색 일반 상자, 선반 빈자리만큼 집기 — 보관 알바도 나름). 반품 팔레트가 있으면 하차 상자에 찌그러진 상자가 섞인다.
+        /// 반품 구역 (GDD 7.7, 2026-11-17 저녁 — 검수 삭제): 오른쪽 위 반품 팔레트(12, 보관 알바가 배달 · 반품 알바가 꺼냄)
+        /// + 가운데 길쭉한 재포장 테이블(왼쪽 입력 6 · 가운데 재포장 자리 · 오른쪽 쓰레기 출력 6) + 테이블 맞은편 재포장 상자 팔레트(6, 보관 알바가 선반으로).
+        /// 실제 프리팹은 MCP로 고쳤다(반품 팔레트 = `Return_Storage_Rack` 모델) — 이 코드로 다시 만들면 모델이 빠진다.
         /// </summary>
         static void BuildReturns(GameObject root)
         {
             var content = ModuleFactory.Content(root);
+            var tableMat = BuildKit.Mat("M_InspectTable", new Color(0.8f, 0.8f, 0.82f));
 
-            // 롤테이너 (왼쪽 위): 회색 철망 바닥 + 기둥, 3 × 2 × 2층 = 12
-            var bin = new Vector3(-2.5f, 0f, 1.5f);
-            var cage = BuildKit.Mat("M_RollTainer", new Color(0.62f, 0.64f, 0.68f));
-            BuildKit.Cube("RollTainer", content, bin + new Vector3(0f, 0.1f, 0f), new Vector3(1.9f, 0.2f, 1.4f), cage);
-            foreach (var x in new[] { -0.9f, 0.9f })
-            foreach (var z in new[] { -0.65f, 0.65f })
-                BuildKit.Cube("Post", content, bin + new Vector3(x, 0.8f, z), new Vector3(0.06f, 1.4f, 0.06f), cage);
-            var returnBin = Storage(content, "ReturnBin", StorageKind.Returns, bin + new Vector3(0f, 0.2f, 0f), new CargoGridLayout(3, 2, 0.55f, 0.5f), "0/12");
-            var binZone = BuildKit.Zone<StorageZone>(content, "ReturnBinZone", bin, new Vector2(3f, 2.8f),
-                new Color(0.75f, 0.55f, 0.55f), new Color(1f, 0.45f, 0.45f), "반품 팔레트");
+            // 반품 팔레트 (오른쪽 위): 3 × 2 × 2단 = 12
+            var bin = new Vector3(2.8f, 0f, 1.8f);
+            var returnBin = Storage(content, "ReturnBin", StorageKind.Returns, bin + new Vector3(0f, 0.35f, 0f), new CargoGridLayout(3, 2, 0.55f, 0.84f), "0/12");
+            var binZone = BuildKit.Zone<StorageZone>(content, "ReturnBinZone", new Vector3(2.8f, 0f, 0f), new Vector2(2.6f, 1.6f), Color.white, Color.white, null);
             BuildKit.SetRef(binZone, "storage", returnBin);
-            WorkSlots(binZone, new Vector3(1.3f, 0f, 0f), new Vector3(0f, 0f, -1.2f));
+            WorkSlots(binZone, new Vector3(-0.6f, 0f, 0f), new Vector3(0.6f, 0f, 0f));
 
-            // 재포장 작업대 (오른쪽 위): 플레이어가 서면 게이지
-            var tablePos = new Vector3(1.8f, 0f, 1.8f);
-            var table = BuildKit.Zone<RepackTable>(content, "RepackTable", tablePos, new Vector2(2.2f, 2.2f),
-                new Color(0.7f, 0.7f, 0.85f), new Color(0.5f, 0.6f, 1f), "재포장");
-            var desk = tablePos + new Vector3(0f, 0f, 1.6f);
-            BuildKit.Cube("Table", table.transform, desk + new Vector3(0f, 0.4f, 0f), new Vector3(1.8f, 0.8f, 0.8f), BuildKit.Mat("M_InspectTable", new Color(0.8f, 0.8f, 0.82f)));
+            // 재포장 테이블: 왼쪽 입력 · 가운데 재포장 자리 · 오른쪽 쓰레기 출력
+            BuildKit.Cube("RepackDesk", content, new Vector3(-1.5f, 0.4f, 0f), new Vector3(3.6f, 0.8f, 0.9f), tableMat);
+            var input = Storage(content, "RepackInput", StorageKind.RepackInput, new Vector3(-2.8f, 0.8f, 0f), new CargoGridLayout(2, 2, 0.55f, 0.5f), "0/6");
+            var trash = Storage(content, "TrashOutput", StorageKind.Trash, new Vector3(-0.2f, 0.8f, 0f), new CargoGridLayout(2, 2, 0.55f, 0.15f), "0/6");
+            var inputZone = BuildKit.Zone<StorageZone>(content, "RepackInputZone", new Vector3(-2.8f, 0f, -1.15f), new Vector2(1.4f, 1.3f), Color.white, Color.white, null);
+            BuildKit.SetRef(inputZone, "storage", input);
+            WorkSlots(inputZone, new Vector3(0f, 0f, -0.3f));
+            var table = BuildKit.Zone<RepackTable>(content, "RepackTable", new Vector3(-1.5f, 0f, -1.15f), new Vector2(1f, 1.3f), Color.white, Color.white, null);
+            WorkSlots(table, new Vector3(0f, 0f, -0.2f));
             var workPoint = new GameObject("WorkPoint").transform;
             workPoint.SetParent(table.transform, false);
-            workPoint.position = desk + new Vector3(0f, 0.9f, 0f); // 게이지는 플레이어 머리 위 HeadGaugeBar
+            workPoint.localPosition = new Vector3(0f, 0.9f, 1.15f); // 게이지는 머리 위 HeadGaugeBar
+            var trashZone = BuildKit.Zone<StorageZone>(content, "TrashOutputZone", new Vector3(-0.2f, 0f, -1.15f), new Vector2(1.4f, 1.3f), Color.white, Color.white, null);
+            BuildKit.SetRef(trashZone, "storage", trash);
+            WorkSlots(trashZone, new Vector3(0f, 0f, -0.3f));
 
-            // 재포장 출구 (오른쪽 아래): 3 × 2 = 6
-            var outPos = new Vector3(1.8f, 0f, -2f);
+            // 재포장 상자 팔레트 (테이블 맞은편): 3 × 2 = 6
+            var outPos = new Vector3(-1.5f, 0f, 1.25f);
             BuildKit.Cube("OutputPallet", content, outPos + new Vector3(0f, 0.05f, 0f), new Vector3(1.9f, 0.1f, 1.4f), BuildKit.Mat("M_Pallet", new Color(0.6f, 0.45f, 0.28f)));
             var output = Storage(content, "RepackOutput", StorageKind.Repacked, outPos + new Vector3(0f, 0.1f, 0f), new CargoGridLayout(3, 2, 0.55f, 0.5f), "0/6");
-            var outZone = BuildKit.Zone<StorageZone>(content, "RepackOutputZone", outPos, new Vector2(3f, 2.6f),
-                new Color(0.5f, 0.72f, 0.5f), new Color(0.35f, 0.95f, 0.35f), "재포장");
+            var outZone = BuildKit.Zone<StorageZone>(content, "RepackOutputZone", new Vector3(-1.5f, 0f, 2.45f), new Vector2(2.6f, 1f), Color.white, Color.white, null);
             BuildKit.SetRef(outZone, "storage", output);
-            WorkSlots(outZone, new Vector3(-1.3f, 0f, 0f), new Vector3(0f, 0f, -1.1f));
+            WorkSlots(outZone, new Vector3(-0.6f, 0f, 0f), new Vector3(0.6f, 0f, 0f));
 
-            BuildKit.SetRef(table, "returnBin", returnBin);
+            BuildKit.SetRef(table, "input", input);
             BuildKit.SetRef(table, "output", output);
+            BuildKit.SetRef(table, "trash", trash);
             BuildKit.SetRef(table, "workPoint", workPoint);
             Label(root, "반품 구역");
         }

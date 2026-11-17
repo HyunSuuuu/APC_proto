@@ -185,9 +185,13 @@
 | Outbound Respawn Delay | 상차 트럭이 떠나고 다음 트럭이 오기까지 (초) | 1 | |
 | Office Gauge Duration | 사무실 책상 게이지 차는 시간 (초) | 0.5 | |
 | Facility Pop Duration | 모듈 · 건설 타일이 뿅 나타나는 시간 (초) | 0.4 | |
-| Return Chance | 반품 구역을 지은 뒤 하차 상자가 찌그러진 상자일 확률 (0.01 = 1%) | 0.01 | GDD 7.7 `임시` |
+| Return Chance | 반품 구역을 지은 뒤 하차 상자가 찌그러진 상자일 확률 (0.01 = 1%) | 0.1 (에셋 값) | GDD 7.7 `임시` |
 | Return Bin Capacity | 반품 팔레트 용량 | 12 | GDD 7.7 `임시` |
-| Repack Output Capacity | 재포장 출구 용량 | 6 | |
+| Repack Success Chance | 재포장 성공 확률 (0.7 = 70%, 성공하면 같은 색 일반 상자 · 쓰레기 1개는 항상) | 0.7 | GDD 7.7 `임시` |
+| Trash Output Capacity | 재포장 테이블 쓰레기 출력 용량 — 차면 재포장 불가 | 6 | GDD 7.9 `임시` |
+| Trash Carry Max | 쓰레기를 한 번에 드는 최대 수 — 플레이어 · 알바, 적재 수 · 도구와 상관없음 | 12 | GDD 7.9 `임시` |
+| Repack Input Capacity | 재포장 테이블 입력 용량 | 6 | GDD 7.7 `임시` |
+| Repack Output Capacity | 재포장 상자 팔레트(테이블 맞은편) 용량 — 차면 재포장 불가 | 6 | GDD 7.7 `임시` |
 | Repack Duration | 찌그러진 상자 1개 재포장 시간 (초) | 2 | GDD 7.7 `임시` |
 
 **예시 — 트럭이 줄을 덜 서게**: `Inbound Arrival Interval` 20 → 30. 하차가 느려도 줄이 천천히 찬다. 새 간격은 다음 도착부터 적용된다.

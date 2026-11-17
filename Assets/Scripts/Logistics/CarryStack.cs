@@ -67,9 +67,9 @@ namespace APC.Logistics
         public void SetCapacity(int value) => capacity.Value = Mathf.Max(1, value);
 
         /// <summary>맨 위에 올린다. 화물은 지금 위치에서 포물선을 그리며 날아온다.</summary>
-        public bool TryAdd(Cargo cargo)
+        public bool TryAdd(Cargo cargo, bool ignoreCapacity = false)
         {
-            if (cargo == null || IsFull) return false;
+            if (cargo == null || (IsFull && !ignoreCapacity)) return false; // 쓰레기는 적재 수와 상관없이 존이 상한(5)을 정한다
 
             items.Add(cargo);
             count.Value = items.Count;
@@ -127,7 +127,13 @@ namespace APC.Logistics
             }
         }
 
-        Vector3 SlotPosition(int index) => new(0f, index * config.BoxHeight, 0f);
+        /// <summary>아래 화물들의 높이 합 (납작한 쓰레기는 촘촘히 쌓인다).</summary>
+        Vector3 SlotPosition(int index)
+        {
+            var y = 0f;
+            for (var i = 0; i < index && i < items.Count; i++) y += items[i].HeightScale * config.BoxHeight;
+            return new Vector3(0f, y, 0f);
+        }
 
         void Reflow(int fromIndex)
         {

@@ -49,7 +49,8 @@ namespace APC.Logistics
             }
             if (!sameColor && !other) return;
             var anchor = shelf.CountLabel != null ? shelf.CountLabel.transform.position : shelf.transform.position;
-            Notice(who, shelf.CountLabel, anchor + Vector3.up * 0.5f, sameColor ? "가득" : "넣을 수 없음");
+            if (sameColor) Notice(who, shelf.CountLabel, anchor + Vector3.up * 0.5f, "가득");
+            else NoticeCannotDrop(who, anchor + Vector3.up * 0.5f);
         }
 
         protected override CargoOrigin GiveOrigin => CargoOrigin.Shelf;

@@ -16,6 +16,7 @@ namespace APC.Interaction
         [SerializeField, Min(0.05f), Tooltip("게이지가 다 차는 시간 (초)")] float duration = 1f;
 
         readonly ReactiveProperty<float> progress = new(0f);
+        int lastTickFrame = -1;
 
         /// <summary>0~1.</summary>
         public ReadOnlyReactiveProperty<float> Progress => progress;
@@ -31,6 +32,8 @@ namespace APC.Interaction
         public sealed override void Tick(Interactor who, float deltaTime)
         {
             if (IsComplete || !CanProgress(who)) return;
+            if (lastTickFrame == Time.frameCount) return; // 여럿이 서 있어도 1배 (GDD 11.3)
+            lastTickFrame = Time.frameCount;
 
             progress.Value = Mathf.Clamp01(Advance(who, progress.Value, deltaTime));
             if (IsComplete) OnCompleted(who);

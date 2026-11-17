@@ -42,6 +42,7 @@ namespace APC.Data
         [SerializeField, Min(0.1f)] float baseMoveSpeed = 2.5f;
         [SerializeField, Min(0f), Tooltip("이동 속도 1포인트당 이동 속도 증가율")] float moveSpeedPerPoint = 0.2f;
         [SerializeField, Min(0.01f), Tooltip("집기/내려놓기 간격 (초)")] float pickInterval = 0.25f;
+        [SerializeField, Min(1), Tooltip("반품 알바 적재 수 (스탯 무관, GDD 11.3 임시)")] int returnsCarry = 12;
 
         [Header("작업")]
         [SerializeField, Min(0f), Tooltip("작업 지점(슬롯)에서 멈춘 뒤 상호작용을 시작하기까지 (초). 플레이어는 PlayerConfig")] float interactionDelay = 0.5f;
@@ -68,6 +69,7 @@ namespace APC.Data
         public int StatMin => statMin;
         public int StatMax => statMax;
         public float PickInterval => pickInterval;
+        public int ReturnsCarry => returnsCarry;
         public float InteractionDelay => interactionDelay;
         public float WorkIdleTimeout => workIdleTimeout;
         public float ThinkInterval => thinkInterval;

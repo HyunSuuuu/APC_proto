@@ -139,7 +139,7 @@ namespace APC.Interaction
 
             SetZone(InteractionZone.FindAt(position));
 
-            if (zone == null || IsBlockedHere || !(zone.WaitsForReadyDelay ? IsReady : IsStill))
+            if (zone == null || IsBlockedHere || !(zone.TicksWhileMoving || (zone.WaitsForReadyDelay ? IsReady : IsStill)))
             {
                 TransferTimer = transferInterval;
                 return;

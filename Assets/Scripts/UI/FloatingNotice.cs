@@ -25,5 +25,24 @@ namespace APC.UI
                 .SetLink(label.gameObject)
                 .OnComplete(() => Object.Destroy(label.gameObject));
         }
+
+        /// <summary>글자 대신 그림 (예: '넣을 수 없음' = candoit). 카메라를 보고 떠올랐다 사라진다.</summary>
+        public static void ShowIcon(Sprite sprite, Vector3 position, float height)
+        {
+            if (sprite == null) return;
+            var go = new GameObject($"Notice_{sprite.name}");
+            var renderer = go.AddComponent<SpriteRenderer>();
+            renderer.sprite = sprite;
+            var t = go.transform;
+            t.position = position;
+            t.localScale = Vector3.one * (height / sprite.bounds.size.y);
+            if (Camera.main != null) t.rotation = Camera.main.transform.rotation;
+
+            DOTween.Sequence()
+                .Append(t.DOMove(position + Vector3.up * 0.8f, 1f).SetEase(Ease.OutCubic))
+                .Join(DOTween.To(() => renderer.color.a, a => renderer.color = new Color(1f, 1f, 1f, a), 0f, 0.4f).SetDelay(0.6f))
+                .SetLink(go)
+                .OnComplete(() => Object.Destroy(go));
+        }
     }
 }

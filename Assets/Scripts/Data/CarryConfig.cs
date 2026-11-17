@@ -30,6 +30,10 @@ namespace APC.Data
         [SerializeField, Min(1f)] float maxPulseScale = 1.1f;
         [SerializeField, Min(0.05f), Tooltip("커졌다 작아지는 한 주기 (초)")] float maxPulsePeriod = 0.6f;
 
+        [Header("'넣을 수 없음' 그림 (떠올랐다 사라짐)")]
+        [SerializeField, Tooltip("Art/Temp/candoit")] Sprite cannotDropIcon;
+        [SerializeField, Min(0.1f), Tooltip("그림 높이 (m)")] float cannotDropIconSize = 1.2f;
+
         public float BoxHeight => boxHeight;
         public float FlyDuration => flyDuration;
         public float JumpPower => jumpPower;
@@ -44,5 +48,7 @@ namespace APC.Data
         public float StackBounceDuration => stackBounceDuration;
         public float MaxPulseScale => maxPulseScale;
         public float MaxPulsePeriod => maxPulsePeriod;
+        public Sprite CannotDropIcon => cannotDropIcon;
+        public float CannotDropIconSize => cannotDropIconSize;
     }
 }

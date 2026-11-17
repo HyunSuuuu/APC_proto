@@ -83,7 +83,9 @@ namespace APC.UI
             var from = stack.transform.position;
             var cargo = stack.Items[stack.Items.Count - 1];
 
-            switch (cargo.Origin)
+            // 찌그러진 상자: 하차 칸 → 반품 팔레트, 반품 팔레트 → 재포장 테이블 입력 (받아 주는 가장 가까운 StorageZone)
+            var toStorage = cargo.Origin is CargoOrigin.Truck or CargoOrigin.ReturnPallet || (cargo.Origin == CargoOrigin.Storage && cargo.State == CargoState.Return);
+            switch (toStorage ? CargoOrigin.Truck : cargo.Origin)
             {
                 case CargoOrigin.Truck:
                 {
@@ -129,6 +131,11 @@ namespace APC.UI
                         }
                     }
                     return null;
+                }
+                case CargoOrigin.Trash:
+                {
+                    var zone = FindFirstObjectByType<TrashDropZone>();
+                    return zone != null ? (Vector3?)zone.transform.position : null;
                 }
                 default:
                     return null;

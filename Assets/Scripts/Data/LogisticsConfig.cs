@@ -30,11 +30,19 @@ namespace APC.Data
         [Header("반품 (GDD 7.7, 반품 구역)")]
         [SerializeField, Range(0f, 1f), Tooltip("반품 구역을 지은 뒤 하차 상자 1개가 찌그러진 상자일 확률 (0.01 = 1%, GDD 7.7 임시)")] float returnChance = 0.01f;
         [SerializeField, Min(1), Tooltip("반품 팔레트 용량 (GDD 7.7 임시)")] int returnBinCapacity = 12;
-        [SerializeField, Min(1), Tooltip("재포장 출구 용량. 가득 차면 재포장이 멈춘다")] int repackOutputCapacity = 6;
+        [SerializeField, Range(0f, 1f), Tooltip("재포장 성공 확률 (0.7 = 70%) — 성공하면 같은 색 일반 상자, 쓰레기 1개는 항상 (GDD 7.7 임시)")] float repackSuccessChance = 0.7f;
+        [SerializeField, Min(1), Tooltip("재포장 테이블 쓰레기 출력 용량. 가득 차면 재포장 불가 (GDD 7.9 임시)")] int trashOutputCapacity = 6;
+        [SerializeField, Min(1), Tooltip("쓰레기를 한 번에 드는 최대 수 — 플레이어 · 알바, 적재 수 · 도구와 상관없음 (GDD 7.9 임시)")] int trashCarryMax = 12;
+        [SerializeField, Min(1), Tooltip("재포장 테이블 입력(반품 팔레트에서 옮겨 온 찌그러진 상자) 용량")] int repackInputCapacity = 6;
+        [SerializeField, Min(1), Tooltip("재포장 상자 팔레트(테이블 맞은편) 용량. 가득 차면 재포장 불가")] int repackOutputCapacity = 6;
         [SerializeField, Min(0.05f), Tooltip("찌그러진 상자 1개 재포장 게이지 (초, GDD 7.7 임시)")] float repackDuration = 2f;
 
         public float ReturnChance => returnChance;
         public int ReturnBinCapacity => returnBinCapacity;
+        public float RepackSuccessChance => repackSuccessChance;
+        public int TrashOutputCapacity => trashOutputCapacity;
+        public int TrashCarryMax => trashCarryMax;
+        public int RepackInputCapacity => repackInputCapacity;
         public int RepackOutputCapacity => repackOutputCapacity;
         public float RepackDuration => repackDuration;
 

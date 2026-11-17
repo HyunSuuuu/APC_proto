@@ -77,6 +77,9 @@ namespace APC.Interaction
         /// </summary>
         public virtual bool WaitsForReadyDelay => true;
 
+        /// <summary>true면 멈추지 않아도 존 안에 있는 동안 Tick이 불린다 (쓰레기장, GDD 7.9).</summary>
+        public virtual bool TicksWhileMoving => false;
+
         /// <summary>상호작용 가능한 interactor마다 매 프레임 호출된다.</summary>
         public abstract void Tick(Interactor who, float deltaTime);
 

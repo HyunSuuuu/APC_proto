@@ -43,9 +43,9 @@ namespace APC.Interaction
                 if (stack.Count.CurrentValue > 0) OnNothingDropped(who);
             }
 
-            if (stack.IsFull || !who.CanTransfer(drop: false) || !who.CanPickOrigin(GiveOrigin)) return false;
+            if ((stack.IsFull && !IgnoresCarryCapacity) || !who.CanTransfer(drop: false) || !who.CanPickOrigin(GiveOrigin)) return false;
             if (!TryGive(who, out var given)) return false;
-            stack.TryAdd(given);
+            stack.TryAdd(given, IgnoresCarryCapacity);
             who.NotifyTransfer(drop: false);
             return true;
         }
@@ -63,6 +63,9 @@ namespace APC.Interaction
 
         /// <summary>지금 집으면 줄 화물이 있는가 (꺼내지는 않는다, 알바 작업 대상 찾기). 주는 존은 TryGive와 같은 조건으로 덮어쓴다.</summary>
         public virtual bool HasCargoFor(Interactor who) => false;
+
+        /// <summary>true면 적재 수(손 3 · 구루마 8 …)와 상관없이 준다 — 상한은 TryGive가 정한다 (쓰레기 5개, GDD 7.9).</summary>
+        protected virtual bool IgnoresCarryCapacity => false;
 
         /// <summary>이 존이 주는 화물의 출처 (작업 고정 확인용). 주지 않는 존은 그대로 둔다.</summary>
         protected virtual CargoOrigin GiveOrigin => CargoOrigin.None;
@@ -82,6 +85,15 @@ namespace APC.Interaction
             if (who.RestrictToTarget || Time.time - lastNotice < NoticeInterval) return; // RestrictToTarget = 알바
             lastNotice = Time.time;
             FloatingNotice.Show(template, position, text);
+        }
+
+        /// <summary>'넣을 수 없음' 그림 (candoit). 플레이어만, 존마다 1.5초에 한 번.</summary>
+        protected void NoticeCannotDrop(Interactor who, Vector3 position)
+        {
+            if (who.RestrictToTarget || Time.time - lastNotice < NoticeInterval) return;
+            lastNotice = Time.time;
+            var carry = Core.GameManager.Instance.Database.Carry;
+            FloatingNotice.ShowIcon(carry.CannotDropIcon, position, carry.CannotDropIconSize);
         }
 
         /// <summary>줄 화물을 꺼낸다. 날아가는 연출은 스택이 한다. 수요 기반 집기(GDD 8.4)는 여기서 거른다.</summary>
