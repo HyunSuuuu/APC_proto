@@ -717,7 +717,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### SiteBackground
 [Site/SiteBackground.cs](../Scripts/Site/SiteBackground.cs)
 - **역할**: 배경 모듈 (M14-7). `SiteLayout.background` 표(프리팹 · 행 · 열 · 회전)대로 부지 밖 칸에 장식을 `Start`에서 놓는다 (`Background` 자식).
-- **연결**: Build Site가 `SiteGrid` 오브젝트에 붙인다. 지금 표 = 주차장 바닥 `Prefabs/Modules/Background/Module_BgParking`(`SiteModule` + `ModuleFloor` — 인스펙터로 칠함) × 3 — (4,1) 회전 0 · (2,5) 180 · (2,6) 90 (그 칸을 쓰는 하차 · 상차 모듈과 같은 회전).
+- **연결**: Build Site가 `SiteGrid` 오브젝트에 붙인다. 지금 표 30칸 = 주차장 바닥 `Module_BgParking` × 3 — (4,1) 회전 0 · (2,5) 180 · (2,6) 90 (그 칸을 쓰는 하차 · 상차 모듈과 같은 회전) + 도로 `Module_BgRoad` × 17 + 잔디 `Module_BgGrass` × 10 (6 × 4 바깥 한 줄 + 안의 빈 칸 (1,4~6)). 프리팹은 `Prefabs/Modules/Background/`, 모두 `SiteModule` + `ModuleFloor`(인스펙터로 칠함). 행 · 열은 0 · 7까지 쓴다(부지 밖).
 - **주의**: 하차 · 상차 모듈은 문 · 지붕 · 기둥(`Content/TruckDock/Parking/TruckParking`)만 갖고 바닥은 여기서 깔린다 — 두 모듈이 한 주차 칸을 같이 써도 바닥이 안 겹친다. 충돌체 · 해금 없음.
 
 #### ModuleFloor
@@ -883,7 +883,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### DebugMenu
 [Debugging/DebugMenu.cs](../Scripts/Debugging/DebugMenu.cs)
 - **역할**: 치트 메뉴 (IMGUI). 에디터와 Development 빌드에서만 동작한다. **왼쪽 아래** `DEBUG` 버튼 또는 F1.
-- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / **현금 존**: `Zone +200`(첫 현금 존에 쌓기) · `Collect n`(모든 현금 존 돈을 반경 무시하고 플레이어가 줍기 — 다발 · 달러 아이콘 연출 그대로, `CashZone.CollectBy`) / 레벨업 · XP +10 · **Lv.11**(반품 구역까지) / 배속 ×1 · ×2 · ×4 / 일시정지 / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick 생성, 알바별 `이름 spd cap 상태 들고있는수/최대`.
+- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / **현금 존**: `Zone +200`(첫 현금 존에 쌓기) · `Collect n`(모든 현금 존 돈을 반경 무시하고 플레이어가 줍기 — 다발 · 달러 아이콘 연출 그대로, `CashZone.CollectBy`) / 레벨업 · XP +10 · **Lv.11**(반품 구역까지) / 배속 ×1 · ×2 · ×4 / 일시정지 / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick / Returns 생성, **Costume 100%** 토글(켜면 생성 · 고용 탭 새 후보가 모두 코스튬, `StaffRules.ForceCostume`, Play마다 꺼짐), 알바별 `이름 spd cap 상태 들고있는수/최대`.
 - **주의**: IMGUI는 EventSystem에 안 잡히므로 `ContainsScreenPoint`로 `UiHitTest`에 영역을 알려 준다. 새 치트는 `DrawContent`에 추가한다. 패널은 스크롤 뷰 — 마우스 · 터치 드래그(버튼 위에서도) · 휠로 내린다. 조이스틱 차단 영역은 패널 영역 전체.
 
 ### 4.11 Editor — 에디터 도구

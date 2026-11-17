@@ -41,7 +41,11 @@ namespace APC.Debugging
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() => active = null;
+        static void ResetStatics()
+        {
+            active = null;
+            StaffRules.ForceCostume = false;
+        }
 
         void Awake()
         {
@@ -175,6 +179,8 @@ namespace APC.Debugging
             if (GUILayout.Button("Pick", buttonStyle)) staff.Spawn(StaffRole.Pick);
             if (GUILayout.Button("Returns", buttonStyle)) staff.Spawn(StaffRole.Returns);
             GUILayout.EndHorizontal();
+            // 켜면 위 생성 · 고용 탭 새 후보가 모두 코스튬 (이미 뽑힌 후보는 [새로고침] 후)
+            if (GUILayout.Button(StaffRules.ForceCostume ? "[Costume 100%]" : "Costume 100%", buttonStyle)) StaffRules.ForceCostume = !StaffRules.ForceCostume;
             foreach (var worker in staff.Workers)
             {
                 var stats = worker.Stats;

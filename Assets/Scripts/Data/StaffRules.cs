@@ -72,7 +72,10 @@ namespace APC.Data
         public float WorkIdleTimeout => workIdleTimeout;
         public float ThinkInterval => thinkInterval;
 
-        public bool RollCostume() => Random.value < costumeChance;
+        /// <summary>디버그 메뉴 [Costume 100%] (DebugMenu가 Play 시작마다 끈다).</summary>
+        public static bool ForceCostume;
+
+        public bool RollCostume() => ForceCostume || Random.value < costumeChance;
 
         /// <summary>최대 적재 수 = 기본 + 증가 × (적재량 − 1)</summary>
         public int GetCarryCapacity(int carry) => baseCarry + carryPerPoint * (carry - statMin);
