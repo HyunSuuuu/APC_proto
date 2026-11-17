@@ -4,7 +4,7 @@ using UnityEngine.UI;
 namespace APC.Interaction
 {
     /// <summary>
-    /// 머리 위 가로 게이지 막대 (GDD 5.2). 게이지 존(사무실 고용 · 업그레이드, 반품 검수)에서 게이지가 차는 동안만 보인다.
+    /// 머리 위 가로 게이지 막대 (GDD 5.2). 게이지 존(사무실 고용 · 업그레이드, 반품 재포장)에서 게이지가 차는 동안만 보인다.
     /// 구매 패드(확장 패드)는 자기 바닥 게이지를 쓰므로 제외한다.
     /// </summary>
     public sealed class HeadGaugeBar : MonoBehaviour

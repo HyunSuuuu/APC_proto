@@ -27,16 +27,16 @@ namespace APC.Data
         [Header("연출")]
         [SerializeField, Min(0.05f), Tooltip("시설 생성 팝 (초)")] float facilityPopDuration = 0.4f;
 
-        [Header("반품 (GDD 7.7, Lv.11 반품 구역)")]
-        [SerializeField, Range(0f, 1f), Tooltip("반품 구역이 열린 뒤 입고 상자 1개가 반품일 확률")] float returnChance = 0.1f;
-        [SerializeField, Min(1)] int returnBinCapacity = 12;
-        [SerializeField, Min(1), Tooltip("재포장 출구 용량. 가득 차면 검수가 멈춘다")] int repackOutputCapacity = 6;
-        [SerializeField, Min(0.05f), Tooltip("반품 상자 1개 검수 + 재포장 게이지 (초)")] float inspectionDuration = 1.5f;
+        [Header("반품 (GDD 7.7, 반품 구역)")]
+        [SerializeField, Range(0f, 1f), Tooltip("반품 구역을 지은 뒤 하차 상자 1개가 찌그러진 상자일 확률 (0.01 = 1%, GDD 7.7 임시)")] float returnChance = 0.01f;
+        [SerializeField, Min(1), Tooltip("반품 팔레트 용량 (GDD 7.7 임시)")] int returnBinCapacity = 12;
+        [SerializeField, Min(1), Tooltip("재포장 출구 용량. 가득 차면 재포장이 멈춘다")] int repackOutputCapacity = 6;
+        [SerializeField, Min(0.05f), Tooltip("찌그러진 상자 1개 재포장 게이지 (초, GDD 7.7 임시)")] float repackDuration = 2f;
 
         public float ReturnChance => returnChance;
         public int ReturnBinCapacity => returnBinCapacity;
         public int RepackOutputCapacity => repackOutputCapacity;
-        public float InspectionDuration => inspectionDuration;
+        public float RepackDuration => repackDuration;
 
         public int SharedStorageCapacity => sharedStorageCapacity;
         public int ShelfCapacity => shelfCapacity;

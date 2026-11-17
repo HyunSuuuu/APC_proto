@@ -185,10 +185,10 @@
 | Outbound Respawn Delay | 상차 트럭이 떠나고 다음 트럭이 오기까지 (초) | 1 | |
 | Office Gauge Duration | 사무실 책상 게이지 차는 시간 (초) | 0.5 | |
 | Facility Pop Duration | 모듈 · 건설 타일이 뿅 나타나는 시간 (초) | 0.4 | |
-| Return Chance | 찌그러진 상자가 섞일 확률 (0.01 = 1%) | 0.1 | GDD 7.7은 1% — M13-10에서 맞춤 |
+| Return Chance | 반품 구역을 지은 뒤 하차 상자가 찌그러진 상자일 확률 (0.01 = 1%) | 0.01 | GDD 7.7 `임시` |
 | Return Bin Capacity | 반품 팔레트 용량 | 12 | GDD 7.7 `임시` |
 | Repack Output Capacity | 재포장 출구 용량 | 6 | |
-| Inspection Duration | 재포장 1개 시간 (초, M13-10에서 재포장 시간으로 바뀜) | 1.5 | |
+| Repack Duration | 찌그러진 상자 1개 재포장 시간 (초) | 2 | GDD 7.7 `임시` |
 
 **예시 — 트럭이 줄을 덜 서게**: `Inbound Arrival Interval` 20 → 30. 하차가 느려도 줄이 천천히 찬다. 새 간격은 다음 도착부터 적용된다.
 

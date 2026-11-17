@@ -13,10 +13,10 @@ namespace APC.Logistics
         /// <summary>하차장 팔레트: 트럭에서 꺼낸 일반 화물만 받는다.</summary>
         Pallet,
 
-        /// <summary>반품 대기 롤테이너: 반품 상자만 받고 주지 않는다 (검수 테이블이 꺼냄).</summary>
+        /// <summary>반품 팔레트: 하차 칸 공간에서 꺼낸 찌그러진 상자만 받고 주지 않는다 (재포장 작업대가 꺼냄).</summary>
         Returns,
 
-        /// <summary>재포장 출구: 검수 테이블만 넣고, 선반 빈자리만큼 준다 (팔레트와 같은 규칙).</summary>
+        /// <summary>재포장 출구: 재포장 작업대만 넣고, 선반 빈자리만큼 준다 (팔레트와 같은 규칙).</summary>
         Repacked,
     }
 
@@ -98,20 +98,21 @@ namespace APC.Logistics
         void OnDestroy() => count.Dispose();
 
         /// <summary>
-        /// 빈자리가 있고: 팔레트 = **이 하차 칸 트럭**에서 꺼낸 일반 화물 (하차 칸마다 따로, GDD 7.2), 롤테이너 = 반품 상자. 재포장 출구는 사람에게서 받지 않는다 (검수 테이블이 Store).
+        /// 빈자리가 있고: 하차 칸 공간 = **이 하차 칸 트럭**에서 꺼낸 화물 (찌그러진 상자 포함, 하차 칸마다 따로, GDD 7.2 · 7.7),
+        /// 반품 팔레트 = 하차 칸 공간에서 꺼낸 찌그러진 상자 (트럭 → 반품 팔레트 직행 금지). 재포장 출구는 사람에게서 받지 않는다 (재포장 작업대가 Store).
         /// </summary>
         public bool CanAccept(Cargo cargo)
         {
             if (pile.Count >= capacity) return false;
             return kind switch
             {
-                StorageKind.Pallet => cargo.Origin == CargoOrigin.Truck && cargo.State == CargoState.Normal && cargo.Home == this,
-                StorageKind.Returns => cargo.State == CargoState.Return,
+                StorageKind.Pallet => cargo.Origin == CargoOrigin.Truck && cargo.Home == this,
+                StorageKind.Returns => cargo.State == CargoState.Return && cargo.Origin == CargoOrigin.Storage,
                 _ => false,
             };
         }
 
-        /// <summary>반품 상자 1개를 꺼낸다 (검수 테이블). 없으면 null.</summary>
+        /// <summary>찌그러진 상자 1개를 꺼낸다 (재포장 작업대). 없으면 null.</summary>
         public Cargo TakeReturn()
         {
             for (var i = pile.Count - 1; i >= 0; i--)
@@ -144,7 +145,7 @@ namespace APC.Logistics
 
         /// <summary>
         /// 선반에 빈자리가 남은 품목만 꺼낸다 (선반 빈자리 − 이미 들고 가는 수, GDD 7.2 확정 규칙).
-        /// 최근에 들어온 것부터 찾는다. 없으면 null.
+        /// 찌그러진 상자는 반품 팔레트에 빈자리가 남았을 때만 (GDD 7.7). 최근에 들어온 것부터 찾는다. 없으면 null.
         /// </summary>
         public Cargo TakeForShelves()
         {
@@ -185,9 +186,29 @@ namespace APC.Logistics
             for (var i = pile.Count - 1; i >= 0; i--)
             {
                 var candidate = pile.Items[i];
-                if (candidate.State == CargoState.Normal && ShelfAllowance(candidate.Item) > 0) return i;
+                if (candidate.State == CargoState.Normal ? ShelfAllowance(candidate.Item) > 0 : kind == StorageKind.Pallet && ReturnAllowance() > 0) return i; // 반품 팔레트는 찌그러진 상자를 다시 주지 않는다
             }
             return -1;
+        }
+
+        /// <summary>반품 팔레트에 더 보낼 수 있는 찌그러진 상자 수 = 반품 팔레트 빈자리 − 하차 칸 공간에서 꺼내 들고 가는 찌그러진 상자.</summary>
+        public static int ReturnAllowance()
+        {
+            var free = 0;
+            foreach (var storage in Registered)
+            {
+                if (storage.kind == StorageKind.Returns) free += storage.capacity - storage.pile.Count;
+            }
+            if (free <= 0) return 0;
+            foreach (var who in APC.Interaction.Interactor.All)
+            {
+                if (who.Stack == null) continue;
+                foreach (var cargo in who.Stack.Items)
+                {
+                    if (cargo.State == CargoState.Return && cargo.Origin == CargoOrigin.Storage) free--;
+                }
+            }
+            return free;
         }
 
         /// <summary>그 품목을 선반에 더 보낼 수 있는 수 = 선반 빈자리 − 이미 들고 가는 수 − 분류 알바 예약.</summary>

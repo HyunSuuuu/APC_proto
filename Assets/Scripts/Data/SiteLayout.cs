@@ -175,13 +175,13 @@ namespace APC.Data
                 new() { id = "Out1", row = 2, column = 4, isStartArea = true, unlockLevel = 1, content = "상차장 1 (트럭은 오른쪽에서)" },
                 // 해금 모듈 (레벨 · 비용 임시, GDD 4.2 표)
                 new() { id = "StoreB", row = 4, column = 4, unlockLevel = 1, cost = 100, content = "B보관 (B사 선반)" },
-                new() { id = "Ret1", row = 2, column = 3, unlockLevel = 2, cost = 150, content = "반품 1 (검수)" },
+                new() { id = "Ret1", row = 2, column = 3, unlockLevel = 2, cost = 150, content = "반품 1 (재포장)" },
                 new() { id = "StoreC", row = 4, column = 5, unlockLevel = 3, cost = 250, content = "C보관 (C사 선반)" },
                 new() { id = "In2", row = 3, column = 1, unlockLevel = 2, cost = 200, content = "하차장 2 (팔레트, 트럭은 아래에서)" },
                 new() { id = "StoreD", row = 4, column = 6, unlockLevel = 5, cost = 500, content = "D보관 (D사 대형 선반)" },
                 new() { id = "StoreA2", row = 4, column = 3, unlockLevel = 6, cost = 350, content = "A보관 2 (A사 선반)" },
                 new() { id = "Out2", row = 3, column = 5, unlockLevel = 4, cost = 400, content = "상차장 2 (트럭은 위에서)" },
-                new() { id = "Ret2", row = 3, column = 2, unlockLevel = 7, cost = 450, content = "반품 2 (검수)" },
+                new() { id = "Ret2", row = 3, column = 2, unlockLevel = 7, cost = 450, content = "반품 2 (재포장)" },
                 new() { id = "Out3", row = 3, column = 6, unlockLevel = 8, cost = 500, content = "상차장 3 (트럭은 위에서)" },
             };
             foreach (var rc in EmptyRowColumns)

@@ -64,7 +64,7 @@ namespace APC.Logistics
             countLabel.transform.DOKill(true);
             countLabel.transform.DOPunchScale(Vector3.one * 0.25f, 0.2f, 6, 0.5f);
 
-            // 반품 구역이 열린 뒤엔 일정 확률로 반품 상자 (GDD 7.7). 품목은 재포장 때 다시 정하므로 의미 없음
+            // 반품 구역이 열린 뒤엔 일정 확률로 찌그러진 상자 (GDD 7.7). 품목(색)은 그대로 — 재포장하면 같은 색 일반 상자
             var isReturn = SharedStorage.ReturnsOpen && Random.value < Core.GameManager.Instance.Database.Logistics.ReturnChance;
             var cargo = CargoPool.Instance.Spawn(item, isReturn ? CargoState.Return : CargoState.Normal, null, cargoExit.position);
             cargo.Origin = CargoOrigin.Truck;

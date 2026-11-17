@@ -31,7 +31,7 @@
 - **`SiteLayout` id**: `Office` · `Trash` · `In1` · `In2` · `Out1~3` · `StoreA1` · `StoreA2` · `StoreB~D` · `Ret1~2` (디버그 해금 · `SiteGrid.Unlock(id)`). 재배치 뒤 칸은 `SiteGrid.ModuleAt` · `WorldToCell`(실제 위치)로 본다
 - 임시로 둔 것: `CompanyDefinition.isLarge`(주문 배정 건너뛰기, M11-8), 반품 직무 열림 = `Ret1` 해금(`StaffService.IsRoleOpen`)
 - 이미 준비된 것:
-  - 반품: `SharedStorage`의 `StorageKind`(Pallet / Returns / Repacked) + `StorageZone`, 검수 `InspectionTable` — M13-10에서 재사용
+  - 반품: `SharedStorage`의 `StorageKind`(Pallet / Returns / Repacked) + `StorageZone`, 재포장 `RepackTable`(옛 `InspectionTable`, M13-10)
   - 연출 값 에셋: `StampConfig` · `CashFlyConfig` (사용자가 고친 값 — 되돌리지 않는다)
   - 디버그 메뉴: 현금 · 레벨업 · 배속 · `Staff`(Auto · Unload · Sort · Pick · Returns) · `End Part` · 모듈 해금
   - 모델: 캐릭터 `Art/Model/Worker`(player · uniformT · macaron · rabbit · SBS, 재질 `M_Char_*` — uniformT · SBS는 부위별), 애니 `Ani`(idle · walk · carry_idle · carry_move · push — 컨트롤러는 `CharacterArt.PrepareAssets`가 빠진 상태만 더함), 소품 `Prop`(재질 `M_Prop` = `Color_Pallet.png`, 이름표 `Prop/오브젝트_모습_이름정리.png`)
@@ -467,8 +467,10 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
   - 결정 (2026-11-17, GDD 7.1 확정): 도착 = 전체 간격 20초 `임시`(시작 때 1대 바로) → 빈 하차 칸이 있으면 주차, 없으면 줄. 줄 = 서쪽 도로 하차 1 옆 대기 자리 3칸 한 줄, 칸이 비면 맨 앞이 사라져 그 칸 바깥에 나타나 후진 주차. `InboundBay` 칸별 생성 루프(`inboundRespawnDelay`)를 전체 도착 관리로 바꿈
   - 완료 (2026-11-17): 새 `InboundQueue`(SiteGrid에 붙음, 씬에 추가 · `SiteBuilder.BakeGrid`에도) — 도착 · 색 · 줄 · 대기 자리 표시 3칸(반투명 판, 서쪽 도로 x 0 · z −21/−14/−7 `임시`). `InboundBay`는 `Request` → `Receive`로 받아 주차만. `LogisticsConfig.inboundRespawnDelay` 삭제 → `inboundArrivalInterval` 20 · `inboundQueueSize` 3
   - 테스트 (×4 배속): 0초 1대 바로 주차 → 20 · 40 · 60초 줄 1 · 2 · 3 → 80초 줄 3 유지(도착 멈춤) → 주차 트럭 비우니 맨 앞이 하차 1로 들어가고 줄 당김 → 다음 도착으로 다시 3, 에러 0. 사람 손 테스트 아직
-- [ ] **M13-10 반품 구역 (Lv.2)** — 반품 구역을 지은 뒤 모든 트럭에 찌그러진 상자 1% `임시`, **반품 선반**(12) → **검수 테이블**(고민 몸짓) → **포장대**(재포장, 먼지) → 같은 색 일반 상자 → 같은 색 선반. 반품 선반이 차면 하차 칸에 남음, 하다 멈추면 이어서. 옛 반품 코드(`StorageKind` Returns / Repacked · `InspectionTable`) 재사용 (GDD 7.7)
+- [x] **M13-10 반품 구역 (Lv.2)** — 반품 구역을 지은 뒤 모든 트럭에 찌그러진 상자 1% `임시`, **반품 선반**(12) → **검수 테이블**(고민 몸짓) → **포장대**(재포장, 먼지) → 같은 색 일반 상자 → 같은 색 선반. 반품 선반이 차면 하차 칸에 남음, 하다 멈추면 이어서. 옛 반품 코드(`StorageKind` Returns / Repacked · `InspectionTable`) 재사용 (GDD 7.7)
   - **바뀜** (2026-11-17, GDD 7.7 확정): **검수 삭제**. 반품 선반 → **반품 팔레트**(12). **재포장 작업대** 작업 위치에 서 있고 반품 팔레트에 상자가 있으면 재포장(2초 `임시`, 떠나도 진행 유지) → 즉시 **재포장 출구**에 같은 색 일반 상자. 하차 칸 공간 → 반품 팔레트 · 재포장 출구 → 선반 운반 = 플레이어 + **보관 알바**. 옛 `InspectionTable`은 재포장 작업대로 바꿔 씀, 반품 알바 작업은 M13-12
+  - 완료 (2026-11-17): `InspectionTable` → `RepackTable`(GUID 유지, 프리팹 오브젝트 이름도) — 반품 팔레트 상자 + 출구 빈자리면 게이지 2초 → `Cargo.Repack()` 같은 색 그대로(흰 상자 · 무작위 품목 삭제). 찌그러진 상자 = 회색 + 원래 색 띠(빨간 띠 삭제). `SharedStorage`: 하차 칸 공간이 찌그러진 상자도 받음, 반품 팔레트는 Origin Storage만(트럭 직행 금지), `ReturnAllowance()`만큼 하차 칸 공간에서 내줌. `LogisticsConfig` `returnChance` 0.1 → 0.01, `inspectionDuration` → `repackDuration` 2. **고침**: 반품 팔레트가 찌그러진 상자를 다시 내줘서 보관 알바가 집어 들고 멈춤
+  - 테스트: Ret1 해금 → ReturnsOpen, 트럭 → 반품 팔레트 직행 거부 · 하차 칸 공간 수락, 보관 알바가 찌그러진 상자 3개를 반품 팔레트로 → 플레이어가 작업대에 서니 3개 재포장 → 보관 알바가 A 선반으로 (`RepackedShelved` 3), 에러 0. 사람 손 테스트 아직 (찌그러진 상자 겉모습 · 1% 체감)
 - [ ] **M13-11 쓰레기** — 재포장 1번 = 포장 쓰레기 1개 `임시`, 한 번에 5개 · 상자와 같이 못 듦, 쓰레기장(1,3)에 가면 저절로 버림, 쓰레기장 안 참 (GDD 7.9)
 - [ ] **M13-12 반품 알바** — 반품 직무: 검수 · 재포장 · 쓰레기 버리기(가정, 18장 33번). 반품 알바가 없으면 플레이어가 직접 (GDD 11.3)
 - [ ] **M13-13 구루마 · C 전자제품 (Lv.3)** — C 상자 맨손 불가 · 들면 느려짐, 구루마 8개(플레이어만, 위에 상자 보임), 보관 알바는 롤테이너 전까지 C 안 옮김 (GDD 5.1 · 11.3)
@@ -549,8 +551,8 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
 | M10 2순위 | 4 | 0 |
 | M11 물류 개편 | 6 | 3 |
 | M12 6 × 4 배치 · 재배치 | 2 | 2 |
-| M13 변경사항 2 | 18 | 9 |
+| M13 변경사항 2 | 18 | 10 |
 | M14 모델 적용 | 8 | 8 |
-| **합계** | **105** | **87** |
+| **합계** | **105** | **88** |
 
 > 2026-11-15: M10 11 → 4 (삭제 3 · M13으로 옮김 4), M11 11 → 6 (M12 · M13이 대신한 5), M13 18 추가.

@@ -193,8 +193,8 @@ namespace APC.EditorTools
         }
 
         /// <summary>
-        /// 반품 구역 (GDD 7.7, Lv.11): 반품 대기 롤테이너(반품 상자만, 하차 알바도 배달) + 검수 테이블(플레이어 전용 게이지)
-        /// + 재포장 출구(일반 상자, 선반 빈자리만큼 집기 — 분류 알바도 나름). 롤테이너가 있으면 입고 화물에 반품이 섞인다.
+        /// 반품 구역 (GDD 7.7, M13-10): 반품 팔레트(하차 칸 공간에서 온 찌그러진 상자만, 보관 알바도 배달) + 재포장 작업대(플레이어 게이지)
+        /// + 재포장 출구(같은 색 일반 상자, 선반 빈자리만큼 집기 — 보관 알바도 나름). 반품 팔레트가 있으면 하차 상자에 찌그러진 상자가 섞인다.
         /// </summary>
         static void BuildReturns(GameObject root)
         {
@@ -209,14 +209,14 @@ namespace APC.EditorTools
                 BuildKit.Cube("Post", content, bin + new Vector3(x, 0.8f, z), new Vector3(0.06f, 1.4f, 0.06f), cage);
             var returnBin = Storage(content, "ReturnBin", StorageKind.Returns, bin + new Vector3(0f, 0.2f, 0f), new CargoGridLayout(3, 2, 0.55f, 0.5f), "0/12");
             var binZone = BuildKit.Zone<StorageZone>(content, "ReturnBinZone", bin, new Vector2(3f, 2.8f),
-                new Color(0.75f, 0.55f, 0.55f), new Color(1f, 0.45f, 0.45f), "반품 대기");
+                new Color(0.75f, 0.55f, 0.55f), new Color(1f, 0.45f, 0.45f), "반품 팔레트");
             BuildKit.SetRef(binZone, "storage", returnBin);
             WorkSlots(binZone, new Vector3(1.3f, 0f, 0f), new Vector3(0f, 0f, -1.2f));
 
-            // 검수 테이블 (오른쪽 위): 플레이어가 서면 게이지
+            // 재포장 작업대 (오른쪽 위): 플레이어가 서면 게이지
             var tablePos = new Vector3(1.8f, 0f, 1.8f);
-            var table = BuildKit.Zone<InspectionTable>(content, "InspectionTable", tablePos, new Vector2(2.2f, 2.2f),
-                new Color(0.7f, 0.7f, 0.85f), new Color(0.5f, 0.6f, 1f), "검수");
+            var table = BuildKit.Zone<RepackTable>(content, "RepackTable", tablePos, new Vector2(2.2f, 2.2f),
+                new Color(0.7f, 0.7f, 0.85f), new Color(0.5f, 0.6f, 1f), "재포장");
             var desk = tablePos + new Vector3(0f, 0f, 1.6f);
             BuildKit.Cube("Table", table.transform, desk + new Vector3(0f, 0.4f, 0f), new Vector3(1.8f, 0.8f, 0.8f), BuildKit.Mat("M_InspectTable", new Color(0.8f, 0.8f, 0.82f)));
             var workPoint = new GameObject("WorkPoint").transform;
