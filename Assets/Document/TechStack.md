@@ -26,6 +26,7 @@
 | uGUI (TextMeshPro 포함) | 2.0.0 | Unity 레지스트리 | HUD, 팝업 |
 | AI Navigation | 2.0.14 | Unity 레지스트리 | `NavMeshSurface` 런타임 재굽기, 알바 경로 탐색 |
 | Visual Studio Editor | 2.0.26 | Unity 레지스트리 | VS Code 연동 |
+| 2D Sprite | 1.0.0 | Unity 레지스트리 | Sprite Editor — `Art/Temp` UI 그림 자르기(Multiple, 2026-11-18). 에디터 전용 |
 
 Git UPM 패키지는 모두 **태그로 버전을 고정**했다 (`Packages/manifest.json`). 업데이트할 때는 태그를 바꾼다.
 
