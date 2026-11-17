@@ -714,6 +714,12 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **연결**: Build Site `AddWalls`가 `SiteGrid` 오브젝트에 붙이고 Prop fbx · `M_Prop`을 연결한다.
 - **주의**: 충돌체 없음 (걷는 범위는 `IsWalkable` · 네비메시). 재배치는 열린 칸이 안 바뀌어 다시 세우지 않는다. 허물어지는 연출은 아직.
 
+#### SiteBackground
+[Site/SiteBackground.cs](../Scripts/Site/SiteBackground.cs)
+- **역할**: 배경 모듈 (M14-7). `SiteLayout.background` 표(프리팹 · 행 · 열 · 회전)대로 부지 밖 칸에 장식을 `Start`에서 놓는다 (`Background` 자식).
+- **연결**: Build Site가 `SiteGrid` 오브젝트에 붙인다. 지금 표 = 주차장 바닥 `Prefabs/Modules/Background/Module_BgParking`(`SiteModule` + `ModuleFloor` — 인스펙터로 칠함) × 3 — (4,1) 회전 0 · (2,5) 180 · (2,6) 90 (그 칸을 쓰는 하차 · 상차 모듈과 같은 회전).
+- **주의**: 하차 · 상차 모듈은 문 · 지붕 · 기둥(`Content/TruckDock/Parking/TruckParking`)만 갖고 바닥은 여기서 깔린다 — 두 모듈이 한 주차 칸을 같이 써도 바닥이 안 겹친다. 충돌체 · 해금 없음.
+
 #### ModuleFloor
 [Site/ModuleFloor.cs](../Scripts/Site/ModuleFloor.cs)
 - **역할**: 모듈 바닥 타일 데이터 (M14-2): 2m 칸마다 타일 fbx + 회전. 모듈 루트에 붙는다. 실행 중엔 아무것도 안 함.
@@ -892,6 +898,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | `APC > Module > New Module...` | [ModuleFactory](../Scripts/Editor/ModuleFactory.cs) (`ModuleCreatorWindow`) | 빈 n × m 모듈 틀을 `Assets/Prefabs/Modules/Module_이름.prefab`으로 만든다 |
 | `APC > Art > Build Test Module` | [ArtModuleBuilder](../Scripts/Editor/ArtModuleBuilder.cs) | 아트 시험용 빈 모듈 `Assets/Prefabs/Modules/Test/Module_ArtTest.prefab`: 바닥 `floor1_basic.fbx` 10 × 10장(1장 = 1m, 메시 실제 크기를 재서 맞춤) + 공용 재질 `M_Prop`(`Color_Pallet.png`). 바닥 충돌체는 그대로 두고 큐브 렌더러만 끔. 게임 배치(SiteLayout)에는 안 들어감 |
 | `APC > Art > Apply Character Models` | [CharacterArt](../Scripts/Editor/CharacterArt.cs) | 캐릭터 모델 적용: 애니 idle · walk · carry · pull 반복 켜기, 모델 아바타 생성, 재질 `M_Char_모델`(`*_P.psd`, 없으면 부위별 `M_Char_모델_hair · _skin · _cloth` — uniformT: 메시 이름 hair / face · arm / 나머지, SBS: top · bottom = `_body` / 나머지 `_head`), 컨트롤러 `Ani/Character.controller`. 씬 Player에 `player` 모델 + `CharacterAnimator`(임시 몸통 렌더러는 끔, 스택 높이 1.6) → 씬 저장, 알바 프리팹 다시 만들기(`StaffWorkerPrefab`) |
+| `APC > Art > Group Module Children` | [ModuleGrouping](../Scripts/Editor/ModuleGrouping.cs) | 하차 · 상차 · 반품 모듈 프리팹의 `Content` 자식을 기능 묶음(`TruckDock` · `UnloadSpace` · `ReturnShelf` · `RepackOutputArea`) 빈 부모로 모은다 (M14-5, 월드 위치 그대로, 여러 번 실행해도 같음) |
 | `APC > Art > Add Module Floor` | [ModuleFloorEditor](../Scripts/Editor/ModuleFloorEditor.cs) | 모든 모듈 프리팹에 `ModuleFloor`를 붙인다. 바닥은 모듈 프리팹 루트 인스펙터에서 칠한다 (TechStack 참고) |
 | `APC > Art > Log Prop Sizes` | [ArtModuleBuilder](../Scripts/Editor/ArtModuleBuilder.cs) | `Art/Model/Prop` fbx마다 실제 크기(m)와 import `globalScale`을 콘솔에 찍는다 (스케일 통일 기준) |
 | `APC > Module > Rebuild Standard Modules` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 12종(빈 공간 `Module_Empty` · 쓰레기장 `Module_Trash` 포함)을 코드 기준으로 **덮어써서** 다시 만든다 (사무실도 덮어씀) |

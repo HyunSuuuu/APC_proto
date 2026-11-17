@@ -20,6 +20,7 @@ namespace APC.EditorTools
         const string PropMaterialPath = "Assets/Art/Materials/M_Prop.mat";
         const float TileScaleFactor = 2f;
         const float CellPixels = 44f;
+        const float TileThickness = 0.6f; // 보통 타일 두께 (0.3m × Scale Factor 2). 바닥면을 맞춰 연석 타일(0.72)은 0.12 솟는다
 
         static readonly List<GameObject> Palette = new();
         static GameObject brush;
@@ -140,7 +141,7 @@ namespace APC.EditorTools
         /// <summary>이름 끝 숫자를 뗀 것 (floor_basic3 → floor_basic).</summary>
         static string Family(string name) => Regex.Replace(name, @"\d+$", "");
 
-        /// <summary>`FloorArt` 아래 타일을 다시 깐다. 타일 윗면 = y 0, 가운데 = 칸 가운데 (fbx 피벗이 달라도 bounds로 맞춤).</summary>
+        /// <summary>`FloorArt` 아래 타일을 다시 깐다. 타일 바닥면 = y −0.6(보통 타일 윗면 = 0), 가운데 = 칸 가운데 (fbx 피벗이 달라도 bounds로 맞춤).</summary>
         public static void Rebuild(ModuleFloor floor)
         {
             var art = floor.transform.Find(ModuleFloor.ArtName);
@@ -167,8 +168,8 @@ namespace APC.EditorTools
                 var b = renderers[0].bounds;
                 foreach (var r in renderers) b.Encapsulate(r.bounds);
                 var offset = art.InverseTransformVector(b.center - go.transform.position);
-                var top = art.InverseTransformPoint(b.max).y;
-                go.transform.localPosition = floor.CellCenter(x, z) - new Vector3(offset.x, top, offset.z);
+                var bottom = art.InverseTransformPoint(b.min).y;
+                go.transform.localPosition = floor.CellCenter(x, z) - new Vector3(offset.x, bottom + TileThickness, offset.z);
                 if (material != null)
                 {
                     foreach (var r in renderers)

@@ -172,7 +172,8 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 | `Apply M6 Staff` (메뉴 `APC > Setup`) | 기본 모듈 · 선반 · 알바 프리팹(`StaffWorker.prefab`)을 덮어쓰고 Build Site. config는 건드리지 않는다 |
 | `Apply Character Models` (메뉴 `APC > Art`) | 플레이어 · 알바 모델(`Art/Model/Worker`, Generic 리그 `Bip001`) + 공용 Animator Controller `Ani/Character.controller`(idle · walk · carry · pull). 재질은 모델별 `M_Char_*`(URP Lit + `*_P.psd`, fbx 기본 재질은 텍스처 없음). 알바 프리팹(`Apply M6 Staff` 포함)은 모델이 자동으로 들어간다 |
 | `Build Test Module` · `Log Prop Sizes` (메뉴 `APC > Art`) | Prop fbx 모델로 모듈 겉모습을 만드는 시험 도구. 바닥 타일 1장 = 1m, 모듈 1칸 = 10m (타일 10 × 10). fbx마다 import 스케일이 달라 **메시 실제 크기를 재서** 맞춘다. 공용 재질 `Assets/Art/Materials/M_Prop.mat`(`Color_Pallet.png`). fbx 기본 재질은 3ds Max 셰이더 그래프(`PhysicalMaterial3DsMax`)라 텍스처가 없다 → `M_Prop`으로 바꿔 씌운다. import `globalScale`은 모두 1 (`floor1_basic`만 10이던 것을 1로 고침, 2026-11-14) — 바닥 타일 1장 = 1 × 0.3 × 1m. **바뀜** (2026-11-16, M14-2): 바닥 · 도로 · 횡단보도 타일(`floor*` · `*road*` · `*crosswalk*`)은 Scale Factor **2**(2m, 모듈 1칸 = 5 × 5장) — `ModuleFloorEditor`가 팔레트를 읽을 때 맞춘다 |
-| `Add Module Floor` (메뉴 `APC > Art`, M14-2) | 모든 모듈 프리팹 루트에 `ModuleFloor`를 붙인다. 바닥은 **모듈 프리팹을 열고 루트를 골라 인스펙터에서 칠한다**: 팔레트(바닥 타일 fbx) 고르고 칸 격자 왼쪽 클릭 · 끌기 = 칠하기, 오른쪽 클릭 = 90° 회전, [붓으로 전체 채우기] · [같은 종류 무작위 섞기](이름 끝 숫자만 다른 타일) · [다시 깔기]. 타일은 `FloorArt` 아래 `M_Prop` 재질로 깔리고 윗면 y = 0, 회색 `Floor` 렌더러는 꺼진다(충돌체 그대로) |
+| `Group Module Children` (메뉴 `APC > Art`, M14-5) | 하차 · 상차 · 반품 모듈 `Content` 자식을 기능 묶음 빈 부모(`TruckDock` · `UnloadSpace` · `ReturnShelf` · `RepackOutputArea`)로 모은다. 규칙은 `ModuleGrouping.Rules`. 이미 묶였으면 그대로 |
+| `Add Module Floor` (메뉴 `APC > Art`, M14-2) | 모든 모듈 프리팹 루트에 `ModuleFloor`를 붙인다. 바닥은 **모듈 프리팹을 열고 루트를 골라 인스펙터에서 칠한다**: 팔레트(바닥 타일 fbx) 고르고 칸 격자 왼쪽 클릭 · 끌기 = 칠하기, 오른쪽 클릭 = 90° 회전, [붓으로 전체 채우기] · [같은 종류 무작위 섞기](이름 끝 숫자만 다른 타일) · [다시 깔기]. 타일은 `FloorArt` 아래 `M_Prop` 재질로 깔리고 바닥면 y = −0.6(보통 타일 윗면 = 0, 연석 타일은 0.12 솟음, 2026-11-17), 회색 `Floor` 렌더러는 꺼진다(충돌체 그대로) |
 
 **새 모듈 추가 절차**
 1. `APC > Module > New Module...` → 이름 · 크기 입력 → 생성

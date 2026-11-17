@@ -131,6 +131,7 @@ namespace APC.EditorTools
             gridGo.transform.SetParent(site, false);
             var grid = gridGo.AddComponent<SiteGrid>();
             AddWalls(gridGo); // M14-2 바깥 벽
+            gridGo.AddComponent<SiteBackground>(); // M14-7 배경 (주차장 바닥)
             var entries = new List<SiteGrid.Entry>();
 
             foreach (var placement in layout.Modules)

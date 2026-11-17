@@ -37,8 +37,21 @@ namespace APC.Data
 
         [SerializeField, FormerlySerializedAs("cells")] List<ModulePlacement> modules = DefaultModules();
 
+        /// <summary>배경 모듈 배치 (M14-7): 부지 밖 칸에 처음부터 놓는 장식 (주차장 바닥 · 도로 · 잔디). 걸을 수 없음, 해금 없음.</summary>
+        [System.Serializable]
+        public struct BackgroundPlacement
+        {
+            [Tooltip("배경 프리팹 (칸 하나 크기, 가운데 = 원점)")] public GameObject prefab;
+            [Min(0)] public int row;
+            [Min(0)] public int column;
+            [Tooltip("Y 회전 (0 / 90 / 180 / 270). 주차장 바닥은 그 칸을 쓰는 시작 하차 · 상차 모듈과 같은 회전")] public int rotation;
+        }
+
+        [SerializeField, Tooltip("배경 모듈 (M14-7). SiteBackground가 시작할 때 놓는다")] List<BackgroundPlacement> background = new();
+
         public float CellSize => cellSize;
         public IReadOnlyList<ModulePlacement> Modules => modules;
+        public IReadOnlyList<BackgroundPlacement> Background => background;
 
         public bool TryGetPlacement(string id, out ModulePlacement placement)
         {
