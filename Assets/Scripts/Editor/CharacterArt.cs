@@ -19,9 +19,9 @@ namespace APC.EditorTools
         const string ControllerPath = AniFolder + "/Character.controller";
         const string MaterialFolder = "Assets/Art/Materials";
 
-        public const string Player = "player";
+        public const string Player = "player_SBS"; // 2026-11-18 플레이어 아바타 교체 (옛 player.fbx)
         /// <summary>알바 모델. [0] = 물류 유니폼, 나머지 = 코스튬 (GDD 11.1, StaffWorker.models 순서).</summary>
-        public static readonly string[] Workers = { "uniformT", "worker_macaron", "worker_rabbit", "SBS" };
+        public static readonly string[] Workers = { "uniformT", "worker_macaron", "worker_rabbit" }; // SBS는 플레이어로 옮김 (2026-11-18)
         static readonly string[] States = { "idle", "walk", "carry_idle", "carry_move", "push" };
 
         [MenuItem("APC/Art/Apply Character Models (플레이어 · 알바)")]
@@ -83,8 +83,11 @@ namespace APC.EditorTools
                 if (t != null && t.TryGetComponent<Renderer>(out var r)) r.enabled = false; // 오브젝트는 남긴다 (참조 대비)
             }
 
-            var old = player.transform.Find(Player);
-            if (old != null) Object.DestroyImmediate(old.gameObject);
+            foreach (var name in new[] { "player", Player }) // 옛 모델도 지운다
+            {
+                var old = player.transform.Find(name);
+                if (old != null) Object.DestroyImmediate(old.gameObject);
+            }
             Model(Player, player.transform);
 
             var anchor = player.transform.Find("StackAnchor");
@@ -133,7 +136,7 @@ namespace APC.EditorTools
 
         /// <summary>
         /// 모델별 재질 `M_Char_이름` (URP Lit + `이름_P.psd`). `_P.psd`가 없는 모델은 부위별 텍스처를 메시 이름으로 고른다 → `M_Char_이름_부위`:
-        /// uniformT = `_hair` · `_skin`(얼굴 · 팔) · `_cloth`(나머지), SBS = `_body`(top · bottom) · `_head`(나머지).
+        /// uniformT = `_hair` · `_skin`(얼굴 · 팔) · `_cloth`(나머지), player_SBS = `_body`(top · bottom) · `_head`(나머지).
         /// </summary>
         static Material Material(string name, string meshName)
         {
@@ -143,7 +146,7 @@ namespace APC.EditorTools
             {
                 var mesh = meshName.ToLowerInvariant();
                 // shortcut: 모델별 부위 규칙을 코드에 둔다 — 모델이 더 늘면 표(에셋)로
-                suffix = name == "SBS"
+                suffix = name.EndsWith("SBS")
                     ? (mesh.StartsWith("top") || mesh.StartsWith("bottom") ? "_body" : "_head")
                     : mesh.StartsWith("hair") ? "_hair" : mesh.StartsWith("face") || mesh.StartsWith("arm") ? "_skin" : "_cloth";
                 texture = $"{ModelFolder}/{name}{suffix}.psd";
