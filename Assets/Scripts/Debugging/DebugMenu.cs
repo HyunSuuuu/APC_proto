@@ -229,9 +229,33 @@ namespace APC.Debugging
             Header("Site");
             var start = StartSequence.Instance; // 시작 순서 (GDD 9.6)
             if (start != null && start.Running && GUILayout.Button("Skip start", buttonStyle)) start.Skip();
+            // 임시: 고저차 모듈 사이 벽에 비비면 칸 밖으로 빠지는 문제(2026-11-19) — 가장 가까운 열린 칸 가운데로
+            if (GUILayout.Button("Return to site", buttonStyle)) ReturnToSite(grid);
             GUI.enabled = next != null;
             if (GUILayout.Button(next != null ? $"Unlock {next} (Lv.{nextLevel})" : "All unlocked", buttonStyle)) grid.Unlock(next);
             GUI.enabled = true;
+        }
+
+        /// <summary>플레이어를 가장 가까운 열린 칸 가운데로 순간이동 (CharacterController는 잠깐 꺼야 위치가 안 되돌아감).</summary>
+        static void ReturnToSite(SiteGrid grid)
+        {
+            var mover = FindFirstObjectByType<APC.Characters.PlayerMover>();
+            if (mover == null || grid.OpenedCells.Count == 0) return;
+            var player = mover.transform;
+            var best = Vector3.zero;
+            var bestDistance = float.MaxValue;
+            foreach (var cell in grid.OpenedCells)
+            {
+                var center = grid.CellCenter(cell);
+                var distance = (center - player.position).sqrMagnitude;
+                if (distance >= bestDistance) continue;
+                bestDistance = distance;
+                best = center;
+            }
+            var controller = mover.GetComponent<CharacterController>();
+            if (controller != null) controller.enabled = false;
+            player.position = best + Vector3.up * 0.1f;
+            if (controller != null) controller.enabled = true;
         }
 
         void Header(string text)

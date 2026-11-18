@@ -626,6 +626,7 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
 - [x] **M15-7 배경 · 벽 · 출입구** — 칠하기 팔레트에 새 바닥(`floor_green1~4` · `floor_grass` · `floor_daisy` · `floor_basic5~7` · `floor_road7` · `floor_crosswalk1~3`), 배경 모듈에 `tree_L/s/plam` · `tulip` · `street_lamp` · `vending_machine`, 벽 `wall_outside/inside` · `window_*` · `pillar_inside` · `blind` · `exit_seal`, 주차장 셔터 `truck_parking*`. 초안 배치 → 스크린샷 → 사용자가 손으로 조정
   - **진행** (2026-11-19): 한 것 = 나무 · 튤립 · 가로등(배경 잔디 · 도로), 배경 배치 에디터, **자판기**(`Module_Office/Content/Decor/VendingMachine` (-4.55, 0, 2.9) 방 안쪽, 충돌판), **사무실 창문**(`SiteWalls.windowPrefab` = `window_outside`, 사무실 칸 바깥 벽 한 변마다 2개 — 조각 2~3 · 6~7 자리). 테스트: 사무실 두 벽 창문 · 자판기 스크린샷, 에러 0. **남은 것**: 새 바닥 타일 칠하기(사용자), `wall_outside/inside` · `pillar_inside` · `blind` · `exit_seal`, 주차장 셔터 `truck_parking*`
   - 완료 (2026-11-19): 남은 것은 사용자가 채워 넣음 (바닥 타일 · 벽 · 기둥 · 블라인드 · 출구 · 셔터)
+  - 추가 (2026-11-19): `origin/shader-develop`(c9fde04에서 갈라짐)에서 **툰 · 외곽선 · 알바 탭 흰 외곽선만** 파일로 가져옴(`Shaders/Toon` · `Shaders/Outline` · `Scripts/Visuals` · `M_Toon` · `Outline/M_Outline*` · `OutlineValidator`), 씬 Player에 `CharacterToon`, `StaffWorker`에 `CharacterToon` · `ObserveOutline`. 벽 컷아웃 · 테스트 씬 · uniformT 재질 변경은 안 가져옴(사용자 결정 — 벽은 반투명 페이드 유지). 테스트: 플레이어 · 알바 툰 + 외곽선 스크린샷, 에러 0. 브랜치는 머지하지 않음(파일 체크아웃)
   - 테스트 결과: 아직
 
 ---
@@ -657,6 +658,8 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
 - [x] **M16-6 첫 고용 · 튜토리얼 맞춤** — 사무실을 지으면 **하차 알바 1명 무료**(고정 스탯, 옛 보관 알바) + 1명 자유 고용(Lv.1 최대 2). 튜토리얼 단계를 시작 발판 · 사무실 순서에 맞춤 (GDD 13)
   - 확정 (2026-11-18, GDD 13 단계 표): 무료 하차 알바 = **A책상 고용 탭의 무료 카드**(지금 `OfferFreeCandidate` 보관 → 하차). 튜토리얼은 **처음부터** 14단계(건물 · 하차 · A보관 · 상차 발판 → 상자 → 선반 → 상차 → 돈 → 사무실 → 무료 하차 알바 → **한 명 더 고용**(고용하거나 팝업 닫으면 넘어감) → 정산 → B보관 → Lv.2 반품)
   - 완료 (2026-11-18): `TutorialGuide`만 — 사무실 기다림 삭제(처음부터 시작), `StartPadStep`(발판 가리킴 · `SiteGrid.IsUnlocked`로 끝, 건물 = `Trash`), 돈 줍기 끝 = 현금 존이 빔(사무실 전 저금통 없음), 무료 카드 `OfferFreeCandidate(Unload)`, 한 명 더 = 알바 2(또는 최대) 또는 팝업 열었다 닫음. 시작 건너뛰기면 앞 단계는 바로 지나감
+  - **알려진 버그** (2026-11-19, 사용자 테스트): 고저차가 있는 모듈 사이 벽에 비비면 칸 밖으로 빠져 탈출 — `CharacterController.Move`가 밀어낸 양은 `ClampToSite`를 안 거치고, 칸 밖이면 막지 않는 규칙 때문. **임시**: 디버그 `Return to site`(가장 가까운 열린 칸 가운데로). 고칠 안: Move 뒤 밖으로 나갔으면 가로 위치 되돌리기 + 밖에선 안쪽으로만
+  - **버그 고침** (2026-11-19, 사용자 테스트): 7단계에서 상차 트럭이 안 옴 — 상차 트럭 조건(선반에 주문 수량만큼)인데 6단계는 1개로 끝남 → `OrderService` 첫 주문만 선반 수만큼(`firstOrderMade`). 테스트: 선반 A 1개 → 첫 주문 `A1` 도착
   - 테스트: 단계 1~4 발판 따라 진행(강조 · 화살표 · 배너 스크린샷), 돈 120 줍기 → 단계 9 사무실, 후보 1번 `Unload 무료 ₩0`, 무료 고용 → 단계 11, 팝업 열고 닫기 → 단계 12(정산), `Skip start` → 단계 5(상자)로 바로, 에러 0. 상자 · 선반 · 상차 단계는 디버그로 넘김 — 사람 손 테스트 아직
   - **바뀜** (2026-11-18, 사람 손 테스트): 해금 팝 도중 다음 단계 강조(게임 멈춤)가 시작돼 모듈이 작은 채로 보임 → 강조 전 `spotlightDelay` 1초 `임시`, 건물 단계 끝 = 하차 발판이 나온 뒤(칸 팝이 다 끝남). 해금 발판 겉모습 = 사용자 프리팹 `Prefabs/UnlockBox_`(중첩 프리팹 — 아래서 위로 차는 `Fill` · `Frame` · 돈 아이콘 · `CostText`)로 교체, 옛 바닥판 · 원형 게이지 · 3D 금액 글자 삭제, 터치를 막지 않게 `GraphicRaycaster` 빼고 `raycastTarget` 끔. 테스트: 박스 보임 · 금액 20, 하차 해금 뒤 강조 때 모듈 크기 1, 에러 0
 - [ ] **M16-7 프로토타입 빌드 · 통플레이** — Lv.1(빈 땅) → Lv.5 처음부터 끝까지 사람 손 테스트 · XP · 비용 · 월급 1차 조정(M13-18 포함), Windows 빌드 (TechStack 1절), 빌드에서 에러 · 분홍 재질 확인

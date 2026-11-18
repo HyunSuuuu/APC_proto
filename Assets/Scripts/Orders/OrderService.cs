@@ -24,6 +24,7 @@ namespace APC.Orders
 
         int nextNumber = 1;
         int pendingQuantity; // 다음 주문 수량 (선반이 찰 때까지 그대로, 0 = 아직 안 뽑음)
+        bool firstOrderMade; // 첫 상차 트럭은 선반에 있는 만큼만 (튜토리얼)
 
         /// <summary>출발하지 않은 주문 (상차 칸마다 1건).</summary>
         public IReadOnlyList<Order> Orders => orders;
@@ -76,6 +77,8 @@ namespace APC.Orders
                 free[company] = n;
                 sum += n;
             }
+            // 첫 상차 트럭(튜토리얼 7단계)은 선반에 있는 만큼만 — 6단계가 1개만 올려도 끝나서 트럭이 안 오던 문제 (2026-11-19)
+            if (!firstOrderMade && sum > 0) total = Mathf.Min(total, sum);
             if (sum < total) return null; // 선반에 아직 모자람
 
             var lines = new List<OrderLine>();
@@ -112,6 +115,7 @@ namespace APC.Orders
                 else lines.Add(split);
             }
             pendingQuantity = 0;
+            firstOrderMade = true;
 
             var order = new Order(nextNumber++, lines);
             order.SetState(OrderState.Arriving);

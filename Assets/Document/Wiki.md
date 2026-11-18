@@ -695,7 +695,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Orders/OrderService.cs](../Scripts/Orders/OrderService.cs)
 - **역할**: 상차 트럭 주문 (M13-4, GDD 8.1 · 8.2). 주문서 큐 · 생성 간격은 없다. 씬에 하나 (`Site/Logistics`).
 - **동작**:
-  - 생성: `CreateForTruck()` — 상차 칸이 비면 `OutboundBay`가 매 프레임 부른다. **선반에 주문 수량만큼 있을 때만** 주문을 만들고 아니면 null (2026-11-19, GDD 8.1). 합계 = `OrderRules.RollQuantity()`(3~6)를 `pendingQuantity`에 한 번 뽑아 두고 주문이 생길 때까지 그대로. 후보 색 = `ShelfFree(item)` > 0 (선반 · 랙 수 + 상차로 들고 가는 수 − 출발 안 한 주문들의 남은 수). 첫 색은 가중치, 한 색으로 모자라거나 `twoColorChance`(50%)면 둘째 색과 각 색 여유 안에서 나눔(최대 4번 시도). 옛 `CanRequest` · '갈색 기본'은 삭제.
+  - 생성: `CreateForTruck()` — 상차 칸이 비면 `OutboundBay`가 매 프레임 부른다. **선반에 주문 수량만큼 있을 때만** 주문을 만들고 아니면 null (2026-11-19, GDD 8.1). 합계 = `OrderRules.RollQuantity()`(3~6)를 `pendingQuantity`에 한 번 뽑아 두고 주문이 생길 때까지 그대로. 후보 색 = `ShelfFree(item)` > 0 (선반 · 랙 수 + 상차로 들고 가는 수 − 출발 안 한 주문들의 남은 수). 첫 색은 가중치, 한 색으로 모자라거나 `twoColorChance`(50%)면 둘째 색과 각 색 여유 안에서 나눔(최대 4번 시도). 옛 `CanRequest` · '갈색 기본'은 삭제. 첫 주문(`firstOrderMade` 전)만 합계를 선반 여유 합으로 줄인다 (튜토리얼 7단계).
   - 진행: `MarkDocked` → `Complete`(빼고 보상 금액 반환, 출고 XP 없음).
   - 수요: `GetDemand(item)` = Docked 주문의 남은 수 − 선반에서 꺼내 들고 있는 수 − 예약 수.
   - 예약: `Reserve` / `Unreserve` — M6 알바가 작업을 고를 때 쓴다.
@@ -947,6 +947,25 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [UI/FlatLabelAligner.cs](../Scripts/UI/FlatLabelAligner.cs)
 - **역할**: 바닥에 눕힌 글자를 카메라 방향으로 돌린다. 모듈이 180° 돌아서 붙어도 글자가 뒤집히지 않는다.
 - **주의**: `OnEnable`에서 한 번만 맞춘다 (`[ExecuteAlways]`). 카메라 Yaw를 바꾸면 Build Site를 다시 실행한다.
+
+### 4.9b Visuals — 툰 · 외곽선 (2026-11-19, `shader-develop` 브랜치에서 툰 · 외곽선만 가져옴)
+
+벽 컷아웃(`WallCutout`)은 가져오지 않았다 — 벽 투과는 `SiteWalls` 반투명 페이드(`WallFadeConfig`)를 쓴다. 테스트 씬 · 원본 재질(uniformT) 변경도 안 가져옴.
+
+#### CharacterToon
+[Visuals/CharacterToon.cs](../Scripts/Visuals/CharacterToon.cs)
+- **역할**: 캐릭터 툰 + 검정 외곽선. 켜지면 자식 `SkinnedMeshRenderer`(꺼진 코스튬 포함)의 URP Lit 재질을 "원래 재질 사본 + `M_Toon`(Shader Graphs/APC_Toon) 셰이더"로 바꾸고 마지막에 `M_Outline` 슬롯을 붙인다. 끄면 되돌림. 들고 있는 상자(MeshRenderer)는 건드리지 않음.
+- **연결**: 씬 `Player` · `StaffWorker` 프리팹 루트 (MCP).
+
+#### ObserveOutline · ObserveOutlinePicker
+[Visuals/ObserveOutline.cs](../Scripts/Visuals/ObserveOutline.cs) · [Visuals/ObserveOutlinePicker.cs](../Scripts/Visuals/ObserveOutlinePicker.cs)
+- **역할**: 알바를 탭하면 외곽선을 흰색(`M_Outline_Observed`)으로 (한 번에 한 명, 다시 탭 · 빈 곳 탭 = 해제). Picker는 Play 시작 때 스스로 생김(DontDestroyOnLoad), 렌더러 범위로 고름(콜라이더 없음), 드래그 · UI 탭 무시.
+- **연결**: `ObserveOutline`은 `StaffWorker` 프리팹 루트.
+
+#### OutlinePasses
+[Visuals/OutlinePasses.cs](../Scripts/Visuals/OutlinePasses.cs)
+- **역할**: 외곽선 셰이더(`APC/OutlineStencil`)의 LightMode 패스 3개(Mask · Hull · Outer)를 카메라마다 넣는다 — 렌더러 에셋 수정 없음. Play 중에만(편집 화면엔 외곽선 없음).
+- **주의**: 렌더러 에셋에 같은 LightMode Render Objects 피처를 넣으면 두 번 그려진다. 에디터 `OutlineValidator`가 확인.
 
 ### 4.10 Debugging
 
