@@ -943,7 +943,7 @@
 |---|---|
 | 상자 (일반) | 갈 `Brown_Box` · 초 `Green_Box` · 파 `Blue_Box` · 보라(D) `Purple_Big_Box`. 모델에 색이 있으므로 **테이프 색 칠하기 없앰** |
 | 찌그러진 상자 (반품) | `Brown_Return_Box` · `Green_Return_Box` · `Blue_Return_Box` · D `Purple_Big_Return_Box` |
-| 재포장 중인 상자 (테이블 위) | 색별 `*_Open_Box` `임시` |
+| 재포장 중인 상자 (테이블 위) | 색별 `*_Open_Box` (D `Purple_Big_Open_Box`) — 재포장하는 동안 테이블 위에 보이고, 끝나면 일반 상자 · 쓰레기 `확정` (2026-11-18) |
 | 쓰레기 | `Trash` |
 | 하차 트럭 | 색별 `*_Small_Truck_Open`(1단계 10개) · `*_Middle_Truck_Open`(2단계 15개, Lv.4) · `*_Big_Truck_Open`(3단계 20개, 이후). 보라는 `Purple_Small_Truck` · `Purple_Middle_Truck`(이름에 `_Open` 없음) |
 | 황금 트럭 | `Gold_Small/Middle/Big_Truck_Open` (그 단계 크기) — 몸체 금색 칠하기 대신 모델, 빛 · 반짝임 연출은 유지 |
@@ -953,9 +953,10 @@
 | 반품 팔레트 · 재포장 상자 팔레트 | `Blue_Plastic_Pallet` `임시` |
 | 재포장 테이블 | `Return_Inspection_Table` + 위에 `Tape_Stand` · `Tape_Cutter` · `Lap_Stand` |
 | 사무실 추가 장식 | `Printer` · `Scaner` · `Small_Clip_Board` (책상 위) `임시` |
-| 보관 구역 표지판 | `sign_brown` · `sign_green` · `sign_blue` (D · 반품 · 쓰레기장 표지판은 18장 47) |
+| 보관 구역 표지판 | `sign_brown` · `sign_green` · `sign_blue`. D(보라) · 반품 · 쓰레기장 표지판은 **보라 표지판을 받을 때까지 보류**, `sign_yellow`는 이번엔 안 씀 `확정` (2026-11-18) |
 | 배경 · 바깥 | 나무 `tree_L` · `tree_s` · `tree_plam`, 꽃 `tulip`, `street_lamp`, `vending_machine`, 바닥 `floor_green1~4` · `floor_grass` · `floor_daisy` · `floor_basic5~7` · `floor_road7` · `floor_crosswalk1~3` (칠하기 팔레트에 추가) |
 | 벽 · 출입구 | 바깥 `wall_outside` · `window_outside`, 안쪽 `wall_inside` · `window_inside` · `pillar_inside`, 블라인드 `blind`, `exit_seal`, 주차장 셔터 `truck_parking` · `truck_parking1~2` `임시` |
+| 크기 `확정` (2026-11-18) | 모델은 **캐릭터에 맞춘 크기**이므로 상자 · 선반 등 **모두 모델 기본 크기 그대로** 쓴다 (지금 상자 크기에 맞춰 늘리지 않음). 키우거나 늘려야 할 때는 **사용자에게 먼저 알린다**. D 상자는 **세로 한 줄로 쌓는다** (들기 · 랙) |
 | 쓰지 않음 | `Blue_Big_Box` · `Blue_Big_Open_Box` · `Blue_Big_Return_Box`(C 큰 상자 생기면), `Ladder`(정전 삭제), 옛 `Box` · `Truck` · `Shelf`(교체 뒤 남겨 둠) |
 
 | 경제 | **지폐 다발** · **돈 떨어지는 공간 바닥 마킹** · 줍기 · 정산 소리 (2순위) | |
@@ -1169,7 +1170,7 @@
 | 44 | ~~튜토리얼 5단계~~ | **해결: 정산 → 고용 → B보관, 첫 고용 면제 · 고정 스탯 알바, 카메라 잠깐 이동 후 복귀(게임 멈춤), 화면 위 배너** (2026-11-18) | 13 |
 | 45 | 코스튬 알바 확률 | 10% 가정 | 11.1 |
 | 46 | ~~튜토리얼 첫 알바 직무 · 외형~~ | **해결: 보관 직무 · 항상 기본 옷(코스튬 없음)** (2026-11-18) | 13 |
-| 47 | 표지판 · 열린 상자 쓰임 | `sign_yellow`를 어디에 쓸지(D보관 · 반품 · 쓰레기장?), D보관 표지판(보라 표지판 없음), `*_Open_Box`를 재포장 중 상자로 쓸지 | 15.1 |
+| 47 | ~~표지판 · 열린 상자 쓰임~~ **해결** (2026-11-18): 보라 표지판을 받을 때까지 D · 반품 · 쓰레기장 표지판 보류(`sign_yellow` 안 씀), `*_Open_Box` = 재포장 중 상자 | 15.1 |
 | 48 | 시작 발판 비용 · 사무실 발판 비용 | 건물 20 · 하차 10 · A보관 10 · 상차 10 (시작 지갑 50) · 사무실 100 `임시`, 시작 발판 XP 없음 가정 (2026-11-18) | 9.6 |
 | 49 | 선반 · 트럭 단계 비용 | 선반(모듈 단위) 150 / 300 · 트럭 400 / 800 `임시` (2026-11-18) | 7.1, 7.3, 9.4 |
 | 50 | 시작 화면 레이아웃 | 도로변 · 입구 · 첫 발판 위치, 건물 세우기 연출 — 지금 6 × 4 배치 바깥 서쪽 도로를 가정 `임시` (참고 사진 = 공사 부지) | 9.6 |

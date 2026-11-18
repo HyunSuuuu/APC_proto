@@ -767,7 +767,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### ExpansionPad
 [Site/ExpansionPad.cs](../Scripts/Site/ExpansionPad.cs)
-- **역할**: 모듈 해금 발판 (`PurchasePad`, GDD 9.2). 바닥 존 + 원형 게이지 + 남은 금액 + 모듈 이름.
+- **역할**: 모듈 해금 발판 (`PurchasePad`, GDD 9.2). 겉모습 = 중첩 프리팹 `Prefabs/UnlockBox_`(바닥에 눕힌 월드 캔버스: `Fill` 아래→위 게이지 = `GaugeRingView.fill`, `Frame`, 돈 아이콘, `CostText` = 남은 금액) + 모듈 이름(`NameLabel`). 바닥판(`floor`) 없음 (M16-6). 캔버스에 `GraphicRaycaster` 없음 · `raycastTarget` 끔 — 화면 터치를 막지 않게.
 - **동작**: `Setup(placementId, 이름, 비용)`. 다 내면 `SiteGrid.Unlock(placementId)`(id가 비면 안 함) → `Purchased` 이벤트 → XP +3(`RewardXp` false면 없음) → 사라짐.
 - **연결**: `SiteUnlocker` · `StartSequence`가 만든다. 프리팹은 `StandardModules.ExpansionPadPrefab()` (M5에 있다가 v0.3에서 지웠던 것을 M11-3 때 되살림).
 
@@ -827,7 +827,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### TutorialGuide
 [UI/TutorialGuide.cs](../Scripts/UI/TutorialGuide.cs)
 - **역할**: 튜토리얼 (GDD 13, M13-17). 씬 `Site/Logistics`에 하나. 저장이 없어 새 게임마다 처음부터.
-- **동작**: 단계 8개(트럭에서 꺼내기 → 팔레트 → 선반 → 상차 → 돈 줍기 → 정산 → 고용 → B보관 → Ret1)를 0.2초(실제 시간)마다 완료 조건으로 확인. 단계 대상이 생기고 게임이 `Playing`이면 한 번 강조: `GameManager.OpenPopup`(멈춤) → `CameraRig.Spotlight` → `holdTime` 1.8초 `임시` 또는 탭(`Pointer.press`) → `EndSpotlight` · `ClosePopup`. 그 뒤로 `GuideArrow.TutorialTarget` = 대상. 고용 단계에서는 `StaffService.OfferFreeCandidate(Sort, 속도 1 · 적재 3)`를 계속 확인해 넣는다.
+- **동작**: 단계 14개(GDD 13 단계 표, M16-6 — 시작 발판 건물 · `In1` · `StoreA1` · `Out1`(`StartPadStep`) → 트럭에서 꺼내기 → 선반 → 상차 → 돈 줍기(현금 존이 비면 끝) → 사무실 발판 → 무료 하차 알바 → 한 명 더 고용(알바 2 또는 팝업 열었다 닫음) → 정산 → B보관 → Ret1)를 처음부터(빈 땅) 0.2초(실제 시간)마다 완료 조건으로 확인. 단계 대상이 생기고 게임이 `Playing`이고 단계 시작 뒤 `spotlightDelay`(1초, 해금 팝 연출이 멈춘 채 작게 남지 않게)가 지나면 한 번 강조: `GameManager.OpenPopup`(멈춤) → `CameraRig.Spotlight` → `holdTime` 1.8초 `임시` 또는 탭(`Pointer.press`) → `EndSpotlight` · `ClosePopup`. 그 뒤로 `GuideArrow.TutorialTarget` = 대상. 고용 단계에서는 `StaffService.OfferFreeCandidate(Unload, 속도 1 · 적재 3)`를 계속 확인해 넣는다.
 - **연결**: 배너는 실행 중 만든 오버레이 캔버스(sortingOrder 49, 레이캐스트 안 막음) — 팝업(`GameState.Popup`)이 열리면 숨김, 강조 중에는 보임. 디버그 메뉴 `SkipStep` · `Stop`, static `Disabled`.
 - **주의**: 대상 찾기는 `FindObjectsByType`(단계 시작 뒤 대상이 생길 때까지 0.2초마다).
 
