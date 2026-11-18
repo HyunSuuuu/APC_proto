@@ -39,9 +39,9 @@ namespace APC.Data
 
         [Header("업그레이드 (사무실 책상, 기본값 다음 단계부터)")]
         [SerializeField, Tooltip("적재 도구: value = 최대 적재 수")]
-        PlayerUpgradeStep[] carrySteps = { new("구루마", 8, 3, 150), new("롤테이너", 12, 4, 400) };
+        PlayerUpgradeStep[] carrySteps = { new("구루마", 8, 3, 150), new("롤테이너", 12, 5, 400) };
         [SerializeField, Tooltip("이동 속도: value = m/s")]
-        PlayerUpgradeStep[] speedSteps = { new("이동 속도 1", 4.5f, 3, 100), new("이동 속도 2", 5f, 4, 200), new("이동 속도 3", 5.5f, 5, 350) };
+        PlayerUpgradeStep[] speedSteps = { new("스테미너 1", 4.5f, 2, 100), new("스테미너 2", 5f, 3, 200), new("스테미너 3", 5.5f, 5, 350) }; // 스테미너 = 이동 속도 (GDD 5.1, 2026-11-18)
 
         public float MoveSpeed => moveSpeed;
         public PlayerUpgradeStep[] CarrySteps => carrySteps;

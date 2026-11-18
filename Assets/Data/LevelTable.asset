@@ -14,32 +14,33 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::APC.Data.LevelTable
   levels:
   - xpToNext: 3
-    maxStaff: 1
-    unlockNote: "A 갈색 트럭 · 하차 1칸 · 상차 1칸 · 건설: B보관"
-  - xpToNext: 6
     maxStaff: 2
-    unlockNote: "B 초록 트럭 합류 · 건설: 반품 1 · 하차 2"
+    unlockNote: "A \uAC08\uC0C9 \uD2B8\uB7ED \xB7 \uD558\uCC28 1\uCE78 \xB7 \uC0C1\uCC28
+      1\uCE78 \xB7 \uAC74\uC124: B\uBCF4\uAD00"
   - xpToNext: 6
     maxStaff: 3
-    unlockNote: "C 파랑 전자제품 트럭 합류 · 건설: C보관"
-  - xpToNext: 6
+    unlockNote: "B \uCD08\uB85D \uD2B8\uB7ED \uD569\uB958 \xB7 \uAC74\uC124: \uBC18\uD488
+      1 \xB7 \uD558\uCC28 2 \xB7 \uC2A4\uD14C\uBBF8\uB108 1"
+  - xpToNext: 9
     maxStaff: 4
-    unlockNote: "하차 트럭 2단계 · 건설: 상차 2"
-  - xpToNext: 9
+    unlockNote: "C \uD30C\uB791 \uC804\uC790\uC81C\uD488 \uD2B8\uB7ED \uD569\uB958
+      \xB7 \uAC74\uC124: \uC0C1\uCC28 2 \xB7 C\uBCF4\uAD00 \xB7 \uAD6C\uB8E8\uB9C8
+      \xB7 \uC2A4\uD14C\uBBF8\uB108 2"
+  - xpToNext: 6
     maxStaff: 5
-    unlockNote: "D 주황 가구 트럭 합류 · 건설: D보관"
+    unlockNote: "D \uBCF4\uB77C \uAC00\uAD6C \uD2B8\uB7ED \uD569\uB958 \xB7 \uAC74\uC124:
+      D\uBCF4\uAD00 \xB7 \uD558\uCC28 \uD2B8\uB7ED 2\uB2E8\uACC4 \xB7 \uC9C0\uAC8C\uCC28
+      \uC54C\uBC14"
   - xpToNext: 9
     maxStaff: 6
-    unlockNote: "건설: A보관 2"
-  - xpToNext: 9
-    maxStaff: 6
-    unlockNote: "건설: 반품 2"
+    unlockNote: "\uAC74\uC124: \uC0C1\uCC28 3 \xB7 A\uBCF4\uAD00 2 \xB7 \uB864\uD14C\uC774\uB108
+      \xB7 \uC2A4\uD14C\uBBF8\uB108 3"
   - xpToNext: 9
     maxStaff: 7
-    unlockNote: "건설: 상차 3"
+    unlockNote: "\uAC74\uC124: \uBC18\uD488 2"
   - xpToNext: 9
     maxStaff: 8
-    unlockNote: ""
+    unlockNote: 
   overflowBaseXp: 9
   overflowStepXp: 0
   overflowMaxStaff: 8
