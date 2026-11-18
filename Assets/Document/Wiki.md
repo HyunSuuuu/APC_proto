@@ -56,7 +56,7 @@
 | `Economy` | 파트 타이머 · 파트 종료 정산 · 사무실 투명 저금통 |
 | `Site` | 부지 격자와 모듈 해금 |
 | `UI` | 팝업, 월드 글자 정렬, HUD 초기화 (`UiBootstrap`) |
-| `Visuals` | 화면 연출용 셰이더 연결 (벽 컷아웃). 셰이더 파일은 `Assets/Shaders/` |
+| `Visuals` | 화면 연출용 셰이더 연결 (벽 컷아웃 · 캐릭터 툰 · 외곽선 · 알바 관찰 외곽선). 셰이더 파일은 `Assets/Shaders/` |
 | `Debugging` | 치트 메뉴 (에디터 · 개발 빌드 전용) |
 | `Editor` | 씬 · 프리팹 · 데이터 자동 생성 메뉴 (빌드에 포함 안 됨) |
 
@@ -921,6 +921,32 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **동작**: 매 프레임 `Shader.SetGlobalVector`로 `_WallCutoutCenter`(플레이어 위치 + 높이, w = 켜짐) · `_WallCutoutParams`(반지름 · 가장자리 폭 · 깊이 여유)를 넘긴다. 0.5초마다 씬 렌더러를 훑어 이름(자신 또는 부모)이 `structurePrefixes`(`wall_` · `pillar_` · `window_` · `DoorPost` · `parking` · `tree_` 등)로 시작하거나 `extraWalls` 아래면, 원래 URP Lit 재질 **사본**의 셰이더만 `APC/WallCutout`으로 바꿔 끼운다 (색 · 텍스처 그대로). 끄면 원래 재질로 돌리고 사본을 지운다.
 - **셰이더**: URP Lit 복사본. ForwardLit · GBuffer · DepthOnly · DepthNormals fragment 앞에서 `WallCutoutClip` — 화면 깊이로 월드 위치 복원 → 카메라 방향 원기둥(반지름) 안 → `ddx` · `ddy` 면 법선으로 "이 면이 플레이어→카메라 축과 플레이어보다 앞에서 만나는가" → 가장자리 `InterleavedGradientNoise` 디더 → `clip`. ShadowCaster는 그대로라 그림자는 남는다.
 - **주의**: 이름 규칙이라 새 구조물 모델 이름이 다르면 빠진다 (목록은 인스펙터). 원래 셰이더가 URP Lit이 아니면 안 바꾼다. 에셋 · 프리팹은 안 바뀐다 (Play 중 사본만).
+
+#### 툰 · 외곽선 셰이더
+셰이더 [APC_OutlineStencil.shader](../Shaders/Outline/APC_OutlineStencil.shader) (`APC/OutlineStencil`) · [APC_Toon.shadergraph](../Shaders/Toon/APC_Toon.shadergraph) (`Shader Graphs/APC_Toon`) + `APC_ToonMainLight.hlsl` · 재질 `Art/Materials/M_Toon` · `Outline/M_Outline`(검정, 그룹 1) · `Outline/M_Outline_Observed`(흰색, 그룹 255, 바깥 검정 1px)
+- **출처**: VLB 패키지(`choi-sunggyu/_VertexLightBaker` v0.1.4)의 `AP_OutlineStencil` · `SG_Toon`을 새 GUID · 새 이름으로 복사 (패키지를 같이 깔아도 안 겹침). 그림자(VLB 굽기)는 안 씀.
+- **툰**: Unlit 2단 (Base Map × Base Color, 방향광 방향만, 없으면 고정 방향). 그림자를 드리우지만 받지 않는다. 음영 색 · 경계 값 없음.
+- **외곽선**: 스텐실 인버티드 헐. `OutlineMask`(보이는 몸에 그룹 값) → `OutlineHull`(같은 그룹 위는 안 그림 → 한 덩어리 실루엣, `ReadMask 127`, `WriteMask 128`로 관찰 흰 헐에만 128 비트) → `OutlineOuter`(관찰 재질만 켬, 128 비트 바깥에만 = 흰 헐과 z가 같아도 지글거림 없음). 두께는 1080p 기준 픽셀.
+- **주의**: 그룹 값은 일반 1~126, 16의 배수는 피한다(렌더러를 Deferred로 바꾸면 바닥 스텐실과 겹침), 관찰 255. 메뉴 `APC/Art/Validate Outline Materials`가 그룹 255만 `OutlineOuter`를 켜고 그룹 값을 경고한다. 셰이더 · 재질 이름에 "outline"을 유지한다.
+
+#### OutlinePasses
+[Visuals/OutlinePasses.cs](../Scripts/Visuals/OutlinePasses.cs)
+- **역할**: 외곽선 LightMode 패스 3개를 그린다 — 렌더러 에셋(`Mobile_Renderer` · `PC_Renderer`)에 Render Objects 피처를 넣는 대신.
+- **동작**: `RuntimeInitializeOnLoadMethod`로 `RenderPipelineManager.beginCameraRendering`에 걸어, Game · SceneView 카메라마다 `RenderObjectsPass` 3개(Mask AfterRenderingOpaques → Hull · Outer BeforeRenderingSkybox)를 `EnqueuePass`.
+- **주의**: Play 중에만. 렌더러 에셋에 같은 LightMode의 Render Objects 피처를 따로 넣으면 두 번 그려진다.
+
+#### CharacterToon
+[Visuals/CharacterToon.cs](../Scripts/Visuals/CharacterToon.cs)
+- **역할**: 캐릭터를 툰 + 검정 외곽선으로. `Game` 씬 Player 루트 · `StaffWorker.prefab` 루트에 붙어 있다.
+- **동작**: `OnEnable`에서 자식 SkinnedMeshRenderer(꺼진 코스튬 포함)의 URP Lit 재질을 "사본 + 툰 셰이더"로 바꾸고(이미 툰이면 그대로) 끝에 `M_Outline` 슬롯을 붙인다. `OnDisable`에서 원래 배열로 돌리고 사본을 지운다.
+- **주의**: 편집 화면에는 외곽선이 없다 (Play 중에만 슬롯을 붙임). 들고 있는 상자 같은 MeshRenderer는 안 건드린다. 서브메시가 여럿인 메시는 마지막 서브메시에만 선이 생긴다 (지금 캐릭터는 모두 1개).
+
+#### ObserveOutline · ObserveOutlinePicker
+[Visuals/ObserveOutline.cs](../Scripts/Visuals/ObserveOutline.cs) · [Visuals/ObserveOutlinePicker.cs](../Scripts/Visuals/ObserveOutlinePicker.cs)
+- **역할**: 알바를 탭하면 외곽선을 흰색 + 바깥 얇은 검정으로 (한 명만). `ObserveOutline`은 `StaffWorker.prefab`에만 (플레이어 제외).
+- **동작**: `SetObserved(bool)` — 셰이더가 `M_Outline_Observed`와 같은 슬롯만 바꾸고 (렌더러, 슬롯) 단위로 원래 재질을 기억해 되돌린다 (스텐실 Ref는 MaterialPropertyBlock으로 못 바꿈, 레이어는 안 바꿈). Picker는 Play 시작 때 스스로 생기는 DontDestroyOnLoad 오브젝트 — 0.35초 · 0.1인치 안의 탭(UI 위 · `IsGameplayInputBlocked` 제외)이면 `Camera.main` 광선과 알바 렌더러 AABB 중 가장 가까운 것을 고른다. 같은 알바 · 빈 곳 다시 탭 = 해제.
+- **연결**: 스테이터스 창이 생기면 `statusPanel.onOpen += () => target.GetComponent<ObserveOutline>().SetObserved(true);` — 그때 탭 선택 상태와 하나로 맞춘다 (지금 Picker는 자기가 고른 알바만 기억).
+- **주의**: AABB라 알바끼리 붙어 서면 뒤쪽이 골릴 수 있다 (`shortcut` 주석). 탭 기준 0.35초 · 0.1인치 `임시`.
 
 ### 4.10 Debugging
 
