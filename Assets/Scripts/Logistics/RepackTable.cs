@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using APC.Core;
 using APC.Interaction;
+using DG.Tweening;
 using UnityEngine;
 
 namespace APC.Logistics
@@ -17,6 +19,12 @@ namespace APC.Logistics
         [SerializeField, Tooltip("쓰레기 출력 (StorageKind.Trash, 테이블 옆)")] SharedStorage trash;
         [SerializeField, Tooltip("재포장 중인 상자를 올려 둘 곳 (테이블 가운데 위). 작업자가 이쪽을 바라본다")] Transform workPoint;
 
+        [Header("작업 연출 (2026-11-19)")]
+        [SerializeField, Tooltip("작업하는 동안 손 쪽 먼지 (Art/VFX/Dust/VFX_WorkDust, Play On Awake 끔)")] ParticleSystem workDust;
+        [SerializeField, Tooltip("열린 상자 모델에 입힐 재질 (M_Prop)")] Material modelMaterial;
+
+        readonly Dictionary<GameObject, GameObject> openBoxes = new(); // 열린 상자 모델 프리팹 → workPoint 아래 만든 것
+        GameObject shownOpenBox;
         float successChance;
 
         public Transform WorkPoint => workPoint;
@@ -32,6 +40,76 @@ namespace APC.Logistics
             var config = GameManager.Instance.Database.Logistics;
             Duration = config.RepackDuration;
             successChance = config.RepackSuccessChance;
+        }
+
+        // 게이지가 차 있는 동안 가운데에 다음 찌그러진 상자 색의 열린 상자 (M15-5 `*_Open_Box`), 채우는 동안 먼지
+        protected override void Update()
+        {
+            base.Update(); // 존 바닥 진행 표시
+            GameObject prefab = null;
+            Data.ItemDefinition item = null;
+            if (Progress.CurrentValue > 0f && workPoint != null)
+            {
+                foreach (var cargo in input.Items)
+                {
+                    if (cargo.State != CargoState.Return) continue;
+                    item = cargo.Item;
+                    prefab = item != null ? item.OpenModel : null;
+                    break;
+                }
+            }
+            ShowOpenBox(prefab, item);
+
+            if (workDust == null) return;
+            if (IsTicking && !workDust.isEmitting) workDust.Play(true);
+            else if (!IsTicking && workDust.isEmitting) workDust.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+        }
+
+        void ShowOpenBox(GameObject prefab, Data.ItemDefinition item)
+        {
+            var next = prefab != null && openBoxes.TryGetValue(prefab, out var cached) ? cached : null;
+            if (prefab != null && next == null)
+            {
+                next = Instantiate(prefab, workPoint);
+                var t = next.transform;
+                t.localRotation = prefab.transform.localRotation;
+                t.localScale = prefab.transform.localScale * item.ModelScale;
+                t.localPosition = Vector3.zero;
+                foreach (var c in next.GetComponentsInChildren<Collider>()) Destroy(c);
+                foreach (var r in next.GetComponentsInChildren<Renderer>())
+                {
+                    if (modelMaterial == null) continue;
+                    var materials = new Material[r.sharedMaterials.Length];
+                    for (var i = 0; i < materials.Length; i++) materials[i] = modelMaterial;
+                    r.sharedMaterials = materials;
+                }
+                // 바닥 중앙을 workPoint에 (Cargo 모델과 같은 방식)
+                var bounds = new Bounds();
+                var first = true;
+                var toPoint = workPoint.worldToLocalMatrix;
+                foreach (var mf in next.GetComponentsInChildren<MeshFilter>())
+                {
+                    if (mf.sharedMesh == null) continue;
+                    var mb = mf.sharedMesh.bounds;
+                    var m = toPoint * mf.transform.localToWorldMatrix;
+                    for (var i = 0; i < 8; i++)
+                    {
+                        var p = m.MultiplyPoint3x4(mb.center + Vector3.Scale(mb.extents, new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1)));
+                        if (first) { bounds = new Bounds(p, Vector3.zero); first = false; }
+                        else bounds.Encapsulate(p);
+                    }
+                }
+                t.localPosition = new Vector3(-bounds.center.x, -bounds.min.y, -bounds.center.z);
+                openBoxes[prefab] = next;
+                next.SetActive(false);
+            }
+            if (next == shownOpenBox) return;
+            if (shownOpenBox != null) shownOpenBox.SetActive(false);
+            shownOpenBox = next;
+            if (next == null) return;
+            next.SetActive(true);
+            next.transform.DOKill(true);
+            next.transform.DOPunchScale(Vector3.one * 0.25f, 0.3f, 6, 0.5f); // 상자를 여는 순간
         }
 
         protected override bool CanProgress(Interactor who)

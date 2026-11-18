@@ -16,6 +16,13 @@ namespace APC.Interaction
         [SerializeField] TMP_Text costLabel;
         [SerializeField] TMP_Text nameLabel;
 
+        [Header("돈 넣는 연출 (2026-11-19)")]
+        [SerializeField, Tooltip("돈이 들어갈 때 통통 튀는 것 (UnlockBox). 비우면 안 튐")] Transform bounceTarget;
+        [SerializeField, Tooltip("몸에서 박스로 날아가는 돈 (CashBundle). 비우면 안 날림")] GameObject moneyPrefab;
+        [SerializeField, Min(0.02f), Tooltip("돈 하나가 날아가는 간격 (초)")] float moneyInterval = 0.07f;
+        [SerializeField, Min(0.05f)] float moneyFlyDuration = 0.25f;
+
+        float nextMoney;
         int cost;
         int paid;
         float owed;
@@ -56,8 +63,31 @@ namespace APC.Interaction
                 paid += got;
                 owed = got < want ? 0f : owed - got; // 모자라면 여기서 멈춘다
                 RefreshCost();
+                if (got > 0) PayFeedback(who);
             }
             return (float)paid / cost;
+        }
+
+        /// <summary>돈이 들어가는 동안: 몸 → 박스로 돈 다발이 포물선으로 날아가 빨려 들어가고, 박스가 통통 튄다.</summary>
+        void PayFeedback(Interactor who)
+        {
+            if (Time.time < nextMoney) return;
+            nextMoney = Time.time + moneyInterval;
+
+            if (bounceTarget != null)
+            {
+                bounceTarget.DOKill(true);
+                bounceTarget.DOPunchScale(new Vector3(0.12f, 0.12f, 0.12f), 0.18f, 6, 0.6f);
+            }
+            if (moneyPrefab == null || who == null) return;
+            var money = Instantiate(moneyPrefab, who.transform.position + Vector3.up * 1f, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
+            var t = money.transform;
+            var end = (bounceTarget != null ? bounceTarget.position : transform.position) + Vector3.up * 0.05f;
+            DOTween.Sequence()
+                .Append(t.DOJump(end, 1.2f, 1, moneyFlyDuration).SetEase(Ease.Linear))
+                .Join(t.DOScale(0.35f, moneyFlyDuration).SetEase(Ease.InQuad))
+                .SetLink(money)
+                .OnComplete(() => Destroy(money));
         }
 
         protected sealed override void OnCompleted(Interactor who)

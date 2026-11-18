@@ -23,6 +23,9 @@ namespace APC.Interaction
 
         public bool IsComplete => progress.Value >= 1f;
 
+        /// <summary>이번 · 지난 프레임에 누군가 게이지를 채웠다 (작업 연출 켜기용).</summary>
+        public bool IsTicking => Time.frameCount - lastTickFrame <= 1;
+
         protected float Duration
         {
             get => duration;

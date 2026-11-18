@@ -68,6 +68,8 @@
 | 돈이 저금통으로 날아가는 연출 | `CashFlyConfig` | Duration 등 |
 | 고용 도장 연출 | `StampConfig` | Press Scale 등 |
 | 황금 트럭 확률 · 금 값 · 연출 | `GoldenTruckConfig` | Chance · Value Multiplier 등 |
+| 벽 반투명 (켜기 · 투명도 · 흐려지는/돌아오는 시간 · 범위) | `WallFadeConfig` | Enabled · Faded Alpha · Fade Out/In Duration · Horizontal/Vertical Margin · Check Heights · Ignore Near · Check Interval |
+| 스택 휘어짐 (많이 쌓을수록 곡선) | `CarryConfig` | Lean Curve · Curve Levels · Tilt Along Curve |
 
 ---
 
@@ -266,7 +268,7 @@
 
 > `Yaw`를 바꾸면 바닥 글자 방향이 어긋난다. 바꾸려면 프로그래머에게 알린다.
 
-### 3.10 연출 설정 (CarryConfig · CashFlyConfig · StampConfig · GoldenTruckConfig)
+### 3.10 연출 설정 (CarryConfig · CashFlyConfig · StampConfig · GoldenTruckConfig · WallFadeConfig)
 
 느낌을 다듬는 값이라 게임 규칙에는 영향이 없다. 마음껏 바꿔 보고 Play로 확인한다.
 
@@ -279,6 +281,10 @@
   - 반짝임: `Use Sparkle` · `Sparkle Material`(비면 반짝임 없음, 기본 `M_GoldSparkle`) · `Sparkle Color` · `Sparkle Rate`(초당 개수) · `Sparkle Lifetime` · `Sparkle Size` · `Sparkle Rise`(떠오르는 속도) · `Sparkle Area` / `Sparkle Center`(나오는 범위).
   - 쏟기: `Dump Delay`(주차 뒤 기다림) · `Dump Interval`(1덩이씩 간격) · `Dump Jump Power`(튀는 높이) · `Dump Fly Duration` · `Pile Layout`(트럭 뒤 바닥에 쌓는 열 · 행 · 간격 · 층 높이) · `Leave Delay`(다 쏟고 떠나기까지).
   - 흡수: `Absorb Radius Bonus`(현금 줍기 반경에 더함) · `Absorb Interval` · `Absorb Fly Duration` · `Absorb Arc Height` · `Absorb Spin`(날며 도는 속도) · `Absorb Scale`(날며 크기 그래프).
+- **WallFadeConfig** — 벽 반투명 (2026-11-19, `Assets/Data/WallFadeConfig.asset`). 카메라와 플레이어 사이 벽 조각 · 하차/상차 주차장 지붕이 서서히 반투명해진다. Play 중 바꾸면 바로 보인다.
+  - `Enabled`(끄면 없음) · `Fade Material`(반투명 재질 `M_PropFade`, 바꾸지 않음) · `Faded Alpha`(가렸을 때 투명도 0~1, 0.3) · `Fade Out Duration`(흐려지는 초, 0.2) · `Fade In Duration`(돌아오는 초, 0.35).
+  - 범위: `Horizontal Margin`(벽을 옆으로 넓혀 보는 양 m, 0.7 — 키우면 더 넓게 흐려짐) · `Vertical Margin`(위아래, 0) · `Check Heights`(플레이어 몸에서 확인하는 높이들 m, 0.3 · 1.6) · `Ignore Near`(플레이어 바로 옆은 무시 m, 0.3) · `Check Interval`(다시 재는 간격 초, 0.1).
+- **CarryConfig 휘어짐** — `Lean Curve`(층 → 기울기 배율 그래프, 기본 1 → 2) · `Curve Levels`(그래프 끝이 되는 층 수, 15) · `Tilt Along Curve`(상자가 줄 따라 기움).
 - **StampConfig** — 고용 도장: `Press Scale`(꾹 누를 때 커지는 배율) · `Hold Duration`(카드 위에 머무는 시간) · `Mark Start Scale`(자국 크기) · `Shake Strength`(못 찍을 때 흔들림).
 
 > `CashFlyConfig` · `StampConfig`는 이미 손으로 맞춘 값이다. 바꾸기 전에 지금 값을 적어 둔다.

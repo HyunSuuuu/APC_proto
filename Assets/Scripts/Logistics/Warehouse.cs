@@ -142,6 +142,17 @@ namespace APC.Logistics
         }
 
         /// <summary>재고 = 선반 + 공용 보관소에 있는 그 품목 수 (교착 방지 가중치용, GDD 7.8).</summary>
+        /// <summary>선반(팔레트 랙 포함)에 올라가 있는 그 품목 수만 (상차 트럭 조건, 2026-11-19).</summary>
+        public int GetShelfCount(ItemDefinition item)
+        {
+            var count = 0;
+            foreach (var shelf in shelves)
+            {
+                if (shelf.Item == item) count += shelf.Count.CurrentValue;
+            }
+            return count;
+        }
+
         public int GetStock(ItemDefinition item)
         {
             var stock = 0;

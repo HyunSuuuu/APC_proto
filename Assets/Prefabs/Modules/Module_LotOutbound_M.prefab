@@ -53,8 +53,9 @@ MonoBehaviour:
   layout:
     columns: 4
     rows: 5
-    spacing: 0.55
-    layerHeight: 0.16
+    spacing: 0.66
+    layerHeight: 0.185
+    rowSpacing: 0.37
   overflowLabel: {fileID: 3103837231249779992}
 --- !u!1 &1158763933413895827
 GameObject:
@@ -551,6 +552,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1823116243228104395}
+  - component: {fileID: 7622575282667282884}
   m_Layer: 0
   m_Name: Parking
   m_TagString: Untagged
@@ -574,6 +576,18 @@ Transform:
   - {fileID: 6010008864719630033}
   m_Father: {fileID: 1525625758820376924}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7622575282667282884
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3090031567758814776}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c558cacb07d1f6428c4494ea36243b5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::APC.Site.WallFadeTarget
 --- !u!1 &3139178390936431353
 GameObject:
   m_ObjectHideFlags: 0
@@ -2582,13 +2596,42 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 08ea7faaa48b0994ead804a5ff0d7a81, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6656541724020444710}
   m_SourcePrefab: {fileID: 100100000, guid: 08ea7faaa48b0994ead804a5ff0d7a81, type: 3}
 --- !u!4 &5185760415855846286 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 08ea7faaa48b0994ead804a5ff0d7a81, type: 3}
   m_PrefabInstance: {fileID: 4646937332075971685}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &5529388124061235508 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 08ea7faaa48b0994ead804a5ff0d7a81, type: 3}
+  m_PrefabInstance: {fileID: 4646937332075971685}
+  m_PrefabAsset: {fileID: 0}
+--- !u!65 &6656541724020444710
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5529388124061235508}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1.1186867, y: 1.6599865, z: 1.0230821}
+  m_Center: {x: 0.000000059604645, y: -0.00000017881393, z: 0.5115401}
 --- !u!1001 &5557818921458162189
 PrefabInstance:
   m_ObjectHideFlags: 0

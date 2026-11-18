@@ -80,6 +80,14 @@ namespace APC.Logistics
             return cargo;
         }
 
+        // 상자 칸 (1 · 2단, 실행 중엔 용량만큼)
+        void OnDrawGizmos()
+        {
+            var rows = boxRows > 0 ? boxRows : boxesPerSide;
+            var n = Application.isPlaying && capacity > 0 ? capacity : boxesPerSide * rows * 2;
+            CargoGizmos.DrawSlots(boxRoot != null ? boxRoot : transform, SlotPosition, n, new Color(0.3f, 0.8f, 1f), CargoGizmos.BoxSize);
+        }
+
         Vector3 SlotPosition(int index)
         {
             var rows = boxRows > 0 ? boxRows : boxesPerSide;

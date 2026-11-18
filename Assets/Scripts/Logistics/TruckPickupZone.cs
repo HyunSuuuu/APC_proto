@@ -19,6 +19,7 @@ namespace APC.Logistics
         float nextDump;
         InboundTruck dumpingFrom;
         bool absorbing;
+        float absorbReadyTime;
 
         protected override CargoOrigin GiveOrigin => CargoOrigin.Truck;
 
@@ -80,7 +81,8 @@ namespace APC.Logistics
         {
             base.Update();
             var truck = bay.DockedTruck;
-            if (truck != null && truck.Golden && truck.HasCargo)
+            var dumping = truck != null && truck.Golden && truck.HasCargo;
+            if (dumping)
             {
                 var config = Golden;
                 if (dumpingFrom != truck)
@@ -92,9 +94,11 @@ namespace APC.Logistics
                 {
                     nextDump = Time.time + config.DumpInterval;
                     gold.Add(truck.TakeCargo(), config.DumpJumpPower, config.DumpFlyDuration); // 다 쏟으면 InboundBay가 트럭을 보낸다
+                    absorbReadyTime = Time.time + config.DumpFlyDuration + 0.2f; // 마지막 덩이가 착지한 뒤
                 }
             }
-            if (absorbing || gold.Count == 0) return;
+            // 다 쌓인 뒤에만 회수 (2026-11-19 — 알바가 앞에 서 있으면 금이 보이기도 전에 바로 돈이 됐다)
+            if (absorbing || gold.Count == 0 || dumping || Time.time < absorbReadyTime) return;
             foreach (var who in Interactor.All)
             {
                 if (!IsNear(who)) continue;

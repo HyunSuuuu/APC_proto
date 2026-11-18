@@ -42,8 +42,8 @@ namespace APC.Data
         public struct BackgroundPlacement
         {
             [Tooltip("배경 프리팹 (칸 하나 크기, 가운데 = 원점)")] public GameObject prefab;
-            [Min(0)] public int row;
-            [Min(0)] public int column;
+            [Tooltip("행 (부지 1~4, 바깥은 0 이하 · 5 이상도 됨)")] public int row;
+            [Tooltip("열 (부지 1~6, 바깥은 0 이하 · 7 이상도 됨)")] public int column;
             [Tooltip("Y 회전 (0 / 90 / 180 / 270). 주차장 바닥은 그 칸을 쓰는 시작 하차 · 상차 모듈과 같은 회전")] public int rotation;
         }
 

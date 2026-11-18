@@ -45,7 +45,7 @@ namespace APC.Data
         [SerializeField, Min(0.01f), Tooltip("금 1덩이씩 쏟는 간격 (초)")] float dumpInterval = 0.08f;
         [SerializeField, Min(0f), Tooltip("쏟을 때 튀어 오르는 높이 (m)")] float dumpJumpPower = 1.5f;
         [SerializeField, Min(0.05f), Tooltip("트럭에서 바닥까지 날아가는 시간 (초)")] float dumpFlyDuration = 0.4f;
-        [SerializeField, Tooltip("픽업 존 바닥에 쌓는 모양 (열 · 행 · 간격 · 층 높이)")] CargoGridLayout pileLayout = new(3, 2, 0.6f, 0.5f);
+        [SerializeField, Tooltip("픽업 존 바닥에 쌓는 모양 (열 · 행 · 간격 · 층 높이)")] CargoGridLayout pileLayout = new(3, 2, 1.15f, 0.24f, 0.47f); // 금덩이 1.12 × 0.23 × 0.45 (2026-11-19 ×1.6)
         [SerializeField, Min(0f), Tooltip("다 쏟은 뒤 트럭이 떠나기까지 (초)")] float leaveDelay = 0f;
 
         [Header("흡수")]

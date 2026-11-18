@@ -19,12 +19,14 @@ namespace APC.Characters
         static readonly int RolltainerIdle = Animator.StringToHash("push_rolltainer_idle");
         static readonly int Rolltainer = Animator.StringToHash("push_rolltainer");
         static readonly int Riding = Animator.StringToHash("riding");
+        static readonly int Packing = Animator.StringToHash("packing");
 
         [SerializeField] CarryStack stack;
         [SerializeField, Min(0f), Tooltip("이 속도(m/s)보다 빠르면 걷는 중")] float moveThreshold = 0.15f;
         [SerializeField, Min(0f)] float crossFade = 0.12f;
 
         Animator animator;
+        Interaction.Interactor interactor;
         Vector3 lastPosition;
         int current;
 
@@ -58,7 +60,12 @@ namespace APC.Characters
             var moving = delta.magnitude / deltaTime > moveThreshold;
 
             var holding = stack != null && stack.Count.CurrentValue > 0;
-            var state = UseRiding ? Riding
+            // 재포장 테이블에서 게이지를 채우는 중 = packing (2026-11-19). 컨트롤러에 상태가 없으면 건너뜀
+            interactor ??= GetComponent<Interaction.Interactor>();
+            var packing = !moving && !UseRiding && interactor != null && interactor.CurrentZone is RepackTable table && table.IsTicking
+                          && animator.HasState(0, Packing);
+            var state = packing ? Packing
+                : UseRiding ? Riding
                 : PushTool == 1 ? (moving ? Wagon : WagonIdle)
                 : PushTool >= 2 ? (moving ? Rolltainer : RolltainerIdle)
                 : holding ? (moving ? CarryMove : CarryIdle)
