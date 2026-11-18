@@ -79,6 +79,7 @@ namespace APC.UI
         {
             if (!runOnStart || Disabled) yield break;
             yield return null; // 모듈 · 선반 · 알바 서비스가 Start를 마칠 때까지
+            yield return new WaitUntil(() => Site.StartSequence.OfficeBuilt); // 시작 순서(건물 → 사무실) 뒤에 (GDD 9.6). shortcut: 순서 맞춤은 M16-6
             BuildBanner();
             foreach (var who in Interactor.All)
             {

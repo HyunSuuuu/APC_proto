@@ -227,6 +227,8 @@ namespace APC.Debugging
             }
 
             Header("Site");
+            var start = StartSequence.Instance; // 시작 순서 (GDD 9.6)
+            if (start != null && start.Running && GUILayout.Button("Skip start", buttonStyle)) start.Skip();
             GUI.enabled = next != null;
             if (GUILayout.Button(next != null ? $"Unlock {next} (Lv.{nextLevel})" : "All unlocked", buttonStyle)) grid.Unlock(next);
             GUI.enabled = true;

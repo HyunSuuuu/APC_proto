@@ -85,7 +85,7 @@ Editor ─→ 전부   (런타임 코드는 Editor를 참조하지 않는다)
 | `Site` | NavMeshSurface, SiteNavMesh + 아래 참고 | **Build Site** (지우고 다시 만듦) |
 | └ `Ground` | 초록 바닥 (임시 — 모듈 바닥으로 충분해지면 삭제 예정). NavMeshModifier로 네비메시에서 제외 | Build Site |
 | └ `Logistics` | Warehouse, ContractService, OrderService, PartService, StaffService | Build Site |
-| └ `SiteGrid` | SiteGrid, SiteUnlocker + 시작 모듈 프리팹 인스턴스 13개 (모듈 5 + 빈 공간 8, GDD 4.2 6 × 4). 실행 중 해금 모듈 · 공사장 울타리가 여기 붙음. 사무실 모듈 안에 `StaffSpawnPoint`(알바 생성 위치) | Build Site |
+| └ `SiteGrid` | SiteGrid, SiteUnlocker, StartSequence(M16-5, 시작 모듈을 꺼 두고 발판 차례로 켬 — Build Site는 안 붙임, MCP로 붙임) + 시작 모듈 프리팹 인스턴스 13개 (모듈 5 + 빈 공간 8, GDD 4.2 6 × 4). 실행 중 해금 모듈 · 공사장 울타리가 여기 붙음. 사무실 모듈 안에 `StaffSpawnPoint`(알바 생성 위치) | Build Site |
 
 ---
 
@@ -289,7 +289,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### Wallet
 [Core/Wallet.cs](../Scripts/Core/Wallet.cs)
 - **역할**: 돈 두 칸 (GDD 9.1): `Cash` = **보유 재화**(쓰는 돈), `Piggy` = **저금통**(이번 파트에 주운 돈, 못 씀). 둘 다 R3.
-- **동작**: `Add` 보유 재화 입금(정산 · 디버그) / `AddToPiggy` 저금통 입금(현금 존) / `SettlePiggy(조정액)` 파트 정산 — 저금통 + 조정액(보너스 − 시급)을 보유 재화로, 저금통 = 0 / `TrySpend` · `SpendUpTo` 보유 재화에서만 차감 (구매 패드 · 고용).
+- **동작**: `Add` 보유 재화 입금(정산 · 디버그) / `AddToPiggy` 저금통 입금(현금 존, `DirectToCash`면 보유 재화로 — 사무실 전, GDD 9.6) / `SettlePiggy(조정액)` 파트 정산 — 저금통 + 조정액(보너스 − 시급)을 보유 재화로, 저금통 = 0 / `TrySpend` · `SpendUpTo` 보유 재화에서만 차감 (구매 패드 · 고용).
 
 #### PlayerUpgrades
 [Core/PlayerUpgrades.cs](../Scripts/Core/PlayerUpgrades.cs)
@@ -318,7 +318,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | [ItemDefinition](../Scripts/Data/ItemDefinition.cs) | `Items/Item_A` ~ `Item_D` | 품목 id, 이름, **테이프 색**(A 갈색 · B 초록 · C 파랑 · D 주황), 아이콘, 단가 |
 | [CompanyDefinition](../Scripts/Data/CompanyDefinition.cs) | `Companies/Company_A` ~ `Company_D` | **입고 시작 레벨**(`unlockLevel`), **가중치**(`weight`, 입고 회사 비율), `isLarge`(D사, 지금은 표시만), 품목 1종, 입고 트럭 적재량, **선반 구역**(`shelfAreaId`, 임시), **단가**(`contractUnitPrice`, 출고 상자 1개당 현금) |
 | [LevelTable](../Scripts/Data/LevelTable.cs) | `LevelTable` | 레벨별 필요 XP · 최대 알바 · 해금 메모 (GDD 10.3 Lv.1~7, 2026-11-18 타임라인 순서 — XP 3 · 6 · 9 · 6 · 9 · 9 · 9, 알바 2~8). 목록 이후 레벨은 공식으로 계산 (Lv.8~ = 9 XP · 알바 8). 기본값으로 되돌리기 = 에셋 우클릭 메뉴 `ResetLevels` |
-| [EconomyConfig](../Scripts/Data/EconomyConfig.cs) | `EconomyConfig` | 시작 보유 재화, 구매 패드 시간, 업그레이드 비용, **선반 단계 비용** `shelfStageCosts`(150 · 300), **현금 더미**(다발 금액 · 최대 보이는 수 · 흡수 반경 · 날아가는 간격/시간), **파트 · 정산**(파트 길이 180 · 저금통 단계 3 · 가득 기준), 경험치 |
+| [EconomyConfig](../Scripts/Data/EconomyConfig.cs) | `EconomyConfig` | 시작 보유 재화, **시작 발판 비용** `startBuildCosts`(건물 20 · 하차 10 · A보관 10 · 상차 10 · 사무실 100), 구매 패드 시간, 업그레이드 비용, **선반 단계 비용** `shelfStageCosts`(150 · 300), **현금 더미**(다발 금액 · 최대 보이는 수 · 흡수 반경 · 날아가는 간격/시간), **파트 · 정산**(파트 길이 180 · 저금통 단계 3 · 가득 기준), 경험치 |
 | [OrderRules](../Scripts/Data/OrderRules.cs) | `OrderRules` | 상차 트럭 1대 합계 수량 가중치(3~6 = 40/30/20/10), 두 색 확률 `twoColorChance`(0.5) |
 | [StaffRules](../Scripts/Data/StaffRules.cs) | `StaffRules` | 알바 스탯 생성 · 스탯 효과 · 고용금 · 시급 · 직무 색(4개) · 코스튬 확률(`costumeChance` 0.1) · 작업 대기 · 집기 간격 (M6, M13-7) |
 | [PlayerConfig](../Scripts/Data/PlayerConfig.cs) | `PlayerConfig` | 이동 속도 · 회전 속도 · 뛰기 기준, 기본 적재(손 3개), **업그레이드 단계** `carrySteps` · `speedSteps` (`PlayerUpgradeStep` 이름 · 값 · 해금 레벨 · 비용), 집기 간격, **상호작용 대기 시간**, 내려놓기 ↔ 집기 전환 쿨타임 |
@@ -729,7 +729,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **동작**:
   - `Awake`: Build Site가 구운 시작 모듈들의 칸을 연다.
   - `Unlock(id)`: **같이 해금되는 묶음 전체**를 연다 — 묶음 안 어느 id를 넘겨도 같다. 모듈마다 config에서 배치를 찾아 만들고, 칸을 열고, 팝 연출 후 `OnUnlocked`를 보낸다(모듈마다 한 번). 새로 붙은 모듈이 없으면 false.
-  - `IsWalkable(위치)` / `IsAreaWalkable(중심, 반지름)`: 열린 칸 안인지 (반지름은 네 모서리로 검사).
+  - `IsWalkable(위치)` / `IsAreaWalkable(중심, 반지름)`: 열린 칸 안인지 (반지름은 네 모서리로 검사). `SetExtraWalkable(cells)`로 준 칸도 걸을 수 있다 (시작 전 빈 땅 · 입구).
+  - 시작 순서(`StartSequence`, M16-5): `Park(id)` = 씬에 놓인 모듈을 꺼서 잠금(`Awake` 전에 불러야 칸이 안 열림) → 나중 `Unlock`은 새로 만들지 않고 그것을 켠다(손으로 고친 회전 등 유지). `OpenCell(cell)` = 모듈 없이 칸만 열고 `OnUnlocked("")`.
   - `IsCellOpen(cell)`: 칸 (열, 행)이 열렸나 (인접 확인용).
   - 빈 공간: `Unlock`이 붙일 모듈의 칸에 있는 `Empty` 모듈을 **끈다** (`SetActive(false)`, instance는 남아 해금된 것으로 침 → 바닥 충돌체가 빠져 네비메시에서도 빠짐). 빈 공간 칸에 놓이는 1칸 모듈은 처음 칸이 차 있으면 `TryFindEmptyCell`(가장 가까운 빈 공간)에 붙는다 — 발판 자리와 같은 규칙.
   - 칸 조회는 **모듈 실제 위치**로 한다 (재배치 뒤 config `row` · `column`과 다름): `WorldToCell`, `CellCenter(cell)`, `ModuleAt(cell)`(켜진 모듈), `IsEmptyTile(cell)`, `TryFindEmptyCell(preferred)`, `IdOf(module)`. `OpenedCells` = 열린 칸 전부 (`SiteWalls`가 씀).
@@ -767,8 +768,21 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### ExpansionPad
 [Site/ExpansionPad.cs](../Scripts/Site/ExpansionPad.cs)
 - **역할**: 모듈 해금 발판 (`PurchasePad`, GDD 9.2). 바닥 존 + 원형 게이지 + 남은 금액 + 모듈 이름.
-- **동작**: `Setup(placementId, 이름, 비용)`. 다 내면 `SiteGrid.Unlock(placementId)` → XP +3 → 사라짐.
-- **연결**: `SiteUnlocker`가 만든다. 프리팹은 `StandardModules.ExpansionPadPrefab()` (M5에 있다가 v0.3에서 지웠던 것을 M11-3 때 되살림).
+- **동작**: `Setup(placementId, 이름, 비용)`. 다 내면 `SiteGrid.Unlock(placementId)`(id가 비면 안 함) → `Purchased` 이벤트 → XP +3(`RewardXp` false면 없음) → 사라짐.
+- **연결**: `SiteUnlocker` · `StartSequence`가 만든다. 프리팹은 `StandardModules.ExpansionPadPrefab()` (M5에 있다가 v0.3에서 지웠던 것을 M11-3 때 되살림).
+
+#### StartSequence
+[Site/StartSequence.cs](../Scripts/Site/StartSequence.cs)
+- **역할**: 시작 — 빈 땅에서 건물 세우기 (GDD 9.6, M16-5). SiteGrid 오브젝트에 붙는다. 없거나 꺼져 있으면 옛 Lv.1 시작.
+- **동작**:
+  - `Awake`(실행 순서 −950, SiteGrid보다 먼저): 시작 모듈(`isStartArea`)을 모두 `SiteGrid.Park`, 걷기 = 13칸 + 입구 칸(`entranceCell` (0,2)), `Wallet.DirectToCash` 켬, `OfficeBuilt` · `TrucksOpen` = false.
+  - `Start`: 플레이어를 입구 칸으로(원래 자리는 기억), 13칸 바깥 둘레에 `ConstructionFence`(안쪽 · 입구 변 조각 · 표지 끔), 13칸에 빈 공간 타일 자리표시 + 입구 칸 보이지 않는 바닥 → 첫 발판.
+  - 발판 차례(`ExpansionPad`, XP 없음, 비용 `EconomyConfig.StartBuildCost(i)`): 건물(입구 안쪽) → `In1` → `StoreA1` → `Out1`(→ `TrucksOpen`) → `Office`(→ 끝).
+  - 건물: 울타리 걷고 플레이어 칸부터 가까운 순서로 `buildDuration`(1초) 동안 칸을 연다 — 쓰레기장 · 빈 공간은 `Unlock`, 나머지 넷은 자리표시 그대로 `OpenCell`. 모듈이 붙으면 그 칸 자리표시를 지운다.
+  - 끝(`Finish`): `OfficeBuilt` true, 저금통으로 되돌림, `PartService.BeginFirstPart`, `SiteUnlocker.Refresh`(레벨 건설 타일).
+  - `Skip()`: 디버그 `Skip start` — 남은 모듈 다 붙이고 플레이어 원래 자리 → `Finish`.
+- **연결**: 발판 · 울타리 프리팹은 `SiteUnlocker.PadPrefab` · `FencePrefab`. `OfficeBuilt`를 `SiteUnlocker.Refresh` · `PartService` · `TutorialGuide`가, `TrucksOpen`을 `InboundQueue`가 본다.
+- **주의**: 부지 땅(`Ground`)은 y −1.79라 모듈 바닥 충돌체 없이는 떨어진다 — 그래서 자리표시 바닥 · 입구 바닥. 정적 플래그(`OfficeBuilt` 등)는 컴포넌트가 없으면 true.
 
 #### ConstructionFence
 [Site/ConstructionFence.cs](../Scripts/Site/ConstructionFence.cs)

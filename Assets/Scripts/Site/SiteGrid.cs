@@ -28,6 +28,8 @@ namespace APC.Site
         readonly Subject<string> unlocked = new();
         readonly Subject<Unit> movedSubject = new();
         readonly HashSet<Vector2Int> openCells = new(); // (열, 행)
+        readonly HashSet<Vector2Int> extraWalkable = new(); // 시작 전 빈 땅 + 입구 (StartSequence, GDD 9.6)
+        readonly Dictionary<string, SiteModule> parked = new(); // 씬에 미리 놓였지만 아직 안 지은 시작 모듈 (꺼 둠)
         SiteLayout layout;
 
         public IReadOnlyList<Entry> Entries => entries;
@@ -96,29 +98,41 @@ namespace APC.Site
             var entry = Find(id);
             if (entry == null || entry.instance != null) return false;
 
-            if (!layout.TryGetPlacement(id, out var placement) || placement.module == null)
+            if (!layout.TryGetPlacement(id, out var placement))
             {
-                Debug.LogWarning($"[SiteGrid] '{id}' 배치나 모듈 프리팹이 config에 없습니다.", this);
+                Debug.LogWarning($"[SiteGrid] '{id}' 배치가 config에 없습니다.", this);
                 return false;
             }
 
-            var position = layout.GetModuleCenter(placement, placement.module.Size);
             var cells = SiteLayout.GetCells(placement);
-            if (cells.Count == 1 && openCells.Contains(cells[0]))
+            if (parked.Remove(id, out var module))
             {
-                // 빈 공간 칸에 놓이는 모듈: 처음 칸이 재배치로 차 있으면 가장 가까운 빈 공간 (GDD 4.2 · 4.4, 발판 자리와 같은 규칙)
-                if (!TryFindEmptyCell(cells[0], out var cell))
+                module.gameObject.SetActive(true); // 씬에 놓인 그대로 (손으로 고친 회전 등 유지)
+            }
+            else
+            {
+                if (placement.module == null)
                 {
-                    Debug.LogWarning($"[SiteGrid] '{id}'를 놓을 빈 공간이 없습니다.", this);
+                    Debug.LogWarning($"[SiteGrid] '{id}' 모듈 프리팹이 config에 없습니다.", this);
                     return false;
                 }
-                cells[0] = cell;
-                position = layout.CellCenter(cell.y, cell.x);
-            }
+                var position = layout.GetModuleCenter(placement, placement.module.Size);
+                if (cells.Count == 1 && openCells.Contains(cells[0]))
+                {
+                    // 빈 공간 칸에 놓이는 모듈: 처음 칸이 재배치로 차 있으면 가장 가까운 빈 공간 (GDD 4.2 · 4.4, 발판 자리와 같은 규칙)
+                    if (!TryFindEmptyCell(cells[0], out var cell))
+                    {
+                        Debug.LogWarning($"[SiteGrid] '{id}'를 놓을 빈 공간이 없습니다.", this);
+                        return false;
+                    }
+                    cells[0] = cell;
+                    position = layout.CellCenter(cell.y, cell.x);
+                }
 
-            HideEmptyTiles(cells);
-            var module = Instantiate(placement.module, position, SiteLayout.GetRotation(placement), transform);
-            module.name = $"Module_{id}";
+                HideEmptyTiles(cells);
+                module = Instantiate(placement.module, position, SiteLayout.GetRotation(placement), transform);
+                module.name = $"Module_{id}";
+            }
             entry.instance = module;
             foreach (var cell in cells) openCells.Add(cell);
             FacilityPop.Play(module.transform);
@@ -196,8 +210,38 @@ namespace APC.Site
             if (moved) movedSubject.OnNext(Unit.Default);
         }
 
-        /// <summary>그 위치가 열린 칸 안인가.</summary>
-        public bool IsWalkable(Vector3 worldPosition) => openCells.Contains(WorldToCell(worldPosition));
+        /// <summary>그 위치가 열린 칸 안인가 (시작 전에는 빈 땅 · 입구 칸도).</summary>
+        public bool IsWalkable(Vector3 worldPosition)
+        {
+            var cell = WorldToCell(worldPosition);
+            return openCells.Contains(cell) || extraWalkable.Contains(cell);
+        }
+
+        /// <summary>
+        /// 시작 순서(StartSequence, GDD 9.6): 씬에 놓인 모듈을 꺼서 잠근다 — 나중에 Unlock하면 새로 만들지 않고 이것을 켠다.
+        /// SiteGrid.Awake보다 먼저 불러야 칸이 열리지 않는다.
+        /// </summary>
+        public void Park(string id)
+        {
+            var entry = Find(id);
+            if (entry?.instance == null) return;
+            entry.instance.gameObject.SetActive(false);
+            parked[id] = entry.instance;
+            entry.instance = null;
+        }
+
+        /// <summary>모듈 없이 칸만 연다 (시작 건물: 아직 안 지은 하차 · 보관 · 상차 · 사무실 칸). OnUnlocked는 빈 id로 보낸다.</summary>
+        public void OpenCell(Vector2Int cell)
+        {
+            if (openCells.Add(cell)) unlocked.OnNext(string.Empty);
+        }
+
+        /// <summary>열린 칸이 아니어도 걸을 수 있는 칸 (시작 전 빈 땅 · 입구). 빈 목록이면 끈다.</summary>
+        public void SetExtraWalkable(IEnumerable<Vector2Int> cells)
+        {
+            extraWalkable.Clear();
+            extraWalkable.UnionWith(cells);
+        }
 
         /// <summary>반지름 radius인 원(네 모서리)이 모두 열린 칸 안인가.</summary>
         public bool IsAreaWalkable(Vector3 center, float radius)

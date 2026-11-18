@@ -51,6 +51,7 @@
 | 바꾸고 싶은 것 | 파일 | 항목 |
 |---|---|---|
 | 시작 돈 | `EconomyConfig` | Starting Cash |
+| 시작 발판 비용 (건물 · 하차 · A보관 · 상차 · 사무실 순) | `EconomyConfig` | Start Build Costs |
 | 파트(하루) 길이 | `EconomyConfig` | Part Length Seconds |
 | 건설 타일로 받는 XP | `EconomyConfig` | Xp Purchase |
 | 레벨업에 필요한 XP · 최대 알바 수 | `LevelTable` | Levels → Element N |

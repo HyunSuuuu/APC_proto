@@ -53,7 +53,7 @@ namespace APC.Logistics
                 // 그 색 보관 구역(선반)이 없으면 그 색 트럭은 안 나온다 (GDD 6.3). 줄이 차면 자리가 날 때까지 멈춤
                 yield return new WaitUntil(() =>
                 {
-                    if (truckPrefab == null || line.Count >= config.InboundQueueSize) return false;
+                    if (truckPrefab == null || line.Count >= config.InboundQueueSize || !Site.StartSequence.TrucksOpen) return false; // 상차 1을 지어야 시작 (GDD 9.6)
                     candidates.Clear();
                     foreach (var c in ContractService.Instance.Contracted)
                     {

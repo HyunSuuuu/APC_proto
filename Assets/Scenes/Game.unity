@@ -7078,6 +7078,7 @@ GameObject:
   - component: {fileID: 811996141}
   - component: {fileID: 811996142}
   - component: {fileID: 811996143}
+  - component: {fileID: 811996144}
   m_Layer: 0
   m_Name: SiteGrid
   m_TagString: Untagged
@@ -7234,6 +7235,22 @@ MonoBehaviour:
   spacing: 7
   truckYaw: 180
   markerMaterial: {fileID: 2100000, guid: 1b0e0ecd08924f145959ed18e5ea4dac, type: 2}
+--- !u!114 &811996144
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 811996137}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9187e50039e5b0e4682cc23acef26414, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::APC.Site.StartSequence
+  entranceCell: {x: 0, y: 2}
+  doorCell: {x: 1, y: 2}
+  firstPadOffset: {x: -2, y: 0, z: 0}
+  buildDuration: 1
 --- !u!1 &822673191
 GameObject:
   m_ObjectHideFlags: 0

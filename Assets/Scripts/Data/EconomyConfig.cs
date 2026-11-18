@@ -8,6 +8,8 @@ namespace APC.Data
     {
         [Header("시작")]
         [SerializeField, Min(0), Tooltip("시작 보유 재화 (GDD 9.1)")] int startingCash = 50;
+        [SerializeField, Tooltip("시작 순서 발판 비용 [건물, 하차 1, A보관, 상차 1, 사무실] (GDD 9.6 임시). 앞 넷 합 = 시작 보유 재화")]
+        int[] startBuildCosts = { 20, 10, 10, 10, 100 };
 
         [Header("구매 패드")]
         [SerializeField, Min(0.1f), Tooltip("금액과 관계없이 전액이 들어가는 시간 (초)")] float padFillDuration = 1.5f;
@@ -35,6 +37,9 @@ namespace APC.Data
         [SerializeField, Min(0), Tooltip("모듈 해금 발판 · 업그레이드 1번")] int xpPurchase = 3;
 
         public int StartingCash => startingCash;
+
+        /// <summary>시작 순서 발판 i번째 비용 (0 건물 · 1 하차 1 · 2 A보관 · 3 상차 1 · 4 사무실). 없으면 0.</summary>
+        public int StartBuildCost(int index) => startBuildCosts != null && index < startBuildCosts.Length ? startBuildCosts[index] : 0;
         public float PadFillDuration => padFillDuration;
         public int[] PlayerCarryUpgradeCosts => playerCarryUpgradeCosts;
         public int[] PlayerSpeedUpgradeCosts => playerSpeedUpgradeCosts;

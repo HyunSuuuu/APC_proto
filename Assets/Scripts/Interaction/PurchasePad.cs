@@ -64,9 +64,12 @@ namespace APC.Interaction
         {
             done = true;
             OnPurchased(who);
-            GameManager.Instance.Level.AddXp(GameManager.Instance.Database.Economy.XpPurchase);
+            if (GivesXp) GameManager.Instance.Level.AddXp(GameManager.Instance.Database.Economy.XpPurchase);
             Disappear();
         }
+
+        /// <summary>다 냈을 때 XP를 주는가 (시작 순서 발판은 안 줌, GDD 9.6).</summary>
+        protected virtual bool GivesXp => true;
 
         /// <summary>구매 완료 시 할 일 (시설 생성, 칸 해금 등).</summary>
         protected abstract void OnPurchased(Interactor who);
