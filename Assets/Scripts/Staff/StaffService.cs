@@ -12,12 +12,16 @@ namespace APC.Staff
     /// <summary>고용 탭 후보 1명 (GDD 11.1). 고용하면 Hired가 켜지고 다음 교체(파트 · 새로고침)까지 그 자리에 남는다.</summary>
     public sealed class StaffCandidate
     {
-        public StaffCandidate(StaffRole role, StaffStats stats, bool costume)
+        public StaffCandidate(StaffRole role, StaffStats stats, bool costume, bool free = false)
         {
             Role = role;
             Stats = stats;
             Costume = costume;
+            Free = free;
         }
+
+        /// <summary>고용금 0 (튜토리얼 첫 고용, GDD 13).</summary>
+        public bool Free { get; }
 
         /// <summary>정해져 나온 직무 (고용 뒤 바꿀 수 없음, GDD 11.1 · 2026-11-18).</summary>
         public StaffRole Role { get; }
@@ -122,7 +126,20 @@ namespace APC.Staff
             candidatesChanged.OnNext(Unit.Default);
         }
 
-        public int GetHireCost(StaffCandidate candidate) => GameManager.Instance.Database.Staff.GetHireCost(candidate.Role, candidate.Stats.Total);
+        public int GetHireCost(StaffCandidate candidate) => candidate.Free ? 0 : GameManager.Instance.Database.Staff.GetHireCost(candidate.Role, candidate.Stats.Total);
+
+        /// <summary>튜토리얼 첫 고용 (GDD 13): 첫 후보 자리를 무료 고정 알바로 바꾼다. 이미 있으면 그대로.</summary>
+        public void OfferFreeCandidate(StaffRole role, StaffStats stats)
+        {
+            foreach (var c in candidates)
+            {
+                if (c.Free) return;
+            }
+            var free = new StaffCandidate(role, stats, false, true);
+            if (candidates.Count > 0) candidates[0] = free;
+            else candidates.Add(free);
+            candidatesChanged.OnNext(Unit.Default);
+        }
 
         public HireBlock GetBlock(StaffCandidate candidate)
         {

@@ -5,7 +5,7 @@ using UnityEngine.UI;
 namespace APC.UI
 {
     /// <summary>
-    /// 가이드 화살표 (GDD 12.1, 플레이어만). 들고 있는 화물의 목적지를 가리킨다 — 손이 비면 표시하지 않는다. 정전 중엔 분전반 (GDD 14.3).
+    /// 가이드 화살표 (GDD 12.1, 플레이어만). 들고 있는 화물의 목적지를 가리킨다 — 손이 비면 표시하지 않는다 (튜토리얼 중엔 단계 대상).
     /// 트럭 화물 → 가장 가까운 빈자리 있는 팔레트 / 팔레트 화물 → 그 품목 선반 / 선반 화물 → 그 품목이 필요한 정차 출고 트럭 상차 존.
     /// 목표가 화면 안이면 목표 위에서 아래를 가리키며 통통 튀고, 화면 밖이면 화면 가장자리에서 목표 쪽을 가리키며 늘었다 줄었다 한다.
     /// </summary>
@@ -24,6 +24,9 @@ namespace APC.UI
         Camera cam;
         Canvas canvas;
         Vector3? target;
+
+        /// <summary>튜토리얼 단계 대상 (GDD 13). 손이 비었을 때 가리킨다.</summary>
+        public static Transform TutorialTarget;
         float nextSearch;
 
         void Awake()
@@ -79,10 +82,7 @@ namespace APC.UI
         /// <summary>들고 있는 화물의 목적지 (작업 고정이라 출처는 하나). 손이 비었거나 갈 곳이 없으면 null.</summary>
         Vector3? FindTarget()
         {
-            // 정전 중엔 손과 상관없이 분전반을 가리킨다 (GDD 14.3, 2026-11-18)
-            var outage = Events.Outage.Instance;
-            if (Events.Outage.Active && outage.Breaker != null) return outage.Breaker.position;
-            if (stack == null || stack.Items.Count == 0) return null;
+            if (stack == null || stack.Items.Count == 0) return TutorialTarget != null ? TutorialTarget.position : null;
             var from = stack.transform.position;
             var cargo = stack.Items[stack.Items.Count - 1];
 

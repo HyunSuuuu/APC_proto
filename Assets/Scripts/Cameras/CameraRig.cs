@@ -40,6 +40,7 @@ namespace APC.Cameras
         Vector3 focusVelocity;
         float distance;
         Tween returnTween;
+        bool spotlight; // 튜토리얼 강조 중: 플레이어를 따라가지 않는다
 
         public ReadOnlyReactiveProperty<CameraMode> Mode => mode;
 
@@ -85,7 +86,7 @@ namespace APC.Cameras
             {
                 HandleFreeInput();
             }
-            else if (returnTween == null)
+            else if (returnTween == null && !spotlight)
             {
                 distance = config.DefaultDistance;
                 if (target != null) focus = Vector3.SmoothDamp(focus, target.position, ref focusVelocity, config.FollowDamping);
@@ -137,12 +138,42 @@ namespace APC.Cameras
                     distance = Mathf.Lerp(startDistance, config.DefaultDistance, t);
                 })
                 .SetEase(Ease.OutCubic)
+                .SetUpdate(true) // 튜토리얼 강조 뒤 멈춘 시간에서도 돌아온다
                 .SetLink(gameObject)
                 .OnComplete(() =>
                 {
                     returnTween = null;
                     focusVelocity = Vector3.zero;
                 });
+        }
+
+        /// <summary>
+        /// 튜토리얼 강조 (GDD 13): 카메라를 `point`로 옮기고 기본 거리 × `zoom`으로 확대한다. 시간이 멈춰 있어도 움직인다 (unscaled).
+        /// 끝나면 EndSpotlight로 플레이어에게 돌아온다.
+        /// </summary>
+        public Tween Spotlight(Vector3 point, float zoom, float duration)
+        {
+            returnTween?.Kill();
+            returnTween = null;
+            mode.Value = CameraMode.Follow;
+            spotlight = true;
+            var startFocus = focus;
+            var startDistance = distance;
+            var goalDistance = config.DefaultDistance * zoom;
+            return DOVirtual.Float(0f, 1f, duration, t =>
+                {
+                    focus = Vector3.Lerp(startFocus, point, t);
+                    distance = Mathf.Lerp(startDistance, goalDistance, t);
+                })
+                .SetEase(Ease.InOutCubic)
+                .SetUpdate(true)
+                .SetLink(gameObject);
+        }
+
+        public void EndSpotlight()
+        {
+            spotlight = false;
+            ReturnToFollow();
         }
 
         void HandleFreeInput()

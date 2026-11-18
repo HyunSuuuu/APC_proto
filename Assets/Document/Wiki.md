@@ -56,7 +56,6 @@
 | `Economy` | 파트 타이머 · 파트 종료 정산 · 사무실 투명 저금통 |
 | `Site` | 부지 격자와 모듈 해금 |
 | `UI` | 팝업, 월드 글자 정렬, HUD 초기화 (`UiBootstrap`) |
-| `Events` | 돌발 이벤트 — 정전 · 분전반 (M13-15) |
 | `Debugging` | 치트 메뉴 (에디터 · 개발 빌드 전용) |
 | `Editor` | 씬 · 프리팹 · 데이터 자동 생성 메뉴 (빌드에 포함 안 됨) |
 
@@ -379,6 +378,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 쿼터뷰 카메라. `Main Camera`에 붙는다.
 - **동작**:
   - **추적 모드**: 초점이 플레이어를 `SmoothDamp`로 따라가고, 카메라는 초점에서 `pitch` · `yaw` · 거리만큼 떨어진다.
+  - **튜토리얼 강조** (M13-17): `Spotlight(point, zoom, duration)` = 초점을 대상으로 · 거리를 기본 × zoom으로 (unscaled, 멈춘 시간에도), 그동안 추적 안 함. `EndSpotlight()` = 추적 복귀 (`ReturnToFollow`도 unscaled).
   - **자유 모드**: 한 손가락 드래그로 이동(손가락 아래 바닥 지점이 따라오게), 두 손가락 핀치나 마우스 휠로 줌.
   - 추적으로 돌아갈 때는 0.4초 동안 부드럽게 복귀한다.
 - **주의**: `[ExecuteAlways]` — Play 전에도 config대로 플레이어를 비춘다. 값이 같으면 Transform을 건드리지 않아 씬이 수정된 것으로 표시되지 않는다. 조이스틱 방향 변환용 `Yaw`를 `PlayerMover`에 제공한다.
@@ -627,7 +627,6 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 알바 1명. 플레이어와 같은 `Interactor` · `CarryStack`을 쓰고, 이동은 `NavMeshAgent`가 한다 ([GDD 11](GDD.md#11-알바생)).
 - **지게차 직무** (M11-8): `SetRole(Forklift)` = `Interactor.Forklift` · 자식 `Forklift`(Prop `Forklift` + 포크 `Plastic_Pallet`, M_Prop, 꺼진 채) 켬 · 스택 바닥 `ForkliftAnchor`(팔레트 위) · `CharacterAnimator.UseRiding`. 작업 존 = `TruckPickupZone`(D 트럭) · D 랙 `ShelfZone`, 트럭 예약 수 = `LargeRoom`. 적재 4 고정 (`StaffRules.GetCarry`).
 - **동작**: 상태 `Phase` = `Idle / Moving / Working / Parked / Waiting`. 집는 곳은 직무로 정한다 (하차 `TruckPickupZone`, 보관(`Sort`) `StorageZone` 중 Pallet · Repacked, 상차(`Pick`) `ShelfZone`, 반품 = Returns · Trash `StorageZone` + 재포장 테이블). **반품 알바**(M13-12, `ReturnsWork`): 막히는 곳부터 — `TrashFull`이면 쓰레기 출력에서 줍기 → 재포장(`TryGauge`: 가장 가까운 `RepackTable.HasWork` 테이블 슬롯으로 가서 `gauge`로 두고, `HasWork`인 동안 서 있음) → 반품 팔레트에서 줍기 → 쓰레기 줍기 (`ReturnsFocus`로 `IsRoleZone`을 좁힘). 적재 = `StaffRules.returnsCarry` 12 (스탯 무관, `SetRole`에서). 내려놓는 곳은 들고 있는 화물을 받는 존(`CargoZone.CanReceiveAny`)이라서, 역할을 바꿔도 화물은 원래 목적지로 간다. 가장 가까운 빈 `WorkSlot`을 출발할 때 예약하고, 도착하면 `Interactor.Target`을 그 존으로 두고 `AllowDrop` · `AllowPick`을 작업에 맞춘다. 옮길 것이 `workIdleTimeout`(0.5초) 동안 없거나 가득 · 빈손이 되면 작업을 끝낸다. 예약은 3역할 공통 ([GDD 8.4](GDD.md#84-수요-계산)): 출발할 때 가져갈 만큼 `Reserve()`로 잡고, 도착하면 `ReleaseReservation()`으로 푼다. 해제는 `releaseReservation` 함수 하나. 하차 = `InboundTruck.Reserve`, 분류 = `Warehouse.ReserveShelfSpace`(`PlanForShelves` 품목별), 피킹 = `OrderService.Reserve`.
-- **정전** (M13-15): `Outage.Active`면 제자리 멈춤(`agent.isStopped`, `Interactor` 끔). 나가는 중(해고 · 퇴사)이면 그대로.
 - **연결**: `Setup(role, stats, costume)`(`StaffService.Spawn`이 부른다), `SetRole`은 `Setup` 안에서만 (직무 변경 삭제 2026-11-18, 적재 = `StaffRules.GetCarry(role, carry)` — 반품 12 · 지게차 4 고정), `Fire()`(해고), `Role` · `Stats` · `State` · `Stack` · `Number`(고용 순 번호, `DisplayName` = `알바 N`) · `Fired`. 설정값은 `StaffRules`.
 - **주의**:
   - 가는 중 대상이 사라지면 예약을 풀고, `thinkInterval`(0.25초)마다 다시 고른다. 가는 중 확인(`StillValid`)은 예약을 잠깐 풀고 다시 확인해 다시 잡는다.
@@ -643,7 +642,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Staff/StaffService.cs](../Scripts/Staff/StaffService.cs)
 - **역할**: 알바 명단 · 고용 후보 · 고용 (GDD 11.1). 씬 `Site/Logistics`에 하나 (`Instance`).
 - **동작**:
-  - 후보: `Candidates`(`StaffCandidate` = **직무 `Role`**(열린 직무 중 같은 확률 무작위, M11-9) + 스탯 + `Costume`(`StaffRules.RollCostume`, 10%) + `Hired`, `StaffRules.candidateCount` 3명). `PartService.Part`를 구독해 **파트가 바뀔 때마다**(구독 순간 = 처음 후보 포함) `RefreshCandidates()`, 고용 탭 [새로고침]도 같은 함수. 바뀌면 `OnCandidatesChanged`.
+  - 후보: `Candidates`(`StaffCandidate` = **직무 `Role`**(열린 직무 중 같은 확률 무작위, M11-9) + 스탯 + `Costume`(`StaffRules.RollCostume`, 10%) + `Hired` + `Free`(튜토리얼 첫 고용 0원, `OfferFreeCandidate`가 첫 후보 자리에 넣음, M13-17), `StaffRules.candidateCount` 3명). `PartService.Part`를 구독해 **파트가 바뀔 때마다**(구독 순간 = 처음 후보 포함) `RefreshCandidates()`, 고용 탭 [새로고침]도 같은 함수. 바뀌면 `OnCandidatesChanged`.
   - 고용: `GetBlock(candidate)` = `Hired` / `MaxStaff`(`Workers.Count >= LevelProgress.MaxStaff`) / `Cash`(보유 재화 < 고용금) / `None`. `TryHire(candidate, out block)` = 막히지 않으면 **후보 직무로** 생성 → `Wallet.TrySpend(고용금)` → `Hired = true` → `OnCandidatesChanged`. 고용 XP 없음 (2026-11-14).
   - 생성: `Spawn(role, stats, costume)` = 사무실 생성 지점(`StaffSpawnPoint`, PC 존 바로 앞)에 `StaffWorker` 프리팹 + 팝 연출. `Spawn(role)`은 무작위 스탯(디버그 메뉴용, 고용금 · 최대 인원 없음).
   - 명단 변경: `Fire(worker)`(고용금 환불 없음)만 — 직무 변경 삭제 (M11-9). 고용 · 해고마다 `OnWorkersChanged`. 고용금 = `StaffRules.GetHireCost(role, 스탯 합)`(지게차 +300). 알바 번호(`Number`)는 해고해도 다시 쓰지 않는다.
@@ -806,7 +805,15 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [UI/GuideArrow.cs](../Scripts/UI/GuideArrow.cs)
 - **역할**: 가이드 화살표 (플레이어만, GDD 5.3). 들고 있는 화물의 목적지를 가리킨다 — 트럭 화물 → 가장 가까운 빈자리 팔레트(`StorageZone`), 팔레트 화물 → 그 품목 선반, 선반 화물 → 그 품목이 필요한 정차 출고 트럭(`TruckLoadZone`), 쓰레기(Origin Trash) → 쓰레기통 앞 `TrashDropZone` (M13-11). **손이 비면 숨김.**
 - **동작**: 0.2초마다 목표를 다시 찾는다. 화면 안 = 목표 위 4m에서 아래를 가리키며 통통, 화면 밖 = 화면 가장자리에서 목표 쪽으로 돌아 길이가 늘었다 줄었다. 삼각형 스프라이트는 코드로 만든 임시.
+- **튜토리얼** (M13-17): 손이 비었으면 static `TutorialTarget`(TutorialGuide가 넣는 단계 대상)을 가리킨다.
 - **연결**: HUD `GuideArrow/Arrow` (Build Site), Player의 `CarryStack`.
+
+#### TutorialGuide
+[UI/TutorialGuide.cs](../Scripts/UI/TutorialGuide.cs)
+- **역할**: 튜토리얼 (GDD 13, M13-17). 씬 `Site/Logistics`에 하나. 저장이 없어 새 게임마다 처음부터.
+- **동작**: 단계 8개(트럭에서 꺼내기 → 팔레트 → 선반 → 상차 → 돈 줍기 → 정산 → 고용 → B보관 → Ret1)를 0.2초(실제 시간)마다 완료 조건으로 확인. 단계 대상이 생기고 게임이 `Playing`이면 한 번 강조: `GameManager.OpenPopup`(멈춤) → `CameraRig.Spotlight` → `holdTime` 1.8초 `임시` 또는 탭(`Pointer.press`) → `EndSpotlight` · `ClosePopup`. 그 뒤로 `GuideArrow.TutorialTarget` = 대상. 고용 단계에서는 `StaffService.OfferFreeCandidate(Sort, 속도 1 · 적재 3)`를 계속 확인해 넣는다.
+- **연결**: 배너는 실행 중 만든 오버레이 캔버스(sortingOrder 49, 레이캐스트 안 막음) — 팝업(`GameState.Popup`)이 열리면 숨김, 강조 중에는 보임. 디버그 메뉴 `SkipStep` · `Stop`, static `Disabled`.
+- **주의**: 대상 찾기는 `FindObjectsByType`(단계 시작 뒤 대상이 생길 때까지 0.2초마다).
 
 #### CashView
 [UI/CashView.cs](../Scripts/UI/CashView.cs)
@@ -905,26 +912,12 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 바닥에 눕힌 글자를 카메라 방향으로 돌린다. 모듈이 180° 돌아서 붙어도 글자가 뒤집히지 않는다.
 - **주의**: `OnEnable`에서 한 번만 맞춘다 (`[ExecuteAlways]`). 카메라 Yaw를 바꾸면 Build Site를 다시 실행한다.
 
-### 4.9b Events — 돌발 이벤트
-
-#### Outage
-[Events/Outage.cs](../Scripts/Events/Outage.cs)
-- **역할**: 정전 이벤트 (GDD 14.3, M13-15). 씬 `Site/Logistics`에 하나 (`Instance`, static `Active`).
-- **동작**: `PartService.Part`가 바뀔 때 `RollPart` — Lv.4(`unlockLevel`)부터 `chance` 0.5로 이번 파트 정전 시점(`minTime` 30 ~ `maxTime` 150초)을 정함, 연달아 `maxInARow` 2파트까지. 시점이 되면 `Begin`. 켜지면 해(Directional Light) 밝기 × `dimFactor` 0.25, 자체 오버레이 캔버스의 붉은 판이 `alarmPeriod` 1.4초로 깜빡, 위에 `정전! 분전반을 고치세요`, 분전반(크게, `breakerMarkSize` 20) · 알바 머리 위 노란 `!`(TMP 3D, 통통 튐). 가이드 화살표(`GuideArrow`)가 정전 중엔 분전반을 가리킨다. `End`로 되돌림.
-- **연결**: `StaffWorker`(`Active`면 `agent.isStopped` · `Interactor` 끔), `ContractPC`(컴퓨터 책상 꺼짐), `BreakerPanel`(끝내기), 디버그 메뉴 `Outage` 버튼.
-- **주의**: 수치는 설정 에셋이 아니라 씬 컴포넌트 값이다 (`임시`). UI · 느낌표는 실행 중 만든다 (폰트 = 씬의 아무 TMP UI 폰트).
-
-#### BreakerPanel
-[Events/BreakerPanel.cs](../Scripts/Events/BreakerPanel.cs)
-- **역할**: 사무실 벽 분전반 (`GaugeZone`). `Module_Office` Content `BreakerPanel` (왼쪽 벽 앞 2 × 2m, 임시 회색 상자 + 노란 줄 — 모델 없음).
-- **동작**: 정전 중에만 게이지(`repairDuration` 2초)가 차고, 다 차면 `Outage.End`. 벗어나면 게이지 0.
-
 ### 4.10 Debugging
 
 #### DebugMenu
 [Debugging/DebugMenu.cs](../Scripts/Debugging/DebugMenu.cs)
 - **역할**: 치트 메뉴 (IMGUI). 에디터와 Development 빌드에서만 동작한다. **왼쪽 아래** `DEBUG` 버튼 또는 F1.
-- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / **현금 존**: `Zone +200`(첫 현금 존에 쌓기) · `Collect n`(모든 현금 존 돈을 반경 무시하고 플레이어가 줍기 — 다발 · 달러 아이콘 연출 그대로, `CashZone.CollectBy`) / 레벨업 · XP +10 · **Lv.5**(목표 레벨) / 배속 ×1 · ×2 · ×4 / 일시정지 / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick / Returns 생성, **Costume 100%** 토글(켜면 생성 · 고용 탭 새 후보가 모두 코스튬, `StaffRules.ForceCostume`, Play마다 꺼짐), 알바별 `이름 spd cap 상태 들고있는수/최대`.
+- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / **현금 존**: `Zone +200`(첫 현금 존에 쌓기) · `Collect n`(모든 현금 존 돈을 반경 무시하고 플레이어가 줍기 — 다발 · 달러 아이콘 연출 그대로, `CashZone.CollectBy`) / 레벨업 · XP +10 · **Lv.5**(목표 레벨) / 배속 ×1 · ×2 · ×4 / 일시정지 / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick / Returns 생성, **Costume 100%** 토글(켜면 생성 · 고용 탭 새 후보가 모두 코스튬, `StaffRules.ForceCostume`, Play마다 꺼짐), 알바별 `이름 spd cap 상태 들고있는수/최대`. 튜토리얼 중이면 `Tutorial n → next`(단계 건너뛰기) · `Tutorial off`.
 - **주의**: IMGUI는 EventSystem에 안 잡히므로 `ContainsScreenPoint`로 `UiHitTest`에 영역을 알려 준다. 새 치트는 `DrawContent`에 추가한다. 패널은 스크롤 뷰 — 마우스 · 터치 드래그(버튼 위에서도) · 휠로 내린다. 조이스틱 차단 영역은 패널 영역 전체.
 
 ### 4.11 Editor — 에디터 도구

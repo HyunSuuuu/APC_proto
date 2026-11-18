@@ -17,15 +17,16 @@ namespace APC.Contracts
         [SerializeField, Min(1), Tooltip("컴퓨터 책상이 열리는 레벨")] int unlockLevel = 2;
         [SerializeField, Tooltip("컴퓨터 책상 화면 (해금 전에는 꺼짐, 없어도 됨)")] GameObject screen;
 
-        // 컴퓨터 책상은 해금 레벨 전 · 정전 중에 꺼짐 (GDD 4.3 · 14.3)
-        bool Unlocked => !computerDesk || (GameManager.Instance.Level.Level.CurrentValue >= unlockLevel && !Events.Outage.Active);
+        public bool IsComputerDesk => computerDesk;
+
+        // 컴퓨터 책상은 해금 레벨 전에 꺼짐 (GDD 4.3)
+        bool Unlocked => !computerDesk || GameManager.Instance.Level.Level.CurrentValue >= unlockLevel;
 
         void Start()
         {
             Duration = GameManager.Instance.Database.Logistics.OfficeGaugeDuration;
             if (screen == null) return;
             GameManager.Instance.Level.Level.Subscribe(_ => screen.SetActive(Unlocked)).AddTo(this);
-            if (Events.Outage.Instance != null) Events.Outage.Instance.IsActive.Subscribe(_ => screen.SetActive(Unlocked)).AddTo(this);
         }
 
         protected override bool CanProgress(Interactor who) => Unlocked;

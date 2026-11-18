@@ -39,7 +39,7 @@ namespace APC.UI
             carryLabel.text = candidate.Role is StaffRole.Returns or StaffRole.Forklift
                 ? $"적재  <size=70%>({rules.GetCarry(candidate.Role, stats.carry)}개 고정)</size>" // 반품 · 지게차는 스탯 무관
                 : $"적재량  {stats.carry}  <size=70%>({rules.GetCarryCapacity(stats.carry)}개)</size>";
-            costLabel.text = $"고용금 {rules.GetHireCost(candidate.Role, stats.Total):N0}";
+            costLabel.text = candidate.Free ? "고용금 0 <size=70%>(무료)</size>" : $"고용금 {rules.GetHireCost(candidate.Role, stats.Total):N0}";
             costLabel.color = canAfford || candidate.Hired ? costColor : costShortColor;
             if (background == null && TryGetComponent(out background)) backgroundColor = background.color;
             if (background != null) background.color = canAfford || candidate.Hired ? backgroundColor : backgroundColor * shortTint;

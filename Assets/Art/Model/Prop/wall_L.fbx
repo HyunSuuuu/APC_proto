@@ -8,11 +8,11 @@ FBXHeaderExtension:  {
 		Version: 1000
 		Year: 2026
 		Month: 11
-		Day: 13
-		Hour: 12
-		Minute: 18
-		Second: 6
-		Millisecond: 863
+		Day: 18
+		Hour: 9
+		Minute: 57
+		Second: 15
+		Millisecond: 549
 	}
 	Creator: "FBX SDK/FBX Plugins version 2020.3"
 	SceneInfo: "SceneInfo::GlobalInfo", "UserData" {
@@ -34,15 +34,15 @@ FBXHeaderExtension:  {
 			P: "Original|ApplicationVendor", "KString", "", "", "Autodesk"
 			P: "Original|ApplicationName", "KString", "", "", "3ds Max"
 			P: "Original|ApplicationVersion", "KString", "", "", "2023"
-			P: "Original|DateTime_GMT", "DateTime", "", "", "13/11/2026 03:18:06.863"
+			P: "Original|DateTime_GMT", "DateTime", "", "", "18/11/2026 00:57:15.549"
 			P: "Original|FileName", "KString", "", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\objcet\wall_L.fbx"
 			P: "LastSaved", "Compound", "", ""
 			P: "LastSaved|ApplicationVendor", "KString", "", "", "Autodesk"
 			P: "LastSaved|ApplicationName", "KString", "", "", "3ds Max"
 			P: "LastSaved|ApplicationVersion", "KString", "", "", "2023"
-			P: "LastSaved|DateTime_GMT", "DateTime", "", "", "13/11/2026 03:18:06.863"
+			P: "LastSaved|DateTime_GMT", "DateTime", "", "", "18/11/2026 00:57:15.549"
 			P: "Original|ApplicationActiveProject", "KString", "", "", "C:\Users\ww\Documents\3ds Max 2023"
-			P: "Original|ApplicationNativeFile", "KString", "", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\목업_261111.max"
+			P: "Original|ApplicationNativeFile", "KString", "", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\목업_261117.max"
 		}
 	}
 }
@@ -77,7 +77,7 @@ GlobalSettings:  {
 
 Documents:  {
 	Count: 1
-	Document: 1850920999520, "", "Scene" {
+	Document: 2091547071552, "", "Scene" {
 		Properties70:  {
 			P: "SourceObject", "object", "", ""
 			P: "ActiveAnimStackName", "KString", "", "", ""
@@ -97,7 +97,7 @@ References:  {
 
 Definitions:  {
 	Version: 100
-	Count: 10
+	Count: 13
 	ObjectType: "GlobalSettings" {
 		Count: 1
 	}
@@ -280,6 +280,17 @@ Definitions:  {
 			}
 		}
 	}
+	ObjectType: "CollectionExclusive" {
+		Count: 3
+		PropertyTemplate: "FbxDisplayLayer" {
+			Properties70:  {
+				P: "Color", "ColorRGB", "Color", "",0.8,0.8,0.8
+				P: "Show", "bool", "", "",1
+				P: "Freeze", "bool", "", "",0
+				P: "LODBox", "bool", "", "",0
+			}
+		}
+	}
 	ObjectType: "Video" {
 		Count: 1
 		PropertyTemplate: "FbxVideo" {
@@ -313,18 +324,18 @@ Definitions:  {
 ;------------------------------------------------------------------
 
 Objects:  {
-	Geometry: 1850942292352, "Geometry::", "Mesh" {
+	Geometry: 2091387034272, "Geometry::", "Mesh" {
 		Properties70:  {
 			P: "Color", "ColorRGB", "Color", "",0.529411764705882,0.231372549019608,0.0313725490196078
 		}
 		Vertices: *54 {
 			a: -250.000030517578,-15.0000019073486,0,-150.000030517578,-15.0000019073486,0,-250.000030517578,14.9999980926514,0,-150.000030517578,14.9999980926514,0,-250.000030517578,-15.0000019073486,400,-150.000030517578,-15.0000019073486,400,-250.000030517578,14.9999980926514,400,-150.000030517578,14.9999980926514,400,-150.000030517578,-15.0000019073486,369.550415039062,-250.000030517578,-15.0000019073486,369.550415039062,-150.000030517578,14.9999980926514,369.550415039062,-250.000030517578,14.9999980926514,369.550415039062,-150.000030517578,-20.0000019073486,400,-250.000030517578,-20.0000019073486,400,-250.000030517578,-20.0000019073486,369.550415039062,-150.000030517578,-20.0000019073486,369.550415039062,-150.000030517578,14.9999980926514,80,-250.000030517578,14.9999980926514,80
 		} 
-		PolygonVertexIndex: *32 {
-			a: 4,5,7,-7,1,8,9,-1,2,17,16,-4,12,13,14,-16,5,4,13,-13,9,8,15,-15,11,6,7,-11,11,10,16,-18
+		PolygonVertexIndex: *30 {
+			a: 4,5,7,-7,1,8,9,-1,16,3,2,17,11,-11,12,13,14,-16,5,4,13,-13,9,8,15,-15,11,6,7,-11
 		} 
-		Edges: *25 {
-			a: 11,7,16,1,2,3,4,29,8,6,20,28,12,13,14,15,19,17,23,21,24,26,10,31,9
+		Edges: *24 {
+			a: 9,7,18,1,2,3,4,13,10,6,22,12,14,15,16,17,21,19,25,23,26,28,8,11
 		} 
 		GeometryVersion: 124
 		LayerElementNormal: 0 {
@@ -332,8 +343,8 @@ Objects:  {
 			Name: ""
 			MappingInformationType: "ByPolygonVertex"
 			ReferenceInformationType: "Direct"
-			Normals: *96 {
-				a: 0,0,1,0,0,1,0,0,1,0,0,1,0,-1,0,0,-1,0,0,-1,0,0,-1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,-1,0,0,-1,0,0,-1,0,0,-1,0,0,0,1,0,0,1,0,0,1,0,0,1,0,0,-1,0,0,-1,0,0,-1,0,0,-1,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0
+			Normals: *90 {
+				a: 0,0,1,0,0,1,0,0,1,0,0,1,0,-1,0,0,-1,0,0,-1,0,0,-1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,-1,0,0,-1,0,0,-1,0,0,-1,0,0,0,1,0,0,1,0,0,1,0,0,1,0,0,-1,0,0,-1,0,0,-1,0,0,-1,0,1,0,0,1,0,0,1,0,0,1,0
 			} 
 		}
 		LayerElementUV: 0 {
@@ -341,11 +352,11 @@ Objects:  {
 			Name: "UVChannel_1"
 			MappingInformationType: "ByPolygonVertex"
 			ReferenceInformationType: "IndexToDirect"
-			UV: *48 {
-				a: 0.507344424724579,0.811273336410522,0.521417200565338,0.811273336410522,0.521417200565338,0.811273336410522,0.507344424724579,0.811273336410522,0.0343452095985413,0.773324370384216,0.0446689948439598,0.773324370384216,0.521417200565338,0.80698823928833,0.507344424724579,0.80698823928833,0.521399617195129,0.271059185266495,0.509633779525757,0.271059185266495,0.19196991622448,0.558059632778168,0.201249003410339,0.558059632778168,0.521417200565338,0.80698823928833,0.521417200565338,0.811273336410522,0.507344424724579,0.811273336410522,0.507344424724579,0.80698823928833,0.521417200565338,0.80698823928833,0.507344424724579,0.80698823928833,0.0446689948439598,0.811475992202759,0.0343452095985413,0.811475992202759,0.201249003410339,0.584927260875702,0.19196991622448,0.584927260875702,0.509633779525757,0.280471861362457,0.521399617195129,0.280471861362457
+			UV: *52 {
+				a: 0.507344424724579,0.811273336410522,0.521417200565338,0.811273336410522,0.521417200565338,0.811273336410522,0.507344424724579,0.811273336410522,0.0343452095985413,0.773324370384216,0.0446689948439598,0.773324370384216,0.521417200565338,0.80698823928833,0.507344424724579,0.80698823928833,0.521399617195129,0.271059185266495,0.509633779525757,0.271059185266495,0.19196991622448,0.558059632778168,0.201249003410339,0.558059632778168,0.521417200565338,0.80698823928833,0.521417200565338,0.811273336410522,0.507344424724579,0.811273336410522,0.507344424724579,0.80698823928833,0.521417200565338,0.80698823928833,0.507344424724579,0.80698823928833,0.0446689948439598,0.811475992202759,0.0343452095985413,0.811475992202759,0.201249003410339,0.584927260875702,0.19196991622448,0.584927260875702,0.509633779525757,0.280471861362457,0.521399617195129,0.280471861362457,0.201249003410339,0.550636351108551,0.19196991622448,0.550636351108551
 			} 
-			UVIndex: *32 {
-				a: 0,1,2,3,5,18,19,4,9,22,23,8,13,14,15,12,1,0,14,13,7,6,12,15,17,3,2,16,21,20,11,10
+			UVIndex: *30 {
+				a: 0,1,2,3,5,18,19,4,11,24,25,10,21,20,13,14,15,12,1,0,14,13,7,6,12,15,17,3,2,16
 			} 
 		}
 		LayerElementMaterial: 0 {
@@ -373,7 +384,7 @@ Objects:  {
 			}
 		}
 	}
-	Model: 1850920319744, "Model::wall_l", "Mesh" {
+	Model: 2091536075280, "Model::wall_l", "Mesh" {
 		Version: 232
 		Properties70:  {
 			P: "InheritType", "enum", "", "",1
@@ -385,7 +396,7 @@ Objects:  {
 		Shading: T
 		Culling: "CullingOff"
 	}
-	Material: 1850018655776, "Material::Material #51", "" {
+	Material: 2091227530720, "Material::Material #51", "" {
 		Version: 102
 		ShadingModel: "unknown"
 		MultiLayer: 0
@@ -520,7 +531,7 @@ Objects:  {
 			P: "3dsMax|Parameters|displacement_map_amt", "Float", "", "A",1
 		}
 	}
-	Video: 1850942302432, "Video::Map #3", "Clip" {
+	Video: 2091387028992, "Video::Map #3", "Clip" {
 		Type: "Clip"
 		Properties70:  {
 			P: "Path", "KString", "XRefUrl", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\fbx\Color_Pallet.png"
@@ -530,7 +541,7 @@ Objects:  {
 		Filename: "C:\Users\ww\Desktop\ㄱㅈㅇ\fbx\Color_Pallet.png"
 		RelativeFilename: "..\fbx\Color_Pallet.png"
 	}
-	Texture: 1850942295232, "Texture::Map #3", "" {
+	Texture: 2091387036672, "Texture::Map #3", "" {
 		Type: "TextureVideoClip"
 		Version: 202
 		TextureName: "Texture::Map #3"
@@ -546,7 +557,7 @@ Objects:  {
 		Texture_Alpha_Source: "Alpha_Black"
 		Cropping: 0,0,0,0
 	}
-	Implementation: 1850887501216, "Implementation::Material #51_Implementation", "" {
+	Implementation: 2091227537968, "Implementation::Material #51_Implementation", "" {
 		Version: 100
 		Properties70:  {
 			P: "ShaderLanguage", "KString", "", "", "StandardSSL"
@@ -555,7 +566,7 @@ Objects:  {
 			P: "RootBindingName", "KString", "", "", "root"
 		}
 	}
-	BindingTable: 1840426451200, "BindingTable::root 21", "" {
+	BindingTable: 2091214698112, "BindingTable::root 33", "" {
 		Version: 100
 		Properties70:  {
 			P: "TargetName", "KString", "", "", "root"
@@ -675,13 +686,28 @@ Objects:  {
 		Entry: "3dsMax|Parameters|cutout_map_on", "FbxPropertyEntry", "cutout_map_on", "FbxSemanticEntry"
 		Entry: "3dsMax|Parameters|displacement_map_amt", "FbxPropertyEntry", "displacement_map_amt", "FbxSemanticEntry"
 	}
-	AnimationStack: 1850887643952, "AnimStack::Take 001", "" {
+	AnimationStack: 2091216139760, "AnimStack::Take 001", "" {
 		Properties70:  {
 			P: "LocalStop", "KTime", "Time", "",60042005400
 			P: "ReferenceStop", "KTime", "Time", "",60042005400
 		}
 	}
-	AnimationLayer: 1850945783440, "AnimLayer::BaseLayer", "" {
+	AnimationLayer: 2091539272368, "AnimLayer::BaseLayer", "" {
+	}
+	CollectionExclusive: 2091388851408, "DisplayLayer::C", "DisplayLayer" {
+		Properties70:  {
+			P: "Color", "ColorRGB", "Color", "",0.329411764705882,0.329411764705882,0.329411764705882
+		}
+	}
+	CollectionExclusive: 2091388851600, "DisplayLayer::B", "DisplayLayer" {
+		Properties70:  {
+			P: "Color", "ColorRGB", "Color", "",0.894117647058824,0.6,0.713725490196078
+		}
+	}
+	CollectionExclusive: 2091388851792, "DisplayLayer::Layer001", "DisplayLayer" {
+		Properties70:  {
+			P: "Color", "ColorRGB", "Color", "",0.56078431372549,0.101960784313725,0.694117647058824
+		}
 	}
 }
 
@@ -691,31 +717,31 @@ Objects:  {
 Connections:  {
 	
 	;Model::wall_l, Model::RootNode
-	C: "OO",1850920319744,0
+	C: "OO",2091536075280,0
 	
 	;AnimLayer::BaseLayer, AnimStack::Take 001
-	C: "OO",1850945783440,1850887643952
+	C: "OO",2091539272368,2091216139760
 	
 	;Geometry::, Model::wall_l
-	C: "OO",1850942292352,1850920319744
+	C: "OO",2091387034272,2091536075280
 	
 	;Material::Material #51, Model::wall_l
-	C: "OO",1850018655776,1850920319744
+	C: "OO",2091227530720,2091536075280
 	
 	;Texture::Map #3, Material::Material #51
-	C: "OP",1850942295232,1850018655776, "DiffuseColor"
+	C: "OP",2091387036672,2091227530720, "DiffuseColor"
 	
 	;Texture::Map #3, Material::Material #51
-	C: "OP",1850942295232,1850018655776, "3dsMax|Parameters|base_color_map"
+	C: "OP",2091387036672,2091227530720, "3dsMax|Parameters|base_color_map"
 	
 	;Video::Map #3, Texture::Map #3
-	C: "OO",1850942302432,1850942295232
+	C: "OO",2091387028992,2091387036672
 	
 	;Material::Material #51, Implementation::Material #51_Implementation
-	C: "OO",1850018655776,1850887501216
+	C: "OO",2091227530720,2091227537968
 	
-	;BindingTable::root 21, Implementation::Material #51_Implementation
-	C: "OO",1840426451200,1850887501216
+	;BindingTable::root 33, Implementation::Material #51_Implementation
+	C: "OO",2091214698112,2091227537968
 }
 ;Takes section
 ;----------------------------------------------------

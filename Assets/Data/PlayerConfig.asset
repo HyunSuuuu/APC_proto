@@ -17,3 +17,27 @@ MonoBehaviour:
   runThreshold: 0.5
   maxCarry: 3
   pickInterval: 0.15
+  interactionDelay: 0.5
+  transferSwitchCooldown: 0.5
+  carrySteps:
+  - name: "\uAD6C\uB8E8\uB9C8"
+    value: 8
+    unlockLevel: 3
+    cost: 150
+  - name: "\uB864\uD14C\uC774\uB108"
+    value: 12
+    unlockLevel: 4
+    cost: 400
+  speedSteps:
+  - name: "\uC774\uB3D9 \uC18D\uB3C4 1"
+    value: 4.5
+    unlockLevel: 3
+    cost: 100
+  - name: "\uC774\uB3D9 \uC18D\uB3C4 2"
+    value: 5
+    unlockLevel: 4
+    cost: 200
+  - name: "\uC774\uB3D9 \uC18D\uB3C4 3"
+    value: 5.5
+    unlockLevel: 5
+    cost: 350
