@@ -156,15 +156,16 @@
 | Unlock Level | 이 레벨부터 그 색 트럭이 오고 주문에 들어간다 |
 | Weight | 트럭 색 · 주문 색을 고르는 비율. 열린 색끼리 나눈다 |
 | Is Large | 대형 화물 (D, 지게차 전용) — 바꾸지 않음 |
-| Inbound Truck Capacity | 하차 트럭 1대의 상자 수 |
+| Inbound Truck Capacity | 하차 트럭 1대의 상자 수 (1단계) |
+| Inbound Truck Capacity Stage2 | 하차 트럭 2단계 상자 수 (`LogisticsConfig`의 `Truck Stage2 Level`부터 새로 도착하는 트럭) |
 | Contract Unit Price | 상차한 상자 1개당 받는 돈 |
 
-| 파일 | 색 | Unlock Level | Weight | Inbound Truck Capacity | Contract Unit Price |
-|---|---|---|---|---|---|
-| Company_A | 갈색 | 1 | 40 | 10 | 10 |
-| Company_B | 초록 | 2 | 30 | 10 | 12 |
-| Company_C | 파랑 | 3 | 20 | 10 | 14 |
-| Company_D | 주황 | 5 | 10 | 4 | 40 |
+| 파일 | 색 | Unlock Level | Weight | Inbound Truck Capacity | Stage2 | Contract Unit Price |
+|---|---|---|---|---|---|---|
+| Company_A | 갈색 | 1 | 40 | 10 | 15 | 10 |
+| Company_B | 초록 | 2 | 30 | 10 | 15 | 12 |
+| Company_C | 파랑 | 3 | 20 | 10 | 15 | 14 |
+| Company_D | 주황 | 5 | 10 | 4 | 4 | 40 |
 
 **예시 — 초록 트럭을 더 자주**: `Company_B`의 `Weight` 30 → 60. Lv.2에서 갈색 40 : 초록 60 비율로 트럭이 온다.
 
@@ -180,6 +181,7 @@
 | Truck Leave Duration | 하차 트럭이 떠나는 시간 (초) | 3 | |
 | Inbound Arrival Interval | 하차 트럭 1대가 도착하는 간격 (초, 물류센터 전체) | 20 | GDD 7.1 `임시` |
 | Inbound Queue Size | 하차 칸이 다 찼을 때 도로에 줄 서는 최대 대수 | 3 | GDD 7.1 |
+| Truck Stage2 Level | 하차 트럭이 2단계 상자 수(Company의 Stage2)로 바뀌는 레벨 | 4 | GDD 7.1 `임시` |
 | Outbound Reverse Duration | 상차 트럭 후진 주차 시간 (초) | 3 | |
 | Outbound Leave Duration | 상차 트럭이 떠나는 시간 (초) | 1.5 | |
 | Outbound Respawn Delay | 상차 트럭이 떠나고 다음 트럭이 오기까지 (초) | 1 | |
@@ -235,8 +237,10 @@
 | Candidate Count | 고용 탭 후보 수 | 3 |
 | Hire Cost Per Stat | 고용금 = 스탯 합계 × 이 값 | 15 |
 | Wage Per Stat | 월급(파트 정산마다) = 스탯 합계 × 이 값 | 4 |
+| Forklift Hire Bonus | 지게차 알바 고용금 추가 (월급은 그대로) | 300 |
+| Returns Carry / Forklift Carry | 반품 · 지게차 알바 적재 수 (스탯 무관 고정) | 12 / 4 |
 | Costume Chance | 코스튬 알바 확률 (0.1 = 10%) | 0.1 `임시` |
-| Unload / Sort / Pick / Returns Color | 직무별 발밑 원판 색 (하차 · 보관 · 상차 · 반품) | |
+| Unload / Sort / Pick / Returns / Forklift Color | 직무별 발밑 원판 색 (하차 · 보관 · 상차 · 반품 · 지게차) | |
 
 **예시 — 고용을 싸게**: `Hire Cost Per Stat` 15 → 10. 스탯 합계 5인 알바 고용금이 75 → 50.
 

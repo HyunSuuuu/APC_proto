@@ -28,13 +28,29 @@ namespace APC.Logistics
         }
 
         /// <summary>예약하지 않은 화물이 있고 공간에 자리가 있는가 (알바용, 다른 알바의 예약은 뺀다).</summary>
-        public override bool HasCargoFor(Interactor who) => bay.DockedTruck != null && bay.DockedTruck.Available > 0 && Room > 0;
+        public override bool HasCargoFor(Interactor who)
+        {
+            var truck = bay.DockedTruck;
+            if (truck == null || truck.Available <= 0 || truck.Company == null) return false;
+            var item = truck.Company.Items[0];
+            if (!Warehouse.CanHandle(who, item)) return false; // D 트럭 = 지게차 알바만 (M11-8)
+            return who.Forklift ? Warehouse.Instance.LargeRoom(item) > 0 : Room > 0;
+        }
 
         protected override bool TryGive(Interactor who, out Cargo cargo)
         {
             cargo = null;
             var truck = bay.DockedTruck;
             if (truck == null || !truck.HasCargo) return false;
+            var item = truck.Company != null ? truck.Company.Items[0] : null;
+            if (!Warehouse.CanHandle(who, item)) return false;
+            if (who.Forklift)
+            {
+                // 지게차: 하차 칸 공간을 거치지 않고 팔레트 랙(또는 바로 상차)로 (GDD 11.3)
+                if (Warehouse.Instance.LargeRoom(item) <= 0) return false;
+                cargo = truck.TakeCargo();
+                return cargo != null;
+            }
             if (Room <= 0)
             {
                 Notice(who, bay.Storage.CountLabel, truck.transform.position + Vector3.up * 3.5f, "공간 가득");

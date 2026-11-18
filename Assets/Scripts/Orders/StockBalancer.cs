@@ -35,11 +35,14 @@ namespace APC.Orders
             return company;
         }
 
-        /// <summary>입고 트럭 1대에 실을 품목 목록 = 그 회사 품목으로 가득.</summary>
+        /// <summary>입고 트럭 1대에 실을 품목 목록 = 그 회사 품목으로 가득. 수 = 트럭 단계 (Lv.4~ 2단계, GDD 7.1 — 도착할 때 정함).</summary>
         public static List<ItemDefinition> ComposeInboundLoad(CompanyDefinition company)
         {
-            var load = new List<ItemDefinition>(company.InboundTruckCapacity);
-            for (var i = 0; i < company.InboundTruckCapacity; i++) load.Add(company.Items[0]);
+            var gm = Core.GameManager.Instance;
+            var stage2 = gm.Level.Level.CurrentValue >= gm.Database.Logistics.TruckStage2Level;
+            var count = stage2 ? company.InboundTruckCapacityStage2 : company.InboundTruckCapacity;
+            var load = new List<ItemDefinition>(count);
+            for (var i = 0; i < count; i++) load.Add(company.Items[0]);
             return load;
         }
 

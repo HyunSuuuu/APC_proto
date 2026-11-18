@@ -17,7 +17,7 @@ namespace APC.Logistics
         {
             var truck = bay.DockedTruck;
             return truck != null
-                   && cargo.Origin == CargoOrigin.Shelf
+                   && (cargo.Origin == CargoOrigin.Shelf || (who.Forklift && cargo.Origin == CargoOrigin.Truck && Warehouse.Instance.DirectLoad(cargo.Item))) // 예외: 랙이 비면 바로 상차 (M11-8)
                    && cargo.State == CargoState.Normal
                    && truck.Order.GetRemaining(cargo.Item) > 0;
         }

@@ -134,12 +134,10 @@ namespace APC.Orders
 
         /// <summary>
         /// 요구할 수 있는 색 (GDD 8.1): 그 색 선반(보관 구역)이 있고, 선반 · 하차 칸 · 하차 트럭 · 손 어딘가에 그 색 상자가 있다.
-        /// 대형(D 가구)은 지게차가 생길 때까지 요구하지 않는다.
+        /// 대형(D 가구)도 D보관이 있으면 요구한다 (지게차 알바가 없으면 그 트럭은 기다림, 2026-11-18).
         /// </summary>
         static bool CanRequest(CompanyDefinition company)
         {
-            // shortcut: 지게차가 없어 대형은 항상 뺀다 — M11-8에서 지게차 보유 검사로 바꾼다.
-            if (company.IsLarge) return false;
             var item = company.Items[0];
             var warehouse = Warehouse.Instance;
             if (warehouse == null || !warehouse.HasShelf(item)) return false;

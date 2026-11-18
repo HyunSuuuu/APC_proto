@@ -173,11 +173,11 @@ namespace APC.Debugging
 
             Header($"Staff ({staff.Workers.Count})");
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Auto", buttonStyle)) staff.Spawn(staff.NextEmptyRole());
             if (GUILayout.Button("Unload", buttonStyle)) staff.Spawn(StaffRole.Unload);
             if (GUILayout.Button("Sort", buttonStyle)) staff.Spawn(StaffRole.Sort);
             if (GUILayout.Button("Pick", buttonStyle)) staff.Spawn(StaffRole.Pick);
             if (GUILayout.Button("Returns", buttonStyle)) staff.Spawn(StaffRole.Returns);
+            if (GUILayout.Button("Forklift", buttonStyle)) staff.Spawn(StaffRole.Forklift);
             GUILayout.EndHorizontal();
             // 켜면 위 생성 · 고용 탭 새 후보가 모두 코스튬 (이미 뽑힌 후보는 [새로고침] 후)
             if (GUILayout.Button(StaffRules.ForceCostume ? "[Costume 100%]" : "Costume 100%", buttonStyle)) StaffRules.ForceCostume = !StaffRules.ForceCostume;

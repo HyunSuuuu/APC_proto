@@ -39,6 +39,8 @@ namespace APC.Staff
         [SerializeField, Tooltip("역할 색을 칠할 것 (모델이 있으면 발밑 원판)")] Renderer body;
         [SerializeField, Tooltip("외형 후보. [0] = 물류 유니폼, [1..] = 코스튬 (Setup에서 하나만 켠다, GDD 11.1). 비우면 그대로")] GameObject[] models;
         [SerializeField, Tooltip("미지급 표시 (머리 위 빨간 ₩, 꺼진 채)")] GameObject unpaidIcon;
+        [SerializeField, Tooltip("지게차 모델 (Prop/Forklift + 포크 Plastic_Pallet, 꺼진 채). 지게차 직무일 때만 켠다 (M11-8)")] GameObject forklift;
+        [SerializeField, Tooltip("지게차 포크 팔레트 위 — 큰 상자가 한 줄로 쌓이는 바닥")] Transform forkliftAnchor;
         [SerializeField, Tooltip("퇴사할 때 깜빡이는 색")] Color angryColor = new(0.9f, 0.1f, 0.1f);
 
         NavMeshAgent agent;
@@ -146,16 +148,17 @@ namespace APC.Staff
             SetRole(role);
         }
 
-        /// <summary>
-        /// 역할 변경 (GDD 11.3). 빈손으로 가는 중이거나 기다리는 중이면 바로 새 역할로 다시 고른다.
-        /// 집는 중이거나 들고 있으면 배달을 끝낸 뒤 새 역할이 된다.
-        /// </summary>
-        public void SetRole(StaffRole role)
+        /// <summary>직무를 정한다 (고용 때 한 번 — 직무 변경은 삭제, GDD 11.3 · 2026-11-18).</summary>
+        void SetRole(StaffRole role)
         {
             Role = role;
-            stack.SetCapacity(role == StaffRole.Returns ? rules.ReturnsCarry : rules.GetCarryCapacity(Stats.carry)); // 반품 알바는 스탯 무관 12 (GDD 11.3)
+            stack.SetCapacity(rules.GetCarry(role, Stats.carry)); // 반품 12 · 지게차 4는 스탯 무관 (GDD 11.3)
+            var isForklift = role == StaffRole.Forklift;
+            interactor.Forklift = isForklift; // D 가구만 다룸 (Warehouse.CanHandle)
+            if (forklift != null) forklift.SetActive(isForklift);
+            if (isForklift && forkliftAnchor != null) stack.UseAnchor(forkliftAnchor);
+            if (TryGetComponent<Characters.CharacterAnimator>(out var animator)) animator.UseRiding = isForklift; // riding 애니
             SetColor(rules.GetRoleColor(role));
-            if (State == Phase.Parked || (State == Phase.Moving && !dropping)) Abort();
         }
 
         /// <summary>
@@ -316,6 +319,7 @@ namespace APC.Staff
             StaffRole.Unload => candidate is TruckPickupZone,
             StaffRole.Sort => candidate is StorageZone storage && storage.Storage.Kind is StorageKind.Pallet or StorageKind.Repacked, // 반품 팔레트 · 재포장 입력 · 쓰레기는 반품 알바 (GDD 7.7)
             StaffRole.Pick => candidate is ShelfZone,
+            StaffRole.Forklift => candidate is TruckPickupZone || (candidate is ShelfZone rack && Warehouse.IsLarge(rack.Shelf.Item)), // D 트럭 → 랙 → 상차 (M11-8)
             StaffRole.Returns => candidate is StorageZone returns && focus switch
             {
                 ReturnsFocus.TrashFull => returns.Storage.Kind == StorageKind.Trash && !returns.Storage.HasSpace,
@@ -526,7 +530,8 @@ namespace APC.Staff
                 case TruckPickupZone pickup when pickup.Bay.DockedTruck != null:
                 {
                     var truck = pickup.Bay.DockedTruck;
-                    var count = Mathf.Min(room, Mathf.Min(truck.Available, pickup.Room)); // 그 칸 공간 빈자리까지 (GDD 8.4)
+                    var space = Role == StaffRole.Forklift && truck.Company != null ? Warehouse.Instance.LargeRoom(truck.Company.Items[0]) : pickup.Room; // 지게차 = 랙 빈자리
+                    var count = Mathf.Min(room, Mathf.Min(truck.Available, space)); // 그 칸 공간 빈자리까지 (GDD 8.4)
                     if (count <= 0) return;
                     truck.Reserve(count);
                     releaseReservation = () => { if (truck != null) truck.Unreserve(count); };

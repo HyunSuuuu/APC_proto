@@ -12,12 +12,15 @@ namespace APC.Staff
     /// <summary>고용 탭 후보 1명 (GDD 11.1). 고용하면 Hired가 켜지고 다음 교체(파트 · 새로고침)까지 그 자리에 남는다.</summary>
     public sealed class StaffCandidate
     {
-        public StaffCandidate(StaffStats stats, bool costume)
+        public StaffCandidate(StaffRole role, StaffStats stats, bool costume)
         {
+            Role = role;
             Stats = stats;
             Costume = costume;
         }
 
+        /// <summary>정해져 나온 직무 (고용 뒤 바꿀 수 없음, GDD 11.1 · 2026-11-18).</summary>
+        public StaffRole Role { get; }
         public StaffStats Stats { get; }
         /// <summary>코스튬 알바 (아니면 물류 유니폼, GDD 11.1).</summary>
         public bool Costume { get; }
@@ -53,7 +56,7 @@ namespace APC.Staff
     {
         public static StaffService Instance { get; private set; }
 
-        static readonly StaffRole[] RoleOrder = { StaffRole.Unload, StaffRole.Sort, StaffRole.Pick, StaffRole.Returns };
+        static readonly StaffRole[] Roles = { StaffRole.Unload, StaffRole.Sort, StaffRole.Pick, StaffRole.Returns, StaffRole.Forklift };
 
         [SerializeField] StaffWorker workerPrefab;
 
@@ -71,7 +74,7 @@ namespace APC.Staff
         /// <summary>후보가 새로 뽑히거나 누군가 고용됐다 (고용 탭이 다시 그린다).</summary>
         public Observable<Unit> OnCandidatesChanged => candidatesChanged;
 
-        /// <summary>명단이 바뀌었다: 고용 · 해고 · 역할 변경 (배치 탭이 다시 그린다).</summary>
+        /// <summary>명단이 바뀌었다: 고용 · 해고 (배치 탭이 다시 그린다).</summary>
         public Observable<Unit> OnWorkersChanged => workersChanged;
 
         public int MaxStaff => GameManager.Instance.Level.MaxStaff;
@@ -109,11 +112,17 @@ namespace APC.Staff
         {
             var rules = GameManager.Instance.Database.Staff;
             candidates.Clear();
-            for (var i = 0; i < rules.CandidateCount; i++) candidates.Add(new StaffCandidate(rules.RollStats(), rules.RollCostume()));
+            var open = new List<StaffRole>();
+            foreach (var role in Roles)
+            {
+                if (IsRoleOpen(role)) open.Add(role);
+            }
+            // 후보마다 열린 직무 중 무작위 (같은 확률, GDD 11.1)
+            for (var i = 0; i < rules.CandidateCount; i++) candidates.Add(new StaffCandidate(open[Random.Range(0, open.Count)], rules.RollStats(), rules.RollCostume()));
             candidatesChanged.OnNext(Unit.Default);
         }
 
-        public int GetHireCost(StaffCandidate candidate) => GameManager.Instance.Database.Staff.GetHireCost(candidate.Stats.Total);
+        public int GetHireCost(StaffCandidate candidate) => GameManager.Instance.Database.Staff.GetHireCost(candidate.Role, candidate.Stats.Total);
 
         public HireBlock GetBlock(StaffCandidate candidate)
         {
@@ -123,7 +132,7 @@ namespace APC.Staff
         }
 
         /// <summary>
-        /// 후보를 고용한다: 고용금(보유 재화) → 빈 역할로 사무실 생성 지점에 생성 → XP. 실패하면 이유를 돌려준다.
+        /// 후보를 고용한다: 고용금(지갑) → 후보 직무로 사무실 생성 지점에 생성. 실패하면 이유를 돌려준다.
         /// </summary>
         public bool TryHire(StaffCandidate candidate, out HireBlock block)
         {
@@ -131,7 +140,7 @@ namespace APC.Staff
             if (block != HireBlock.None) return false;
 
             var gm = GameManager.Instance;
-            var worker = Spawn(NextEmptyRole(), candidate.Stats, candidate.Costume);
+            var worker = Spawn(candidate.Role, candidate.Stats, candidate.Costume);
             if (worker == null) return false;
 
             gm.Wallet.TrySpend(GetHireCost(candidate));
@@ -140,26 +149,14 @@ namespace APC.Staff
             return true;
         }
 
-        /// <summary>빈 직무 (하차 → 보관 → 상차 → 반품 순, GDD 11.1). 모두 차 있으면 인원이 가장 적은 직무. 열리지 않은 직무(반품)는 건너뛴다.</summary>
-        public StaffRole NextEmptyRole()
+        /// <summary>반품 직무는 반품 구역(Ret1), 지게차 직무는 D보관(StoreD)을 지은 뒤에 열린다 (GDD 11.3).</summary>
+        // shortcut: 첫 반품 구역 `Ret1` · `StoreD` id로만 본다 — 구역이 여러 종류가 되면 SiteGrid에서 Kind로 찾기
+        public bool IsRoleOpen(StaffRole role) => role switch
         {
-            var best = RoleOrder[0];
-            var bestCount = int.MaxValue;
-            foreach (var role in RoleOrder)
-            {
-                if (!IsRoleOpen(role)) continue;
-                var count = CountRole(role);
-                if (count >= bestCount) continue;
-                best = role;
-                bestCount = count;
-            }
-            return best;
-        }
-
-        /// <summary>반품 직무는 반품 구역(Ret1)을 지은 뒤에 열린다 (GDD 11.3).</summary>
-        // shortcut: 첫 반품 구역 id `Ret1`로만 본다 — 반품 구역이 여러 종류가 되면 SiteGrid에서 Kind로 찾기
-        public bool IsRoleOpen(StaffRole role)
-            => role != StaffRole.Returns || (SiteGrid.Instance != null && SiteGrid.Instance.IsUnlocked("Ret1"));
+            StaffRole.Returns => SiteGrid.Instance != null && SiteGrid.Instance.IsUnlocked("Ret1"),
+            StaffRole.Forklift => SiteGrid.Instance != null && SiteGrid.Instance.IsUnlocked("StoreD"),
+            _ => true,
+        };
 
         public int CountRole(StaffRole role)
         {
@@ -198,14 +195,6 @@ namespace APC.Staff
             FacilityPop.Play(worker.transform);
             workersChanged.OnNext(Unit.Default);
             return worker;
-        }
-
-        /// <summary>역할 변경 (배치 탭, GDD 11.3). 들고 있던 화물은 원래 목적지에 배달한 뒤 바뀐다.</summary>
-        public void SetRole(StaffWorker worker, StaffRole role)
-        {
-            if (worker == null || worker.Role == role) return;
-            worker.SetRole(role);
-            workersChanged.OnNext(Unit.Default);
         }
 
         /// <summary>해고 (배치 탭, GDD 11.3). 고용금은 돌려받지 않는다.</summary>

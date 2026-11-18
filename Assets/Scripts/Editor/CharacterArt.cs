@@ -22,7 +22,7 @@ namespace APC.EditorTools
         public const string Player = "player_SBS"; // 2026-11-18 플레이어 아바타 교체 (옛 player.fbx)
         /// <summary>알바 모델. [0] = 물류 유니폼, 나머지 = 코스튬 (GDD 11.1, StaffWorker.models 순서).</summary>
         public static readonly string[] Workers = { "uniformT", "worker_macaron", "worker_rabbit" }; // SBS는 플레이어로 옮김 (2026-11-18)
-        static readonly string[] States = { "idle", "walk", "carry_idle", "carry_move", "push" };
+        static readonly string[] States = { "idle", "walk", "carry_idle", "carry_move", "push", "riding" };
 
         [MenuItem("APC/Art/Apply Character Models (플레이어 · 알바)")]
         static void Apply()

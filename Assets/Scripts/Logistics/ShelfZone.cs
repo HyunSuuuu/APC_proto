@@ -17,12 +17,12 @@ namespace APC.Logistics
         public override bool HasCargoFor(Interactor who)
         {
             var orders = OrderService.Instance;
-            return orders != null && shelf.Item != null && shelf.Count.CurrentValue > 0 && orders.GetDemand(shelf.Item) > 0;
+            return orders != null && shelf.Item != null && Warehouse.CanHandle(who, shelf.Item) && shelf.Count.CurrentValue > 0 && orders.GetDemand(shelf.Item) > 0;
         }
 
         protected override bool CanReceive(Cargo cargo, Interactor who)
             => cargo.Item == shelf.Item
-               && cargo.Origin == CargoOrigin.Storage
+               && cargo.Origin == (who.Forklift ? CargoOrigin.Truck : CargoOrigin.Storage) // 지게차는 트럭에서 바로 팔레트 랙으로 (M11-8)
                && cargo.State == CargoState.Normal
                && shelf.HasSpace;
 
@@ -59,7 +59,7 @@ namespace APC.Logistics
         {
             cargo = null;
             var orders = OrderService.Instance;
-            if (orders == null || shelf.Item == null || orders.GetDemand(shelf.Item) <= 0) return false;
+            if (orders == null || shelf.Item == null || !Warehouse.CanHandle(who, shelf.Item) || orders.GetDemand(shelf.Item) <= 0) return false;
 
             cargo = shelf.TakeOne(); // 출처는 Shelf 그대로 → 상차 존만 받는다
             return cargo != null;

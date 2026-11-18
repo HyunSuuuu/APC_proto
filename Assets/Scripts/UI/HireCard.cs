@@ -17,6 +17,7 @@ namespace APC.UI
         [SerializeField] TMP_Text carryLabel;
         [SerializeField] TMP_Text costLabel;
         [SerializeField] TMP_Text wageLabel;
+        [SerializeField, Tooltip("지게차 후보일 때만 켜는 아이콘 (Art/Temp/forklift). 비워도 됨")] Image roleIcon;
         [SerializeField] Color costColor = new(0.25f, 0.22f, 0.2f);
         [SerializeField] Color costShortColor = new(0.85f, 0.2f, 0.2f);
         [SerializeField, Tooltip("돈이 모자랄 때 카드 바탕 색 (바탕 원래 색에 곱함)")] Color shortTint = new(0.7f, 0.7f, 0.7f);
@@ -31,16 +32,30 @@ namespace APC.UI
             var changed = Candidate != candidate;
             Candidate = candidate;
             var stats = candidate.Stats;
-            titleLabel.text = candidate.Costume ? $"후보 {number}  <size=70%><color=#D9662B>코스튬</color></size>" : $"후보 {number}";
+            var role = $"<color=#{ColorUtility.ToHtmlStringRGB(rules.GetRoleColor(candidate.Role) * 0.8f)}>{RoleName(candidate.Role)}</color>";
+            titleLabel.text = candidate.Costume ? $"후보 {number} · {role}  <size=70%><color=#D9662B>코스튬</color></size>" : $"후보 {number} · {role}";
+            if (roleIcon != null) roleIcon.gameObject.SetActive(candidate.Role == StaffRole.Forklift); // 지게차 아이콘 (Art/Temp/forklift)
             speedLabel.text = $"이동 속도  {stats.moveSpeed}  <size=70%>({rules.GetMoveSpeed(stats.moveSpeed):0.0} m/s)</size>";
-            carryLabel.text = $"적재량  {stats.carry}  <size=70%>({rules.GetCarryCapacity(stats.carry)}개)</size>";
-            costLabel.text = $"고용금 {rules.GetHireCost(stats.Total):N0}";
+            carryLabel.text = candidate.Role is StaffRole.Returns or StaffRole.Forklift
+                ? $"적재  <size=70%>({rules.GetCarry(candidate.Role, stats.carry)}개 고정)</size>" // 반품 · 지게차는 스탯 무관
+                : $"적재량  {stats.carry}  <size=70%>({rules.GetCarryCapacity(stats.carry)}개)</size>";
+            costLabel.text = $"고용금 {rules.GetHireCost(candidate.Role, stats.Total):N0}";
             costLabel.color = canAfford || candidate.Hired ? costColor : costShortColor;
             if (background == null && TryGetComponent(out background)) backgroundColor = background.color;
             if (background != null) background.color = canAfford || candidate.Hired ? backgroundColor : backgroundColor * shortTint;
             wageLabel.text = $"시급 {rules.GetWage(stats.Total):N0} / 파트";
             if (changed || !candidate.Hired) SetStamped(candidate.Hired); // 방금 찍은 자국 연출은 끊지 않는다
         }
+
+        /// <summary>직무 이름 (GDD 11.3).</summary>
+        public static string RoleName(StaffRole role) => role switch
+        {
+            StaffRole.Unload => "하차",
+            StaffRole.Sort => "보관",
+            StaffRole.Pick => "상차",
+            StaffRole.Returns => "반품",
+            _ => "지게차",
+        };
 
         public override bool TryStamp()
         {

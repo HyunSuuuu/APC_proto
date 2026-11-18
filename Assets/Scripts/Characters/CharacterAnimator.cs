@@ -15,6 +15,7 @@ namespace APC.Characters
         static readonly int CarryIdle = Animator.StringToHash("carry_idle");
         static readonly int CarryMove = Animator.StringToHash("carry_move");
         static readonly int Push = Animator.StringToHash("push");
+        static readonly int Riding = Animator.StringToHash("riding");
 
         [SerializeField] CarryStack stack;
         [SerializeField, Min(0f), Tooltip("이 속도(m/s)보다 빠르면 걷는 중")] float moveThreshold = 0.15f;
@@ -26,6 +27,9 @@ namespace APC.Characters
 
         /// <summary>밀기 도구를 쓰는 중 (플레이어 적재 도구 구루마 이상). 이동하면 push.</summary>
         public bool UsePush { get; set; }
+
+        /// <summary>지게차를 탄 알바 (M11-8): 늘 riding.</summary>
+        public bool UseRiding { get; set; }
 
         void OnEnable()
         {
@@ -51,7 +55,8 @@ namespace APC.Characters
             var moving = delta.magnitude / deltaTime > moveThreshold;
 
             var holding = stack != null && stack.Count.CurrentValue > 0;
-            var state = UsePush ? (moving ? Push : Idle)
+            var state = UseRiding ? Riding
+                : UsePush ? (moving ? Push : Idle)
                 : holding ? (moving ? CarryMove : CarryIdle)
                 : moving ? Walk : Idle;
             if (state == current) return;

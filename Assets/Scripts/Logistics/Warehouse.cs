@@ -118,6 +118,31 @@ namespace APC.Logistics
             if (RepackedShelved == 1) Debug.Log("[Warehouse] 재포장한 반품이 처음으로 선반에 들어감 — 프로토타입 목표 달성 (GDD 1.3)");
         }
 
+        /// <summary>D 가구(대형) 품목인가 (CompanyDefinition.IsLarge, GDD 5.1).</summary>
+        public static bool IsLarge(ItemDefinition item)
+        {
+            var company = item != null && GameManager.Instance != null ? GameManager.Instance.Database.GetCompanyOf(item) : null;
+            return company != null && company.IsLarge;
+        }
+
+        /// <summary>그 사람이 그 품목을 다룰 수 있는가: 지게차 알바는 D만, 나머지(플레이어 포함)는 D 말고만 (GDD 11.3, M11-8).</summary>
+        public static bool CanHandle(Interactor who, ItemDefinition item) => who != null && IsLarge(item) == who.Forklift;
+
+        /// <summary>D 하차 트럭에서 더 꺼낼 수 있는 수 = 팔레트 랙 빈자리 − 트럭에서 꺼내 든 수. 예외(바로 상차)면 상차 수요까지 (GDD 11.3).</summary>
+        public int LargeRoom(ItemDefinition item)
+        {
+            var room = GetShelfFreeSpace(item) - CountCarried(item, CargoOrigin.Truck);
+            if (DirectLoad(item)) room = Mathf.Max(room, Orders.OrderService.Instance.GetDemand(item) - CountCarried(item, CargoOrigin.Truck));
+            return room;
+        }
+
+        /// <summary>예외: 팔레트 랙에 D가 없고 상차 트럭이 D를 요구 중 → 하차 트럭에서 꺼낸 D를 랙을 거치지 않고 바로 상차 (GDD 11.3).</summary>
+        public bool DirectLoad(ItemDefinition item)
+        {
+            var orders = Orders.OrderService.Instance;
+            return orders != null && GetStock(item) == 0 && orders.GetDemand(item) > 0;
+        }
+
         /// <summary>플레이어 · 알바가 지금 들고 있는 화물 중 조건에 맞는 수.</summary>
         public static int CountCarried(ItemDefinition item, CargoOrigin origin)
         {

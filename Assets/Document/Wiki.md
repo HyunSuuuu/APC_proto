@@ -395,6 +395,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### CharacterAnimator
 [Characters/CharacterAnimator.cs](../Scripts/Characters/CharacterAnimator.cs)
 - **역할**: 캐릭터 모델 애니 (플레이어 · 알바 공용). 상태 = 빈손 `idle` / `walk`, 맨손으로 들기 `carry_idle` / `carry_move`, 밀기 도구(`UsePush`) `idle` / `push` (M14-4, 서기 / 걷기).
+- **지게차** (M11-8): `UseRiding`이면 늘 `riding` (컨트롤러 상태는 `CharacterArt.PrepareAssets`가 더함).
 - **동작**: `LateUpdate`에서 위치 변화로 실제 속도를 재고(`moveThreshold` 0.15 m/s), 상태가 바뀔 때만 `CrossFadeInFixedTime`(0.12초). Animator는 자식 중 켜진 모델의 것을 찾는다 (알바 모델 교체 대응). `Time.deltaTime` 0(팝업 멈춤)이면 그대로.
 - **연결**: `stack`(`CarryStack`), 컨트롤러 `Assets/Art/Model/Ani/Character.controller`(상태 이름 = 클립 이름). 만들기는 `CharacterArt`(에디터).
 
@@ -526,6 +527,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### ShelfZone
 [Logistics/ShelfZone.cs](../Scripts/Logistics/ShelfZone.cs)
 - **역할**: 선반 둘레 존 (선반 3.6 × 3.2m · 팔레트 랙 3.2m). **내려놓기 먼저** — 같은 품목, Origin = Storage, Normal 상태 화물을 받고 Origin을 Shelf로 바꾼다 (재포장 상자면 `Warehouse.NotifyRepackedShelved`). 내려놓을 것이 없으면 `OrderService.GetDemand(품목) > 0`일 때만 1개씩 꺼낸다 (GDD 8.4). `Shelf` 프로퍼티로 붙은 선반을 읽고, `HasCargoFor`(알바 판단용)를 구현한다.
+- **지게차** (M11-8): `Warehouse.CanHandle` — D 팔레트 랙은 지게차 알바만 넣고(Origin = **Truck**, 하차 칸 공간 안 거침) 꺼내고, 일반 선반은 지게차가 못 쓴다.
 - **알림** (M13-3, 플레이어만): 하나도 못 넣으면 이 색 상자(Origin = Storage)를 들었으면 '가득'(선반 꽉 참), 그 밖의 상자(다른 색 · 트럭 화물 · 반품)면 '넣을 수 없음'. 선반에서 꺼낸 상자(상차로 가는 중)는 안 센다. 글자 원본 = `Shelf.CountLabel`.
 - **주의**: 정차한 트럭이 없으면 수요가 0이라 집지 않는다. 꺼낸 화물의 Origin은 `Shelf` 그대로 — 상차 존만 받는다.
 
@@ -549,6 +551,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### Warehouse
 [Logistics/Warehouse.cs](../Scripts/Logistics/Warehouse.cs)
 - **역할**: 창고 전체의 선반 목록과 재고 집계. 씬에 하나 (`Site/Logistics`).
+- **지게차 규칙** (M11-8): static `IsLarge(item)`(`GameDatabase.GetCompanyOf().IsLarge`), `CanHandle(who, item)` = 지게차 알바(`Interactor.Forklift`)는 D만 · 나머지(플레이어 포함)는 D 말고만. `LargeRoom(item)` = 랙 빈자리 − 트럭에서 꺼내 든 D (예외면 상차 수요까지), `DirectLoad(item)` = 랙 재고 0 + 상차 D 수요 > 0 → 트럭 → 상차 직행.
 - **동작**:
   - `BuildShelf(slot)`: 자리의 품목 · 모양 · 용량으로 선반을 **자리의 자식, 로컬 0**에 세운다 (팝 연출). 같은 색 선반은 여러 개.
   - `NearestShelfWithSpace(item, from)`: 그 색 선반 중 빈자리 있는 가장 가까운 것 (가이드 화살표)
@@ -583,6 +586,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### TruckPickupZone
 [Logistics/TruckPickupZone.cs](../Scripts/Logistics/TruckPickupZone.cs)
 - **역할**: 주차한 트럭 뒷문 앞의 집기 존. `bay.DockedTruck`에서 화물을 꺼낸다. 트럭이 없거나 이동 중이면 아무것도 안 준다. `Bay` 프로퍼티로 베이를 노출한다 (알바가 예약할 트럭을 찾음). `HasCargoFor`(알바 판단용)는 트럭의 `Available > 0`이고 `Room > 0`일 때만 참이다.
+- **지게차** (M11-8): D 트럭은 지게차 알바만 꺼낸다 (`LargeRoom > 0`, `Home` 없음 — 하차 칸 공간 안 거침). 일반 트럭은 지게차가 못 꺼낸다.
 - **동작** (M13-2, GDD 7.2): `Room` = 이 칸 공간 용량 − 공간 수 − 이 칸 트럭에서 꺼내 든 수(플레이어 · 알바, `Cargo.Home`) − 트럭 예약. 0이면 플레이어도 알바도 못 꺼낸다 → 공간이 넘치지 않는다. 플레이어가 막히면 트럭 위에 '공간 가득' (`CargoZone.Notice`, 1.5초마다 최대 1번). 꺼낸 화물에 `Home = bay.Storage`를 넣는다.
 
 #### OutboundBay
@@ -599,6 +603,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### TruckLoadZone
 [Logistics/TruckLoadZone.cs](../Scripts/Logistics/TruckLoadZone.cs)
 - **역할**: 출고 트럭 뒷문 앞 상차 존. Origin = Shelf이고 정차한 트럭 주문에 남은 품목만 받는다. 받기만 한다.
+- **지게차 예외** (M11-8): 지게차 알바가 트럭에서 바로 꺼낸 D(Origin = Truck)도 `Warehouse.DirectLoad`면 받는다.
 
 #### CashZone
 [Logistics/CashZone.cs](../Scripts/Logistics/CashZone.cs)
@@ -615,8 +620,9 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### StaffWorker
 [Staff/StaffWorker.cs](../Scripts/Staff/StaffWorker.cs)
 - **역할**: 알바 1명. 플레이어와 같은 `Interactor` · `CarryStack`을 쓰고, 이동은 `NavMeshAgent`가 한다 ([GDD 11](GDD.md#11-알바생)).
+- **지게차 직무** (M11-8): `SetRole(Forklift)` = `Interactor.Forklift` · 자식 `Forklift`(Prop `Forklift` + 포크 `Plastic_Pallet`, M_Prop, 꺼진 채) 켬 · 스택 바닥 `ForkliftAnchor`(팔레트 위) · `CharacterAnimator.UseRiding`. 작업 존 = `TruckPickupZone`(D 트럭) · D 랙 `ShelfZone`, 트럭 예약 수 = `LargeRoom`. 적재 4 고정 (`StaffRules.GetCarry`).
 - **동작**: 상태 `Phase` = `Idle / Moving / Working / Parked / Waiting`. 집는 곳은 직무로 정한다 (하차 `TruckPickupZone`, 보관(`Sort`) `StorageZone` 중 Pallet · Repacked, 상차(`Pick`) `ShelfZone`, 반품 = Returns · Trash `StorageZone` + 재포장 테이블). **반품 알바**(M13-12, `ReturnsWork`): 막히는 곳부터 — `TrashFull`이면 쓰레기 출력에서 줍기 → 재포장(`TryGauge`: 가장 가까운 `RepackTable.HasWork` 테이블 슬롯으로 가서 `gauge`로 두고, `HasWork`인 동안 서 있음) → 반품 팔레트에서 줍기 → 쓰레기 줍기 (`ReturnsFocus`로 `IsRoleZone`을 좁힘). 적재 = `StaffRules.returnsCarry` 12 (스탯 무관, `SetRole`에서). 내려놓는 곳은 들고 있는 화물을 받는 존(`CargoZone.CanReceiveAny`)이라서, 역할을 바꿔도 화물은 원래 목적지로 간다. 가장 가까운 빈 `WorkSlot`을 출발할 때 예약하고, 도착하면 `Interactor.Target`을 그 존으로 두고 `AllowDrop` · `AllowPick`을 작업에 맞춘다. 옮길 것이 `workIdleTimeout`(0.5초) 동안 없거나 가득 · 빈손이 되면 작업을 끝낸다. 예약은 3역할 공통 ([GDD 8.4](GDD.md#84-수요-계산)): 출발할 때 가져갈 만큼 `Reserve()`로 잡고, 도착하면 `ReleaseReservation()`으로 푼다. 해제는 `releaseReservation` 함수 하나. 하차 = `InboundTruck.Reserve`, 분류 = `Warehouse.ReserveShelfSpace`(`PlanForShelves` 품목별), 피킹 = `OrderService.Reserve`.
-- **연결**: `Setup(role, stats, costume)`(`StaffService.Spawn`이 부른다), `SetRole(role)`(역할 변경 — 배치 탭), `Fire()`(해고), `Role` · `Stats` · `State` · `Stack` · `Number`(고용 순 번호, `DisplayName` = `알바 N`) · `Fired`. 설정값은 `StaffRules`.
+- **연결**: `Setup(role, stats, costume)`(`StaffService.Spawn`이 부른다), `SetRole`은 `Setup` 안에서만 (직무 변경 삭제 2026-11-18, 적재 = `StaffRules.GetCarry(role, carry)` — 반품 12 · 지게차 4 고정), `Fire()`(해고), `Role` · `Stats` · `State` · `Stack` · `Number`(고용 순 번호, `DisplayName` = `알바 N`) · `Fired`. 설정값은 `StaffRules`.
 - **주의**:
   - 가는 중 대상이 사라지면 예약을 풀고, `thinkInterval`(0.25초)마다 다시 고른다. 가는 중 확인(`StillValid`)은 예약을 잠깐 풀고 다시 확인해 다시 잡는다.
   - 할 일이 없으면 역할 존의 빈 슬롯에서 `Parked`로 기다린다. 빈 슬롯이 없으면 그 자리에서 `Waiting`.
@@ -631,12 +637,12 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Staff/StaffService.cs](../Scripts/Staff/StaffService.cs)
 - **역할**: 알바 명단 · 고용 후보 · 고용 (GDD 11.1). 씬 `Site/Logistics`에 하나 (`Instance`).
 - **동작**:
-  - 후보: `Candidates`(`StaffCandidate` = 스탯 + `Costume`(`StaffRules.RollCostume`, 10%) + `Hired`, `StaffRules.candidateCount` 3명). `PartService.Part`를 구독해 **파트가 바뀔 때마다**(구독 순간 = 처음 후보 포함) `RefreshCandidates()`, 고용 탭 [새로고침]도 같은 함수. 바뀌면 `OnCandidatesChanged`.
-  - 고용: `GetBlock(candidate)` = `Hired` / `MaxStaff`(`Workers.Count >= LevelProgress.MaxStaff`) / `Cash`(보유 재화 < 고용금) / `None`. `TryHire(candidate, out block)` = 막히지 않으면 빈 역할로 생성 → `Wallet.TrySpend(고용금)` → `Hired = true` → `OnCandidatesChanged`. 고용 XP 없음 (2026-11-14).
+  - 후보: `Candidates`(`StaffCandidate` = **직무 `Role`**(열린 직무 중 같은 확률 무작위, M11-9) + 스탯 + `Costume`(`StaffRules.RollCostume`, 10%) + `Hired`, `StaffRules.candidateCount` 3명). `PartService.Part`를 구독해 **파트가 바뀔 때마다**(구독 순간 = 처음 후보 포함) `RefreshCandidates()`, 고용 탭 [새로고침]도 같은 함수. 바뀌면 `OnCandidatesChanged`.
+  - 고용: `GetBlock(candidate)` = `Hired` / `MaxStaff`(`Workers.Count >= LevelProgress.MaxStaff`) / `Cash`(보유 재화 < 고용금) / `None`. `TryHire(candidate, out block)` = 막히지 않으면 **후보 직무로** 생성 → `Wallet.TrySpend(고용금)` → `Hired = true` → `OnCandidatesChanged`. 고용 XP 없음 (2026-11-14).
   - 생성: `Spawn(role, stats, costume)` = 사무실 생성 지점(`StaffSpawnPoint`, PC 존 바로 앞)에 `StaffWorker` 프리팹 + 팝 연출. `Spawn(role)`은 무작위 스탯(디버그 메뉴용, 고용금 · 최대 인원 없음).
-  - 명단 변경: `SetRole(worker, role)` · `Fire(worker)`(고용금 환불 없음), 고용 · 해고 · 역할 변경마다 `OnWorkersChanged`. 알바 번호(`Number`)는 해고해도 다시 쓰지 않는다.
+  - 명단 변경: `Fire(worker)`(고용금 환불 없음)만 — 직무 변경 삭제 (M11-9). 고용 · 해고마다 `OnWorkersChanged`. 고용금 = `StaffRules.GetHireCost(role, 스탯 합)`(지게차 +300). 알바 번호(`Number`)는 해고해도 다시 쓰지 않는다.
   - 시급: `GetPartWage(worker)` = `올림(시급 × PartShare)`. `PlanWages(쓸 수 있는 돈)` → `WagePlan`(`Paid` · `PaidWorkers` · `Unpaid`(알바, 밀린 금액) · `Quitting`) — 고용 순서대로 `Owed + 이번 시급`을 전액 지급, 못 받으면 `Owed`가 없으면 미지급 · 있으면 퇴사. `ApplyWages(plan)` = `SetOwed` · `Quit` 적용, 남은 알바 `PartShare = 1`, `OnWorkersChanged`.
-  - `Workers`는 고용 순서대로 (시급 지급 순서, GDD 11.7). `NextEmptyRole()` = 빈 직무 (하차 → 보관 → 상차 → 반품 순, 다 차면 인원이 가장 적은 직무, 열리지 않은 직무는 건너뜀). `IsRoleOpen(role)` = 반품은 `SiteGrid.IsUnlocked("Ret1")` 뒤에만. `CountRole(role)`.
+  - `Workers`는 고용 순서대로 (시급 지급 순서, GDD 11.7). `IsRoleOpen(role)` = 반품은 `SiteGrid.IsUnlocked("Ret1")`, 지게차는 `IsUnlocked("StoreD")` 뒤에만 (`NextEmptyRole` · 자동 배정 삭제, M11-9). `CountRole(role)`.
 - **연결**: `StaffSpawnPoint.Current`, `StaffRules`, `PartService`(후보 교체), `HirePanel`(고용 탭), `RosterPanel`(배치 탭), 디버그 메뉴 `Staff` 절.
 - **주의**: 네비메시가 없으면 `Spawn`은 null이고 고용도 실패한다 (돈은 나가지 않음).
 
@@ -684,7 +690,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### StockBalancer
 [Orders/StockBalancer.cs](../Scripts/Orders/StockBalancer.cs)
 - **역할**: 하차 트럭 · 상차 주문 색 고르기 (static 클래스).
-- **동작**: `PickByWeight`(공개, 주문 색) · `PickInboundCompany` — 둘 다 **회사 `Weight` 비율**(40/30/20/10) (GDD 6.3 · 8.1). `PickInboundCompany`는 **같은 색 최대 3대 연속** — 모든 하차 칸이 같은 정적 카운터를 쓴다. 후보가 1색뿐이면 제한하지 않는다 (M13-1). `ComposeInboundLoad` — 트럭 전부 그 회사 품목(1종). 교착 방지 가중치(재고 · 부족량)는 M11-2에서 삭제.
+- **동작**: `PickByWeight`(공개, 주문 색) · `PickInboundCompany` — 둘 다 **회사 `Weight` 비율**(40/30/20/10) (GDD 6.3 · 8.1). `PickInboundCompany`는 **같은 색 최대 3대 연속** — 모든 하차 칸이 같은 정적 카운터를 쓴다. 후보가 1색뿐이면 제한하지 않는다 (M13-1). `ComposeInboundLoad` — 트럭 전부 그 회사 품목(1종), 수 = 레벨이 `LogisticsConfig.TruckStage2Level`(4) 이상이면 `InboundTruckCapacityStage2`(갈 · 초 · 파 15 · 주 4) 아니면 `InboundTruckCapacity`(10 · 4) — 도착할 때 정해짐 (M13-14). 교착 방지 가중치(재고 · 부족량)는 M11-2에서 삭제.
 
 ### 4.7b Economy — 파트 · 정산 · 저금통
 
@@ -855,7 +861,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### HireCard
 [UI/HireCard.cs](../Scripts/UI/HireCard.cs)
-- **역할**: 후보 카드 1장 (`StampCard`): 이동 속도 · 적재량(파생값 m/s · 개수) · 고용금(모자라면 빨강 + 카드 바탕 `shortTint` 회색) · 시급. 고용되면 `[ 고용 ]` 자국 + 회색 필터.
+- **역할**: 후보 카드 1장 (`StampCard`): 제목 `후보 N · 직무`(직무 색), 지게차면 오른쪽 아래 `roleIcon`(`Art/Temp/forklift`) 켬, 이동 속도 · 적재량(파생값 m/s · 개수, 반품 · 지게차는 `N개 고정`) · 고용금(모자라면 빨강 + 카드 바탕 `shortTint` 회색) · 시급. 고용되면 `[ 고용 ]` 자국 + 회색 필터.
 - **동작**: `Bind(번호, 후보, rules, canAfford)` — 같은 후보가 방금 고용됐으면 찍는 연출을 끊지 않는다. `TryStamp()` → 부모 `HirePanel.TryHire(this)`. 사유: 이미 고용함 / 최대 인원 / 보유 재화 부족.
 
 #### Stamp
@@ -866,9 +872,9 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### RosterPanel
 [UI/RosterPanel.cs](../Scripts/UI/RosterPanel.cs)
-- **역할**: 클립보드 책상 팝업의 배치 탭 (GDD 11.3). 위 왼쪽 `알바 n/최대`, 하차 · 보관 · 상차 · 반품 4열(`RosterColumn`, 제목에 인원 수, 열리지 않은 반품 열은 회색 `(잠김)`) + 오른쪽 해고 칸 + 해고 확인 창.
-- **동작**: `StaffService.OnWorkersChanged` · `OnEnable`마다 `Refresh` — 카드(`RosterCard`)를 명단 수만큼 만들어 두고 `Workers[i]`에 묶어 그 역할 열 `Content`로 옮긴다. `Drop(card, column)`: 열린 직무 열이면 `StaffService.SetRole`(잠긴 열은 무시), 해고 칸이면 확인 창 → [해고] `StaffService.Fire` / [취소]. 어디에 놓든 카드는 다시 그린 자리로 돌아간다.
-- **연결**: `RosterColumn` × 4 + 해고 칸, `RosterCard` 템플릿, `dragLayer`(끄는 카드를 올려 두는 층).
+- **역할**: 클립보드 책상 팝업의 배치 탭 (GDD 11.3). 위 왼쪽 `알바 n/최대`, 하차 · 보관 · 상차 · 반품 · 지게차 5열(`RosterColumn`, 제목에 인원 수, 열리지 않은 반품 · 지게차 열은 회색 `(잠김)`, M11-9) + 오른쪽 해고 칸 + 해고 확인 창.
+- **동작**: `StaffService.OnWorkersChanged` · `OnEnable`마다 `Refresh` — 카드(`RosterCard`)를 명단 수만큼 만들어 두고 `Workers[i]`에 묶어 그 역할 열 `Content`로 옮긴다. `Drop(card, column)`: 해고 칸이면 확인 창 → [해고] `StaffService.Fire` / [취소]. 어디에 놓든 카드는 다시 그린 자리로 돌아간다.
+- **연결**: `RosterColumn` × 5 + 해고 칸 (씬은 `SiteBuilder.BuildRosterPage`만 리플렉션으로 다시 만듦), `RosterCard` 템플릿, `dragLayer`(끄는 카드를 올려 두는 층).
 - **주의**: 한 열에 카드가 5장쯤 들어간다 (스크롤 없음). 탭이 꺼지면 확인 창도 닫힌다.
 
 #### RosterCard

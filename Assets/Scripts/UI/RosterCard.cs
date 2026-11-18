@@ -10,7 +10,7 @@ namespace APC.UI
 {
     /// <summary>
     /// 배치 탭의 알바 카드 1장 (GDD 11.3): 역할 색 · 이름 · 스탯 · 시급.
-    /// 다른 역할 열에 끌어다 놓으면 역할 변경, 해고 칸에 놓으면 해고 확인 (RosterPanel.Drop).
+    /// 해고 칸에 끌어다 놓으면 해고 확인 (RosterPanel.Drop, 직무 변경 없음).
     /// 끄는 동안은 레이아웃에서 빠지도록 드래그 층으로 옮겨 둔다.
     /// </summary>
     [RequireComponent(typeof(CanvasGroup))]
@@ -38,7 +38,7 @@ namespace APC.UI
             colorBar.color = rules.GetRoleColor(worker.Role);
             nameLabel.text = worker.Owed > 0 ? $"{worker.DisplayName}  <color=#D9262B>₩{worker.Owed:N0} 밀림</color>" : worker.DisplayName;
             var stats = worker.Stats;
-            statsLabel.text = $"이동 {stats.moveSpeed} · 적재 {stats.carry} · 시급 {rules.GetWage(stats.Total):N0}";
+            statsLabel.text = $"이동 {stats.moveSpeed} · 적재 {rules.GetCarry(worker.Role, stats.carry)}개 · 시급 {rules.GetWage(stats.Total):N0}";
         }
 
         public void OnBeginDrag(PointerEventData eventData)

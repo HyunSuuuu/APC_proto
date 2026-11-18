@@ -48,6 +48,9 @@ namespace APC.Interaction
 
         /// <summary>내려놓기 / 집기 허용 (알바가 작업 종류에 맞춰 끈다 — 예: 하차 알바는 팔레트에서 집지 않음). 기본 둘 다 true.</summary>
         public bool AllowDrop { get; set; } = true;
+
+        /// <summary>지게차 알바 (M11-8): D 가구(대형)만 다루고, 다른 사람은 D를 못 다룬다 (Warehouse.CanHandle).</summary>
+        public bool Forklift { get; set; }
         public bool AllowPick { get; set; } = true;
 
         bool IsBlockedHere => RestrictToTarget && zone != Target;
