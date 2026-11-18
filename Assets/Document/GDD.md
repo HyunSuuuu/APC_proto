@@ -953,8 +953,9 @@
 | D 팔레트 랙 | `Purple_Shelf` + 바닥 `Purple_Plastic_Pallet` · 지게차 포크 팔레트도 `Purple_Plastic_Pallet` `임시` |
 | 반품 팔레트 · 재포장 상자 팔레트 | `Blue_Plastic_Pallet` `임시` |
 | 재포장 테이블 | `Return_Inspection_Table` + 위에 `Tape_Stand` · `Tape_Cutter` · `Lap_Stand` |
-| 사무실 추가 장식 | `Printer` · `Scaner` · `Small_Clip_Board` (책상 위) `임시` |
-| 보관 구역 표지판 | `sign_brown` · `sign_green` · `sign_blue`. D(보라) · 반품 · 쓰레기장 표지판은 **보라 표지판을 받을 때까지 보류**, `sign_yellow`는 이번엔 안 씀 `확정` (2026-11-18) |
+| 사무실 추가 장식 | `Printer` · `Scaner` · `Small_Clip_Board` (책상 위, 아래 위치 표) |
+| 보관 구역 표지판 | **바뀜** `확정` (2026-11-19): A~D = `sign_brown` · `sign_green` · `sign_blue` · `sign_purple`, 보관 모듈 로컬 **(-4, 1.5)**에 세움(바닥 글자는 그대로). **반품 · 쓰레기장은 표지판 없음**, `sign_yellow` 안 씀 |
+| 사무실 장식 위치 `확정` (2026-11-19) | B책상(컴퓨터)에 `Printer` · `Scaner`, A책상(클립보드)에 `Small_Clip_Board` |
 | 배경 · 바깥 | 나무 `tree_L` · `tree_s` · `tree_plam`, 꽃 `tulip`, `street_lamp`, `vending_machine`, 바닥 `floor_green1~4` · `floor_grass` · `floor_daisy` · `floor_basic5~7` · `floor_road7` · `floor_crosswalk1~3` (칠하기 팔레트에 추가) |
 | 벽 · 출입구 | 바깥 `wall_outside` · `window_outside`, 안쪽 `wall_inside` · `window_inside` · `pillar_inside`, 블라인드 `blind`, `exit_seal`, 주차장 셔터 `truck_parking` · `truck_parking1~2` `임시` |
 | 크기 `확정` (2026-11-18) | 모델은 **캐릭터에 맞춘 크기**이므로 상자 · 선반 등 **모두 모델 기본 크기 그대로** 쓴다 (지금 상자 크기에 맞춰 늘리지 않음). 키우거나 늘려야 할 때는 **사용자에게 먼저 알린다**. D 상자는 **세로 한 줄로 쌓는다** (들기 · 랙) |

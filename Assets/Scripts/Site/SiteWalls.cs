@@ -22,6 +22,8 @@ namespace APC.Site
         [SerializeField, Tooltip("뒤 꼭짓점 기둥 (pillar_L)")] GameObject highPillar;
         [SerializeField, Tooltip("조각 재질 (M_Prop). 비우면 fbx 재질")] Material material;
         [SerializeField, Min(0.1f), Tooltip("벽 조각 길이 (m)")] float pieceLength = 1f;
+        [SerializeField, Tooltip("사무실 바깥 벽 창문 (window_outside, 폭 2m = 조각 2개). 비우면 창문 없음")] GameObject windowPrefab;
+        [SerializeField, Tooltip("사무실 벽 한 변에서 창문이 시작하는 조각 번호 (0부터, 창문은 그 조각과 다음 조각 자리)")] int[] windowStarts = { 2, 6 };
         /// <summary>반투명 대상 하나 (벽 조각 렌더러 · WallFadeTarget 렌더러).</summary>
         sealed class Fade
         {
@@ -81,8 +83,16 @@ namespace APC.Site
                     var middle = center + outward * (cellSize * 0.5f);
                     var along = new Vector3(-outward.z, 0f, outward.x);
                     var yaw = Quaternion.LookRotation(outward);
+                    var office = windowPrefab != null && IsOffice(grid.ModuleAt(cell));
                     for (var i = 0; i < pieces; i++)
                     {
+                        // 사무실 바깥 벽: 조각 2개 자리마다 창문 하나 (windowStarts, 2026-11-19)
+                        if (office && i + 1 < pieces && System.Array.IndexOf(windowStarts, i) >= 0)
+                        {
+                            Place(windowPrefab, middle + along * ((i + 1f) * pieceLength - cellSize * 0.5f), yaw);
+                            i++;
+                            continue;
+                        }
                         var position = middle + along * ((i + 0.5f) * pieceLength - cellSize * 0.5f);
                         Place(prefab, position, yaw);
                     }
@@ -101,6 +111,9 @@ namespace APC.Site
                 if (prefab != null) Place(prefab, pillar.position, Quaternion.identity);
             }
         }
+
+        /// <summary>사무실 모듈인가 (계약 PC = 책상이 있는 모듈).</summary>
+        static bool IsOffice(SiteModule module) => module != null && module.GetComponentInChildren<Contracts.ContractPC>(true) != null;
 
         /// <summary>하차 · 상차장 모듈의 주차장 쪽 (모듈 로컬 −x, SiteLayout 회전 규칙).</summary>
         static bool IsTruckSide(SiteModule module, Vector3 outward)

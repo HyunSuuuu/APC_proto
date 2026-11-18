@@ -613,13 +613,19 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
   - 테스트: 황금 트럭 금 10개 다 쌓인 뒤에도 저금통 0 → 플레이어가 가니 흡수, D 4개 1줄 탑, 벽 조각 반투명(스크린샷), 발판 결제 중 돈 다발 1개 비행 · 박스 게이지, 반품 알바 Working 중 `packing`, 배경 에디터 미리보기 30칸 · 창 닫으면 지움 · 씬 안 더럽힘, 에러 0. 배경 에디터 클릭 조작 · 트럭 글자가 다른 UI 위로 겹치는지는 사람 손 테스트 아직
   - **바뀜** (2026-11-19 4차, 사용자 요청): 벽 반투명 **페이드**(알파 보간, 흐려짐 0.2초 · 돌아옴 0.35초) + 새 설정 `WallFadeConfig`(`Assets/Data`, `GameDatabase.wallFade` — 켜기 · 알파 · 시간 · 가로/세로 여유 · 확인 높이 · 가까이 무시 · 간격), 하차 · 상차 모듈 `Parking`에 `WallFadeTarget` → 주차장 지붕 · 기둥도 반투명. 배경 에디터 팔레트 = 상자 안 세로 스크롤 목록(높이 조절). 마카롱 코스튬 2 추가(`worker_macaron2`, 텍스처만 다름)
   - 테스트: 벽 뒤 → 4조각 반투명, 페이드 시간 5초로 늘려 중간 알파 0.67 확인 후 되돌림, 하차 트럭 앞에서 주차장 반투명(스크린샷), 배경 에디터 창 열기 에러 0. 팔레트 스크롤 조작은 사람 손 테스트 아직
-- [ ] **M15-3 하차 · 황금 · 상차 트럭 모델** — 하차 트럭 = 회사 색 × 단계 크기(`*_Small/Middle/Big_Truck_Open`, 보라 Small · Middle은 `_Open` 없음), 황금 = `Gold_*`(단계 크기, `GoldenTruckConfig` 칠하기는 끔 · 빛 · 반짝임 유지), 상차 = `White_Big_Truck_Open`. 크기마다 뒷면 · 화물 나오는 위치 · 주차 칸 · 대기 줄 간격 확인
+- [x] **M15-3 하차 · 황금 · 상차 트럭 모델** — 하차 트럭 = 회사 색 × 단계 크기(`*_Small/Middle/Big_Truck_Open`, 보라 Small · Middle은 `_Open` 없음), 황금 = `Gold_*`(단계 크기, `GoldenTruckConfig` 칠하기는 끔 · 빛 · 반짝임 유지), 상차 = `White_Big_Truck_Open`. 크기마다 뒷면 · 화물 나오는 위치 · 주차 칸 · 대기 줄 간격 확인
   - **진행** (2026-11-18, M16-4와 함께 사용자 요청): **하차 · 황금 트럭은 완료** — `CompanyDefinition.truckModels`(갈 · 초 · 파 · 보라 × Small · Middle · Big), `InboundTruck.SetModel`(0.85배 · 뒷면 z −2.2 맞춤 · M_Prop), 황금 = `goldModels` · 칠하기 끔. 테스트: 5색 × 3단계 나란히 스크린샷(색 · 크기 맞음, 뒷면 전부 −2.2), 하차 칸 주차 확인. **남은 것: 상차 트럭 `White_Big_Truck_Open`**, 대형 트럭 대기 줄 간격(7m) 사람 손 확인
-- [ ] **M15-4 색별 선반 · D 랙 · 팔레트** — `Brown/Green/Blue_Shelf`(품목 색으로 고름, 지금 2개 등 맞대기 크기), D 랙 `Purple_Shelf` + `Purple_Plastic_Pallet`(지게차 포크도), 반품 팔레트 · 재포장 상자 팔레트 `Blue_Plastic_Pallet`
-- [ ] **M15-5 재포장 테이블** — `Return_Inspection_Table` + `Tape_Stand` · `Tape_Cutter` · `Lap_Stand`, 재포장 중 상자 = 색별 `*_Open_Box`(18장 47), 입력 · 출력 · 작업 지점 위치를 테이블에 맞춤
+- [x] **M15-4 색별 선반 · D 랙 · 팔레트** — `Brown/Green/Blue_Shelf`(품목 색으로 고름, 지금 2개 등 맞대기 크기), D 랙 `Purple_Shelf` + `Purple_Plastic_Pallet`(지게차 포크도), 반품 팔레트 · 재포장 상자 팔레트 `Blue_Plastic_Pallet`
+- [x] **M15-5 재포장 테이블** — `Return_Inspection_Table` + `Tape_Stand` · `Tape_Cutter` · `Lap_Stand`, 재포장 중 상자 = 색별 `*_Open_Box`(18장 47), 입력 · 출력 · 작업 지점 위치를 테이블에 맞춤
   - **진행** (2026-11-19, 사용자 요청): `Module_Returns` `RepackTableArea/TableModel` = `Return_Inspection_Table`(3.68 × 1.68 × 0.85, M_Prop, y 180° — 높은 판이 작업자 반대편), 옛 `RepackDesk`는 렌더러만 끔. `RepackTable`: 게이지가 차 있는 동안 `WorkPoint`에 다음 찌그러진 상자 색 **열린 상자**(`Item.OpenModel`, 나타날 때 튐), 채우는 동안 **작업 먼지**(`VFX_WorkDust`, `GaugeZone.IsTicking`). 테스트: 파랑 열린 상자 + 먼지 구름(스크린샷), 쓰레기 더미 테이블 끝. **남은 것**: `Tape_Stand` · `Tape_Cutter` · `Lap_Stand`, 입력 · 쓰레기 더미 높이(1.3)가 테이블 윗면과 맞는지, `StandardModules.BuildReturns`는 안 고침(Build Site 금지)
-- [ ] **M15-6 사무실 · 표지판** — 책상 위 `Printer` · `Scaner` · `Small_Clip_Board`, 보관 구역 표지판 `sign_brown/green/blue`(D · 반품 · 쓰레기장 · `sign_yellow`는 18장 47)
-- [ ] **M15-7 배경 · 벽 · 출입구** — 칠하기 팔레트에 새 바닥(`floor_green1~4` · `floor_grass` · `floor_daisy` · `floor_basic5~7` · `floor_road7` · `floor_crosswalk1~3`), 배경 모듈에 `tree_L/s/plam` · `tulip` · `street_lamp` · `vending_machine`, 벽 `wall_outside/inside` · `window_*` · `pillar_inside` · `blind` · `exit_seal`, 주차장 셔터 `truck_parking*`. 초안 배치 → 스크린샷 → 사용자가 손으로 조정
+- [x] **M15-6 사무실 · 표지판** — 책상 위 `Printer` · `Scaner` · `Small_Clip_Board`, 보관 구역 표지판 `sign_brown/green/blue`(D · 반품 · 쓰레기장 · `sign_yellow`는 18장 47)
+  - M15-3 ~ 5: 사용자가 테스트 · 수정 완료 (2026-11-19, 세부는 사용자 커밋)
+  - 확정 (2026-11-19, GDD 15.1): A~D 표지판 = 갈 · 초 · 파 · **보라(`sign_purple` 새로 받음)**, 보관 모듈 로컬 (-4, 1.5), 반품 · 쓰레기장 표지판 없음(`sign_yellow` 안 씀). B책상에 프린터 · 스캐너, A책상에 작은 클립보드
+  - 완료 (2026-11-19): `Module_ShelfArea_A~D/Content/Sign`(y −45° — 앞면이 카메라 쪽, M_Prop, 충돌체 없음), `Module_Office` `ComputerDesk/Printer`(-0.58, 0.73, 1.65) · `Scaner`(0.35, 0.73, 1.42) · `ClipboardDesk/SmallClipBoard`(-0.72, 0.72, 1.45). B책상 장식은 B책상과 함께 Lv.3 전 숨김(ContractPC가 자식 전부 끔)
+  - 테스트: 갈색 표지판 앞면 · 위치, A책상 작은 클립보드 스크린샷, 에러 0. 프린터 · 스캐너 위치 · 방향은 사람 손 확인 아직
+- [x] **M15-7 배경 · 벽 · 출입구** — 칠하기 팔레트에 새 바닥(`floor_green1~4` · `floor_grass` · `floor_daisy` · `floor_basic5~7` · `floor_road7` · `floor_crosswalk1~3`), 배경 모듈에 `tree_L/s/plam` · `tulip` · `street_lamp` · `vending_machine`, 벽 `wall_outside/inside` · `window_*` · `pillar_inside` · `blind` · `exit_seal`, 주차장 셔터 `truck_parking*`. 초안 배치 → 스크린샷 → 사용자가 손으로 조정
+  - **진행** (2026-11-19): 한 것 = 나무 · 튤립 · 가로등(배경 잔디 · 도로), 배경 배치 에디터, **자판기**(`Module_Office/Content/Decor/VendingMachine` (-4.55, 0, 2.9) 방 안쪽, 충돌판), **사무실 창문**(`SiteWalls.windowPrefab` = `window_outside`, 사무실 칸 바깥 벽 한 변마다 2개 — 조각 2~3 · 6~7 자리). 테스트: 사무실 두 벽 창문 · 자판기 스크린샷, 에러 0. **남은 것**: 새 바닥 타일 칠하기(사용자), `wall_outside/inside` · `pillar_inside` · `blind` · `exit_seal`, 주차장 셔터 `truck_parking*`
+  - 완료 (2026-11-19): 남은 것은 사용자가 채워 넣음 (바닥 타일 · 벽 · 기둥 · 블라인드 · 출구 · 셔터)
   - 테스트 결과: 아직
 
 ---
@@ -678,8 +684,8 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
 | M12 6 × 4 배치 · 재배치 | 2 | 2 |
 | M13 변경사항 2 | 19 | 18 |
 | M14 모델 적용 | 8 | 8 |
-| M15 모델 2차 | 7 | 2 |
+| M15 모델 2차 | 7 | 7 |
 | M16 타임라인 · 프로토타입 빌드 | 7 | 6 |
-| **합계** | **120** | **106** |
+| **합계** | **120** | **111** |
 
 > 2026-11-15: M10 11 → 4 (삭제 3 · M13으로 옮김 4), M11 11 → 6 (M12 · M13이 대신한 5), M13 18 추가.
