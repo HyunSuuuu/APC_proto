@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using APC.Core;
 using APC.Data;
 using APC.Interaction;
+using DG.Tweening;
 using UnityEngine;
 
 namespace APC.Logistics
@@ -74,6 +75,50 @@ namespace APC.Logistics
             shelves.Add(shelf);
             FacilityPop.Play(shelf.transform);
             return shelf;
+        }
+
+        // ── 선반 단계 (GDD 7.3, M16-3): 보관 모듈마다 1 → 2 → 3. 용량 = 기본 × (1 + 0.5 × (단계 − 1)) → 선반 6 · 9 · 12, 랙 4 · 6 · 8
+        readonly Dictionary<APC.Site.SiteModule, int> shelfStages = new();
+
+        public int GetShelfStage(APC.Site.SiteModule module) => shelfStages.TryGetValue(module, out var stage) ? stage : 1;
+
+        /// <summary>선반이 세워진 보관 모듈 (B책상 설비 탭 줄).</summary>
+        public List<APC.Site.SiteModule> ShelfModules()
+        {
+            var modules = new List<APC.Site.SiteModule>();
+            foreach (var shelf in shelves)
+            {
+                var module = shelf.GetComponentInParent<APC.Site.SiteModule>();
+                if (module != null && !modules.Contains(module)) modules.Add(module);
+            }
+            return modules;
+        }
+
+        /// <summary>그 모듈의 첫 선반 (품목 · 기본 용량 표시용).</summary>
+        public Shelf FirstShelfOf(APC.Site.SiteModule module)
+        {
+            foreach (var shelf in shelves)
+            {
+                if (shelf.GetComponentInParent<APC.Site.SiteModule>() == module) return shelf;
+            }
+            return null;
+        }
+
+        public static int StageCapacity(int baseCapacity, int stage) => baseCapacity + baseCapacity / 2 * (stage - 1);
+
+        /// <summary>그 모듈 선반을 다음 단계로 (돈 · 최대 확인은 부르는 쪽). 그 모듈 선반 전부 용량이 바뀐다.</summary>
+        public void RaiseShelfStage(APC.Site.SiteModule module)
+        {
+            var stage = GetShelfStage(module) + 1;
+            shelfStages[module] = stage;
+            foreach (var shelf in shelves)
+            {
+                if (shelf.GetComponentInParent<APC.Site.SiteModule>() != module) continue;
+                shelf.SetCapacity(StageCapacity(shelf.BaseCapacity, stage));
+                // 크기 0에서 키우는 FacilityPop은 쓰지 않는다 — 팝업으로 멈춘 동안 0에 머물러 그때 들어온 상자가 크기 0으로 붙음
+                shelf.transform.DOKill(true);
+                shelf.transform.DOPunchScale(Vector3.one * 0.12f, 0.35f, 6, 0.5f).SetLink(shelf.gameObject);
+            }
         }
 
         readonly Dictionary<ItemDefinition, int> reservedShelfSpace = new();

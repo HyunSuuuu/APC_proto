@@ -15,7 +15,7 @@ namespace APC.Data
         [Header("업그레이드 (2순위) — 단계별 비용")]
         [SerializeField] int[] playerCarryUpgradeCosts = { 100, 200, 350 };
         [SerializeField] int[] playerSpeedUpgradeCosts = { 100, 200, 350 };
-        [SerializeField] int[] shelfCapacityUpgradeCosts = { 80, 150, 250, 380, 550 };
+        [SerializeField, Tooltip("선반 단계 2 · 3단계 비용 (보관 모듈 하나, GDD 7.3 · 9.4 임시). 단계 = 이 배열 길이 + 1")] int[] shelfStageCosts = { 150, 300 };
         [SerializeField] int[] storageCapacityUpgradeCosts = { 150, 300 };
 
         [Header("현금 더미 (GDD 7.6)")]
@@ -38,7 +38,7 @@ namespace APC.Data
         public float PadFillDuration => padFillDuration;
         public int[] PlayerCarryUpgradeCosts => playerCarryUpgradeCosts;
         public int[] PlayerSpeedUpgradeCosts => playerSpeedUpgradeCosts;
-        public int[] ShelfCapacityUpgradeCosts => shelfCapacityUpgradeCosts;
+        public int[] ShelfStageCosts => shelfStageCosts;
         public int[] StorageCapacityUpgradeCosts => storageCapacityUpgradeCosts;
         public int CashPerBundle => cashPerBundle;
         public int CashMaxVisibleBundles => cashMaxVisibleBundles;

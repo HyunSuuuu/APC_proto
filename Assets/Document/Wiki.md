@@ -318,7 +318,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | [ItemDefinition](../Scripts/Data/ItemDefinition.cs) | `Items/Item_A` ~ `Item_D` | 품목 id, 이름, **테이프 색**(A 갈색 · B 초록 · C 파랑 · D 주황), 아이콘, 단가 |
 | [CompanyDefinition](../Scripts/Data/CompanyDefinition.cs) | `Companies/Company_A` ~ `Company_D` | **입고 시작 레벨**(`unlockLevel`), **가중치**(`weight`, 입고 회사 비율), `isLarge`(D사, 지금은 표시만), 품목 1종, 입고 트럭 적재량, **선반 구역**(`shelfAreaId`, 임시), **단가**(`contractUnitPrice`, 출고 상자 1개당 현금) |
 | [LevelTable](../Scripts/Data/LevelTable.cs) | `LevelTable` | 레벨별 필요 XP · 최대 알바 · 해금 메모 (GDD 10.3 Lv.1~7, 2026-11-18 타임라인 순서 — XP 3 · 6 · 9 · 6 · 9 · 9 · 9, 알바 2~8). 목록 이후 레벨은 공식으로 계산 (Lv.8~ = 9 XP · 알바 8). 기본값으로 되돌리기 = 에셋 우클릭 메뉴 `ResetLevels` |
-| [EconomyConfig](../Scripts/Data/EconomyConfig.cs) | `EconomyConfig` | 시작 보유 재화, 구매 패드 시간, 업그레이드 비용, **현금 더미**(다발 금액 · 최대 보이는 수 · 흡수 반경 · 날아가는 간격/시간), **파트 · 정산**(파트 길이 180 · 저금통 단계 3 · 가득 기준), 경험치 |
+| [EconomyConfig](../Scripts/Data/EconomyConfig.cs) | `EconomyConfig` | 시작 보유 재화, 구매 패드 시간, 업그레이드 비용, **선반 단계 비용** `shelfStageCosts`(150 · 300), **현금 더미**(다발 금액 · 최대 보이는 수 · 흡수 반경 · 날아가는 간격/시간), **파트 · 정산**(파트 길이 180 · 저금통 단계 3 · 가득 기준), 경험치 |
 | [OrderRules](../Scripts/Data/OrderRules.cs) | `OrderRules` | 상차 트럭 1대 합계 수량 가중치(3~6 = 40/30/20/10), 두 색 확률 `twoColorChance`(0.5) |
 | [StaffRules](../Scripts/Data/StaffRules.cs) | `StaffRules` | 알바 스탯 생성 · 스탯 효과 · 고용금 · 시급 · 직무 색(4개) · 코스튬 확률(`costumeChance` 0.1) · 작업 대기 · 집기 간격 (M6, M13-7) |
 | [PlayerConfig](../Scripts/Data/PlayerConfig.cs) | `PlayerConfig` | 이동 속도 · 회전 속도 · 뛰기 기준, 기본 적재(손 3개), **업그레이드 단계** `carrySteps` · `speedSteps` (`PlayerUpgradeStep` 이름 · 값 · 해금 레벨 · 비용), 집기 간격, **상호작용 대기 시간**, 내려놓기 ↔ 집기 전환 쿨타임 |
@@ -524,7 +524,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### Shelf
 [Logistics/Shelf.cs](../Scripts/Logistics/Shelf.cs)
 - **역할**: 품목 1종 전용 분류 선반. 칸에 실제 상자가 올라가고 위에 수량(`7/10`)이 뜬다.
-- **동작**: `Setup(item, capacity)`, `Store`, `TakeOne`(마지막에 넣은 상자), `HasSpace` · `FreeSpace`. 한 단 = 가로 `boxesPerSide` × 세로 `boxRows`(0이면 정사각형). `Shelf.prefab` = 모델 `Shelf` 1.2배 2개 등 맞대기(2.15 × 1.6m, 3 × 2칸, 첫 단 0.29 · 단 높이 0.59, M14-3), `PalletRack.prefab` = 2 × 2. 둘레에 `ShelfZone` 하나 (선반 3.6 × 3.2).
+- **동작**: `Setup(item, capacity)`(`BaseCapacity` = 1단계 용량 기억), `SetCapacity(value)`(선반 단계, 수량 글자 갱신, M16-3), `Store`, `TakeOne`(마지막에 넣은 상자), `HasSpace` · `FreeSpace`. 한 단 = 가로 `boxesPerSide` × 세로 `boxRows`(0이면 정사각형). `Shelf.prefab` = 모델 `Shelf` 1.2배 2개 등 맞대기(2.15 × 1.6m, 3 × 2칸, 첫 단 0.29 · 단 높이 0.59, M14-3), `PalletRack.prefab` = 2 × 2. 둘레에 `ShelfZone` 하나 (선반 3.6 × 3.2).
 - **연결**: `Warehouse.BuildShelf`가 `Shelf.prefab`으로 만든다.
 
 #### ShelfZone
@@ -554,6 +554,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### Warehouse
 [Logistics/Warehouse.cs](../Scripts/Logistics/Warehouse.cs)
 - **역할**: 창고 전체의 선반 목록과 재고 집계. 씬에 하나 (`Site/Logistics`).
+- **선반 단계** (M16-3, GDD 7.3): 보관 모듈(`SiteModule`)마다 단계 1~3 (`GetShelfStage`), `RaiseShelfStage(module)` = 그 모듈 선반 전부 `SetCapacity(StageCapacity(기본, 단계))` + 살짝 튀기(`DOPunchScale`). `StageCapacity` = 기본 × (1 + 0.5 × (단계 − 1)) → 선반 6 · 9 · 12, 랙 4 · 6 · 8. `ShelfModules()` · `FirstShelfOf(module)`은 설비 탭용. **크기 0에서 키우는 `FacilityPop`은 쓰지 않는다** — 팝업으로 멈춘 동안 0에 머물러 그때 들어온 상자가 크기 0으로 붙는다 (`CargoPile.Add`는 `SetParent(root, true)`).
 - **지게차 규칙** (M11-8): static `IsLarge(item)`(`GameDatabase.GetCompanyOf().IsLarge`), `CanHandle(who, item)` = 지게차 알바(`Interactor.Forklift`)는 D만 · 나머지(플레이어 포함)는 D 말고만. `LargeRoom(item)` = 랙 빈자리 − 트럭에서 꺼내 든 D (예외면 상차 수요까지), `DirectLoad(item)` = 랙 재고 0 + 상차 D 수요 > 0 → 트럭 → 상차 직행.
 - **동작**:
   - `BuildShelf(slot)`: 자리의 품목 · 모양 · 용량으로 선반을 **자리의 자식, 로컬 0**에 세운다 (팝 연출). 같은 색 선반은 여러 개.
@@ -833,6 +834,12 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [UI/SettlementPopup.cs](../Scripts/UI/SettlementPopup.cs)
 - **역할**: 파트 종료 정산 팝업 (게임 멈춤). **번 돈 · 알바 월급 · 합계** 세 줄이(M13-5) 줄마다 차례로 올라가고(`SetUpdate(true)`), 다 오르면 [확인]이 켜진다. [확인] → 닫고 `ClosePopup` → `PartService.Confirm()`. 아래 `staffLabel`에 미지급 · 퇴사 알바 명단 + 경고(`WagePlan`), 합계가 음수면 `negativeColor`.
 - **주의**: 루트는 항상 켜 두고 `body`만 켜고 끈다 (계약 팝업과 같은 구조).
+
+#### FacilityPanel
+[UI/FacilityPanel.cs](../Scripts/UI/FacilityPanel.cs)
+- **역할**: B책상 `설비` 탭 페이지 (GDD 7.3, M16-3). 선반이 세워진 보관 모듈마다 한 줄: `색 보관 (번호)` · `N단계 용량 → N+1단계 용량` · 버튼(`₩비용` / `최대`). 레벨 제한 · XP 없음, 지갑 돈만.
+- **동작**: 탭이 켜질 때마다(`OnEnable`) `rowTemplate`(자식 Name · Value · Buy, 스탯 탭 줄 복제)을 `rowSpacing` 100 간격으로 복제해 다시 만든다. 지갑이 바뀌면 다시 그림. 사면 `Wallet.TrySpend` → `Warehouse.RaiseShelfStage` → 줄이 튐. 비용 = `EconomyConfig.shelfStageCosts`(150 · 300, 단계 수 = 길이 + 1). 보관 모듈이 없으면 `emptyLabel`.
+- **주의**: 씬 `ContractPopup`의 `FacilityPage`에 MCP로 붙였다 — Build Site 빌더에는 없다.
 
 #### UpgradePanel
 [UI/UpgradePanel.cs](../Scripts/UI/UpgradePanel.cs)
