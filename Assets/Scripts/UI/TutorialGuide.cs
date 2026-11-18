@@ -205,7 +205,7 @@ namespace APC.UI
                 new()
                 {
                     Message = "클립보드 책상에서 알바를 고용하세요 (무료)",
-                    Target = () => Find<ContractPC>(pc => !pc.IsComputerDesk),
+                    Target = () => Find<ContractPC>(pc => !pc.IsDeskB),
                     Done = () =>
                     {
                         if (staff == null) return true;

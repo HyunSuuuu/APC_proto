@@ -668,8 +668,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### ContractPC
 [Contracts/ContractPC.cs](../Scripts/Contracts/ContractPC.cs)
-- **역할**: 사무실 책상 게이지 존 (GDD 4.3). 사무실 프리팹에 2개: `ClipboardDesk`(`computerDesk` 끔) · `ComputerDesk`(켬, `unlockLevel` 2). 다 차면 `ContractPopup.Instance.Open(computerDesk)`. 나가면 게이지를 되돌린다.
-- **동작**: 컴퓨터 책상은 레벨이 `unlockLevel` 미만이면 `CanProgress`가 false(게이지 안 참)이고 `screen`(모니터 면에 붙인 Quad `Screen`, `M_MonitorScreen`)이 꺼진다. 레벨을 구독해 켠다.
+- **역할**: 사무실 책상 게이지 존 (GDD 4.3, M16-2 A · B). 사무실 프리팹에 2개: `ClipboardDesk` = **A책상**(`deskB` 끔, 위에 클립보드 + 모니터 `Computer`) · `ComputerDesk` = **B책상**(`deskB` 켬, `unlockLevel` 3). 다 차면 `ContractPopup.Instance.Open(deskB)`. 나가면 게이지를 되돌린다. 옛 필드 `computerDesk`는 `FormerlySerializedAs`로 이어받음.
+- **동작**: B책상은 레벨이 `unlockLevel` 미만이면 `CanProgress`가 false이고 **자식(책상 모델 전부)을 숨긴다**. 레벨이 되면 보이게 하고 `FacilityPop`으로 올라온다 (처음부터 해금이면 연출 없이 보임).
 - **주의**: 사무실 모듈 프리팹 안에 있으므로 팝업을 직접 참조하지 않고 `Instance`로 찾는다. 클래스 이름은 옛 계약 PC 그대로. `StandardModules`(Rebuild Standard Modules)는 아직 책상 1개만 만든다 — 프리팹은 손으로 고친 것.
 
 ### 4.7 Orders — 주문
@@ -856,9 +856,9 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### ContractPopup
 [UI/ContractPopup.cs](../Scripts/UI/ContractPopup.cs)
-- **역할**: 사무실 책상 팝업 — 두 책상이 같이 쓴다. 클립보드 책상 `고용 | 배치`, 컴퓨터 책상 `업그레이드 | 모듈` (GDD 4.3, 4.4, 5.1, 11.1, 11.3, 12.3, 계약 탭은 2026-11-13 삭제). 열려 있는 동안 게임이 멈춘다. 고용 탭(`HirePanel`)은 고용해도 열린 채다.
-- **동작**: `Open(computer)` → `modulePage.Begin()`(지금 배치를 미니맵에) → 그 책상 탭 2개만 켜고, 컴퓨터 책상이면 `업그레이드 · 모듈` 탭을 왼쪽 두 자리(고용 · 배치 자리)로 옮김(닫혀 있던 자리는 `Awake`에 저장) → 고용 / 업그레이드 탭 → `GameManager.OpenPopup`. `SelectTab(Tab)`이 `hirePage` / `rosterPage` / `upgradePage` / `modulePage`를 켜고 끄고 탭 버튼 색을 바꾼다. 도장 · 안내 글자 묶음(`stampArea`)은 고용 탭에서만 보인다. `Close` → `modulePage.Apply()`(모듈 재배치 적용) → 닫힘 연출이 끝나면 `ClosePopup`. 트윈은 `SetUpdate(true)`.
-- **주의**: 루트 오브젝트는 항상 켜 두고 자식 `body`만 켜고 끈다 (꺼져 있으면 `Instance`가 등록되지 않음). Build Site가 UI를 통째로 다시 만든다.
+- **역할**: 사무실 책상 팝업 — 두 책상이 같이 쓴다. **A책상 `고용 | 배치 | 스탯`**(스탯 = `upgradeTab` · `UpgradePanel`), **B책상 `설비 | 트럭 | 모듈`** (GDD 4.3, M16-2 2026-11-18). 열려 있는 동안 게임이 멈춘다. 고용 탭(`HirePanel`)은 고용해도 열린 채다.
+- **동작**: `Open(deskB)` → `modulePage.Begin()`(지금 배치를 미니맵에) → 그 책상 탭 3개만 켜고 왼쪽 세 자리(`tabPositions` = 처음 고용 · 배치 · 업그레이드 자리, `Awake`에 저장)에 놓음 → 고용 / 설비 탭 → `GameManager.OpenPopup`. `SelectTab(Tab)`이 `hirePage` / `rosterPage` / `upgradePage` / `modulePage` / `facilityPage` / `truckPage`를 켜고 끄고 탭 버튼 색을 바꾼다. 설비 · 트럭 페이지는 지금 '준비 중' 글자만 (M16-3 · M16-4, 씬에서 MCP로 만듦 — `FacilityTab` · `TruckTab` = `ModuleTab` 복제). 도장 · 안내 글자 묶음(`stampArea`)은 고용 탭에서만 보인다. `Close` → `modulePage.Apply()`(모듈 재배치 적용) → 닫힘 연출이 끝나면 `ClosePopup`. 트윈은 `SetUpdate(true)`.
+- **주의**: 루트 오브젝트는 항상 켜 두고 자식 `body`만 켜고 끈다 (꺼져 있으면 `Instance`가 등록되지 않음). Build Site가 UI를 통째로 다시 만든다 — 빌더 코드에는 설비 · 트럭 탭이 없어서 다시 만들면 빠진다 (shortcut: Build Site 금지 중이라 빌더는 안 고침).
 
 #### StampCard (추상)
 [UI/StampCard.cs](../Scripts/UI/StampCard.cs)
