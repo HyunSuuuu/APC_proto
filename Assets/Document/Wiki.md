@@ -56,6 +56,7 @@
 | `Economy` | 파트 타이머 · 파트 종료 정산 · 사무실 투명 저금통 |
 | `Site` | 부지 격자와 모듈 해금 |
 | `UI` | 팝업, 월드 글자 정렬, HUD 초기화 (`UiBootstrap`) |
+| `Visuals` | 화면 연출용 셰이더 연결 (벽 컷아웃). 셰이더 파일은 `Assets/Shaders/` |
 | `Debugging` | 치트 메뉴 (에디터 · 개발 빌드 전용) |
 | `Editor` | 씬 · 프리팹 · 데이터 자동 생성 메뉴 (빌드에 포함 안 됨) |
 
@@ -911,6 +912,15 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [UI/FlatLabelAligner.cs](../Scripts/UI/FlatLabelAligner.cs)
 - **역할**: 바닥에 눕힌 글자를 카메라 방향으로 돌린다. 모듈이 180° 돌아서 붙어도 글자가 뒤집히지 않는다.
 - **주의**: `OnEnable`에서 한 번만 맞춘다 (`[ExecuteAlways]`). 카메라 Yaw를 바꾸면 Build Site를 다시 실행한다.
+
+### 4.9b Visuals — 셰이더 연출
+
+#### WallCutout
+[Visuals/WallCutout.cs](../Scripts/Visuals/WallCutout.cs) · 셰이더 [WallCutout.shader](../Shaders/WallCutout.shader) · [WallCutout.hlsl](../Shaders/WallCutout.hlsl) · 재질 `Art/Materials/M_WallCutout`
+- **역할**: 플레이어를 가리는 구조물 · 배경에 원형 구멍을 뚫어 벽 너머 캐릭터가 보이게 한다. 플레이어에 붙인다 (지금은 ShaderTestScene에만).
+- **동작**: 매 프레임 `Shader.SetGlobalVector`로 `_WallCutoutCenter`(플레이어 위치 + 높이, w = 켜짐) · `_WallCutoutParams`(반지름 · 가장자리 폭 · 깊이 여유)를 넘긴다. 0.5초마다 씬 렌더러를 훑어 이름(자신 또는 부모)이 `structurePrefixes`(`wall_` · `pillar_` · `window_` · `DoorPost` · `parking` · `tree_` 등)로 시작하거나 `extraWalls` 아래면, 원래 URP Lit 재질 **사본**의 셰이더만 `APC/WallCutout`으로 바꿔 끼운다 (색 · 텍스처 그대로). 끄면 원래 재질로 돌리고 사본을 지운다.
+- **셰이더**: URP Lit 복사본. ForwardLit · GBuffer · DepthOnly · DepthNormals fragment 앞에서 `WallCutoutClip` — 화면 깊이로 월드 위치 복원 → 카메라 방향 원기둥(반지름) 안 → `ddx` · `ddy` 면 법선으로 "이 면이 플레이어→카메라 축과 플레이어보다 앞에서 만나는가" → 가장자리 `InterleavedGradientNoise` 디더 → `clip`. ShadowCaster는 그대로라 그림자는 남는다.
+- **주의**: 이름 규칙이라 새 구조물 모델 이름이 다르면 빠진다 (목록은 인스펙터). 원래 셰이더가 URP Lit이 아니면 안 바꾼다. 에셋 · 프리팹은 안 바뀐다 (Play 중 사본만).
 
 ### 4.10 Debugging
 
