@@ -15,7 +15,6 @@ namespace APC.Data
         [SerializeField, Min(0.1f), Tooltip("주차 칸에서 앞으로 나가 사라지는 시간 (초)")] float truckLeaveDuration = 1.5f;
         [SerializeField, Min(1f), Tooltip("물류센터 전체에 하차 트럭 1대가 도착하는 간격 (초, GDD 7.1 임시)")] float inboundArrivalInterval = 20f;
         [SerializeField, Min(0), Tooltip("하차 칸이 다 찼을 때 도로에 줄 서는 최대 트럭 수 (GDD 7.1)")] int inboundQueueSize = 3;
-        [SerializeField, Min(1), Tooltip("하차 트럭 2단계(색별 Inbound Truck Capacity Stage2)가 되는 레벨. 그 뒤 새로 도착하는 트럭부터 (GDD 7.1)")] int truckStage2Level = 4;
 
         [Header("출고 트럭")]
         [SerializeField, Min(0.1f), Tooltip("나타난 자리에서 상차 칸까지 후진으로 들어오는 시간 (초, GDD 8.3)")] float outboundReverseDuration = 3f;
@@ -53,7 +52,6 @@ namespace APC.Data
         public float TruckLeaveDuration => truckLeaveDuration;
         public float InboundArrivalInterval => inboundArrivalInterval;
         public int InboundQueueSize => inboundQueueSize;
-        public int TruckStage2Level => truckStage2Level;
         public float OutboundReverseDuration => outboundReverseDuration;
         public float OutboundLeaveDuration => outboundLeaveDuration;
         public float OutboundRespawnDelay => outboundRespawnDelay;

@@ -42,7 +42,10 @@ namespace APC.Data
         PlayerUpgradeStep[] carrySteps = { new("구루마", 8, 3, 150), new("롤테이너", 12, 5, 400) };
         [SerializeField, Tooltip("이동 속도: value = m/s")]
         PlayerUpgradeStep[] speedSteps = { new("이동 속도 1", 4.5f, 2, 100), new("이동 속도 2", 5f, 3, 200), new("이동 속도 3", 5.5f, 5, 350) };
+        [SerializeField, Tooltip("하차 트럭 단계 (B책상 `트럭` 탭, GDD 7.1). value = 표시용 상자 수 — 실제 수는 색마다 CompanyDefinition")]
+        PlayerUpgradeStep[] truckSteps = { new("2단계", 15, 4, 400), new("3단계", 20, 5, 800) };
 
+        public PlayerUpgradeStep[] TruckSteps => truckSteps;
         public float MoveSpeed => moveSpeed;
         public PlayerUpgradeStep[] CarrySteps => carrySteps;
         public PlayerUpgradeStep[] SpeedSteps => speedSteps;

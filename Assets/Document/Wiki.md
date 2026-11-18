@@ -293,7 +293,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### PlayerUpgrades
 [Core/PlayerUpgrades.cs](../Scripts/Core/PlayerUpgrades.cs)
-- **역할**: 플레이어 업그레이드 단계 (GDD 5.1): `Carry`(적재 도구 손 → 구루마 → 롤테이너) · `MoveSpeed`. 단계 0 = `PlayerConfig` 기본값, 그 뒤는 `PlayerConfig.CarrySteps` · `SpeedSteps`. `GameManager.Upgrades`.
+- **역할**: 플레이어 업그레이드 단계 (GDD 5.1): `Carry`(적재 도구 손 → 구루마 → 롤테이너) · `MoveSpeed` + **`Truck`**(하차 트럭 단계, B책상 · M16-4 — 같은 구매 규칙을 빌려 씀). 단계 0 = `PlayerConfig` 기본값, 그 뒤는 `PlayerConfig.CarrySteps` · `SpeedSteps` · `TruckSteps`(2단계 Lv.4 ₩400 · 3단계 Lv.5 ₩800, value = 표시용). `GameManager.Upgrades`.
 - **동작**: `TryBuy(kind)` — 다음 단계가 있고 레벨 ≥ `unlockLevel`이고 **보유 재화**(`Wallet.TrySpend`)가 되면 단계 +1, XP `XpPurchase`(+3). `Capacity` · `MoveSpeed`가 지금 값. `CarryStep` · `SpeedStep`은 R3.
 - **연결**: `PlayerSetup`(적재 수 구독), `PlayerMover`(매 프레임 속도), `UpgradePanel`.
 
@@ -570,6 +570,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### InboundTruck
 [Logistics/InboundTruck.cs](../Scripts/Logistics/InboundTruck.cs)
 - **역할**: 입고 트럭 1대. 실은 품목 목록과 남은 수량 표시만 가진다. 움직임은 `InboundBay`가 한다.
+- **모델** (M16-4): `Load` 때 `CompanyDefinition.GetTruckModel(트럭 단계)`(색 × Small · Middle · Big)로 `modelRoot`(`Model`) 자식을 갈아 끼운다 — 크기 `modelScale` 0.85, 재질 `modelMaterial`(M_Prop), 뒷면(로컬 −z 끝)을 `backZ` −2.2에 맞춤(모델 길이가 달라도 주차 · `cargoExit` 그대로). 황금 트럭은 `goldModels[단계]`로 바꾸고 금색 칠하기는 안 함(빛 · 반짝임만, 금 모델이 없을 때만 칠함). 크기 1일 때(생성 직후) 불러야 뒷면 계산이 맞다.
 - **동작**: `Load(company, items)`, `TakeCargo()`(뒷문 `cargoExit` 위치에 화물을 만들고 Origin = Truck. `SharedStorage.ReturnsOpen`이면 `returnChance`(10%) 확률로 반품 상자). 하차 알바 예약: `Reserved`(집으러 오는 수), `Available`(= 남은 화물 − 예약), `Reserve(n)` · `Unreserve(n)`. `CountOf(item)` = 남은 그 품목 수 (상차 주문 색 후보).
 
 #### InboundBay
@@ -696,7 +697,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### StockBalancer
 [Orders/StockBalancer.cs](../Scripts/Orders/StockBalancer.cs)
 - **역할**: 하차 트럭 · 상차 주문 색 고르기 (static 클래스).
-- **동작**: `PickByWeight`(공개, 주문 색) · `PickInboundCompany` — 둘 다 **회사 `Weight` 비율**(40/30/20/10) (GDD 6.3 · 8.1). `PickInboundCompany`는 **같은 색 최대 3대 연속** — 모든 하차 칸이 같은 정적 카운터를 쓴다. 후보가 1색뿐이면 제한하지 않는다 (M13-1). `ComposeInboundLoad` — 트럭 전부 그 회사 품목(1종), 수 = 레벨이 `LogisticsConfig.TruckStage2Level`(4) 이상이면 `InboundTruckCapacityStage2`(갈 · 초 · 파 15 · 주 4) 아니면 `InboundTruckCapacity`(10 · 4) — 도착할 때 정해짐 (M13-14). 교착 방지 가중치(재고 · 부족량)는 M11-2에서 삭제.
+- **동작**: `PickByWeight`(공개, 주문 색) · `PickInboundCompany` — 둘 다 **회사 `Weight` 비율**(40/30/20/10) (GDD 6.3 · 8.1). `PickInboundCompany`는 **같은 색 최대 3대 연속** — 모든 하차 칸이 같은 정적 카운터를 쓴다. 후보가 1색뿐이면 제한하지 않는다 (M13-1). `ComposeInboundLoad` — 트럭 전부 그 회사 품목(1종), 수 = `CompanyDefinition.GetInboundCapacity(PlayerUpgrades.TruckStep)` — B책상에서 산 트럭 단계(갈 · 초 · 파 10 · 15 · 20, 보라 4 고정), 도착할 때 정해짐 (M16-4, 옛 '레벨 4가 되면 저절로 2단계' 삭제). 교착 방지 가중치(재고 · 부족량)는 M11-2에서 삭제.
 
 ### 4.7b Economy — 파트 · 정산 · 저금통
 
@@ -843,7 +844,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### UpgradePanel
 [UI/UpgradePanel.cs](../Scripts/UI/UpgradePanel.cs)
-- **역할**: 계약 PC 팝업의 업그레이드 탭 페이지 (GDD 5.1, M11-3). 줄 2개(적재 도구 · 이동 속도): `지금 이름 값 → 다음 이름 값` + 버튼(`₩비용` / `Lv.N 해금` / `최대`). 돈 · 레벨이 바뀌거나 탭이 켜지면 다시 그린다.
+- **역할**: A책상 `스탯` 탭 페이지 (GDD 5.1, M11-3). 줄 2개(적재 도구 · 이동 속도). `truckPage`를 켜면 B책상 `트럭` 탭 — 첫 줄만 하차 트럭 단계(값 = 갈색 기준 상자 수), 둘째 줄 숨김 (씬 `TruckPage` = `UpgradePage` 복제, M16-4): `지금 이름 값 → 다음 이름 값` + 버튼(`₩비용` / `Lv.N 해금` / `최대`). 돈 · 레벨이 바뀌거나 탭이 켜지면 다시 그린다.
 - **동작**: 버튼 → `PlayerUpgrades.TryBuy`(보유 재화 · XP +3), 성공하면 값 글자가 튐. 열고 닫기 · 게임 멈춤은 `ContractPopup`.
 - **주의**: Build Site가 `ContractPopup` 안에 만든다 (`BuildUpgradePage`). 옛 `UpgradePopup`(따로 뜨던 팝업) · `UpgradeDesk`(사무실 책상)는 M11-3에서 삭제 — 스크립트 GUID는 `UpgradePanel`이 이어받음.
 

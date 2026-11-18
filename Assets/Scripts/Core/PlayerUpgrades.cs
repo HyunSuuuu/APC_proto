@@ -10,6 +10,9 @@ namespace APC.Core
         /// <summary>적재 도구: 손 → 구루마 → 롤테이너 (지게차는 나중).</summary>
         Carry,
         MoveSpeed,
+
+        /// <summary>하차 트럭 단계 (B책상, GDD 7.1). 단계 0 = 1단계(10개).</summary>
+        Truck,
     }
 
     /// <summary>
@@ -24,6 +27,7 @@ namespace APC.Core
         readonly int xpPurchase;
         readonly ReactiveProperty<int> carryStep = new(0);
         readonly ReactiveProperty<int> speedStep = new(0);
+        readonly ReactiveProperty<int> truckStep = new(0);
 
         public PlayerUpgrades(PlayerConfig config, Wallet wallet, LevelProgress level, int xpPurchase)
         {
@@ -36,6 +40,9 @@ namespace APC.Core
         public ReadOnlyReactiveProperty<int> CarryStep => carryStep;
         public ReadOnlyReactiveProperty<int> SpeedStep => speedStep;
 
+        /// <summary>하차 트럭 단계 0 · 1 · 2 (= 1 · 2 · 3단계). 새로 도착하는 트럭부터 (StockBalancer).</summary>
+        public ReadOnlyReactiveProperty<int> TruckStep => truckStep;
+
         /// <summary>지금 최대 적재 수.</summary>
         public int Capacity => carryStep.Value == 0 ? config.MaxCarry : (int)config.CarrySteps[carryStep.Value - 1].value;
 
@@ -47,7 +54,7 @@ namespace APC.Core
         {
             var step = Step(kind).Value;
             if (step > 0) return Steps(kind)[step - 1].name;
-            return kind == PlayerUpgradeKind.Carry ? "손으로 들기" : "기본 속도";
+            return kind switch { PlayerUpgradeKind.Carry => "손으로 들기", PlayerUpgradeKind.Truck => "1단계", _ => "기본 속도" };
         }
 
         /// <summary>다음 단계. 없으면(최대) false.</summary>
@@ -73,14 +80,25 @@ namespace APC.Core
             return true;
         }
 
-        PlayerUpgradeStep[] Steps(PlayerUpgradeKind kind) => kind == PlayerUpgradeKind.Carry ? config.CarrySteps : config.SpeedSteps;
+        PlayerUpgradeStep[] Steps(PlayerUpgradeKind kind) => kind switch
+        {
+            PlayerUpgradeKind.Carry => config.CarrySteps,
+            PlayerUpgradeKind.Truck => config.TruckSteps,
+            _ => config.SpeedSteps,
+        };
 
-        ReactiveProperty<int> Step(PlayerUpgradeKind kind) => kind == PlayerUpgradeKind.Carry ? carryStep : speedStep;
+        ReactiveProperty<int> Step(PlayerUpgradeKind kind) => kind switch
+        {
+            PlayerUpgradeKind.Carry => carryStep,
+            PlayerUpgradeKind.Truck => truckStep,
+            _ => speedStep,
+        };
 
         public void Dispose()
         {
             carryStep.Dispose();
             speedStep.Dispose();
+            truckStep.Dispose();
         }
     }
 }

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Company_B
   m_EditorClassIdentifier: Assembly-CSharp::APC.Data.CompanyDefinition
   id: B
-  displayName: "초록"
+  displayName: "\uCD08\uB85D"
   unlockLevel: 2
   weight: 30
   isLarge: 0
@@ -21,5 +21,10 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 7d1b4f5014dbe764d9ada71eca9b2e1b, type: 2}
   inboundTruckCapacity: 10
   inboundTruckCapacityStage2: 15
+  inboundTruckCapacityStage3: 20
+  truckModels:
+  - {fileID: 919132149155446097, guid: b9a8cbb6e6fdefb4faa29521dee086cf, type: 3}
+  - {fileID: 919132149155446097, guid: 04b7e8f73a5375e45a51c2e42f7d35f5, type: 3}
+  - {fileID: 919132149155446097, guid: c595152695b7d2a47a4210a832069b3a, type: 3}
   contractUnitPrice: 12
   shelfAreaId: StoreB
