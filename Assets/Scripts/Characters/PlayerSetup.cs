@@ -23,7 +23,7 @@ namespace APC.Characters
             upgrades.CarryStep.Subscribe(step =>
             {
                 stack.SetCapacity(upgrades.Capacity); // 업그레이드 탭 (GDD 5.1)
-                if (animator != null) animator.UsePush = step > 0; // 구루마 · 롤테이너는 앞에 두고 민다
+                if (animator != null) animator.PushTool = step; // 1 구루마 · 2 롤테이너 — 앞에 두고 민다
                 Transform toolAnchor = null;
                 for (var i = 0; i < tools.Length; i++)
                 {

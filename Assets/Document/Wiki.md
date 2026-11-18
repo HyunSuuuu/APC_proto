@@ -56,6 +56,7 @@
 | `Economy` | 파트 타이머 · 파트 종료 정산 · 사무실 투명 저금통 |
 | `Site` | 부지 격자와 모듈 해금 |
 | `UI` | 팝업, 월드 글자 정렬, HUD 초기화 (`UiBootstrap`) |
+| `Events` | 돌발 이벤트 — 정전 · 분전반 (M13-15) |
 | `Debugging` | 치트 메뉴 (에디터 · 개발 빌드 전용) |
 | `Editor` | 씬 · 프리팹 · 데이터 자동 생성 메뉴 (빌드에 포함 안 됨) |
 
@@ -327,6 +328,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | [LogisticsConfig](../Scripts/Data/LogisticsConfig.cs) | `LogisticsConfig` | 보관소 · 선반 용량, **반품**(반품 확률 · 반품 팔레트 12 · 재포장 입력 6 · 성공 70% · 쓰레기 출력 6 · 재포장 팔레트 6 · 재포장 2초 · 쓰레기 들기 12), 입고 · 출고 트럭 후진 · 출발 · 재등장 시간, 사무실 게이지, 팝 연출 시간 |
 | [SiteLayout](../Scripts/Data/SiteLayout.cs) | `SiteLayout` | 칸 크기, **모듈 배치 목록** (아래 설명) |
 | [CashFlyConfig](../Scripts/Data/CashFlyConfig.cs) | `CashFlyConfig` | 주운 현금 → HUD 저금통 **달러 아이콘 연출**: 비행 시간, **속도 그래프**(`moveCurve`, 시간 0~1 → 경로 진행 0~1, 기울기 = 속도, 1을 넘기면 지나쳤다 돌아옴), 포물선 높이, **출발 랜덤 반경**(`startRadius`, HUD px — 플레이어 화면 위치 둘레 원 안 무작위 지점에서 출발, 0 = 중앙), 기본 크기, **크기 그래프**(`scaleCurve`, 시간 → 배율), 도착 때 저금통 아이콘 튐. Build Site가 `CashFlyEffect`에 직접 연결 (없으면 만듦, 비면 `OrDefault`) |
+| [GoldenTruckConfig](../Scripts/Data/GoldenTruckConfig.cs) | `GoldenTruckConfig` | **황금 트럭** (GDD 6.4, 2026-11-18 `LogisticsConfig`에서 옮김): 확률 · 금 값 배율, 몸체 색(`solidColor` = `_BaseMap`을 흰색으로 덮어 단색) · 깜빡임, 점광원, 반짝임 파티클(`M_GoldSparkle`), 쏟기(지연 · 간격 · 튐 · 쌓는 모양 · 떠남 지연), 흡수(반경 · 간격 · 비행 · 회전 · 크기 그래프). `GameDatabase.GoldenTruck` (비면 `OrDefault`). 값은 매번 읽으므로 Play 중 조절 가능 |
 | [StampConfig](../Scripts/Data/StampConfig.cs) | `StampConfig` | 계약 PC **도장 연출**: 누르기 배율 · 시간, 카드 위 머무는 시간, 복귀 시간 · 이징, 자국 · 필터, 흔들림 · 사유 시간, 계약 후 팝업 닫힘 지연. **`GameDatabase`가 아니라** Build Site가 `Stamp` · `StampCard` · `ContractPopup`에 직접 연결 (없으면 만들고, 연결이 비면 기본값 `OrDefault`) |
 | [DataTypes](../Scripts/Data/DataTypes.cs) | — | 공용 구조체 `IntRange`(`Roll()`로 무작위), `WeightedInt` |
 
@@ -396,6 +398,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Characters/CharacterAnimator.cs](../Scripts/Characters/CharacterAnimator.cs)
 - **역할**: 캐릭터 모델 애니 (플레이어 · 알바 공용). 상태 = 빈손 `idle` / `walk`, 맨손으로 들기 `carry_idle` / `carry_move`, 밀기 도구(`UsePush`) `idle` / `push` (M14-4, 서기 / 걷기).
 - **지게차** (M11-8): `UseRiding`이면 늘 `riding` (컨트롤러 상태는 `CharacterArt.PrepareAssets`가 더함).
+- **밀기 애니** (2026-11-18): `PushTool`(`PlayerSetup`이 적재 도구 단계로 넣음) 1 = `push_wagon_idle` / `push_wagon`, 2 = `push_rolltainer_idle` / `push_rolltainer` (옛 `UsePush` · `push` 삭제).
 - **동작**: `LateUpdate`에서 위치 변화로 실제 속도를 재고(`moveThreshold` 0.15 m/s), 상태가 바뀔 때만 `CrossFadeInFixedTime`(0.12초). Animator는 자식 중 켜진 모델의 것을 찾는다 (알바 모델 교체 대응). `Time.deltaTime` 0(팝업 멈춤)이면 그대로.
 - **연결**: `stack`(`CarryStack`), 컨트롤러 `Assets/Art/Model/Ani/Character.controller`(상태 이름 = 클립 이름). 만들기는 `CharacterArt`(에디터).
 
@@ -571,6 +574,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### InboundBay
 [Logistics/InboundBay.cs](../Scripts/Logistics/InboundBay.cs)
 - **역할**: 하차 베이 1곳. 하차 주차장 모듈 안에 있다. [3.4](#34-입고-트럭-한-대)의 주차 · 출발을 코루틴으로 실행한다. 트럭 도착 · 색은 `InboundQueue`가 정한다 (M13-9).
+- **황금 트럭** (M13-16): 금은 `TruckPickupZone`이 쏟는다. 이 베이는 트럭이 빌 때까지 기다렸다가 보낸다.
 - **동작**: `InboundQueue.Request(this)` → `Receive(truck)`로 받을 때까지 대기. 꺼지면(`OnDisable`) 기다리는 목록에서 빠진다. `Storage` = 이 칸의 상자 두는 공간 (`Awake`에서 `GetComponentInParent<SharedStorage>()`, M13-2).
 - **연결**: `InboundQueue.Instance`, `parkPoint`(주차 위치 · 방향), `spawnPoint`(나타나고 사라지는 곳). `truckPrefab` 필드는 이제 안 씀 (`InboundQueue`가 생성).
 - **주의**: 트럭은 **베이 기준 로컬 좌표**로 움직인다 (`parkPoint` · `spawnPoint`는 베이 바로 아래 자식이어야 함). 확장 모듈은 크기 0에서 커지는 중(`FacilityPop`)에 첫 트럭이 나오므로, 월드 좌표를 쓰면 엉뚱한 곳에서 들어온다 (2026-11-12 수정). `OutboundBay`도 같다.
@@ -588,6 +592,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 주차한 트럭 뒷문 앞의 집기 존. `bay.DockedTruck`에서 화물을 꺼낸다. 트럭이 없거나 이동 중이면 아무것도 안 준다. `Bay` 프로퍼티로 베이를 노출한다 (알바가 예약할 트럭을 찾음). `HasCargoFor`(알바 판단용)는 트럭의 `Available > 0`이고 `Room > 0`일 때만 참이다.
 - **지게차** (M11-8): D 트럭은 지게차 알바만 꺼낸다 (`LargeRoom > 0`, `Home` 없음 — 하차 칸 공간 안 거침). 일반 트럭은 지게차가 못 꺼낸다.
 - **동작** (M13-2, GDD 7.2): `Room` = 이 칸 공간 용량 − 공간 수 − 이 칸 트럭에서 꺼내 든 수(플레이어 · 알바, `Cargo.Home`) − 트럭 예약. 0이면 플레이어도 알바도 못 꺼낸다 → 공간이 넘치지 않는다. 플레이어가 막히면 트럭 위에 '공간 가득' (`CargoZone.Notice`, 1.5초마다 최대 1번). 꺼낸 화물에 `Home = bay.Storage`를 넣는다.
+- **금** (M13-16, GDD 6.4, 2026-11-18 바뀜: 하차 칸 공간 → 이 존): 황금 트럭이면 `Update`에서 0.08초마다 금을 이 존 바닥 `CargoPile`(`GoldenTruckConfig.PileLayout`)에 쏟는다 — 공간 칸 안 차지, 꺼내 들 수 없음. `Interactor.All` 중 반경(`cashPickupRadius` + `AbsorbRadiusBonus`) 안의 누구든 하나씩 흡수(`AbsorbGold`) → 날아가 `CashFlyEffect` → `Wallet.AddToPiggy(다발 × ValueMultiplier)`. 쏟기 · 흡수 값은 `GoldenTruckConfig`.
 
 #### OutboundBay
 [Logistics/OutboundBay.cs](../Scripts/Logistics/OutboundBay.cs)
@@ -622,6 +627,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 알바 1명. 플레이어와 같은 `Interactor` · `CarryStack`을 쓰고, 이동은 `NavMeshAgent`가 한다 ([GDD 11](GDD.md#11-알바생)).
 - **지게차 직무** (M11-8): `SetRole(Forklift)` = `Interactor.Forklift` · 자식 `Forklift`(Prop `Forklift` + 포크 `Plastic_Pallet`, M_Prop, 꺼진 채) 켬 · 스택 바닥 `ForkliftAnchor`(팔레트 위) · `CharacterAnimator.UseRiding`. 작업 존 = `TruckPickupZone`(D 트럭) · D 랙 `ShelfZone`, 트럭 예약 수 = `LargeRoom`. 적재 4 고정 (`StaffRules.GetCarry`).
 - **동작**: 상태 `Phase` = `Idle / Moving / Working / Parked / Waiting`. 집는 곳은 직무로 정한다 (하차 `TruckPickupZone`, 보관(`Sort`) `StorageZone` 중 Pallet · Repacked, 상차(`Pick`) `ShelfZone`, 반품 = Returns · Trash `StorageZone` + 재포장 테이블). **반품 알바**(M13-12, `ReturnsWork`): 막히는 곳부터 — `TrashFull`이면 쓰레기 출력에서 줍기 → 재포장(`TryGauge`: 가장 가까운 `RepackTable.HasWork` 테이블 슬롯으로 가서 `gauge`로 두고, `HasWork`인 동안 서 있음) → 반품 팔레트에서 줍기 → 쓰레기 줍기 (`ReturnsFocus`로 `IsRoleZone`을 좁힘). 적재 = `StaffRules.returnsCarry` 12 (스탯 무관, `SetRole`에서). 내려놓는 곳은 들고 있는 화물을 받는 존(`CargoZone.CanReceiveAny`)이라서, 역할을 바꿔도 화물은 원래 목적지로 간다. 가장 가까운 빈 `WorkSlot`을 출발할 때 예약하고, 도착하면 `Interactor.Target`을 그 존으로 두고 `AllowDrop` · `AllowPick`을 작업에 맞춘다. 옮길 것이 `workIdleTimeout`(0.5초) 동안 없거나 가득 · 빈손이 되면 작업을 끝낸다. 예약은 3역할 공통 ([GDD 8.4](GDD.md#84-수요-계산)): 출발할 때 가져갈 만큼 `Reserve()`로 잡고, 도착하면 `ReleaseReservation()`으로 푼다. 해제는 `releaseReservation` 함수 하나. 하차 = `InboundTruck.Reserve`, 분류 = `Warehouse.ReserveShelfSpace`(`PlanForShelves` 품목별), 피킹 = `OrderService.Reserve`.
+- **정전** (M13-15): `Outage.Active`면 제자리 멈춤(`agent.isStopped`, `Interactor` 끔). 나가는 중(해고 · 퇴사)이면 그대로.
 - **연결**: `Setup(role, stats, costume)`(`StaffService.Spawn`이 부른다), `SetRole`은 `Setup` 안에서만 (직무 변경 삭제 2026-11-18, 적재 = `StaffRules.GetCarry(role, carry)` — 반품 12 · 지게차 4 고정), `Fire()`(해고), `Role` · `Stats` · `State` · `Stack` · `Number`(고용 순 번호, `DisplayName` = `알바 N`) · `Fired`. 설정값은 `StaffRules`.
 - **주의**:
   - 가는 중 대상이 사라지면 예약을 풀고, `thinkInterval`(0.25초)마다 다시 고른다. 가는 중 확인(`StillValid`)은 예약을 잠깐 풀고 다시 확인해 다시 잡는다.
@@ -898,6 +904,20 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [UI/FlatLabelAligner.cs](../Scripts/UI/FlatLabelAligner.cs)
 - **역할**: 바닥에 눕힌 글자를 카메라 방향으로 돌린다. 모듈이 180° 돌아서 붙어도 글자가 뒤집히지 않는다.
 - **주의**: `OnEnable`에서 한 번만 맞춘다 (`[ExecuteAlways]`). 카메라 Yaw를 바꾸면 Build Site를 다시 실행한다.
+
+### 4.9b Events — 돌발 이벤트
+
+#### Outage
+[Events/Outage.cs](../Scripts/Events/Outage.cs)
+- **역할**: 정전 이벤트 (GDD 14.3, M13-15). 씬 `Site/Logistics`에 하나 (`Instance`, static `Active`).
+- **동작**: `PartService.Part`가 바뀔 때 `RollPart` — Lv.4(`unlockLevel`)부터 `chance` 0.5로 이번 파트 정전 시점(`minTime` 30 ~ `maxTime` 150초)을 정함, 연달아 `maxInARow` 2파트까지. 시점이 되면 `Begin`. 켜지면 해(Directional Light) 밝기 × `dimFactor` 0.25, 자체 오버레이 캔버스의 붉은 판이 `alarmPeriod` 1.4초로 깜빡, 위에 `정전! 분전반을 고치세요`, 분전반(크게, `breakerMarkSize` 20) · 알바 머리 위 노란 `!`(TMP 3D, 통통 튐). 가이드 화살표(`GuideArrow`)가 정전 중엔 분전반을 가리킨다. `End`로 되돌림.
+- **연결**: `StaffWorker`(`Active`면 `agent.isStopped` · `Interactor` 끔), `ContractPC`(컴퓨터 책상 꺼짐), `BreakerPanel`(끝내기), 디버그 메뉴 `Outage` 버튼.
+- **주의**: 수치는 설정 에셋이 아니라 씬 컴포넌트 값이다 (`임시`). UI · 느낌표는 실행 중 만든다 (폰트 = 씬의 아무 TMP UI 폰트).
+
+#### BreakerPanel
+[Events/BreakerPanel.cs](../Scripts/Events/BreakerPanel.cs)
+- **역할**: 사무실 벽 분전반 (`GaugeZone`). `Module_Office` Content `BreakerPanel` (왼쪽 벽 앞 2 × 2m, 임시 회색 상자 + 노란 줄 — 모델 없음).
+- **동작**: 정전 중에만 게이지(`repairDuration` 2초)가 차고, 다 차면 `Outage.End`. 벗어나면 게이지 0.
 
 ### 4.10 Debugging
 

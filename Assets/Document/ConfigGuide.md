@@ -66,6 +66,7 @@
 | 상자 들기 연출 · 흔들림 | `CarryConfig` | Fly Duration 등 |
 | 돈이 저금통으로 날아가는 연출 | `CashFlyConfig` | Duration 등 |
 | 고용 도장 연출 | `StampConfig` | Press Scale 등 |
+| 황금 트럭 확률 · 금 값 · 연출 | `GoldenTruckConfig` | Chance · Value Multiplier 등 |
 
 ---
 
@@ -263,12 +264,19 @@
 
 > `Yaw`를 바꾸면 바닥 글자 방향이 어긋난다. 바꾸려면 프로그래머에게 알린다.
 
-### 3.10 연출 설정 (CarryConfig · CashFlyConfig · StampConfig)
+### 3.10 연출 설정 (CarryConfig · CashFlyConfig · StampConfig · GoldenTruckConfig)
 
 느낌을 다듬는 값이라 게임 규칙에는 영향이 없다. 마음껏 바꿔 보고 Play로 확인한다.
 
 - **CarryConfig** — 상자 들기: `Fly Duration`(상자가 날아가는 시간) · `Jump Power`(포물선 높이) · `Lean Per Speed` / `Max Lean Per Level`(들고 뛸 때 기울기) · `Spring Damping`(작을수록 더 출렁임) · `Max Pulse Scale`(MAX 글자 커지는 정도).
 - **CashFlyConfig** — 돈이 HUD 저금통으로 날아감: `Duration` · `Arc Height`(곡선 높이) · `Size` · 그래프 2개(곡선을 클릭해 모양 편집) · `Target Punch`(도착 때 저금통이 튀는 정도).
+- **GoldenTruckConfig** — 황금 트럭 (GDD 6.4). 시험할 때는 Play 중 왼쪽 아래 `DEBUG` → `Golden truck`을 누르면 다음 트럭이 황금 트럭으로 온다. 몸체 색 · 빛 세기는 Play 중 바꾸면 바로 보이고, 나머지는 다음 황금 트럭부터.
+  - 확률 · 값: `Chance`(0.0005 = 0.05%, `임시`) · `Value Multiplier`(금 1덩이 = 지폐 다발 × 이 값, 2).
+  - 몸체 색: `Solid Color`(켜면 단색 금, 끄면 원래 무늬에 색을 곱함) · `Body Color` · `Pulse Color`(깜빡일 때 색) · `Pulse Period`(깜빡임 주기 초, 0 = 안 깜빡임).
+  - 빛: `Use Light` · `Light Color` · `Light Intensity` · `Light Range` · `Light Offset`(트럭 기준 위치) · `Light Flicker`(빛 흔들림 0~1).
+  - 반짝임: `Use Sparkle` · `Sparkle Material`(비면 반짝임 없음, 기본 `M_GoldSparkle`) · `Sparkle Color` · `Sparkle Rate`(초당 개수) · `Sparkle Lifetime` · `Sparkle Size` · `Sparkle Rise`(떠오르는 속도) · `Sparkle Area` / `Sparkle Center`(나오는 범위).
+  - 쏟기: `Dump Delay`(주차 뒤 기다림) · `Dump Interval`(1덩이씩 간격) · `Dump Jump Power`(튀는 높이) · `Dump Fly Duration` · `Pile Layout`(트럭 뒤 바닥에 쌓는 열 · 행 · 간격 · 층 높이) · `Leave Delay`(다 쏟고 떠나기까지).
+  - 흡수: `Absorb Radius Bonus`(현금 줍기 반경에 더함) · `Absorb Interval` · `Absorb Fly Duration` · `Absorb Arc Height` · `Absorb Spin`(날며 도는 속도) · `Absorb Scale`(날며 크기 그래프).
 - **StampConfig** — 고용 도장: `Press Scale`(꾹 누를 때 커지는 배율) · `Hold Duration`(카드 위에 머무는 시간) · `Mark Start Scale`(자국 크기) · `Shake Strength`(못 찍을 때 흔들림).
 
 > `CashFlyConfig` · `StampConfig`는 이미 손으로 맞춘 값이다. 바꾸기 전에 지금 값을 적어 둔다.

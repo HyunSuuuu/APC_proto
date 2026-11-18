@@ -17,9 +17,11 @@ namespace APC.Data
         [SerializeField] ControlsConfig controls;
         [SerializeField] CarryConfig carry;
         [SerializeField] LogisticsConfig logistics;
+        [SerializeField, Tooltip("황금 트럭 확률 · 값 · 연출. 비면 기본값")] GoldenTruckConfig goldenTruck;
 
         public IReadOnlyList<CompanyDefinition> Companies => companies;
         public LogisticsConfig Logistics => logistics;
+        public GoldenTruckConfig GoldenTruck => GoldenTruckConfig.OrDefault(goldenTruck);
         public PlayerConfig Player => player;
         public ControlsConfig Controls => controls;
         public CarryConfig Carry => carry;

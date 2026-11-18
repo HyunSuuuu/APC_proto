@@ -140,6 +140,13 @@ namespace APC.Debugging
             }
             GUILayout.EndHorizontal();
             if (GUILayout.Button(gm.IsPaused ? "Resume" : "Pause", buttonStyle)) gm.SetPaused(!gm.IsPaused);
+            if (GUILayout.Button(APC.Logistics.InboundQueue.ForceGoldenNext ? "[Golden next]" : "Golden truck", buttonStyle)) APC.Logistics.InboundQueue.ForceGoldenNext = true; // 다음 도착 = 황금 트럭 (GDD 6.4)
+            var outage = APC.Events.Outage.Instance;
+            if (outage != null && GUILayout.Button(APC.Events.Outage.Active ? "[Outage] End" : "Outage", buttonStyle)) // 정전 테스트 (GDD 14.3)
+            {
+                if (APC.Events.Outage.Active) outage.End();
+                else outage.Begin();
+            }
 
             DrawPart();
             DrawStaff();

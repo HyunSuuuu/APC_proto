@@ -60,7 +60,9 @@ namespace APC.Logistics
                     .WaitForCompletion();
                 DockedTruck = truck;
 
+                // 황금 트럭이면 TruckPickupZone이 금을 존 바닥에 쏟는다 (GDD 6.4)
                 yield return new WaitUntil(() => !truck.HasCargo);
+                if (truck.Golden) yield return new WaitForSeconds(GameManager.Instance.Database.GoldenTruck.LeaveDelay);
                 DockedTruck = null;
 
                 yield return DOTween.Sequence()

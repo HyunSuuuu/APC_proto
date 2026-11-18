@@ -32,6 +32,9 @@ namespace APC.Logistics
 
         public int Count => line.Count;
 
+        /// <summary>디버그 메뉴: 다음 도착 트럭을 황금 트럭으로.</summary>
+        public static bool ForceGoldenNext;
+
         void Awake() => Instance = this;
 
         void OnDestroy()
@@ -62,6 +65,8 @@ namespace APC.Logistics
                 var company = StockBalancer.PickInboundCompany(candidates);
                 var truck = Instantiate(truckPrefab, transform);
                 truck.Load(company, StockBalancer.ComposeInboundLoad(company));
+                if (ForceGoldenNext || Random.value < GameManager.Instance.Database.GoldenTruck.Chance) truck.MakeGolden(); // 황금 트럭 (GDD 6.4)
+                ForceGoldenNext = false;
                 if (waiting.Count > 0)
                 {
                     var bay = waiting[0];

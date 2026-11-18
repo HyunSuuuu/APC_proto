@@ -1992,6 +1992,7 @@ GameObject:
   - component: {fileID: 281971192}
   - component: {fileID: 281971191}
   - component: {fileID: 281971190}
+  - component: {fileID: 281971195}
   m_Layer: 0
   m_Name: Logistics
   m_TagString: Untagged
@@ -2076,6 +2077,27 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.Logistics.Warehouse
   shelfPrefab: {fileID: 3671193564190701847, guid: 2eccd8cc828b4b54f9f3a19afcf8114b, type: 3}
+--- !u!114 &281971195
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 281971188}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 49fb8372d251231449b57f3d8c746f9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::APC.Events.Outage
+  unlockLevel: 4
+  chance: 0.5
+  minTime: 30
+  maxTime: 150
+  maxInARow: 2
+  dimFactor: 0.25
+  alarmColor: {r: 0.9, g: 0.05, b: 0.05, a: 0.28}
+  alarmPeriod: 1.4
+  message: "\uC815\uC804! \uBD84\uC804\uBC18\uC744 \uACE0\uCE58\uC138\uC694"
 --- !u!1 &286772831
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,4 +1,8 @@
+using System.Collections;
+using APC.Core;
+using APC.Data;
 using APC.Interaction;
+using DG.Tweening;
 using UnityEngine;
 
 namespace APC.Logistics
@@ -6,10 +10,15 @@ namespace APC.Logistics
     /// <summary>
     /// 입고 트럭 옆 픽업 존 (GDD 7.1). 정차한 트럭에서 화물을 하나씩 꺼낸다. 받는 화물은 없다.
     /// 이 하차 칸 공간이 차면 (공간 수 + 이 칸 트럭에서 꺼내 든 수 + 알바 예약 = 용량) 플레이어도 알바도 못 꺼낸다 (GDD 7.2).
+    /// 황금 트럭(GDD 6.4)이면 금을 이 존 바닥에 쏟아 쌓고(하차 칸 공간 칸 안 차지), 누구든 들어오면 하나씩 흡수해 저금통에 더한다.
     /// </summary>
     public sealed class TruckPickupZone : CargoZone
     {
         [SerializeField] InboundBay bay;
+        CargoPile gold;
+        float nextDump;
+        InboundTruck dumpingFrom;
+        bool absorbing;
 
         protected override CargoOrigin GiveOrigin => CargoOrigin.Truck;
 
@@ -31,7 +40,7 @@ namespace APC.Logistics
         public override bool HasCargoFor(Interactor who)
         {
             var truck = bay.DockedTruck;
-            if (truck == null || truck.Available <= 0 || truck.Company == null) return false;
+            if (truck == null || truck.Golden || truck.Available <= 0 || truck.Company == null) return false;
             var item = truck.Company.Items[0];
             if (!Warehouse.CanHandle(who, item)) return false; // D 트럭 = 지게차 알바만 (M11-8)
             return who.Forklift ? Warehouse.Instance.LargeRoom(item) > 0 : Room > 0;
@@ -41,7 +50,7 @@ namespace APC.Logistics
         {
             cargo = null;
             var truck = bay.DockedTruck;
-            if (truck == null || !truck.HasCargo) return false;
+            if (truck == null || truck.Golden || !truck.HasCargo) return false; // 금은 이 존이 쏟음
             var item = truck.Company != null ? truck.Company.Items[0] : null;
             if (!Warehouse.CanHandle(who, item)) return false;
             if (who.Forklift)
@@ -60,6 +69,85 @@ namespace APC.Logistics
             cargo = truck.TakeCargo();
             if (cargo != null) cargo.Home = bay.Storage;
             return cargo != null;
+        }
+
+        static GoldenTruckConfig Golden => GameManager.Instance.Database.GoldenTruck;
+
+        // 쌓는 모양은 config 값을 그때그때 읽는다 (Play 중 조절)
+        void Awake() => gold = new CargoPile(transform, i => Golden.PileLayout.GetLocalPosition(i));
+
+        protected override void Update()
+        {
+            base.Update();
+            var truck = bay.DockedTruck;
+            if (truck != null && truck.Golden && truck.HasCargo)
+            {
+                var config = Golden;
+                if (dumpingFrom != truck)
+                {
+                    dumpingFrom = truck;
+                    nextDump = Time.time + config.DumpDelay;
+                }
+                if (Time.time >= nextDump)
+                {
+                    nextDump = Time.time + config.DumpInterval;
+                    gold.Add(truck.TakeCargo(), config.DumpJumpPower, config.DumpFlyDuration); // 다 쏟으면 InboundBay가 트럭을 보낸다
+                }
+            }
+            if (absorbing || gold.Count == 0) return;
+            foreach (var who in Interactor.All)
+            {
+                if (!IsNear(who)) continue;
+                StartCoroutine(AbsorbGold(who));
+                return;
+            }
+        }
+
+        bool IsNear(Interactor who)
+        {
+            var radius = GameManager.Instance.Database.Economy.CashPickupRadius + Golden.AbsorbRadiusBonus;
+            var offset = who.transform.position - transform.position;
+            offset.y = 0f;
+            return offset.sqrMagnitude <= radius * radius;
+        }
+
+        /// <summary>금덩이 흡수 (GDD 6.4): 반경 안에 있는 동안 하나씩 날아가고, 닿으면 달러가 저금통으로 (1덩이 = 다발 × `goldValueMultiplier`).</summary>
+        IEnumerator AbsorbGold(Interactor who)
+        {
+            absorbing = true;
+            var gm = GameManager.Instance;
+            var economy = gm.Database.Economy;
+            var config = Golden;
+            var value = Mathf.RoundToInt(economy.CashPerBundle * config.ValueMultiplier);
+            while (who != null && gold.Count > 0 && IsNear(who))
+            {
+                var piece = gold.RemoveAt(gold.Count - 1);
+                var t = piece.transform;
+                t.DOKill();
+                t.SetParent(null, true);
+                var start = t.position;
+                var startScale = t.localScale;
+                var startYaw = t.eulerAngles.y;
+                DOVirtual.Float(0f, 1f, config.AbsorbFlyDuration, k =>
+                    {
+                        var target = who != null ? who.transform.position + Vector3.up : start;
+                        t.position = Vector3.Lerp(start, target, k) + Vector3.up * (Mathf.Sin(k * Mathf.PI) * config.AbsorbArcHeight);
+                        t.rotation = Quaternion.Euler(0f, startYaw + config.AbsorbSpin * config.AbsorbFlyDuration * k, 0f);
+                        t.localScale = startScale * config.EvaluateAbsorbScale(k);
+                    })
+                    .SetEase(Ease.InQuad)
+                    .SetLink(piece.gameObject)
+                    .OnComplete(() =>
+                    {
+                        var fx = UI.CashFlyEffect.Instance;
+                        if (fx != null) fx.Fly(t.position, () => gm.Wallet.AddToPiggy(value));
+                        else gm.Wallet.AddToPiggy(value);
+                        t.localScale = startScale; // 풀에 돌려줄 때 원래 크기
+                        piece.Release();
+                    });
+                yield return new WaitForSeconds(config.AbsorbInterval);
+            }
+            absorbing = false;
         }
 
         /// <summary>트럭에서 꺼내 그 공간으로 들고 가는 중인 화물 수 (플레이어 · 알바).</summary>

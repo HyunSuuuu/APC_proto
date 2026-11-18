@@ -13,6 +13,9 @@ namespace APC.Logistics
 
         /// <summary>포장 쓰레기 (재포장 1번 = 1개). 재포장 테이블 쓰레기 출력 → 쓰레기장 (GDD 7.9).</summary>
         Trash,
+
+        /// <summary>금덩이 (황금 트럭, GDD 6.4). 하차 칸 공간 칸을 차지하고, 근처를 지나는 사람이 흡수 → 저금통. 옮기지 않는다. 숫자 고정 — 끝에만 더한다.</summary>
+        Gold,
     }
 
     /// <summary>화물을 마지막으로 꺼낸 곳. 존이 받을 수 있는지 판단할 때 쓴다 (예: 트럭 → 선반 직행 금지, GDD 7.2).</summary>
@@ -49,6 +52,7 @@ namespace APC.Logistics
         [SerializeField, Tooltip("상자 몸통 (찌그러진 상자 = 회색)")] Renderer boxRenderer;
         [SerializeField] Color returnBoxColor = new(0.55f, 0.55f, 0.58f);
         [SerializeField, Tooltip("포장 쓰레기 (납작한 회갈색 판)")] Color trashColor = new(0.55f, 0.47f, 0.38f);
+        [SerializeField, Tooltip("금덩이 모델 (Prop/Gold, 꺼진 채). 금이면 상자 · 테이프 대신 켠다 (GDD 6.4)")] GameObject goldModel;
 
         MaterialPropertyBlock block;
 
@@ -119,7 +123,10 @@ namespace APC.Logistics
         void ApplyLook()
         {
             block ??= new MaterialPropertyBlock();
-            tapeRenderer.enabled = State != CargoState.Trash;
+            var isGold = State == CargoState.Gold;
+            if (goldModel != null) goldModel.SetActive(isGold);
+            if (boxRenderer != null) boxRenderer.enabled = !isGold;
+            tapeRenderer.enabled = State != CargoState.Trash && !isGold;
             tapeRenderer.GetPropertyBlock(block);
             block.SetColor(BaseColorId, Item != null ? Item.TapeColor : Color.white);
             tapeRenderer.SetPropertyBlock(block);

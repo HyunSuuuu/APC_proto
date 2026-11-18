@@ -62,6 +62,7 @@ namespace APC.Staff
         float idleTime;
         int lastCount;
         float iconBaseY;
+        bool outageFrozen;
         Tween iconTween;
 
         public StaffRole Role { get; private set; }
@@ -214,6 +215,16 @@ namespace APC.Staff
         {
             var deltaTime = Time.deltaTime;
             if (rules == null || deltaTime <= 0f) return;
+
+            // 정전 중엔 제자리에 멈춰 아무것도 안 한다 (GDD 14.3). 해고 · 퇴사로 나가는 중이면 그대로 간다
+            var frozen = Events.Outage.Active && !leaving;
+            if (frozen != outageFrozen)
+            {
+                outageFrozen = frozen;
+                interactor.enabled = !frozen;
+                if (agent.isOnNavMesh) agent.isStopped = frozen;
+            }
+            if (frozen) return;
 
             thinkTimer -= deltaTime;
             var think = thinkTimer <= 0f;

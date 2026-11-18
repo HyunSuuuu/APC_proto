@@ -5,7 +5,7 @@ namespace APC.Characters
 {
     /// <summary>
     /// 캐릭터 모델 애니 (플레이어 · 알바 공용). 실제 이동 속도와 운반 스택으로 상태를 고른다:
-    /// 빈손 = idle / walk, 맨손으로 들기 = carry_idle / carry_move, 밀기 도구(구루마 · 롤테이너) = idle / push (GDD 5.3).
+    /// 빈손 = idle / walk, 맨손으로 들기 = carry_idle / carry_move, 구루마 = push_wagon_idle / push_wagon, 롤테이너 = push_rolltainer_idle / push_rolltainer (GDD 5.3, 2026-11-18), 지게차 = riding.
     /// Animator는 자식 중 켜진 모델의 것을 쓴다 (알바는 모델 여러 개 중 하나만 켜짐). 상태 이름은 컨트롤러의 상태 이름과 같다.
     /// </summary>
     public sealed class CharacterAnimator : MonoBehaviour
@@ -14,7 +14,10 @@ namespace APC.Characters
         static readonly int Walk = Animator.StringToHash("walk");
         static readonly int CarryIdle = Animator.StringToHash("carry_idle");
         static readonly int CarryMove = Animator.StringToHash("carry_move");
-        static readonly int Push = Animator.StringToHash("push");
+        static readonly int WagonIdle = Animator.StringToHash("push_wagon_idle");
+        static readonly int Wagon = Animator.StringToHash("push_wagon");
+        static readonly int RolltainerIdle = Animator.StringToHash("push_rolltainer_idle");
+        static readonly int Rolltainer = Animator.StringToHash("push_rolltainer");
         static readonly int Riding = Animator.StringToHash("riding");
 
         [SerializeField] CarryStack stack;
@@ -25,8 +28,8 @@ namespace APC.Characters
         Vector3 lastPosition;
         int current;
 
-        /// <summary>밀기 도구를 쓰는 중 (플레이어 적재 도구 구루마 이상). 이동하면 push.</summary>
-        public bool UsePush { get; set; }
+        /// <summary>미는 도구 (플레이어 적재 도구 단계): 0 = 없음(맨손), 1 = 구루마, 2 = 롤테이너.</summary>
+        public int PushTool { get; set; }
 
         /// <summary>지게차를 탄 알바 (M11-8): 늘 riding.</summary>
         public bool UseRiding { get; set; }
@@ -56,7 +59,8 @@ namespace APC.Characters
 
             var holding = stack != null && stack.Count.CurrentValue > 0;
             var state = UseRiding ? Riding
-                : UsePush ? (moving ? Push : Idle)
+                : PushTool == 1 ? (moving ? Wagon : WagonIdle)
+                : PushTool >= 2 ? (moving ? Rolltainer : RolltainerIdle)
                 : holding ? (moving ? CarryMove : CarryIdle)
                 : moving ? Walk : Idle;
             if (state == current) return;

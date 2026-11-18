@@ -28,7 +28,10 @@ namespace APC.Logistics
 
         static CarryConfig Config => GameManager.Instance.Database.Carry;
 
-        public void Add(Cargo cargo)
+        public void Add(Cargo cargo) => Add(cargo, Config.JumpPower, Config.FlyDuration);
+
+        /// <summary>튀는 높이 · 비행 시간을 직접 정해 쌓는다 (황금 트럭 금 쏟기).</summary>
+        public void Add(Cargo cargo, float jumpPower, float flyDuration)
         {
             items.Add(cargo);
             var config = Config;
@@ -36,9 +39,9 @@ namespace APC.Logistics
             var visual = cargo.Visual;
             t.DOKill();
             t.SetParent(root, true);
-            t.DOLocalJump(slotPosition(items.Count - 1), config.JumpPower, 1, config.FlyDuration)
+            t.DOLocalJump(slotPosition(items.Count - 1), jumpPower, 1, flyDuration)
                 .OnComplete(() => visual.DOPunchScale(Vector3.one * config.LandPunch, config.LandPunchDuration, 6, 0.5f));
-            t.DOLocalRotateQuaternion(Quaternion.identity, config.FlyDuration);
+            t.DOLocalRotateQuaternion(Quaternion.identity, flyDuration);
         }
 
         /// <summary>빼낸 화물은 받는 쪽이 옮긴다.</summary>
