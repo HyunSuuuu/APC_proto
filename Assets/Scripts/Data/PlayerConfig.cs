@@ -28,6 +28,7 @@ namespace APC.Data
         [SerializeField, Min(0.1f), Tooltip("조이스틱을 끝까지 당겼을 때 속도 (m/s). 속도는 입력 크기에 비례")] float moveSpeed = 4f;
         [SerializeField, Min(1f), Tooltip("이동 방향으로 도는 속도 (도/초)")] float turnSpeed = 720f;
         [SerializeField, Range(0f, 1f), Tooltip("입력 크기가 이 값 이상이면 뛰기 애니메이션 (GDD 3.1)")] float runThreshold = 0.5f;
+        [SerializeField, Min(0f), Tooltip("든 상자 · 도구 끝과 칸 경계 사이 최소 거리 (m). 벽 조각이 경계에서 안쪽으로 들어온 두께 (벽 0.18 · 창문 0.25)")] float wallClearance = 0.25f;
 
         [Header("운반")]
         [SerializeField, Min(1), Tooltip("기본 적재 수 (손으로 들기)")] int maxCarry = 3;
@@ -51,6 +52,7 @@ namespace APC.Data
         public PlayerUpgradeStep[] SpeedSteps => speedSteps;
         public float TurnSpeed => turnSpeed;
         public float RunThreshold => runThreshold;
+        public float WallClearance => wallClearance;
         public int MaxCarry => maxCarry;
         public float PickInterval => pickInterval;
         public float InteractionDelay => interactionDelay;

@@ -13,6 +13,9 @@ namespace APC.Characters
         [SerializeField, Tooltip("적재 도구 단계별 모델 ([0] = 구루마, [1] = 롤테이너). 자식 StackAnchor부터 상자를 쌓는다 (GDD 5.3)")]
         GameObject[] tools = new GameObject[0];
 
+        /// <summary>지금 켜진 적재 도구의 렌더러 (맨손이면 빈 배열). PlayerMover가 벽에 닿지 않게 쓴다.</summary>
+        public Renderer[] ToolRenderers { get; private set; } = new Renderer[0];
+
         void Start()
         {
             var config = GameManager.Instance.Database.Player;
@@ -25,11 +28,14 @@ namespace APC.Characters
                 stack.SetCapacity(upgrades.Capacity); // 업그레이드 탭 (GDD 5.1)
                 if (animator != null) animator.PushTool = step; // 1 구루마 · 2 롤테이너 — 앞에 두고 민다
                 Transform toolAnchor = null;
+                ToolRenderers = new Renderer[0];
                 for (var i = 0; i < tools.Length; i++)
                 {
                     if (tools[i] == null) continue;
                     tools[i].SetActive(i == step - 1);
-                    if (i == step - 1) toolAnchor = tools[i].transform.Find("StackAnchor");
+                    if (i != step - 1) continue;
+                    toolAnchor = tools[i].transform.Find("StackAnchor");
+                    ToolRenderers = tools[i].GetComponentsInChildren<Renderer>();
                 }
                 stack.UseAnchor(toolAnchor != null ? toolAnchor : handAnchor);
             }).AddTo(this);
