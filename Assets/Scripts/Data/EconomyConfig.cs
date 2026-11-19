@@ -23,7 +23,7 @@ namespace APC.Data
         [Header("현금 더미 (GDD 7.6)")]
         [SerializeField, Min(1), Tooltip("지폐 다발 1개의 금액. 나머지는 마지막 다발에 포함 (52원 = 6개)")] int cashPerBundle = 10;
         [SerializeField, Min(1), Tooltip("현금 존에 보이는 다발 최대 수 (넘으면 +금액 숫자)")] int cashMaxVisibleBundles = 40;
-        [SerializeField, Min(0.1f), Tooltip("현금 존 중심에서 이 거리(m) 안에 들어오면 흡수 (멈출 필요 없음)")] float cashPickupRadius = 1.5f;
+        [SerializeField, Min(0.1f), Tooltip("황금 트럭 금 더미 흡수 반경 (m, 멈출 필요 없음). 현금은 2026-11-19부터 상차장 모듈 칸에 들어서면 줍는다 (CashZone.useModuleArea)")] float cashPickupRadius = 1.5f;
         [SerializeField, Min(0.01f), Tooltip("다발이 하나씩 빨려 들어가는 간격 (초)")] float cashAbsorbInterval = 0.05f;
         [SerializeField, Min(0.05f), Tooltip("다발 하나가 플레이어에게 날아가는 시간 (초)")] float cashFlyDuration = 0.3f;
 

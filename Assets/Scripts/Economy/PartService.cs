@@ -35,6 +35,8 @@ namespace APC.Economy
     /// 시간 흐름 · 파트 종료 정산 (GDD 9.5, 11.7). 씬에 하나 둔다 (Site/Logistics).
     /// 게임 시작(첫 색 입고) 순간 1파트가 시작되고(파트마다 180초, 첫 파트 90초는 2026-11-15 삭제), `Time.deltaTime`으로 흐르므로 팝업 · 일시정지 중엔 멈춘다.
     /// 파트가 끝나면 정산 내역(번 돈 · 알바 월급 · 합계, 할당량 삭제)을 만들어 OnSettlementReady로 알리고(정산 팝업이 연다), [확인] 시 Confirm → 저금통을 지갑으로 옮기고 다음 파트.
+    /// 파트는 **1 · 2가 반복**된다 (2026-11-19): 1 = 하차 파트(하차 트럭만 하차장에 들어옴), 2 = 상차 파트(새 상차 트럭만 옴).
+    /// 사무실 전(파트 0)은 둘 다 열림 (튜토리얼 앞부분). 정차한 트럭은 파트가 바뀌어도 남는다.
     /// </summary>
     public sealed class PartService : MonoBehaviour
     {
@@ -46,7 +48,7 @@ namespace APC.Economy
 
         SettlementResult? pending;
 
-        /// <summary>현재 파트 번호 (1부터). 0이면 아직 시작 전 (계약 전).</summary>
+        /// <summary>현재 파트 번호 (1 = 하차 · 2 = 상차, 반복). 0이면 아직 시작 전 (사무실 전).</summary>
         public ReadOnlyReactiveProperty<int> Part => part;
 
         /// <summary>이번 파트 남은 시간 (초).</summary>
@@ -56,6 +58,20 @@ namespace APC.Economy
         public Observable<SettlementResult> OnSettlementReady => settlementReady;
 
         public bool IsRunning => part.Value > 0 && pending == null;
+
+        /// <summary>하차 파트 번호 (1 · 2 반복 중 1).</summary>
+        public const int InboundPart = 1;
+
+        /// <summary>상차 파트 번호 (1 · 2 반복 중 2).</summary>
+        public const int OutboundPart = 2;
+
+        /// <summary>줄의 하차 트럭이 하차장에 들어가도 되는가: 사무실 전, 또는 하차 파트 진행 중.</summary>
+        public static bool InboundOpen => IsOpen(InboundPart);
+
+        /// <summary>새 상차 트럭이 들어와도 되는가: 사무실 전, 또는 상차 파트 진행 중.</summary>
+        public static bool OutboundOpen => IsOpen(OutboundPart);
+
+        static bool IsOpen(int number) => Instance == null || Instance.part.Value == 0 || (Instance.part.Value == number && Instance.IsRunning);
 
         /// <summary>직전 파트 정산액 (저금통 가득 기준용).</summary>
         public int LastSettlement { get; private set; }
@@ -142,7 +158,7 @@ namespace APC.Economy
             if (StaffService.Instance != null) StaffService.Instance.ApplyWages(result.WagePlan);
             GameManager.Instance.Wallet.SettlePiggy(-result.Wages);
             LastSettlement = result.Total;
-            BeginPart(result.Part + 1);
+            BeginPart(result.Part == InboundPart ? OutboundPart : InboundPart); // 1 · 2 반복 (2026-11-19)
         }
 
         void BeginPart(int number)

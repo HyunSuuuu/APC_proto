@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using APC.Core;
 using APC.Data;
 using APC.Interaction;
@@ -16,22 +17,27 @@ namespace APC.Staff
     /// 작업 상태 머신 (GDD 11.4): 대기 → 대상 탐색 · 예약 → 집으러 이동 → 집기 → 운반 → 내려놓기 → 대기.
     /// - 집는 곳은 역할로 정한다: 하차 = 트럭 픽업 존, 분류 = 팔레트 둘레 존, 피킹 = 선반 둘레 존.
     /// - 내려놓는 곳은 **들고 있는 화물**로 정한다 (그 화물을 받는 존). 그래서 역할을 바꿔도 들고 있던 화물은 원래 목적지로 간다.
-    /// - 존마다 작업 지점(WorkSlot)이 있다. 빈 슬롯을 예약하고 가서 그 지점에서만 상호작용한다. 빈 슬롯이 없으면 그 자리에서 멈춰 기다린다.
-    /// - 할 일이 없으면 역할 존의 빈 슬롯에 가서 기다린다 (Parked, 상호작용 안 함).
+    /// - 2026-11-19 알바 상호작용 개편: 작업 자리(WorkSlot)는 **예약하지 않는다**. 존 사각형 안에 들어가 멈추면 일한다 (플레이어와 같음).
+    ///   서는 위치 = 후보(WorkSlot) 중 사람 적은 곳 → 다 차면 존 안에서 비켜 서기. 존 고르기 = 거리 + 같은 직무 몰림 벌점.
+    ///   재포장 테이블만 1명 (RepackTable.TryClaim). 화물 예약(트럭 · 선반 빈자리 · 주문 수요)은 그대로.
+    /// - 할 일이 없으면 마지막 일한 존 밖으로 비켜 선 곳(일한 적 없으면 생성 지점 근처)에서 기다린다 (Parked, 아무 존도 막지 않음).
     /// - 작업 고정 · 전환 쿨타임 · 가이드 화살표는 플레이어 전용이라 쓰지 않는다 (GDD 5.3).
     /// </summary>
     [RequireComponent(typeof(NavMeshAgent), typeof(Interactor), typeof(CarryStack))]
     public sealed class StaffWorker : MonoBehaviour
     {
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        static readonly List<StaffWorker> AllWorkers = new();
 
         const float ArriveDistance = 0.2f;
-        // 도착했는데 이만큼(초) 동안 상호작용이 시작되지 않으면 포기한다 (슬롯이 존 밖에 있는 등 배치 오류 대비)
+        // 도착했는데 이만큼(초) 동안 상호작용이 시작되지 않으면 포기한다 (서는 위치가 존 밖에 있는 등 배치 오류 대비)
         const float StuckTimeout = 3f;
+        // 서는 · 대기 위치를 네비메시에 붙일 때 찾는 반경 (m)
+        const float NavSnapRadius = 0.3f;
+        // 대기 위치는 어떤 존 사각형에서도 이만큼(m) 떨어진다 (몸이 존에 걸쳐 바닥 색이 켜지지 않게, 알바 반경 0.3 근처)
+        const float WaitZoneClearance = 0.2f;
 
         public enum Phase { Idle, Moving, Working, Parked, Waiting }
-
-        enum Search { None, NoSlot, Found }
 
         /// <summary>반품 알바가 지금 찾는 일 (GDD 11.3 '막히는 곳부터').</summary>
         enum ReturnsFocus { Any, TrashFull, Pallet, Trash }
@@ -50,12 +56,17 @@ namespace APC.Staff
         MaterialPropertyBlock block;
 
         CargoZone zone;
-        RepackTable gauge; // 반품 알바가 서서 재포장하는 테이블 (zone 대신)
+        RepackTable gauge; // 반품 알바가 서서 재포장하는 테이블 (zone 대신, 1명 예약)
         ReturnsFocus focus;
-        WorkSlot slot;
+        bool hasStand;
+        Vector3 standLocal; // 서는 위치 (대상 존 로컬 — 모듈이 옮겨져도 같이 따라간다)
+        InteractionZone lastZone; // 마지막으로 일한 존 (대기 위치 기준)
+        bool hasWait;
+        Vector3 waitPoint; // 대기 위치 (월드)
         bool dropping;
         bool parking;
         bool leaving;
+        bool repathPending; // 모듈 재배치 알림을 받았고 팝 연출이 끝나기를 기다리는 중
         System.Action releaseReservation; // 지금 잡고 있는 예약을 푸는 함수 (없으면 null)
         float thinkTimer;
         float workTime;
@@ -70,6 +81,9 @@ namespace APC.Staff
         public Phase State { get; private set; }
         public CarryStack Stack => stack;
 
+        /// <summary>지금 가고 있거나 일하는 존 (재포장 테이블 포함). 없으면 null.</summary>
+        public InteractionZone TargetZone => gauge != null ? gauge : zone;
+
         /// <summary>고용 순서 번호 (배치 탭 이름 `알바 N`).</summary>
         public int Number { get; internal set; }
         public string DisplayName => $"알바 {Number}";
@@ -83,18 +97,38 @@ namespace APC.Staff
         /// <summary>이번 파트에 낼 시급 비율. 고용한 파트는 고용 때 남은 시간 비율, 정산 뒤엔 1.</summary>
         public float PartShare { get; internal set; } = 1f;
 
+        /// <summary>
+        /// 이 알바가 차지하는(차지할) 바닥 위치: 가는 중 · 일하는 중이면 서는 위치, 대기하러 가는 중 · 대기 중이면 대기 위치, 아니면 지금 위치.
+        /// 다른 알바가 서는 · 대기 위치를 고를 때 겹치지 않게 쓴다 (예약 아님).
+        /// </summary>
+        Vector3 OccupiedPosition
+        {
+            get
+            {
+                var target = TargetZone;
+                if (hasStand && target != null) return target.transform.TransformPoint(standLocal);
+                if (hasWait && (State == Phase.Parked || parking)) return waitPoint;
+                return transform.position;
+            }
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics() => AllWorkers.Clear();
+
         void Awake()
         {
             agent = GetComponent<NavMeshAgent>();
             interactor = GetComponent<Interactor>();
             stack = GetComponent<CarryStack>();
-            interactor.RestrictToTarget = true; // 목표 존의 작업 지점에서만 상호작용
+            interactor.RestrictToTarget = true; // 목표 존에서만 상호작용
             if (unpaidIcon != null)
             {
                 iconBaseY = unpaidIcon.transform.localPosition.y;
                 unpaidIcon.SetActive(false);
             }
         }
+
+        void OnEnable() => AllWorkers.Add(this);
 
         /// <summary>밀린 시급을 정한다 (정산 [확인] 때 StaffService가 부름). 0보다 크면 머리 위 ₩이 둥실거린다.</summary>
         internal void SetOwed(int amount)
@@ -178,28 +212,43 @@ namespace APC.Staff
             if (SiteGrid.Instance != null) SiteGrid.Instance.OnMoved.Subscribe(_ => Repath()).AddTo(this);
         }
 
-        /// <summary>
-        /// 모듈 재배치 (GDD 4.4): 가던 · 기다리던 · 일하던 작업 지점이 옮겨갔으면 새 자리로 다시 간다.
-        /// 작업 지점(WorkSlot)은 모듈 안에 있어 같이 옮겨지므로 예약 · 대상 존은 그대로다.
-        /// </summary>
+        /// <summary>모듈 재배치 알림 (GDD 4.4). 옮긴 모듈은 팝 연출(크기 0 → 1) 중이라 바로 계산하지 않고, 연출이 끝난 뒤 판단 때 <see cref="ApplyRepath"/>.</summary>
         void Repath()
         {
-            if (slot == null || leaving || !agent.isOnNavMesh) return;
-            var target = slot.transform.position;
+            if (rules == null || leaving) return;
+            repathPending = true;
+        }
+
+        /// <summary>존이 제자리 크기(1)인가. 해금 · 재배치 팝 연출 중(크기 0 → 1)인 존은 위치 계산이 틀어지므로 쓰지 않는다.</summary>
+        static bool IsSettled(InteractionZone target) => Mathf.Abs(target.transform.lossyScale.x - 1f) < 0.01f;
+
+        /// <summary>
+        /// 모듈 재배치 (GDD 4.4): 서는 위치는 대상 존 로컬로 들고 있어 존과 같이 옮겨진다 — 1m 넘게 옮겨갔으면 새 자리로 다시 간다.
+        /// 대기 중이면 대기 위치를 다시 고른다 (옮겨진 모듈이 대기 자리를 덮었을 수 있음).
+        /// </summary>
+        void ApplyRepath()
+        {
+            var reference = TargetZone != null ? TargetZone : lastZone;
+            if (reference != null && reference.isActiveAndEnabled && !IsSettled(reference)) return; // 팝 연출이 끝난 뒤에
+            repathPending = false;
+            if (leaving || !agent.isOnNavMesh) return;
+            if (State == Phase.Parked || (State == Phase.Moving && parking))
+            {
+                Park();
+                return;
+            }
+            var target = TargetZone;
+            if (target == null || !hasStand) return;
+            var stand = target.transform.TransformPoint(standLocal);
             switch (State)
             {
-                case Phase.Moving or Phase.Parked when (agent.destination - target).sqrMagnitude > 1f:
-                    if (State == Phase.Parked)
-                    {
-                        parking = true;
-                        State = Phase.Moving;
-                    }
-                    agent.SetDestination(target);
+                case Phase.Moving when (agent.destination - stand).sqrMagnitude > 1f:
+                    agent.SetDestination(stand);
                     break;
-                case Phase.Working when (transform.position - target).sqrMagnitude > 1f:
+                case Phase.Working when (transform.position - stand).sqrMagnitude > 1f:
                     interactor.Target = null;
                     State = Phase.Moving;
-                    agent.SetDestination(target);
+                    agent.SetDestination(stand);
                     break;
             }
         }
@@ -207,6 +256,7 @@ namespace APC.Staff
         void OnDisable()
         {
             ReleaseAll();
+            AllWorkers.Remove(this);
             if (StaffService.Instance != null) StaffService.Instance.Remove(this);
         }
 
@@ -218,6 +268,7 @@ namespace APC.Staff
             thinkTimer -= deltaTime;
             var think = thinkTimer <= 0f;
             if (think) thinkTimer = rules.ThinkInterval;
+            if (think && repathPending) ApplyRepath();
 
             switch (State)
             {
@@ -228,8 +279,13 @@ namespace APC.Staff
                     if (think) Think(); // 기다리러 가는 중에도 일이 생기면 바로 간다
                     if (State == Phase.Moving && parking && Arrived())
                     {
-                        parking = false;
-                        State = Phase.Parked;
+                        // 길이 중간에 끊겨(부분 경로) 대기 위치에 못 갔으면 그 자리에서 멈췄다가 다시 고른다
+                        if (FlatDistance(transform.position, waitPoint) > rules.WaitSpacing) Hold();
+                        else
+                        {
+                            parking = false;
+                            State = Phase.Parked;
+                        }
                     }
                     break;
                 case Phase.Moving:
@@ -258,60 +314,67 @@ namespace APC.Staff
             }
             if (stack.Count.CurrentValue > 0)
             {
-                // 배달할 곳이 없거나 빈 슬롯이 없으면 그 자리에서 기다린다
-                if (Find(drop: true, park: false, out var dropZone, out var dropSlot) == Search.Found) Go(dropZone, dropSlot, drop: true, park: false);
+                // 배달할 곳이 없으면 그 자리에서 기다린다
+                if (Find(drop: true, out var dropZone)) Go(dropZone, drop: true);
                 else Hold();
                 return;
             }
 
             if (Role == StaffRole.Returns && ReturnsWork()) return;
 
-            var result = Find(drop: false, park: false, out var pickZone, out var pickSlot);
-            if (result == Search.Found)
+            if (Find(drop: false, out var pickZone))
             {
-                Go(pickZone, pickSlot, drop: false, park: false);
+                Go(pickZone, drop: false);
                 return;
             }
-            var waitingAtRoleZone = State == Phase.Parked || (State == Phase.Moving && parking);
-            if (result == Search.NoSlot)
-            {
-                if (!waitingAtRoleZone) Hold(); // 일은 있는데 빈 슬롯이 없음 → 그 자리에서 멈춤
-                return;
-            }
-            if (waitingAtRoleZone) return;
-
-            if (Find(drop: false, park: true, out var parkZone, out var parkSlot) == Search.Found) Go(parkZone, parkSlot, drop: false, park: true);
-            else Hold();
+            if (State == Phase.Parked || (State == Phase.Moving && parking)) return; // 이미 기다리는 중
+            Park();
         }
 
         /// <summary>
-        /// 가장 가까운 작업 지점 찾기. drop = 들고 있는 화물을 받는 존, 아니면 역할 존(park면 일이 없어도).
-        /// 조건에 맞는 존은 있는데 빈 슬롯이 없으면 NoSlot.
+        /// 갈 존 고르기 (2026-11-19). drop = 들고 있는 화물을 받는 존, 아니면 할 일이 있는 역할 존.
+        /// 점수 = 가장 가까운 서는 위치 후보까지 거리 + 그 존에 가고 있거나 일하는 같은 직무 수 × 몰림 벌점. 동시 인원 상한은 없다.
         /// </summary>
-        Search Find(bool drop, bool park, out CargoZone bestZone, out WorkSlot bestSlot)
+        bool Find(bool drop, out CargoZone bestZone)
         {
             bestZone = null;
-            bestSlot = null;
-            var matched = false;
-            var bestDistance = float.MaxValue;
+            var bestScore = float.MaxValue;
             var from = transform.position;
 
             foreach (var candidate in InteractionZone.Active)
             {
-                if (candidate is not CargoZone cargoZone || cargoZone.Slots.Count == 0) continue;
-                var ok = drop ? cargoZone.CanReceiveAny(interactor) : IsRoleZone(cargoZone) && (park || HasWork(cargoZone));
+                if (candidate is not CargoZone cargoZone || cargoZone.Slots.Count == 0 || !IsSettled(cargoZone)) continue;
+                var ok = drop ? cargoZone.CanReceiveAny(interactor) : IsRoleZone(cargoZone) && HasWork(cargoZone);
                 if (!ok) continue;
-                matched = true;
 
-                var free = WorkSlot.FindNearestFree(cargoZone.Slots, this, from);
-                if (free == null) continue;
-                var distance = (free.transform.position - from).sqrMagnitude;
-                if (distance >= bestDistance) continue;
+                var score = NearestSlotDistance(cargoZone, from) + CountSameRoleAt(cargoZone) * rules.CrowdPenalty;
+                if (score >= bestScore) continue;
                 bestZone = cargoZone;
-                bestSlot = free;
-                bestDistance = distance;
+                bestScore = score;
             }
-            return bestZone != null ? Search.Found : matched ? Search.NoSlot : Search.None;
+            return bestZone != null;
+        }
+
+        static float NearestSlotDistance(InteractionZone target, Vector3 from)
+        {
+            var best = float.MaxValue;
+            foreach (var slot in target.Slots)
+            {
+                if (!slot.isActiveAndEnabled) continue;
+                best = Mathf.Min(best, FlatDistance(slot.transform.position, from));
+            }
+            return best < float.MaxValue ? best : FlatDistance(target.transform.position, from);
+        }
+
+        /// <summary>그 존에 가고 있거나 일하는 같은 직무 알바 수 (나 빼고).</summary>
+        int CountSameRoleAt(InteractionZone target)
+        {
+            var n = 0;
+            foreach (var other in AllWorkers)
+            {
+                if (other != this && other.Role == Role && other.TargetZone == target) n++;
+            }
+            return n;
         }
 
         bool IsRoleZone(CargoZone candidate) => Role switch
@@ -343,48 +406,40 @@ namespace APC.Staff
             }
             if (TryGauge()) return true;
             if (TryPickFocus(ReturnsFocus.Pallet) || TryPickFocus(ReturnsFocus.Trash)) return true;
-            focus = ReturnsFocus.Any; // 할 일 없음 → 아래에서 역할 존에 가서 기다린다
+            focus = ReturnsFocus.Any; // 할 일 없음 → 대기
             return false;
         }
 
         bool TryPickFocus(ReturnsFocus next)
         {
             focus = next;
-            if (Find(drop: false, park: false, out var pickZone, out var pickSlot) != Search.Found) return false;
-            Go(pickZone, pickSlot, drop: false, park: false);
+            if (!Find(drop: false, out var pickZone)) return false;
+            Go(pickZone, drop: false);
             return true;
         }
 
-        /// <summary>재포장할 수 있는 가장 가까운 테이블의 빈 슬롯으로 간다.</summary>
+        /// <summary>재포장할 수 있고 아무도 맡지 않은 가장 가까운 테이블로 간다 (테이블만 1명 예약, 2026-11-19).</summary>
         bool TryGauge()
         {
             RepackTable best = null;
-            WorkSlot bestSlot = null;
             var bestDistance = float.MaxValue;
             var from = transform.position;
             foreach (var candidate in InteractionZone.Active)
             {
-                if (candidate is not RepackTable table || !table.HasWork) continue;
-                var free = WorkSlot.FindNearestFree(table.Slots, this, from);
-                if (free == null) continue;
-                var distance = (free.transform.position - from).sqrMagnitude;
+                if (candidate is not RepackTable table || !table.HasWork || !table.IsFreeFor(this) || !IsSettled(table)) continue;
+                var distance = NearestSlotDistance(table, from);
                 if (distance >= bestDistance) continue;
                 best = table;
-                bestSlot = free;
                 bestDistance = distance;
             }
             if (best == null) return false;
 
-            if (slot != null && slot != bestSlot) slot.Release(this);
-            ReleaseReservation();
-            zone = null;
+            ReleaseAll();
             gauge = best;
-            slot = bestSlot;
-            slot.TryClaim(this);
+            gauge.TryClaim(this);
+            SetStand(best, ChooseStand(best));
             dropping = false;
-            parking = false;
-            interactor.Target = null;
-            agent.SetDestination(slot.transform.position);
+            agent.SetDestination(OccupiedPosition);
             State = Phase.Moving;
             return true;
         }
@@ -392,21 +447,221 @@ namespace APC.Staff
         // 하차 칸 공간 빈자리 · 선반 빈자리 · 수요는 존 규칙(HasCargoFor)에 이미 들어 있다.
         bool HasWork(CargoZone candidate) => candidate.HasCargoFor(interactor);
 
-        void Go(CargoZone target, WorkSlot targetSlot, bool drop, bool park)
+        void Go(CargoZone target, bool drop)
         {
-            if (slot != null && slot != targetSlot) slot.Release(this);
-            ReleaseReservation();
-
+            ReleaseAll();
             zone = target;
-            slot = targetSlot;
-            slot.TryClaim(this);
+            SetStand(target, ChooseStand(target));
             dropping = drop;
-            parking = park;
-            interactor.Target = null;
-            if (!drop && !park) Reserve();
+            if (!drop) Reserve();
 
-            agent.SetDestination(slot.transform.position);
+            agent.SetDestination(OccupiedPosition);
             State = Phase.Moving;
+        }
+
+        void SetStand(InteractionZone target, Vector3 world)
+        {
+            standLocal = target.transform.InverseTransformPoint(world);
+            hasStand = true;
+            hasWait = false;
+        }
+
+        /// <summary>
+        /// 서는 위치 고르기 (2026-11-19). 후보(WorkSlot) 중 다른 알바가 `standSpacing` 안에 가장 적은 곳 (같으면 가까운 곳).
+        /// 모두 차 있으면 후보 둘레를 `standSpacing`씩 넓혀 가며 존 안 · 네비메시 위의 빈 곳을 찾는다. 없으면 가장 덜 붐비는 후보 (겹쳐 섬).
+        /// 어느 경우든 존 가장자리에서 `zoneEdgeMargin` 안쪽이다.
+        /// </summary>
+        Vector3 ChooseStand(InteractionZone target)
+        {
+            var from = transform.position;
+            var spacing = rules.StandSpacing;
+            var best = ClampInside(target, target.transform.position);
+            var bestCrowd = int.MaxValue;
+            var bestDistance = float.MaxValue;
+            foreach (var slot in target.Slots)
+            {
+                if (!slot.isActiveAndEnabled) continue;
+                var p = ClampInside(target, slot.transform.position);
+                var crowd = CountNear(p, spacing);
+                var distance = FlatDistance(p, from);
+                if (crowd > bestCrowd || (crowd == bestCrowd && distance >= bestDistance)) continue;
+                best = p;
+                bestCrowd = crowd;
+                bestDistance = distance;
+            }
+            if (bestCrowd <= 0) return best;
+
+            // 다 차 있음 → 존 안에서 비켜 서기 (가까운 둘레부터)
+            for (var ring = 1; ring <= 4; ring++)
+            {
+                var found = false;
+                var ringBest = best;
+                var ringDistance = float.MaxValue;
+                foreach (var slot in target.Slots)
+                {
+                    if (!slot.isActiveAndEnabled) continue;
+                    var center = slot.transform.position;
+                    for (var i = 0; i < 8; i++)
+                    {
+                        var angle = i * Mathf.PI * 0.25f;
+                        var p = center + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * (spacing * ring);
+                        if (!TrySnapInside(target, p, out var snapped) || CountNear(snapped, spacing) > 0) continue;
+                        var distance = FlatDistance(snapped, from);
+                        if (distance >= ringDistance) continue;
+                        ringBest = snapped;
+                        ringDistance = distance;
+                        found = true;
+                    }
+                }
+                if (found) return ringBest;
+            }
+            return best;
+        }
+
+        /// <summary>존 사각형을 가장자리에서 zoneEdgeMargin만큼 줄인 안쪽으로 점을 넣는다.</summary>
+        Vector3 ClampInside(InteractionZone target, Vector3 world)
+        {
+            var t = target.transform;
+            var local = t.InverseTransformPoint(world);
+            var hx = Mathf.Max(0f, target.Size.x * 0.5f - rules.ZoneEdgeMargin);
+            var hz = Mathf.Max(0f, target.Size.y * 0.5f - rules.ZoneEdgeMargin);
+            local.x = Mathf.Clamp(local.x, -hx, hx);
+            local.z = Mathf.Clamp(local.z, -hz, hz);
+            return t.TransformPoint(local);
+        }
+
+        /// <summary>점을 존 안쪽으로 넣고 네비메시에 붙인다. 붙인 점이 여전히 존 안쪽(가장자리 여유 절반 이상)이면 true.</summary>
+        bool TrySnapInside(InteractionZone target, Vector3 world, out Vector3 snapped)
+        {
+            snapped = ClampInside(target, world);
+            if (!NavMesh.SamplePosition(snapped, out var hit, NavSnapRadius, NavMesh.AllAreas)) return false;
+            snapped = hit.position;
+            var local = target.transform.InverseTransformPoint(snapped);
+            var margin = rules.ZoneEdgeMargin * 0.5f;
+            return Mathf.Abs(local.x) <= target.Size.x * 0.5f - margin && Mathf.Abs(local.z) <= target.Size.y * 0.5f - margin && IsClear(snapped);
+        }
+
+        /// <summary>
+        /// 그 자리에 소품(쓰레기통 · 선반 등 충돌체)이 없는가. 네비메시는 소품 밑에도 깔려 있어 네비메시만으로는 알 수 없다.
+        /// 바닥에 닿지 않게 발목 위부터 머리까지 알바 반경으로 본다 (트리거 무시).
+        /// </summary>
+        bool IsClear(Vector3 point)
+        {
+            var radius = agent.radius;
+            return !Physics.CheckCapsule(point + Vector3.up * (radius + 0.1f), point + Vector3.up * 1.5f, radius, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+        }
+
+        /// <summary>다른 알바(가는 · 일하는 · 대기 위치 포함, 나 빼고) 중 점에서 radius 안에 있는 수.</summary>
+        int CountNear(Vector3 point, float radius)
+        {
+            var n = 0;
+            foreach (var other in AllWorkers)
+            {
+                if (other == this || other.leaving) continue;
+                if (FlatDistance(other.OccupiedPosition, point) < radius) n++;
+            }
+            return n;
+        }
+
+        static float FlatDistance(Vector3 a, Vector3 b)
+        {
+            a.y = 0f;
+            b.y = 0f;
+            return Vector3.Distance(a, b);
+        }
+
+        /// <summary>
+        /// 할 일이 없을 때 기다리러 간다 (2026-11-19). 마지막 일한 존 가장자리에서 바깥으로 `waitOffset` 비켜 선 곳,
+        /// 다른 알바와 겹치면 변을 따라 `waitSpacing`씩 옆으로. 일한 적이 없으면 생성 지점 근처. 대기 중엔 아무 존도 막지 않는다.
+        /// 마땅한 곳이 없으면 그 자리에서 멈춘다.
+        /// </summary>
+        void Park()
+        {
+            ReleaseAll();
+            // 막 생성된 프레임 등 에이전트가 아직 네비메시에 없으면 길을 못 잡는다 → 그 자리에서 기다렸다가 다음 판단 때 다시
+            if (!agent.isOnNavMesh || !TryChooseWaitPoint(out var point) || !agent.SetDestination(point))
+            {
+                Hold();
+                return;
+            }
+            waitPoint = point;
+            hasWait = true;
+            parking = true;
+            dropping = false;
+            State = Phase.Moving;
+        }
+
+        bool TryChooseWaitPoint(out Vector3 point)
+        {
+            var candidates = new List<Vector3>();
+            var from = transform.position;
+            point = default;
+            if (lastZone != null && lastZone.isActiveAndEnabled && !IsSettled(lastZone)) return false; // 팝 연출 중 → 잠깐 그 자리에서, 다음 판단 때 다시
+            if (lastZone != null && lastZone.isActiveAndEnabled)
+            {
+                // 존 네 변 바깥 (내 위치에서 가장 가까운 변 위 점부터), 변을 따라 waitSpacing씩 옆으로
+                var t = lastZone.transform;
+                var half = lastZone.Size * 0.5f;
+                var local = t.InverseTransformPoint(from);
+                var offset = rules.WaitOffset;
+                var spacing = rules.WaitSpacing;
+                for (var side = 0; side < 4; side++)
+                {
+                    var alongX = side < 2; // 0 · 1 = 앞뒤 변(z = ±), 2 · 3 = 좌우 변(x = ±)
+                    var sign = side % 2 == 0 ? 1f : -1f;
+                    var along = alongX ? Mathf.Clamp(local.x, -half.x, half.x) : Mathf.Clamp(local.z, -half.y, half.y);
+                    var extent = alongX ? half.x : half.y;
+                    var steps = Mathf.CeilToInt((extent * 2f + offset) / spacing) + 1;
+                    for (var k = -steps; k <= steps; k++)
+                    {
+                        var a = along + k * spacing;
+                        var p = alongX
+                            ? new Vector3(a, 0f, sign * (half.y + offset))
+                            : new Vector3(sign * (half.x + offset), 0f, a);
+                        candidates.Add(t.TransformPoint(p));
+                    }
+                }
+            }
+            else
+            {
+                var spawn = StaffSpawnPoint.Current;
+                var center = spawn != null ? spawn.transform.position : from;
+                candidates.Add(center);
+                var spacing = rules.WaitSpacing;
+                for (var ring = 1; ring <= 4; ring++)
+                {
+                    var count = ring * 8;
+                    for (var i = 0; i < count; i++)
+                    {
+                        var angle = i * Mathf.PI * 2f / count;
+                        candidates.Add(center + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * (spacing * ring));
+                    }
+                }
+                from = center;
+            }
+
+            var origin = from;
+            candidates.Sort((a, b) => FlatDistance(a, origin).CompareTo(FlatDistance(b, origin)));
+            foreach (var candidate in candidates)
+            {
+                if (IsGoodWaitPoint(candidate, out point)) return true;
+            }
+            point = default;
+            return false;
+        }
+
+        /// <summary>네비메시 위 · 어떤 존 사각형에서도 WaitZoneClearance 밖 · 다른 알바와 waitSpacing 이상 · 소품과 겹치지 않음.</summary>
+        bool IsGoodWaitPoint(Vector3 candidate, out Vector3 point)
+        {
+            point = candidate;
+            if (!NavMesh.SamplePosition(candidate, out var hit, NavSnapRadius, NavMesh.AllAreas)) return false;
+            point = hit.position;
+            foreach (var other in InteractionZone.Active)
+            {
+                var local = other.transform.InverseTransformPoint(point);
+                if (Mathf.Abs(local.x) <= other.Size.x * 0.5f + WaitZoneClearance && Mathf.Abs(local.z) <= other.Size.y * 0.5f + WaitZoneClearance) return false;
+            }
+            return CountNear(point, rules.WaitSpacing * 0.95f) == 0 && IsClear(point);
         }
 
         bool Arrived()
@@ -414,7 +669,8 @@ namespace APC.Staff
             if (agent.pathPending) return false;
             if (agent.pathStatus == NavMeshPathStatus.PathInvalid)
             {
-                Debug.LogWarning($"[StaffWorker] {name}: '{(slot != null ? slot.name : "출구")}'까지 길이 없습니다.", this);
+                var target = TargetZone;
+                Debug.LogWarning($"[StaffWorker] {name}: '{(leaving ? "출구" : target != null ? target.name : "대기 위치")}'까지 길이 없습니다.", this);
                 Hold();
                 return false;
             }
@@ -439,7 +695,8 @@ namespace APC.Staff
             ReleaseReservation(); // 도착하면 존이 실제 수요로 판단한다 (들고 있는 수가 예약을 대신함)
             interactor.AllowDrop = dropping;
             interactor.AllowPick = !dropping;
-            interactor.Target = gauge != null ? gauge : zone;
+            interactor.Target = TargetZone;
+            lastZone = TargetZone;
             workTime = 0f;
             idleTime = 0f;
             lastCount = stack.Count.CurrentValue;
@@ -451,7 +708,7 @@ namespace APC.Staff
             workTime += deltaTime;
             if (gauge != null) // 재포장: 할 수 있는 동안 서 있는다 (게이지는 테이블이 채운다)
             {
-                var stuckAtTable = workTime >= rules.InteractionDelay + StuckTimeout && interactor.CurrentZone != gauge;
+                var stuckAtTable = workTime >= rules.InteractionDelay + StuckTimeout && interactor.CurrentZone != gauge && !repathPending;
                 if (!gauge.HasWork || stuckAtTable) FinishWork();
                 return;
             }
@@ -467,8 +724,8 @@ namespace APC.Staff
             }
 
             var done = dropping ? count == 0 : stack.IsFull;
-            var stuck = workTime >= rules.InteractionDelay + StuckTimeout && interactor.CurrentZone != zone;
-            if (stuck) Debug.LogWarning($"[StaffWorker] {name}: 작업 지점 '{slot.name}'이 존 '{zone.name}' 밖에 있습니다.", slot);
+            var stuck = workTime >= rules.InteractionDelay + StuckTimeout && interactor.CurrentZone != zone && !repathPending; // 재배치 팝 연출 중엔 존이 잠깐 안 잡힌다
+            if (stuck) Debug.LogWarning($"[StaffWorker] {name}: 작업 지점 {OccupiedPosition}이 존 '{zone.name}' 밖에 있습니다.", zone);
             if (done || idleTime >= rules.WorkIdleTimeout || stuck) FinishWork();
         }
 
@@ -489,7 +746,7 @@ namespace APC.Staff
             State = Phase.Moving;
         }
 
-        /// <summary>그 자리에서 멈춰 기다린다 (빈 슬롯 없음 / 배달할 곳 없음).</summary>
+        /// <summary>그 자리에서 멈춰 기다린다 (배달할 곳 없음 / 대기 위치 없음). 아무 존도 막지 않는다.</summary>
         void Hold()
         {
             ReleaseAll();
@@ -505,15 +762,17 @@ namespace APC.Staff
             thinkTimer = 0f;
         }
 
+        /// <summary>화물 예약 · 테이블 예약 · 서는 / 대기 위치 · 대상 존을 모두 푼다.</summary>
         void ReleaseAll()
         {
             ReleaseReservation();
-            if (slot != null) slot.Release(this);
-            slot = null;
+            if (gauge != null) gauge.Release(this);
             zone = null;
             gauge = null;
+            hasStand = false;
+            hasWait = false;
             parking = false;
-            interactor.Target = null;
+            if (interactor != null) interactor.Target = null;
         }
 
         /// <summary>

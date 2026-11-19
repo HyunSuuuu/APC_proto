@@ -50,6 +50,13 @@ namespace APC.Data
         [SerializeField, Min(0.05f), Tooltip("옮길 것이 이만큼(초) 없으면 그 작업을 끝낸다")] float workIdleTimeout = 0.5f;
         [SerializeField, Min(0.1f), Tooltip("작업 판단 간격 (초)")] float thinkInterval = 0.25f;
 
+        [Header("서는 위치 · 대기 (2026-11-19 알바 상호작용 개편)")]
+        [SerializeField, Min(0f), Tooltip("존 고르기 몰림 벌점 (m). 점수 = 거리 + 그 존에 가고 있거나 일하는 같은 직무 수 × 이 값 (임시)")] float crowdPenalty = 4f;
+        [SerializeField, Min(0.1f), Tooltip("같은 존에서 일하는 알바끼리 떨어져 서는 거리 (m). 후보 자리가 이 거리 안에 다른 알바가 있으면 '차 있음' (임시)")] float standSpacing = 0.5f;
+        [SerializeField, Min(0f), Tooltip("서는 위치는 존 가장자리에서 이만큼(m) 안쪽으로 (경계에 걸쳐 들락날락하지 않게)")] float zoneEdgeMargin = 0.3f;
+        [SerializeField, Min(0.1f), Tooltip("할 일 없을 때 마지막 일한 존 가장자리에서 바깥으로 비켜 서는 거리 (m) (임시)")] float waitOffset = 0.6f;
+        [SerializeField, Min(0.1f), Tooltip("대기하는 알바끼리 옆으로 벌려 서는 간격 (m) (임시)")] float waitSpacing = 0.6f;
+
         [Header("고용 (계약 PC 고용 탭)")]
         [SerializeField, Min(1), Tooltip("고용 탭 후보 수. 파트마다 · [새로고침]으로 다시 뽑는다")] int candidateCount = 3;
 
@@ -75,6 +82,11 @@ namespace APC.Data
         public float InteractionDelay => interactionDelay;
         public float WorkIdleTimeout => workIdleTimeout;
         public float ThinkInterval => thinkInterval;
+        public float CrowdPenalty => crowdPenalty;
+        public float StandSpacing => standSpacing;
+        public float ZoneEdgeMargin => zoneEdgeMargin;
+        public float WaitOffset => waitOffset;
+        public float WaitSpacing => waitSpacing;
 
         /// <summary>디버그 메뉴 [Costume 100%] (DebugMenu가 Play 시작마다 끈다).</summary>
         public static bool ForceCostume;
