@@ -324,7 +324,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | [PlayerConfig](../Scripts/Data/PlayerConfig.cs) | `PlayerConfig` | 이동 속도 · 회전 속도 · 뛰기 기준 · **벽 여유** `wallClearance`, 기본 적재(손 3개), **업그레이드 단계** `carrySteps` · `speedSteps` (`PlayerUpgradeStep` 이름 · 값 · 해금 레벨 · 비용), 집기 간격, **상호작용 대기 시간**, 내려놓기 ↔ 집기 전환 쿨타임 |
 | [ControlsConfig](../Scripts/Data/ControlsConfig.cs) | `ControlsConfig` | 조이스틱 반경, 카메라 각도 · 렌즈 · 줌 · 복귀 시간 |
 | [WallFadeConfig](../Scripts/Data/WallFadeConfig.cs) | `WallFadeConfig` | 벽 반투명 (2026-11-19): 켜기 · 반투명 재질 · 알파 · 흐려짐/돌아옴 시간 · 가로/세로 여유 · 확인 높이 · 가까이 무시 · 확인 간격. `GameDatabase.WallFade`(비면 안 함) |
-| [CarryConfig](../Scripts/Data/CarryConfig.cs) | `CarryConfig` | 상자 높이(0.5 = 색 상자 0.3 × 배율 1.667, M15-2), 쓰레기 모델 배율 2.5, **스택 휘어짐**(`leanCurve` · `curveLevels` · `tiltAlongCurve`, `LeanFactor(층)`), 비행 · 착지 연출, 스택 흔들림 스프링, MAX 표시 |
+| [CarryConfig](../Scripts/Data/CarryConfig.cs) | `CarryConfig` | 상자 높이(0.5 = 색 상자 0.3 × 배율 1.667, M15-2), 쓰레기 모델 배율 2.5, **스택 휘어짐**(`leanCurve` · `curveLevels` · `tiltAlongCurve`, `LeanFactor(층)`), 비행 · 착지 연출, 스택 흔들림 스프링, MAX 표시, '넣을 수 없음' 그림, **알림 글자 재질** `noticeMaterial`(TMP Overlay) |
 | [LogisticsConfig](../Scripts/Data/LogisticsConfig.cs) | `LogisticsConfig` | 보관소 · 선반 용량, **반품**(반품 확률 · 반품 팔레트 12 · 재포장 입력 6 · 성공 70% · 쓰레기 출력 6 · 재포장 팔레트 6 · 재포장 2초 · 쓰레기 들기 12), 입고 · 출고 트럭 후진 · 출발 · 재등장 시간, 사무실 게이지, 팝 연출 시간 |
 | [SiteLayout](../Scripts/Data/SiteLayout.cs) | `SiteLayout` | 칸 크기, **모듈 배치 목록** (아래 설명) |
 | [CashFlyConfig](../Scripts/Data/CashFlyConfig.cs) | `CashFlyConfig` | 주운 현금 → HUD 저금통 **달러 아이콘 연출**: 비행 시간, **속도 그래프**(`moveCurve`, 시간 0~1 → 경로 진행 0~1, 기울기 = 속도, 1을 넘기면 지나쳤다 돌아옴), 포물선 높이, **출발 랜덤 반경**(`startRadius`, HUD px — 플레이어 화면 위치 둘레 원 안 무작위 지점에서 출발, 0 = 중앙), 기본 크기, **크기 그래프**(`scaleCurve`, 시간 → 배율), 도착 때 저금통 아이콘 튐. Build Site가 `CashFlyEffect`에 직접 연결 (없으면 만듦, 비면 `OrDefault`) |
@@ -826,7 +826,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### FloatingNotice
 [UI/FloatingNotice.cs](../Scripts/UI/FloatingNotice.cs)
-- **역할**: 월드에 잠깐 떠올랐다(0.8m, 1초) 사라지는 빨간 알림 글자 (static). `Show(template, position, text)` — 원본 월드 글자(폰트 · 외곽선 · `Billboard`)를 복제해 쓴다.
+- **역할**: 월드에 잠깐 떠올랐다(0.8m, 1초) 사라지는 빨간 알림 글자 (static). `Show(template, position, text)` — 원본 월드 글자(폰트 · 외곽선 · `Billboard`)를 복제해 쓴다. 재질은 `CarryConfig.noticeMaterial`(`Fonts/TmoneyRoundWindExtraBold SDF Outline Overlay`, TMP Overlay)로 바꿔 **건물 · 지붕에 가리지 않는다** (2026-11-20, 원본과 아틀라스가 같을 때만). 그림(`ShowIcon`)은 그대로 가려질 수 있음.
 - **그림**: `ShowIcon(sprite, position, height)` — SpriteRenderer를 만들어 카메라를 보게 두고 같은 연출(떠오르며 투명). '넣을 수 없음' = `CarryConfig.cannotDropIcon`(`Art/Temp/candoit`, 높이 1.2m), `CargoZone.NoticeCannotDrop` (2026-11-18, 옛 글자 대체).
 - **연결**: `CargoZone.Notice` · `NoticeCannotDrop`이 부른다 — `TruckPickupZone`('공간 가득'), `ShelfZone`(금지 그림 · '가득'), `StorageZone`('선반 가득', 반품 팔레트 · 재포장 입력 금지 그림 · '가득').
 
@@ -958,9 +958,14 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### WallCutout
 [Visuals/WallCutout.cs](../Scripts/Visuals/WallCutout.cs)
-- **역할**: 플레이어를 가리는 구조물 · 배경에 원형 구멍 (셰이더 `APC/WallCutout`, `Shaders/WallCutout.shader` · `.hlsl`, 재질 `M_WallCutout`). Game 씬 · ShaderTestScene의 Player에 붙음.
-- **동작**: 매 프레임 구멍 중심(발 + `height`) · 반지름 · 디더 폭 · `depthBias`를 전역 셰이더 값으로. `scanInterval`마다 이름이 `structurePrefixes`(wall_ · pillar_ · window_ · parking · tree_ 등)로 시작하는 렌더러(또는 부모)와 `extraWalls` 아래 렌더러의 URP Lit 재질을 사본 + 컷아웃 셰이더로 바꿈. 끄면 되돌림.
+- **역할**: 플레이어와 `WallCutoutTarget`(주차한 트럭 등)을 가리는 구조물 · 배경에 원형 구멍 (셰이더 `APC/WallCutout`, `Shaders/WallCutout.shader` · `.hlsl`, 재질 `M_WallCutout`). Game 씬 · ShaderTestScene의 Player에 붙음.
+- **동작**: 매 프레임 구멍 대상 배열 `_WallCutoutCenters`(최대 8 = `MaxTargets` = hlsl `WALL_CUTOUT_MAX`, [0] = 플레이어 발 + `height` · `radius`, 나머지 = `WallCutoutTarget.All` 순서, 넘치면 뺌) · `_WallCutoutCount` · 디더 폭 · `depthBias`를 전역 셰이더 값으로 (2026-11-20 배열로 바뀜). 픽셀마다 대상 수만큼 반복해 가장 많이 버리는 값을 씀. `scanInterval`마다 이름이 `structurePrefixes`(wall_ · pillar_ · window_ · parking · tree_ 등)로 시작하는 렌더러(또는 부모)와 `extraWalls` 아래 렌더러의 URP Lit 재질을 사본 + 컷아웃 셰이더로 바꿈. 끄면 되돌림.
 - **주의**: `SiteWalls` 반투명(`WallFadeConfig.enabled`)과 같이 켜면 같은 재질을 둘이 바꿔 충돌 — 하나만 켠다. 0.5초마다 씬 렌더러 전부를 훑는다(shortcut).
+
+#### WallCutoutTarget
+[Visuals/WallCutoutTarget.cs](../Scripts/Visuals/WallCutoutTarget.cs)
+- **역할**: 벽 컷아웃 대상 표시 (2026-11-20). 켜져 있는 동안 이 오브젝트를 가리는 구조물(주차장 지붕 등)에 `radius` 구멍, 중심 = 로컬 `offset`. 스스로 `All`에 등록 → `WallCutout`이 읽는다.
+- **연결**: `InboundTruck` · `OutboundTruck` 프리팹 루트 (MCP, 반지름 3.2 · 중심 (0, 1.2, 0.66) = 트럭 모델 경계 중심 `임시`). 프리팹에서는 **꺼져 있고**, `InboundBay` · `OutboundBay`가 트럭을 자기 주차 칸 생성 지점에 세울 때 켠다 → 후진 · 주차 · 출발하는 동안만 구멍, 대기 줄 트럭은 대상 아님. 떠나면 트럭이 지워지며 빠진다. 플레이어 포함 8개가 넘으면 뒤 대상은 빠짐.
 
 #### CharacterToon
 [Visuals/CharacterToon.cs](../Scripts/Visuals/CharacterToon.cs)
