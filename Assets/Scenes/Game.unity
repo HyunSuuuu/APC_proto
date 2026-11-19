@@ -11077,6 +11077,7 @@ GameObject:
   - component: {fileID: 1153428270}
   - component: {fileID: 1153428271}
   - component: {fileID: 1153428272}
+  - component: {fileID: 1153428273}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -11260,6 +11261,39 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::APC.Visuals.CharacterToon
   toonMaterial: {fileID: 2100000, guid: b14117f3834305e4dbdcaa1605365475, type: 2}
   outlineMaterial: {fileID: 2100000, guid: 4d61963479b072145b8d720ca1662ca5, type: 2}
+--- !u!114 &1153428273
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1153428261}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2cb246d507e0d5644a8d97bec4f95b1d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::APC.Visuals.WallCutout
+  cutoutMaterial: {fileID: 2100000, guid: ce84dc75c1a94403a2aec750d8aa4948, type: 2}
+  structurePrefixes:
+  - wall_
+  - pillar_
+  - window_
+  - blind
+  - DoorPost
+  - DoorLintel
+  - parking
+  - truck_parking
+  - street_lamp
+  - tree_
+  - sign_
+  - background
+  - ConstructionFence
+  extraWalls: []
+  radius: 1.5
+  softness: 0.4
+  height: 1
+  depthBias: 0.3
+  scanInterval: 0.5
 --- !u!1 &1161980082
 GameObject:
   m_ObjectHideFlags: 0
