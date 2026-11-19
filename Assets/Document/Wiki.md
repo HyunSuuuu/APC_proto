@@ -950,7 +950,13 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 ### 4.9b Visuals — 툰 · 외곽선 (2026-11-19, `shader-develop` 브랜치에서 툰 · 외곽선만 가져옴)
 
-벽 컷아웃(`WallCutout`)은 가져오지 않았다 — 벽 투과는 `SiteWalls` 반투명 페이드(`WallFadeConfig`)를 쓴다. 테스트 씬 · 원본 재질(uniformT) 변경도 안 가져옴.
+벽 투과: `shader-develop`에서는 Game 씬 Player의 `WallCutout`(컷아웃)을 쓰고 `WallFadeConfig.enabled`를 꺼 둔다 (2026-11-19). main에는 아직 컷아웃 파일이 없어 반투명 페이드. 테스트 씬 · 원본 재질(uniformT) 변경은 안 가져옴.
+
+#### WallCutout
+[Visuals/WallCutout.cs](../Scripts/Visuals/WallCutout.cs)
+- **역할**: 플레이어를 가리는 구조물 · 배경에 원형 구멍 (셰이더 `APC/WallCutout`, `Shaders/WallCutout.shader` · `.hlsl`, 재질 `M_WallCutout`). Game 씬 · ShaderTestScene의 Player에 붙음.
+- **동작**: 매 프레임 구멍 중심(발 + `height`) · 반지름 · 디더 폭 · `depthBias`를 전역 셰이더 값으로. `scanInterval`마다 이름이 `structurePrefixes`(wall_ · pillar_ · window_ · parking · tree_ 등)로 시작하는 렌더러(또는 부모)와 `extraWalls` 아래 렌더러의 URP Lit 재질을 사본 + 컷아웃 셰이더로 바꿈. 끄면 되돌림.
+- **주의**: `SiteWalls` 반투명(`WallFadeConfig.enabled`)과 같이 켜면 같은 재질을 둘이 바꿔 충돌 — 하나만 켠다. 0.5초마다 씬 렌더러 전부를 훑는다(shortcut).
 
 #### CharacterToon
 [Visuals/CharacterToon.cs](../Scripts/Visuals/CharacterToon.cs)

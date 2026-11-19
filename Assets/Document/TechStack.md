@@ -199,6 +199,13 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 - 선반 등 시설은 `BoxCollider` + `NavMeshObstacle`(carve)로 알바 경로에서 피한다. 바닥에 구워지지 않게 `NavMeshModifier`(ignoreFromBuild)를 붙인다. 플레이어도 선반 충돌체에 막힌다. 트럭은 장애물로 두지 않는다 (주차 칸이 부지 밖).
 - 알바 프리팹(`StaffWorker`)은 충돌체가 없고 NavMeshAgent 회피를 끈다 (플레이어 · 알바끼리 겹쳐 지나감).
 
+### 5.7b 셰이더 · 렌더링
+
+- 추가 렌더 패스는 렌더러 에셋(Render Objects 피처) 대신 코드로 넣는다 — `Visuals/OutlinePasses`처럼 `beginCameraRendering`에서 `EnqueuePass`. 같은 LightMode를 피처로도 넣으면 두 번 그려진다.
+- 캐릭터 · 구조물 셰이더 교체는 Play 중 재질 사본으로 한다 (`CharacterToon` · `WallCutout`). 실행 코드에서 `Shader.Find`를 쓰지 않고 재질 참조로 셰이더를 빌드에 넣는다.
+- 외곽선 스텐실 그룹: 일반 1~126(16의 배수 피함), 관찰 255. 새 외곽선 재질을 만들면 `APC/Art/Validate Outline Materials`를 실행한다.
+- 렌더러: Mobile = Forward, PC = Forward+ (Deferred 아님).
+
 ### 5.8 문서
 
 - 스크립트를 추가 · 삭제하거나 역할이 바뀌면 **같은 커밋에서** [Wiki.md](Wiki.md)의 해당 항목(역할 · 동작 · 연결 · 주의)을 고친다.
