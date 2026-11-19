@@ -5,31 +5,29 @@ using UnityEngine;
 namespace APC.UI
 {
     /// <summary>
-    /// 배치 탭의 칸 1개 (GDD 11.3): 직무 열(하차 · 보관 · 상차 · 반품) 또는 해고 칸. 열리지 않은 직무 열(반품, 반품 구역 전)은 회색 · `잠김`. 알바 카드(RosterCard)를 끌어다 놓는 곳.
-    /// 칸 배경(Image)이 레이캐스트를 받아야 한다.
+    /// 배치 탭(알바 명부)의 직군 칸 1개 (GDD 11.3): 하차 · 보관 · 상차 · 반품 · 지게차. 둥근 상자 안에 제목 `하차 (2)` + 그 직군 알바 줄(RosterCard).
+    /// 열리지 않은 직군(반품 · 지게차, 그 구역 전)은 어둡게 · `잠김`.
     /// </summary>
     public sealed class RosterColumn : MonoBehaviour
     {
-        [SerializeField, Tooltip("켜면 해고 칸")] bool fire;
         [SerializeField] StaffRole role;
-        [SerializeField, Tooltip("열 제목 (`하차 (2)`), 해고 칸은 비워 둔다")] TMP_Text titleLabel;
+        [SerializeField, Tooltip("칸 제목 (`하차 (2)`)")] TMP_Text titleLabel;
         [SerializeField] string displayName;
-        [SerializeField, Tooltip("알바 카드가 들어가는 곳 (세로 레이아웃)")] RectTransform content;
+        [SerializeField, Tooltip("알바 줄이 들어가는 곳 (격자 레이아웃)")] RectTransform content;
 
-        public bool Fire => fire;
+        Color? baseColor;
+
         public StaffRole Role => role;
         public RectTransform Content => content;
 
         public void SetCount(int count, bool open = true)
         {
-            if (titleLabel != null) titleLabel.text = open ? $"{displayName} ({count})" : $"{displayName} <size=70%>(잠김)</size>";
+            if (titleLabel != null) titleLabel.text = open ? $"{displayName} <color=#8C6747>({count})</color>" : $"{displayName} <size=70%>(잠김)</size>";
             if (TryGetComponent<UnityEngine.UI.Graphic>(out var background))
             {
-                if (baseColor == null) baseColor = background.color;
-                background.color = open ? baseColor.Value : baseColor.Value * new Color(0.75f, 0.75f, 0.75f);
+                baseColor ??= background.color;
+                background.color = open ? baseColor.Value : baseColor.Value * new Color(0.85f, 0.85f, 0.85f);
             }
         }
-
-        Color? baseColor;
     }
 }

@@ -582,6 +582,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### InboundBay
 [Logistics/InboundBay.cs](../Scripts/Logistics/InboundBay.cs)
+- **회차** (2026-11-20): `PartService.OnShift`(상차 파트 시작)에 정차한 트럭은 상자가 남아도 떠난다 (교대 신호는 트럭을 받은 뒤부터만 봄).
 - **역할**: 하차 베이 1곳. 하차 주차장 모듈 안에 있다. [3.4](#34-입고-트럭-한-대)의 주차 · 출발을 코루틴으로 실행한다. 트럭 도착 · 색은 `InboundQueue`가 정한다 (M13-9).
 - **황금 트럭** (M13-16): 금은 `TruckPickupZone`이 쏟는다. 이 베이는 트럭이 빌 때까지 기다렸다가 보낸다.
 - **동작**: `InboundQueue.Request(this)` → `Receive(truck)`로 받을 때까지 대기. 꺼지면(`OnDisable`) 기다리는 목록에서 빠진다. `Storage` = 이 칸의 상자 두는 공간 (`Awake`에서 `GetComponentInParent<SharedStorage>()`, M13-2).
@@ -592,6 +593,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Logistics/InboundQueue.cs](../Scripts/Logistics/InboundQueue.cs)
 - **역할**: 하차 트럭 도착 · 차량 대기열 (GDD 7.1, M13-9). 하차장에 넘기는 것은 `PartService.InboundOpen`일 때만 — 아니면 `Request`가 기다리는 목록에 넣고 `Update`가 열릴 때 줄 맨 앞부터 `Dispatch` (2026-11-19). SiteGrid 오브젝트에 붙는다 (`SiteBuilder.BakeGrid`).
 - **동작**: 도착 루프 = 줄이 `InboundQueueSize` 미만이고 선반 있는 입고 색이 있을 때 트럭 생성 → 기다리는 베이에 바로 넘기거나 줄 끝에 팝 → `InboundArrivalInterval` 대기. `Request(bay)` = 줄 맨 앞을 넘기고 나머지를 `SlotPosition(i)`로 당김 (0.6초). 시작 때 대기 자리 표시(반투명 판 `TruckWaitSlot_n`) 3개 — 재질은 에셋 `markerMaterial`(`Art/Materials/M_TruckWaitSlot`, URP Unlit 반투명).
+- **회차** (2026-11-20): `PartService.OnShift`(상차 파트 시작)에 줄의 트럭을 모두 돌려보냄(줄 뒤쪽으로 빠지며 작아진 뒤 Destroy). 하차장에 정차한 트럭은 남는다. 튜토리얼 구간엔 첫 트럭(상자 `TutorialBoxes`개, 황금 없음)만 하차장에 넘긴다(`CanDock`).
 - **주의**: 실행 코드에서 `Shader.Find`로 재질을 만들지 않는다 — 빌드에서 셰이더가 빠져 null 예외 → 도착 코루틴이 멈춰 **트럭이 안 나오고** 판이 분홍이 됐다 (2026-11-18 빌드 버그).
 - **연결**: `truckPrefab`(`InboundTruck.prefab`), `headPosition`(0, 0, −21 = 서쪽 도로 하차 1 옆) · `lineDirection`(+z) · `spacing` 7 · `truckYaw` 180 `임시`, `LogisticsConfig.InboundArrivalInterval` · `InboundQueueSize`.
 - **주의**: 대기 자리 표시는 기본 큐브 + URP Unlit 재질을 실행 중 만든다 (에셋이 오면 프리팹으로). 줄 자리는 월드 좌표라 부지 · 배경이 바뀌면 같이 고친다.
@@ -605,6 +607,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### OutboundBay
 [Logistics/OutboundBay.cs](../Scripts/Logistics/OutboundBay.cs)
+- **하루 끝 회차** (2026-11-20): `PartService.OnDayEnding`에 정차한 트럭은 덜 실었어도 떠나고, 실은 만큼 `orders.Complete` 보상을 현금 존 대신 `Wallet.AddToPiggy`로 (그날 정산에 잡힘). 오는 중이면 도착하자마자 빈 채로 떠남.
 - **역할**: 상차 베이 1곳. 상차 주차장 모듈 안에 있다. [3.6](#36-주문-한-건)의 트럭 부분을 코루틴으로 반복한다.
 - **동작**: 칸이 비고 `PartService.OutboundOpen`(사무실 전 또는 상차 파트, 2026-11-19)이면 `OrderService.CreateForTruck()`으로 새 주문 → 트럭 생성 · 후진 주차 → `MarkDocked` → 주문이 다 차면 마지막 상자가 들어갈 때까지 기다림 → **출발하는 순간** `Complete` → 돈(줄마다 실은 수 × 색 단가)을 `cashZone`에 쌓음 → 출발 → `OutboundRespawnDelay` 뒤 다음 트럭.
 - **연결**: `OrderService.Instance`, `truckPrefab`(OutboundTruck), `parkPoint`, `spawnPoint`, `cashZone`. 하차 베이(`InboundBay`)와 구조가 같다.
@@ -715,7 +718,11 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 시간 흐름(파트) · 파트 종료 정산 (GDD 9.5, 11.7). 씬에 하나 (`Site/Logistics`).
 - **파트 1 · 2 반복** (2026-11-19): 다음 파트 = 1 ↔ 2 (`InboundPart` 1 = 하차, `OutboundPart` 2 = 상차). 정적 `InboundOpen`(줄 → 하차장) · `OutboundOpen`(새 상차 트럭) = 파트 0이거나 그 파트 진행 중(`IsRunning`). Instance가 없으면 true.
 - **동작**: 게임 시작(첫 `OnContracted`) 순간 1파트 시작, 파트마다 `partLengthSeconds`(180초, 첫 파트 90초 삭제 M13-5). `Time.deltaTime`으로 흐르므로 팝업 · 일시정지 중엔 멈춘다. 0초가 되면(또는 `EndPart()`) 정산 내역 `SettlementResult`(번 돈 = 저금통, 월급 = `StaffService.PlanWages(저금통 + 지갑)`의 `WagePlan.Paid`, 합계 = 번 돈 − 월급, 할당량 삭제)를 `OnSettlementReady`로 보냄 → 팝업 [확인] 시 `Confirm()` → `StaffService.ApplyWages` → `Wallet.SettlePiggy(−월급)` → 다음 파트.
-- **연결**: `Part` · `Remaining`(R3, HUD 시계), `LastSettlement` · `PiggyFullAmount`(저금통 가득 기준), `CurrentPartLength`(고용한 파트의 월급 비율).
+- **하루 집계** (2026-11-20): `CountShipment(상자 수, 받은 돈)`(OutboundBay, 트럭이 떠날 때) · `CountReturn()`(RepackTable, 성공 · 실패 모두) → `SettlementResult.Trucks` · `Boxes` · `Returns`, 정산 [확인] 때 0.
+- **튜토리얼 파트** (2026-11-20): `BeginTutorialPart()`(파트 0 → 1, `Tutorial` 켬, 시계 안 흐름) · `ShiftTutorial()`(1 → 2 + `OnShift`). 1파트에서 `EndPart()`는 교대만, 2파트에서 `EndPart()` = 튜토리얼 정산(`SettlementResult.Tutorial`, `Day`에 안 셈, 번 돈 = 사무실 전이면 `dayIncome`(상차 트럭 수익 집계) 아니면 저금통). `BeginFirstPart` · 첫 `OnContracted`는 파트 0이거나 튜토리얼이면 진짜 1파트(`BeginPart`가 `Tutorial` 끔). `Day` = 끝낸 하루 정산 수 + 1 (영수증 `DAY N`). `TutorialBoxes` 5(`임시`), 정적 `TutorialPhase` = 사무실 전 + (파트 0 또는 튜토리얼).
+- `OnDayEnding` (2026-11-20): 2파트 정산 내역을 만들기 직전 — 상차장 트럭 회차(실은 만큼 저금통)가 이번 정산에 잡히게.
+- **하루 정산** (2026-11-20): `EndPart()`가 1파트면 정산 없이 `BeginPart(2)` → `OnShift`(파트 교대 배너). 2파트면 위처럼 정산 → [확인] → 1파트.
+- **연결**: `Part` · `Remaining`(R3, HUD 시계), `OnShift`, `LastSettlement` · `PiggyFullAmount`(저금통 가득 기준), `CurrentPartLength`(고용한 파트의 월급 비율).
 - **주의**: 정산 대기 중(`IsRunning = false`)에는 시간이 흐르지 않는다. 시급 계획은 팝업이 열릴 때 만들고 [확인] 때 적용한다 (그사이 게임이 멈춰 있어 바뀌지 않음). 보너스(M10)는 `EndPart`에서 채운다. 반품은 재포장 후 일반 주문으로 출고되므로 따로 수입 줄이 없다 (GDD 7.7).
 
 #### PiggyBankView
@@ -829,6 +836,10 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **그림**: `ShowIcon(sprite, position, height)` — SpriteRenderer를 만들어 카메라를 보게 두고 같은 연출(떠오르며 투명). '넣을 수 없음' = `CarryConfig.cannotDropIcon`(`Art/Temp/candoit`, 높이 1.2m), `CargoZone.NoticeCannotDrop` (2026-11-18, 옛 글자 대체).
 - **연결**: `CargoZone.Notice` · `NoticeCannotDrop`이 부른다 — `TruckPickupZone`('공간 가득'), `ShelfZone`(금지 그림 · '가득'), `StorageZone`('선반 가득', 반품 팔레트 · 재포장 입력 금지 그림 · '가득').
 
+#### PartShiftBanner
+[UI/PartShiftBanner.cs](../Scripts/UI/PartShiftBanner.cs)
+- **역할**: 파트 교대 배너 (2026-11-20) — 1파트가 끝나 정산 없이 2파트로 넘어갈 때(`PartService.OnShift`) 화면 위 `파트 교대 / 파트1(하차) → 파트2(상차)`가 납작 → OutBack으로 커지며 1.8초 떴다 사라진다. 게임을 멈추지 않고 입력도 막지 않는다 (CanvasGroup `blocksRaycasts = false`). 글자는 씬에 고정, HUD Canvas `PartShiftBanner/Banner`(튜토리얼 안내 글자 아래 y −330).
+
 #### LevelUpBanner
 [UI/LevelUpBanner.cs](../Scripts/UI/LevelUpBanner.cs)
 - **역할**: 레벨업 연출 v1 — 화면 중앙 `LEVEL UP! Lv.N` + 해금 한 줄(`LevelTable.GetUnlockNote`) + 그 레벨에 합류하는 `새 트럭: 색`(`CompanyDefinition.UnlockLevel`)이 약 2초 떴다 사라지고, 플레이어 위 색종이 파티클(`LevelUpConfetti`)이 터진다.
@@ -844,6 +855,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### TutorialGuide
 [UI/TutorialGuide.cs](../Scripts/UI/TutorialGuide.cs)
 - **역할**: 튜토리얼 (GDD 13, M13-17). 씬 `Site/Logistics`에 하나. 저장이 없어 새 게임마다 처음부터.
+- **튜토리얼 파트** (2026-11-20): 트럭 꺼내기 단계에서 `PartService.BeginTutorialPart()`(시계 없는 1파트), 선반 단계 = 선반 위 상자 합계가 `PartService.TutorialBoxes`(5)가 되면 `ShiftTutorial()`(2파트 + 교대 배너). 돈 줍기 다음 단계 `2파트(상차)가 끝났어요. 정산을 확인하세요`가 `EndPart()` → 튜토리얼 정산 → [확인] 뒤 진짜 1파트면 끝.
 - **동작**: 단계 14개(GDD 13 단계 표, M16-6 — 시작 발판 건물 · `In1` · `StoreA1` · `Out1`(`StartPadStep`) → 트럭에서 꺼내기 → 선반 → 상차 → 돈 줍기(현금 존이 비면 끝) → 사무실 발판 → 무료 하차 알바 → 한 명 더 고용(알바 2 또는 팝업 열었다 닫음) → 정산 → B보관 → Ret1)를 처음부터(빈 땅) 0.2초(실제 시간)마다 완료 조건으로 확인. 단계 대상이 생기고 게임이 `Playing`이고 단계 시작 뒤 `spotlightDelay`(1초, 해금 팝 연출이 멈춘 채 작게 남지 않게)가 지나면 한 번 강조: `GameManager.OpenPopup`(멈춤) → `CameraRig.Spotlight` → `holdTime` 1.8초 `임시` 또는 탭(`Pointer.press`) → `EndSpotlight` · `ClosePopup`. 그 뒤로 `GuideArrow.TutorialTarget` = 대상. 고용 단계에서는 `StaffService.OfferFreeCandidate(Unload, 속도 1 · 적재 3)`를 계속 확인해 넣는다.
 - **연결**: 배너는 실행 중 만든 오버레이 캔버스(sortingOrder 49, 레이캐스트 안 막음) — 팝업(`GameState.Popup`)이 열리면 숨김, 강조 중에는 보임. 디버그 메뉴 `SkipStep` · `Stop`, static `Disabled`.
 - **주의**: 대상 찾기는 `FindObjectsByType`(단계 시작 뒤 대상이 생길 때까지 0.2초마다).
@@ -860,17 +872,25 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### PartClockView
 [UI/PartClockView.cs](../Scripts/UI/PartClockView.cs)
-- **역할**: HUD 파트 시계(레벨 패널 아래) `2파트 상차 · 02:47` (1 = 하차 · 2 = 상차, 2026-11-19). 계약 전(파트 0)엔 숨고, 10초 남으면 빨갛게.
+- **역할**: HUD 파트 시계(레벨 패널 아래) `2파트 상차 · 02:47` (1 = 하차 · 2 = 상차, 2026-11-19). 계약 전(파트 0)엔 숨고, 10초 남으면 빨갛게. 튜토리얼 파트 중엔 시간 대신 `튜토리얼`.
 
 #### SettlementPopup
 [UI/SettlementPopup.cs](../Scripts/UI/SettlementPopup.cs)
-- **역할**: 파트 종료 정산 팝업 (게임 멈춤). **번 돈 · 알바 월급 · 합계** 세 줄이(M13-5) 줄마다 차례로 올라가고(`SetUpdate(true)`), 다 오르면 [확인]이 켜진다. [확인] → 닫고 `ClosePopup` → `PartService.Confirm()`. 아래 `staffLabel`에 미지급 · 퇴사 알바 명단 + 경고(`WagePlan`), 합계가 음수면 `negativeColor`.
+- **역할**: 일일 정산 = 영수증 출력기 (2파트 끝, 게임 멈춤, UI 샘플 `BillScene` 방식 2026-11-20). 스프라이트 = `Resources/Receipt`(배출구 `_1`(9-slice 왼 110 · 오른 40, 몸체와 같은 열) · 몸체 `_2`(9-slice 왼 110 · 아래 60 · 오른 40 · 위 130 — 늘려도 그려진 LED 구간 · 모서리는 그대로, 2026-11-20) · LED `_4` · 도장 `_6` · 아이콘 `_7` `_8` `_9` `_10` `_13`) + LED 번짐 `Resources/LedGlow`(원형 흰 그라디언트 128px, `_5`는 사각으로 번져 안 씀). 출력기 = 배출구 · 몸체(덮개 `_0`은 사용자가 뺌, 위치 · 크기는 사용자가 씬에서 조정), 영수증 마스크 아래 끝 = 배출구 틈. [확인]은 출력기 자식 맨 뒤(맨 위에 그려짐).
+- **말림** (2026-11-20, UI 샘플과 같음): 종이 = `ReceiptPaperGraphic`(톱니 · 도트 질감 메시, 루트 = 말린 부분 `Part.Curl`, 첫 자식 `PaperFlat` = 평평한 부분) + `ReceiptCurl`(위 90 구간, 반지름 28, 원근 588, `towardViewer` 끔 = 화면 안쪽으로 넘어감). 글씨 · 아이콘엔 `ReceiptCurlVertex`가 실행 때 붙는다. 각도 = `curlMaxDegrees`(190) × smoothstep(나온 길이 / `curlRampDistance` 560) + 줄마다 펄럭임(`feedFlutterDegrees` 18, 0.6초 감쇠 사인) + 뜯을 때 `tearCurlDegrees` 20. 위 84는 빈 여백(글씨가 접히지 않게).
+- **동작**: `Open` → 배경 `dim` 검정 0.7 페이드 + 출력기(`printer`)가 아래에서 OutBack으로 올라옴 → 출력 중(떨림 루프 + LED 주황, 번짐 `ledGlow`(40px)가 1 → 2.2배로 퍼지며 0.85 → 0으로 사라짐 0.7초 반복 = UI 샘플 ping, 글자 `PRINTING`) → `rows`(머리 `APC 물류센터 공식 정산표` · `[일일 물류 정산서]` · `DAY N` → 상차 수익 · 알바 시급 · 출고(트럭 · 상자) · 반품 처리 → 순수익 `NET PROFIT`(도장 칸 포함) → 알바 안내 → 뜯기 안내, 익일 예보 없음) 차례로: 종이(`paper`, 위 끝 기준)가 그 줄 아래 + 18까지 밀려 나옴(0.34초 OutQuint) → 줄 페이드 + 값 0.75 → 1.45 → 1 튐 → 순수익 줄이면 `정산 완료` 쾅(2.4 → 0.92 → 1.06 → 1). 끝나면 LED 초록 + 번짐 1.6배 · 알파 0.35 고정 · `DONE` · [확인] 튀어나옴. 출력 중 배경을 누르면 `sequence.Complete` = 끝까지 건너뛰기. [확인] → 종이가 살짝 들렸다 위로 날아가며 사라짐 → 출력기 내려감 · 배경 밝아짐 → `ClosePopup` → `PartService.Confirm()`. 알바 안내 줄(미지급 · 퇴사)은 내용이 있을 때만.
 - **주의**: 루트는 항상 켜 두고 `body`만 켜고 끈다 (계약 팝업과 같은 구조).
+
+#### ReceiptCurl · ReceiptCurlVertex · ReceiptPaperGraphic
+[UI/ReceiptCurl.cs](../Scripts/UI/ReceiptCurl.cs) · [UI/ReceiptCurlVertex.cs](../Scripts/UI/ReceiptCurlVertex.cs) · [UI/ReceiptPaperGraphic.cs](../Scripts/UI/ReceiptPaperGraphic.cs)
+- **역할**: 일일 정산 영수증 윗부분 말림 (UI 샘플 `SettlementReceipt`에서 그대로 가져옴, 네임스페이스만 `APC.UI`, 2026-11-20). `ReceiptCurl` = 종이 루트에 붙는 변형기(굽힘선 위 `curlLength` 구간을 반지름 `curlRadius`로 꺾고 남은 길이는 날개로 뻗음, 원근 · 광원 음영). `ReceiptCurlVertex` = 자식 Graphic(Image는 `ModifyMesh`, TMP는 `TEXT_CHANGED` 뒤 정점)을 같은 함수로 휨, 면이 기울면 글씨가 흐려짐. `ReceiptPaperGraphic` = 톱니 절단면 · 도트 질감 종이를 가로 띠로 잘게 나눈 메시로 그림(뒷면 색 따로).
+- **연결**: `SettlementPopup.Update`가 `ReceiptCurl.degrees`를 정한다. `ReceiptCurl.Awake`가 자식 Graphic에 `ReceiptCurlVertex`를 붙인다 (실행 중 자식을 더하면 `RegisterChildren`).
+- **주의**: 뒤로 넘어가는 말림이라 그리는 순서 = 루트(말린 부분) → 첫 자식 `PaperFlat`(평평한 부분) → 글씨. 말리는 구간에 글씨를 두지 않는다 (위 84 여백).
 
 #### FacilityPanel
 [UI/FacilityPanel.cs](../Scripts/UI/FacilityPanel.cs)
 - **역할**: B책상 `설비` 탭 페이지 (GDD 7.3, M16-3). 선반이 세워진 보관 모듈마다 한 줄: `색 보관 (번호)` · `N단계 용량 → N+1단계 용량` · 버튼(`₩비용` / `최대`). 레벨 제한 · XP 없음, 지갑 돈만.
-- **동작**: 탭이 켜질 때마다(`OnEnable`) `rowTemplate`(자식 Name · Value · Buy, 스탯 탭 줄 복제)을 `rowSpacing` 100 간격으로 복제해 다시 만든다. 지갑이 바뀌면 다시 그림. 사면 `Wallet.TrySpend` → `Warehouse.RaiseShelfStage` → 줄이 튐. 비용 = `EconomyConfig.shelfStageCosts`(150 · 300, 단계 수 = 길이 + 1). 보관 모듈이 없으면 `emptyLabel`.
+- **동작**: 탭이 켜질 때마다(`OnEnable`) `rowTemplate`(자식 Box(둥근 테두리 칸, 2026-11-20) · Name · Value · Buy, 스탯 탭 줄 복제)을 `rowSpacing` 104 간격으로 복제해 다시 만든다. 지갑이 바뀌면 다시 그림. 사면 `Wallet.TrySpend` → `Warehouse.RaiseShelfStage` → 줄이 튐. 비용 = `EconomyConfig.shelfStageCosts`(150 · 300, 단계 수 = 길이 + 1). 보관 모듈이 없으면 `emptyLabel`.
 - **주의**: 씬 `ContractPopup`의 `FacilityPage`에 MCP로 붙였다 — Build Site 빌더에는 없다.
 
 #### UpgradePanel
@@ -896,7 +916,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### ContractPopup
 [UI/ContractPopup.cs](../Scripts/UI/ContractPopup.cs)
 - **역할**: 사무실 책상 팝업 — 두 책상이 같이 쓴다. **A책상 `고용 | 배치 | 스탯`**(스탯 = `upgradeTab` · `UpgradePanel`), **B책상 `설비 | 트럭 | 모듈`** (GDD 4.3, M16-2 2026-11-18). 열려 있는 동안 게임이 멈춘다. 고용 탭(`HirePanel`)은 고용해도 열린 채다.
-- **동작**: `Open(deskB)` → `modulePage.Begin()`(지금 배치를 미니맵에) → 그 책상 탭 3개만 켜고 왼쪽 세 자리(`tabPositions` = 처음 고용 · 배치 · 업그레이드 자리, `Awake`에 저장)에 놓음 → 고용 / 설비 탭 → `GameManager.OpenPopup`. `SelectTab(Tab)`이 `hirePage` / `rosterPage` / `upgradePage` / `modulePage` / `facilityPage` / `truckPage`를 켜고 끄고 탭 버튼 색을 바꾼다. 설비 · 트럭 페이지는 지금 '준비 중' 글자만 (M16-3 · M16-4, 씬에서 MCP로 만듦 — `FacilityTab` · `TruckTab` = `ModuleTab` 복제). 도장 · 안내 글자 묶음(`stampArea`)은 고용 탭에서만 보인다. `Close` → `modulePage.Apply()`(모듈 재배치 적용) → 닫힘 연출이 끝나면 `ClosePopup`. 트윈은 `SetUpdate(true)`.
+- **모양** (2026-11-19, UI 샘플 `ClipboardScene` 방식): `Panel` = 나무 판 + 위 가운데 `MetalClip`, 그 안 `PaperStack` = `PaperBack2` · `PaperBack1`(살짝 기움) · `TabsBehind` · `PaperFront`(페이지 6개 · `SheetTitle` · `SheetDesc` · 구분선) · `TabsFront`. 탭은 오른쪽 가장자리 인덱스 탭(왼쪽 12가 종이 밑, 탭마다 색 = 씬에 칠한 색). 둥근 모서리 = `UISprite` Sliced의 `pixelsPerUnitMultiplier`(판 0.15 · 종이 0.22 · 탭 0.5, 작을수록 둥긂). 스탯 · 트럭 페이지는 줄마다 테두리 칸 `RowNBox`. 씬에서 MCP로 만듦 (빌더 코드에 없음).
+- **동작**: `Open(deskB)` → `modulePage.Begin()`(지금 배치를 미니맵에) → 그 책상 탭 3개만 켜고 위에서부터 세 자리(`tabY` = 처음 고용 · 배치 · 스탯 자리, `Awake`에 저장)에 놓음 → 고용 / 설비 탭 → `GameManager.OpenPopup`. `SelectTab(Tab, instant)`이 페이지를 켜고 끄고 제목 · 설명을 바꾼다. 선택 탭은 `tabsFront`로 옮겨 앞으로 나오며 1.03배 · 밝게, 나머지는 `tabsBehind`에서 7 들어가 0.97배 · 어둡게(0.84). 탭을 바꾸면 새 페이지가 아래 16에서 떠오르며 페이드(`CanvasGroup`, 없으면 붙임), 앞 종이 셔플(들림 → 흔들림 → OutBack 착지) · 뒤 종이 흔들림, 제목 튐. 이미 선택된 탭을 누르면 탭만 튐. 설비 · 트럭 페이지는 지금 '준비 중' 글자만 (M16-3 · M16-4, 씬에서 MCP로 만듦 — `FacilityTab` · `TruckTab` = `ModuleTab` 복제). 도장 · 안내 글자 묶음(`stampArea`)은 고용 탭에서만 보인다. `Close` → `modulePage.Apply()`(모듈 재배치 적용) → 닫힘 연출이 끝나면 `ClosePopup`. 트윈은 `SetUpdate(true)`.
 - **주의**: 루트 오브젝트는 항상 켜 두고 자식 `body`만 켜고 끈다 (꺼져 있으면 `Instance`가 등록되지 않음). Build Site가 UI를 통째로 다시 만든다 — 빌더 코드에는 설비 · 트럭 탭이 없어서 다시 만들면 빠진다 (shortcut: Build Site 금지 중이라 빌더는 안 고침).
 
 #### StampCard (추상)
@@ -913,7 +934,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### HireCard
 [UI/HireCard.cs](../Scripts/UI/HireCard.cs)
-- **역할**: 후보 카드 1장 (`StampCard`): 제목 `후보 N · 직무`(직무 색), 지게차면 오른쪽 아래 `roleIcon`(`Art/Temp/forklift`) 켬, 이동 속도 · 적재량(파생값 m/s · 개수, 반품 · 지게차는 `N개 고정`) · 고용금(모자라면 빨강 + 카드 바탕 `shortTint` 회색) · 시급. 고용되면 `[ 고용 ]` 자국 + 회색 필터.
+- **역할**: 후보 이력서 1줄 (`StampCard`, 모양 = UI 샘플 `ClipboardScene` 이력서 2026-11-19): 왼쪽 직무 색 둥근 `avatar` + 직무 첫 글자(`avatarLabel`, 지게차는 그 안에 `roleIcon`) · 제목 `후보 N · 직무` · 상태(`statusLabel` 도장 대기중 / 재화 부족 / 채용 확정), 가운데 이동 속도 · 적재량 글자 + 게이지(`speedBar` · `carryBar`, 값/`StatMax`, 반품 · 지게차 적재는 `N개 고정` · 게이지 가득), 오른쪽 고용금(모자라면 빨강 + 바탕 `shortTint` 회색) · 시급. 고용되면 `[ 고용 ]` 자국 + 회색 필터. 세로 카드(338 × 600) 3장이 `Candidates`의 가로 레이아웃으로 나란히, 오른쪽은 도장 자리.
 - **동작**: `Bind(번호, 후보, rules, canAfford)` — 같은 후보가 방금 고용됐으면 찍는 연출을 끊지 않는다. `TryStamp()` → 부모 `HirePanel.TryHire(this)`. 사유: 이미 고용함 / 최대 인원 / 보유 재화 부족.
 
 #### Stamp
@@ -924,19 +945,18 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### RosterPanel
 [UI/RosterPanel.cs](../Scripts/UI/RosterPanel.cs)
-- **역할**: 클립보드 책상 팝업의 배치 탭 (GDD 11.3). 위 왼쪽 `알바 n/최대`, 하차 · 보관 · 상차 · 반품 · 지게차 5열(`RosterColumn`, 제목에 인원 수, 열리지 않은 반품 · 지게차 열은 회색 `(잠김)`, M11-9) + 오른쪽 해고 칸 + 해고 확인 창.
-- **동작**: `StaffService.OnWorkersChanged` · `OnEnable`마다 `Refresh` — 카드(`RosterCard`)를 명단 수만큼 만들어 두고 `Workers[i]`에 묶어 그 역할 열 `Content`로 옮긴다. `Drop(card, column)`: 해고 칸이면 확인 창 → [해고] `StaffService.Fire` / [취소]. 어디에 놓든 카드는 다시 그린 자리로 돌아간다.
-- **연결**: `RosterColumn` × 5 + 해고 칸 (씬은 `SiteBuilder.BuildRosterPage`만 리플렉션으로 다시 만듦), `RosterCard` 템플릿, `dragLayer`(끄는 카드를 올려 두는 층).
-- **주의**: 한 열에 카드가 5장쯤 들어간다 (스크롤 없음). 탭이 꺼지면 확인 창도 닫힌다.
+- **역할**: 클립보드 책상 팝업의 `명부` 탭 (GDD 11.3, UI 샘플 직원 명부 방식 2026-11-19 — 끌어서 옮기기 · 해고 칸 삭제). 위 왼쪽 `알바 n/최대`, 아래 세로 스크롤 `List`에 직군 칸 5개(`RosterColumn` 하차 · 보관 · 상차 · 반품 · 지게차, 둥근 상자, 제목에 인원 수, 열리지 않은 칸은 어둡게 `(잠김)`) + 해고 확인 창.
+- **동작**: `StaffService.OnWorkersChanged` · `OnEnable`마다 `Refresh` — 줄(`RosterCard`)을 명단 수만큼 만들어 두고 `Workers[i]`에 묶어 그 직군 칸 `Content`(2열 격자)로 옮긴다. 줄의 [해고] → `AskFire` → 확인 창 → [해고] `StaffService.Fire` / [취소].
+- **연결**: `RosterColumn` × 5, `RosterCard` 템플릿(하차 칸 `Content` 안, 꺼진 채). 씬에서 MCP로 바꿈 — `SiteBuilder.BuildRosterPage`는 옛 열 · 해고 칸 · `dragLayer`를 만들어 지금 코드와 안 맞는다 (shortcut: Build Site 금지 중이라 빌더는 안 고침).
+- **주의**: 탭이 꺼지면 확인 창도 닫힌다.
 
 #### RosterCard
 [UI/RosterCard.cs](../Scripts/UI/RosterCard.cs)
-- **역할**: 배치 탭 알바 카드 1장: 역할 색 막대 · `알바 N`(미지급이면 붉은 `₩N 밀림`) · `이동 · 적재 · 시급`.
-- **동작**: 드래그를 시작하면 `dragLayer`로 옮기고 `blocksRaycasts = false`, 놓으면 `EventSystem.RaycastAll`로 `RosterColumn`을 찾아 `RosterPanel.Drop`. Screen Space Overlay 기준.
+- **역할**: 명부 탭 알바 한 줄 (668 × 96): 직무 색 막대 · `알바 N`(미지급이면 붉은 `₩N 밀림`) · 이동 속도 · 적재 글자 + 게이지 · 시급 · [해고](`fireButton` → 부모 `RosterPanel.AskFire`).
 
 #### RosterColumn
 [UI/RosterColumn.cs](../Scripts/UI/RosterColumn.cs)
-- **역할**: 배치 탭의 칸 — 직무 열(`role`, 제목 · `Content` 세로 레이아웃) 또는 해고 칸(`fire`). `SetCount(count, open)` — 닫힌 직무는 제목 `(잠김)` · 배경 어둡게. 배경 Image의 `raycastTarget`을 켜 둔다 (카드를 놓을 곳).
+- **역할**: 명부 탭의 직군 칸 (`role`, 제목 · 구분선 · `Content` 2열 격자, 세로 레이아웃으로 높이가 줄 수에 맞춰짐). `SetCount(count, open)` — 닫힌 직군은 제목 `(잠김)` · 배경 어둡게.
 
 #### CameraModeButton
 [UI/CameraModeButton.cs](../Scripts/UI/CameraModeButton.cs)

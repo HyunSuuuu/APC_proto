@@ -78,7 +78,7 @@ namespace APC.Orders
                 sum += n;
             }
             // 첫 상차 트럭(튜토리얼 7단계)은 선반에 있는 만큼만 — 6단계가 1개만 올려도 끝나서 트럭이 안 오던 문제 (2026-11-19)
-            if (!firstOrderMade && sum > 0) total = Mathf.Min(total, sum);
+            if (!firstOrderMade && sum > 0) total = Economy.PartService.TutorialPhase ? sum : Mathf.Min(total, sum); // 튜토리얼은 선반에 올린 상자 전부 (2026-11-20)
             if (sum < total) return null; // 선반에 아직 모자람
 
             var lines = new List<OrderLine>();

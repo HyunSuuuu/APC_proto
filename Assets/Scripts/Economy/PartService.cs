@@ -9,9 +9,13 @@ namespace APC.Economy
     /// <summary>파트 정산 내역 (정산 팝업에 표시, GDD 9.5).</summary>
     public readonly struct SettlementResult
     {
-        public SettlementResult(int part, int outboundIncome, WagePlan wagePlan)
+        public SettlementResult(int part, int outboundIncome, WagePlan wagePlan, int trucks = 0, int boxes = 0, int returns = 0, bool tutorial = false)
         {
             Part = part;
+            Tutorial = tutorial;
+            Trucks = trucks;
+            Boxes = boxes;
+            Returns = returns;
             OutboundIncome = outboundIncome;
             WagePlan = wagePlan ?? WagePlan.Empty;
             Wages = WagePlan.Paid;
@@ -29,6 +33,14 @@ namespace APC.Economy
         public WagePlan WagePlan { get; }
 
         public int Total => OutboundIncome - Wages;
+
+        /// <summary>오늘(하루 = 1 · 2파트) 떠난 상차 트럭 수 · 실린 상자 수 · 처리한 반품 수 (영수증 표시용).</summary>
+        public int Trucks { get; }
+
+        /// <summary>튜토리얼 2파트 끝 정산 (일차에 안 셈, 영수증 `튜토리얼`).</summary>
+        public bool Tutorial { get; }
+        public int Boxes { get; }
+        public int Returns { get; }
     }
 
     /// <summary>
@@ -36,6 +48,9 @@ namespace APC.Economy
     /// 게임 시작(첫 색 입고) 순간 1파트가 시작되고(파트마다 180초, 첫 파트 90초는 2026-11-15 삭제), `Time.deltaTime`으로 흐르므로 팝업 · 일시정지 중엔 멈춘다.
     /// 파트가 끝나면 정산 내역(번 돈 · 알바 월급 · 합계, 할당량 삭제)을 만들어 OnSettlementReady로 알리고(정산 팝업이 연다), [확인] 시 Confirm → 저금통을 지갑으로 옮기고 다음 파트.
     /// 파트는 **1 · 2가 반복**된다 (2026-11-19): 1 = 하차 파트(하차 트럭만 하차장에 들어옴), 2 = 상차 파트(새 상차 트럭만 옴).
+    /// 튜토리얼(사무실 전, 2026-11-20): 트럭 뒷문 단계에서 시계 없는 1파트(BeginTutorialPart) → 선반에 놓으면 2파트(ShiftTutorial, 교대 배너) → 상차 · 돈 줍기 뒤 튜토리얼이 EndPart → 튜토리얼 정산 → [확인] → 진짜 1파트. 튜토리얼 정산은 일차(Day)에 안 센다.
+    /// 사무실 전엔 저금통이 없어 돈이 바로 지갑으로 가므로, 그때 정산의 번 돈 = 그날 상차 트럭이 받은 돈(dayIncome).
+    /// 정산은 **2파트가 끝날 때만** = 하루 정산 (2026-11-20). 1파트가 끝나면 정산 없이 바로 2파트(OnShift → 파트 교대 배너). 시급은 하루 한 파트 몫 (2026-11-20 확정).
     /// 사무실 전(파트 0)은 둘 다 열림 (튜토리얼 앞부분). 정차한 트럭은 파트가 바뀌어도 남는다.
     /// </summary>
     public sealed class PartService : MonoBehaviour
@@ -45,8 +60,18 @@ namespace APC.Economy
         readonly ReactiveProperty<int> part = new(0);
         readonly ReactiveProperty<float> remaining = new(0f);
         readonly Subject<SettlementResult> settlementReady = new();
+        readonly Subject<Unit> shift = new();
+        readonly Subject<Unit> dayEnding = new();
 
         SettlementResult? pending;
+        int settled; // 끝낸 하루 정산 수 (튜토리얼 제외)
+
+        /// <summary>튜토리얼 하차 트럭 상자 수 (`임시`, 2026-11-20). 이만큼 선반에 오르면 2파트로 교대.</summary>
+        public const int TutorialBoxes = 5;
+
+        /// <summary>사무실 전 튜토리얼 구간 (파트 0 또는 튜토리얼 파트): 하차 트럭은 첫 대만 받는다.</summary>
+        public static bool TutorialPhase => Instance != null && !Site.StartSequence.OfficeBuilt && (Instance.Tutorial || Instance.part.Value == 0);
+        int dayTrucks, dayBoxes, dayReturns, dayIncome; // 하루 집계, 정산 [확인] 때 0
 
         /// <summary>현재 파트 번호 (1 = 하차 · 2 = 상차, 반복). 0이면 아직 시작 전 (사무실 전).</summary>
         public ReadOnlyReactiveProperty<int> Part => part;
@@ -57,7 +82,47 @@ namespace APC.Economy
         /// <summary>파트가 끝나 정산 내역이 나왔다 (정산 팝업이 구독).</summary>
         public Observable<SettlementResult> OnSettlementReady => settlementReady;
 
+        /// <summary>1파트가 끝나 정산 없이 2파트로 넘어갔다 (파트 교대 배너가 구독).</summary>
+        public Observable<Unit> OnShift => shift;
+
+        /// <summary>2파트가 끝나 정산 내역을 만들기 직전 (상차장 트럭 회차 — 실은 만큼 저금통에 넣으면 이번 정산에 잡힘).</summary>
+        public Observable<Unit> OnDayEnding => dayEnding;
+
         public bool IsRunning => part.Value > 0 && pending == null;
+
+        /// <summary>튜토리얼 파트 중 (시계가 흐르지 않고 정산 없음).</summary>
+        public bool Tutorial { get; private set; }
+
+        /// <summary>지금 일차 = 끝낸 하루 정산 수 + 1 (튜토리얼은 세지 않음).</summary>
+        public int Day => settled + 1;
+
+        /// <summary>튜토리얼 하차 파트를 시작한다 (파트 0일 때만, 시계 없음).</summary>
+        public void BeginTutorialPart()
+        {
+            if (part.Value != 0) return;
+            Tutorial = true;
+            remaining.Value = 0f;
+            part.Value = InboundPart;
+        }
+
+        /// <summary>튜토리얼: 하차 파트 → 상차 파트 (파트 교대 배너).</summary>
+        public void ShiftTutorial()
+        {
+            if (!Tutorial || part.Value != InboundPart) return;
+            part.Value = OutboundPart;
+            shift.OnNext(Unit.Default);
+        }
+
+        /// <summary>상차 트럭이 떠났다 (OutboundBay).</summary>
+        public void CountShipment(int boxes, int reward)
+        {
+            dayTrucks++;
+            dayBoxes += boxes;
+            dayIncome += reward;
+        }
+
+        /// <summary>반품 하나를 재포장대에서 처리했다 (성공 · 실패 모두, RepackTable).</summary>
+        public void CountReturn() => dayReturns++;
 
         /// <summary>하차 파트 번호 (1 · 2 반복 중 1).</summary>
         public const int InboundPart = 1;
@@ -109,7 +174,7 @@ namespace APC.Economy
             ContractService.Instance.OnContracted
                 .Subscribe(_ =>
                 {
-                    if (part.Value == 0 && Site.StartSequence.OfficeBuilt) BeginPart(1);
+                    if ((part.Value == 0 || Tutorial) && Site.StartSequence.OfficeBuilt) BeginPart(1);
                 })
                 .AddTo(this);
         }
@@ -117,7 +182,7 @@ namespace APC.Economy
         /// <summary>사무실을 지었을 때 (StartSequence, GDD 9.6): 파트 시계가 멈춰 있었으면 1파트를 시작한다.</summary>
         public void BeginFirstPart()
         {
-            if (part.Value == 0 && ContractService.Instance != null && ContractService.Instance.HasAnyContract) BeginPart(1);
+            if ((part.Value == 0 || Tutorial) && ContractService.Instance != null && ContractService.Instance.HasAnyContract) BeginPart(1);
         }
 
         void OnDestroy()
@@ -126,11 +191,13 @@ namespace APC.Economy
             part.Dispose();
             remaining.Dispose();
             settlementReady.Dispose();
+            shift.Dispose();
+            dayEnding.Dispose();
         }
 
         void Update()
         {
-            if (!IsRunning) return;
+            if (!IsRunning || Tutorial) return;
             remaining.Value = Mathf.Max(0f, remaining.Value - Time.deltaTime);
             if (remaining.Value <= 0f) EndPart();
         }
@@ -139,11 +206,25 @@ namespace APC.Economy
         public void EndPart()
         {
             if (!IsRunning) return;
+            if (Tutorial && part.Value == InboundPart)
+            {
+                ShiftTutorial(); // 디버그 'End Part'
+                return;
+            }
+            if (part.Value == InboundPart)
+            {
+                // 하차 파트는 수익이 없어 정산 없이 교대 (시급은 하루 정산 때 한 파트 몫)
+                BeginPart(OutboundPart);
+                shift.OnNext(Unit.Default);
+                return;
+            }
+            dayEnding.OnNext(Unit.Default);
             var wallet = GameManager.Instance.Wallet;
             // 시급은 정산 금액 + 보유 재화로 고용 순서대로 (GDD 11.7)
             var available = wallet.Piggy.CurrentValue + wallet.Cash.CurrentValue;
             var wages = StaffService.Instance != null ? StaffService.Instance.PlanWages(available) : WagePlan.Empty;
-            var result = new SettlementResult(part.Value, wallet.Piggy.CurrentValue, wages);
+            var income = Site.StartSequence.OfficeBuilt ? wallet.Piggy.CurrentValue : dayIncome; // 사무실 전엔 저금통 없음 (이미 지갑에)
+            var result = new SettlementResult(part.Value, income, wages, dayTrucks, dayBoxes, dayReturns, Tutorial);
             pending = result;
             settlementReady.OnNext(result);
         }
@@ -158,11 +239,14 @@ namespace APC.Economy
             if (StaffService.Instance != null) StaffService.Instance.ApplyWages(result.WagePlan);
             GameManager.Instance.Wallet.SettlePiggy(-result.Wages);
             LastSettlement = result.Total;
+            if (!result.Tutorial) settled++;
+            dayTrucks = dayBoxes = dayReturns = dayIncome = 0;
             BeginPart(result.Part == InboundPart ? OutboundPart : InboundPart); // 1 · 2 반복 (2026-11-19)
         }
 
         void BeginPart(int number)
         {
+            Tutorial = false;
             CurrentPartLength = GameManager.Instance.Database.Economy.PartLengthSeconds;
             remaining.Value = CurrentPartLength;
             part.Value = number;
