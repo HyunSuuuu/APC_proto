@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using APC.Data;
 using DG.Tweening;
 using UnityEngine;
@@ -53,8 +54,13 @@ namespace APC.Logistics
         [SerializeField] Color returnBoxColor = new(0.55f, 0.55f, 0.58f);
         [SerializeField, Tooltip("포장 쓰레기 (납작한 회갈색 판)")] Color trashColor = new(0.55f, 0.47f, 0.38f);
         [SerializeField, Tooltip("금덩이 모델 (Prop/Gold, 꺼진 채). 금이면 상자 · 테이프 대신 켠다 (GDD 6.4)")] GameObject goldModel;
+        [SerializeField, Tooltip("쓰레기 모델 프리팹 (Prop/Trash, M15-2). 비우면 옛 납작한 상자")] GameObject trashModel;
+        [SerializeField, Tooltip("갈아 끼운 모델에 입힐 재질 (M_Prop)")] Material modelMaterial;
 
         MaterialPropertyBlock block;
+        readonly Dictionary<GameObject, (GameObject instance, float height)> models = new(); // 모델 프리팹 → 이 화물에 만든 것 (풀에서 다시 씀)
+        GameObject activeModel;
+        float activeHeight;
 
         public ItemDefinition Item { get; private set; }
         public CargoState State { get; private set; }
@@ -67,8 +73,18 @@ namespace APC.Logistics
         public SharedStorage Home { get; set; }
         public Transform Visual => visual;
 
-        /// <summary>상자 높이 대비 배율 (쓰레기 0.25 — 임시 모양, 쌓을 때 간격에도 쓴다).</summary>
-        public float HeightScale => State == CargoState.Trash ? 0.25f : 1f;
+        /// <summary>
+        /// 상자 한 칸 높이(CarryConfig.BoxHeight) 대비 이 화물 높이 — 운반 스택에 쌓을 때 간격.
+        /// 모델이 있으면 모델 높이(기본 크기, D 큰 상자는 약 2.9칸), 없으면 옛 모양(쓰레기 0.25).
+        /// </summary>
+        public float HeightScale
+        {
+            get
+            {
+                if (activeModel != null) return activeHeight / Mathf.Max(0.01f, Core.GameManager.Instance.Database.Carry.BoxHeight);
+                return State == CargoState.Trash ? 0.25f : 1f;
+            }
+        }
 
         internal CargoPool Pool { get; set; }
 
@@ -117,16 +133,31 @@ namespace APC.Logistics
         }
 
         /// <summary>
-        /// 테이프 = 품목 색 (찌그러진 상자도 원래 색 띠, 쓰레기는 띠 없음). 상자 = 기본 재질, 찌그러진 = 회색,
-        /// 쓰레기 = 회갈색 · 높이 0.25배 (GDD 7.7 · 7.9 임시 모양).
+        /// 모델(M15-2): 일반 = 품목 `BoxModel`, 찌그러진 = `ReturnModel`, 쓰레기 = `trashModel`, 금 = `goldModel`. 모델 기본 크기 그대로.
+        /// 모델이 없으면 옛 모양: 테이프 = 품목 색, 상자 = 기본 재질 · 찌그러진 = 회색, 쓰레기 = 회갈색 · 높이 0.25배.
         /// </summary>
         void ApplyLook()
         {
             block ??= new MaterialPropertyBlock();
             var isGold = State == CargoState.Gold;
             if (goldModel != null) goldModel.SetActive(isGold);
-            if (boxRenderer != null) boxRenderer.enabled = !isGold;
-            tapeRenderer.enabled = State != CargoState.Trash && !isGold;
+
+            var prefab = isGold ? null
+                : State == CargoState.Trash ? trashModel
+                : Item == null ? null
+                : State == CargoState.Return ? Item.ReturnModel : Item.BoxModel;
+            var scale = State == CargoState.Trash ? Core.GameManager.Instance.Database.Carry.TrashModelScale : Item != null ? Item.ModelScale : 1f;
+            ShowModel(prefab, scale);
+            if (activeModel != null || isGold)
+            {
+                if (boxRenderer != null) boxRenderer.enabled = false;
+                tapeRenderer.enabled = false;
+                visual.localScale = Vector3.one;
+                return;
+            }
+
+            if (boxRenderer != null) boxRenderer.enabled = true;
+            tapeRenderer.enabled = State != CargoState.Trash;
             tapeRenderer.GetPropertyBlock(block);
             block.SetColor(BaseColorId, Item != null ? Item.TapeColor : Color.white);
             tapeRenderer.SetPropertyBlock(block);
@@ -141,6 +172,56 @@ namespace APC.Logistics
             block.Clear();
             block.SetColor(BaseColorId, State == CargoState.Trash ? trashColor : returnBoxColor);
             boxRenderer.SetPropertyBlock(block);
+        }
+
+        /// <summary>그 모델만 켠다 (처음이면 Visual 아래에 만들고 크기 × scale, 바닥 중앙을 원점에 맞춤). null이면 모두 끔.</summary>
+        void ShowModel(GameObject prefab, float scale)
+        {
+            if (activeModel != null) activeModel.SetActive(false);
+            activeModel = null;
+            if (prefab == null) return;
+            if (!models.TryGetValue(prefab, out var entry))
+            {
+                var model = Instantiate(prefab, visual);
+                var t = model.transform;
+                t.localRotation = prefab.transform.localRotation;
+                t.localScale = prefab.transform.localScale * scale;
+                t.localPosition = Vector3.zero;
+                foreach (var c in model.GetComponentsInChildren<Collider>()) Destroy(c);
+                foreach (var r in model.GetComponentsInChildren<Renderer>())
+                {
+                    if (modelMaterial != null)
+                    {
+                        var materials = new Material[r.sharedMaterials.Length];
+                        for (var i = 0; i < materials.Length; i++) materials[i] = modelMaterial;
+                        r.sharedMaterials = materials;
+                    }
+                    r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; // 상자가 많다
+                }
+                // Visual 기준 경계 — 메시 꼭짓점 8개를 Visual 로컬로 (화물이 날아가는 중 · 회전된 곳이어도 같음)
+                var bounds = new Bounds();
+                var first = true;
+                var toVisual = visual.worldToLocalMatrix;
+                foreach (var mf in model.GetComponentsInChildren<MeshFilter>())
+                {
+                    if (mf.sharedMesh == null) continue;
+                    var mb = mf.sharedMesh.bounds;
+                    var m = toVisual * mf.transform.localToWorldMatrix;
+                    for (var i = 0; i < 8; i++)
+                    {
+                        var corner = mb.center + Vector3.Scale(mb.extents, new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1));
+                        var p = m.MultiplyPoint3x4(corner);
+                        if (first) { bounds = new Bounds(p, Vector3.zero); first = false; }
+                        else bounds.Encapsulate(p);
+                    }
+                }
+                t.localPosition = new Vector3(-bounds.center.x, -bounds.min.y, -bounds.center.z);
+                entry = (model, bounds.size.y);
+                models[prefab] = entry;
+            }
+            activeModel = entry.instance;
+            activeHeight = entry.height;
+            activeModel.SetActive(true);
         }
     }
 }

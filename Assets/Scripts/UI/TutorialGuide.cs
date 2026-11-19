@@ -19,9 +19,11 @@ using UnityEngine.UI;
 namespace APC.UI
 {
     /// <summary>
-    /// 튜토리얼 (GDD 13, M13-17). 하차 → 선반 → 상차 → 돈 줍기 → 사무실(정산 → 고용 → B보관) → Lv.2 반품 구역.
+    /// 튜토리얼 (GDD 13 단계 표, M13-17 · M16-6). 시작 발판(건물 → 하차 → A보관 → 상차) → 하차 → 선반 → 상차 → 돈 줍기
+    /// → 사무실 발판 → 무료 하차 알바 → 한 명 더 고용(팝업 닫으면 넘어감) → 정산 → B보관 → Lv.2 반품 구역.
+    /// 시작 건너뛰기(StartSequence.Skip)면 앞 단계들은 이미 끝난 것으로 바로 넘어간다.
     /// 단계가 시작할 때 게임을 멈추고 카메라가 대상으로 날아가 확대 → `holdTime`초(또는 탭) 뒤 돌아와 재개, 그 뒤로는 가이드 화살표가 대상을 가리킨다.
-    /// 안내 글은 화면 위 한 줄 배너 (단계가 끝날 때까지). 첫 고용은 무료 · 픽업 3 · 이동속도 1 고정 보관 알바 (기본 옷).
+    /// 안내 글은 화면 위 한 줄 배너 (단계가 끝날 때까지). 첫 고용은 무료 · 픽업 3 · 이동속도 1 고정 하차 알바 (기본 옷).
     /// 저장이 없으므로 새 게임마다 처음부터. 씬 `Site/Logistics`에 하나. UI는 실행 중 만든다.
     /// </summary>
     public sealed class TutorialGuide : MonoBehaviour
@@ -44,6 +46,7 @@ namespace APC.UI
         [SerializeField, Range(0.2f, 1.5f), Tooltip("확대 = 기본 거리 × 이 값")] float zoom = 0.7f;
         [SerializeField, Tooltip("첫 고용 무료 알바 스탯 (GDD 13: 픽업 3 · 이동속도 1)")] StaffStats freeHireStats = new(1, 3);
         [SerializeField, Min(0f), Tooltip("끝 안내를 띄워 두는 시간 (초)")] float finishDuration = 3f;
+        [SerializeField, Min(0f), Tooltip("단계가 시작하고 강조(게임 멈춤)까지 기다리는 시간 (초, 실제 시간) — 해금 팝 연출이 멈춘 채 작게 남지 않게")] float spotlightDelay = 1f;
 
         TMP_Text banner;
         GameObject bannerRoot;
@@ -109,11 +112,13 @@ namespace APC.UI
                 // 대상이 생길 때까지 (레벨 · 건설 타일 등) 기다렸다가, 화면이 비어 있을 때(팝업 · 연출 없음) 한 번 강조한다
                 Transform target = null;
                 var spotlit = step.Target == null;
+                var stepStart = Time.unscaledTime;
                 while (!skipStep && !step.Done())
                 {
                     if (target == null && step.Target != null) target = step.Target();
                     GuideArrow.TutorialTarget = target;
-                    if (!spotlit && target != null && GameManager.Instance.State.CurrentValue == GameState.Playing)
+                    if (!spotlit && target != null && GameManager.Instance.State.CurrentValue == GameState.Playing
+                        && Time.unscaledTime - stepStart >= spotlightDelay)
                     {
                         spotlit = true;
                         yield return Spotlight(target.position);
@@ -169,9 +174,20 @@ namespace APC.UI
         List<Step> CreateSteps()
         {
             var staff = StaffService.Instance;
-            var wallet = GameManager.Instance.Wallet;
+            var deskOpened = false; // 단계 11: 고용 팝업을 열었다 닫으면 넘어감
             return new List<Step>
             {
+                // 시작 — 빈 땅에서 건물 세우기 (GDD 9.6 · 13 단계 표, M16-6)
+                new()
+                {
+                    Message = "발판에 돈을 넣어 건물을 세우세요",
+                    Target = () => Find<ExpansionPad>(p => p.enabled && string.IsNullOrEmpty(p.PlacementId)),
+                    // 건물 연출(칸 팝)이 다 끝나고 하차 발판이 나오면 끝
+                    Done = () => Built("In1") || Find<ExpansionPad>(p => p.PlacementId == "In1") != null,
+                },
+                StartPadStep("발판에 돈을 넣어 하차 구역을 지으세요", "In1"),
+                StartPadStep("보관 구역 A를 지으세요", "StoreA1"),
+                StartPadStep("상차 구역을 지으세요", "Out1"),
                 new()
                 {
                     Message = "트럭 뒷문에서 상자를 꺼내세요",
@@ -188,31 +204,45 @@ namespace APC.UI
                 {
                     Message = "상차 트럭에 주문한 상자를 실으세요",
                     Target = () => Find<TruckLoadZone>(_ => true),
-                    Done = () => wallet.Piggy.CurrentValue > 0 || Find<CashZone>(c => c.StoredCash > 0) != null,
+                    Done = () => Find<CashZone>(c => c.StoredCash > 0) != null,
                 },
                 new()
                 {
-                    Message = "돈을 주워 저금통에 모으세요",
+                    Message = "돈을 주우세요",
                     Target = () => Find<CashZone>(c => c.StoredCash > 0) ?? Find<CashZone>(_ => true),
-                    Done = () => wallet.Piggy.CurrentValue > 0,
+                    Done = () => Find<CashZone>(c => c.StoredCash > 0) == null, // 사무실 전엔 바로 지갑 (저금통 없음)
+                },
+                StartPadStep("돈을 모아 사무실을 지으세요", "Office"),
+                new()
+                {
+                    Message = "클립보드 책상에서 하차 알바를 고용하세요 (무료)",
+                    Target = () => Find<ContractPC>(pc => !pc.IsDeskB),
+                    Done = () =>
+                    {
+                        if (staff == null) return true;
+                        if (staff.Workers.Count > 0) return true;
+                        staff.OfferFreeCandidate(StaffRole.Unload, freeHireStats); // 파트가 바뀌어 후보가 새로 뽑혀도 다시 넣는다
+                        return false;
+                    },
+                },
+                new()
+                {
+                    Message = "원하는 알바를 한 명 더 고용하세요",
+                    Target = () => Find<ContractPC>(pc => !pc.IsDeskB),
+                    Done = () =>
+                    {
+                        if (staff == null || staff.Workers.Count >= Mathf.Min(2, staff.MaxStaff)) return true;
+                        // 돈이 모자라도 막히지 않게: 고용 팝업을 닫으면 넘어간다
+                        var popup = GameManager.Instance.State.CurrentValue == GameState.Popup;
+                        if (popup && !spotlighting) deskOpened = true;
+                        return deskOpened && !popup;
+                    },
                 },
                 new()
                 {
                     Message = "파트가 끝나면 정산을 확인하세요",
                     Target = null,
                     Done = () => PartService.Instance == null || PartService.Instance.Part.CurrentValue >= 2,
-                },
-                new()
-                {
-                    Message = "클립보드 책상에서 알바를 고용하세요 (무료)",
-                    Target = () => Find<ContractPC>(pc => !pc.IsComputerDesk),
-                    Done = () =>
-                    {
-                        if (staff == null) return true;
-                        if (staff.Workers.Count > 0) return true;
-                        staff.OfferFreeCandidate(StaffRole.Sort, freeHireStats); // 파트가 바뀌어 후보가 새로 뽑혀도 다시 넣는다
-                        return false;
-                    },
                 },
                 new()
                 {
@@ -228,6 +258,16 @@ namespace APC.UI
                 },
             };
         }
+
+        /// <summary>시작 발판 단계: 그 배치 발판을 가리키고, 지으면 끝.</summary>
+        static Step StartPadStep(string message, string placementId) => new()
+        {
+            Message = message,
+            Target = () => Find<ExpansionPad>(p => p.enabled && p.PlacementId == placementId),
+            Done = () => Built(placementId),
+        };
+
+        static bool Built(string id) => SiteGrid.Instance == null || SiteGrid.Instance.IsUnlocked(id);
 
         static Transform Find<T>(Predicate<T> match) where T : Component
         {

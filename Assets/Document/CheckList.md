@@ -108,6 +108,7 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
 | **M13** | **변경사항 2 — 색 분류 · 직무 4개 · 반품 재포장 · 쓰레기 · Lv.5** | 1 | **프로토타입 목표 Lv.5** — Q2 색 분류 흐름, Q3 자동화, Q4 짓기 · 설비 목표감 |
 | M14 | 모델 적용 (Prop) | 1 | 겉모습 — 임시 모델 교체 |
 | M15 | 모델 2차 (프로토타입 모델 전부) | 1 | 겉모습 — 색별 상자 · 트럭 · 선반 · 배경 |
+| **M16** | **기획 타임라인 반영 · 프로토타입 빌드** | 1 | **프로토타입 완성** — 빈 땅 시작 · 책상 A · B · 선반 · 트럭 단계, Lv.1 → 5 통플레이 빌드 |
 
 ### 이 순서인 이유
 
@@ -597,13 +598,72 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
 
 > 모든 프로토타입 모델이 들어옴. 결정 (2026-11-18): **D = 보라**(주황 → 보라), 트럭 크기 = **단계별**(Small 10 · Middle 15 · Big 20), 파랑 큰 상자는 안 씀, 범위 = 게임 물건 + 배경 전부. 규칙은 그대로 (모양 · 좌표만). M14와 같은 주의: `StandardModules` 덮어쓰기 · `EnsureAll(true)` 금지, 손으로 고친 프리팹은 그 안 모델만 바꿈.
 
-- [ ] **M15-1 D 색 보라** — `Company_D` 이름 `주황` → `보라` · 테이프 · 색 값, 화면 글자 · 아이콘 · 디버그 색, 팔레트 랙 주황 기둥
-- [ ] **M15-2 색별 상자 모델** — 일반 `Brown/Green/Blue_Box` · D `Purple_Big_Box`, 찌그러진 `*_Return_Box`, 쓰레기 `Trash`. 품목(`ItemDefinition`)마다 모델을 정하고 `Cargo`가 상태(일반 · 반품 · 쓰레기 · 금)에 따라 켬, 테이프 칠하기 삭제. 들기 · 선반 · 팔레트 · 트럭 쌓기 높이(`HeightScale`) 맞춤
-- [ ] **M15-3 하차 · 황금 · 상차 트럭 모델** — 하차 트럭 = 회사 색 × 단계 크기(`*_Small/Middle/Big_Truck_Open`, 보라 Small · Middle은 `_Open` 없음), 황금 = `Gold_*`(단계 크기, `GoldenTruckConfig` 칠하기는 끔 · 빛 · 반짝임 유지), 상차 = `White_Big_Truck_Open`. 크기마다 뒷면 · 화물 나오는 위치 · 주차 칸 · 대기 줄 간격 확인
-- [ ] **M15-4 색별 선반 · D 랙 · 팔레트** — `Brown/Green/Blue_Shelf`(품목 색으로 고름, 지금 2개 등 맞대기 크기), D 랙 `Purple_Shelf` + `Purple_Plastic_Pallet`(지게차 포크도), 반품 팔레트 · 재포장 상자 팔레트 `Blue_Plastic_Pallet`
-- [ ] **M15-5 재포장 테이블** — `Return_Inspection_Table` + `Tape_Stand` · `Tape_Cutter` · `Lap_Stand`, 재포장 중 상자 = 색별 `*_Open_Box`(18장 47), 입력 · 출력 · 작업 지점 위치를 테이블에 맞춤
-- [ ] **M15-6 사무실 · 표지판** — 책상 위 `Printer` · `Scaner` · `Small_Clip_Board`, 보관 구역 표지판 `sign_brown/green/blue`(D · 반품 · 쓰레기장 · `sign_yellow`는 18장 47)
-- [ ] **M15-7 배경 · 벽 · 출입구** — 칠하기 팔레트에 새 바닥(`floor_green1~4` · `floor_grass` · `floor_daisy` · `floor_basic5~7` · `floor_road7` · `floor_crosswalk1~3`), 배경 모듈에 `tree_L/s/plam` · `tulip` · `street_lamp` · `vending_machine`, 벽 `wall_outside/inside` · `window_*` · `pillar_inside` · `blind` · `exit_seal`, 주차장 셔터 `truck_parking*`. 초안 배치 → 스크린샷 → 사용자가 손으로 조정
+- [x] **M15-1 D 색 보라** — `Company_D` 이름 `주황` → `보라` · 테이프 · 색 값, 화면 글자 · 아이콘 · 디버그 색, 팔레트 랙 주황 기둥
+  - 완료 (2026-11-18): `Company_D` 이름 '보라', `Item_D` 'D 보라' · 색 (0.6, 0.36, 0.8). 코드 · 씬에 주황 D 글자 없음. 팔레트 랙 기둥은 M15-4 `Purple_Shelf` 교체 때
+- [x] **M15-2 색별 상자 모델** — 일반 `Brown/Green/Blue_Box` · D `Purple_Big_Box`, 찌그러진 `*_Return_Box`, 쓰레기 `Trash`. 품목(`ItemDefinition`)마다 모델을 정하고 `Cargo`가 상태(일반 · 반품 · 쓰레기 · 금)에 따라 켬, 테이프 칠하기 삭제. 들기 · 선반 · 팔레트 · 트럭 쌓기 높이(`HeightScale`) 맞춤
+  - 확정 (2026-11-18, GDD 15.1): **M15-1 + M15-2 먼저 한 번에** → 테스트 → 커밋. 모델은 캐릭터에 맞춘 크기라 **모두 기본 크기 그대로**(키우거나 늘릴 땐 사용자에게 먼저 알림), D 상자는 **세로 한 줄로 쌓기**. 표지판: D · 반품 · 쓰레기장은 보라 표지판 받을 때까지 보류(`sign_yellow` 안 씀). `*_Open_Box` = 재포장 중 상자(M15-5)
+  - 완료 (2026-11-18): `ItemDefinition.boxModel` · `returnModel` · `openModel`(A 갈 · B 초 · C 파 · D `Purple_Big_*`), `Cargo` = 상태에 맞는 모델을 Visual 아래 한 번 만들어 켜고 끔(풀에서 다시 씀, 바닥 중앙 = 원점, M_Prop, 그림자 끔), 쓰레기 = `Cargo.trashModel`(`Trash`), 금 = 그대로. 모델 있으면 옛 상자 · 테이프 끔(모델 없으면 옛 모양). `HeightScale` = 모델 높이 / `CarryConfig.boxHeight`(**0.5 → 0.3** = 색 상자 높이) → 들기 스택 0.3 간격, D 2.86칸, 쓰레기 0.21칸
+  - 크기(기본 그대로): 색 상자 0.30 × 0.30(높이) × 0.35 (옛 0.5 정육면체보다 작음), D `Purple_Big_Box` 0.86 × 0.86 × 1.0, 쓰레기 0.24 × 0.06 × 0.15
+  - 테스트: 4색 일반 · 반품 · 쓰레기 나란히, 들기 5개(갈 · 초 · 파 · 갈 · D) 0.3 간격, Lv.4 알바 5명 4배속 → 하차 · 선반 흐름, 에러 0(스크린샷). **남은 것**: 팔레트(`SharedStorage` 간격 0.6 · 층 0.5) · 선반 칸 · 현금 더미 간격이 옛 0.5 상자 기준이라 **상자 사이가 비어 보임**, D 큰 상자가 D 랙 · 지게차 칸에 맞는지 아직 안 봄(M15-4)
+  - **바뀜** (2026-11-19, 사용자 요청 '박스 · 쓰레기 크게'): `ItemDefinition.modelScale` — 갈 · 초 · 파 **1.667**(폭 0.5 = 옛 상자, 높이 0.5), D **1**(0.86m 그대로 `임시`), 쓰레기 `CarryConfig.trashModelScale` **2.5**(0.6 × 0.15 × 0.38). `boxHeight` 0.3 → **0.5**로 되돌림 → 팔레트 · 선반 간격이 옛 기준과 다시 맞음
+  - 추가 (2026-11-19): **스택 휘어짐** — `CarryConfig.leanCurve`(층 → 배율, 기본 1 → 2) · `curveLevels` 15 · `tiltAlongCurve`: 층 i 기울기 = 관성 기울기 × (i + 1) × 곡선 → 많이 쌓을수록 곡선으로 더 기울고, 상자가 줄을 따라 기운다(`CarryStack.LateUpdate`). **기즈모** — `CargoGizmos`: `SharedStorage`(노랑, 2층) · `Shelf`(하늘, 2단) · `CashZone`(초록, 1층) 쌓이는 칸을 씬 뷰에 상자 크기 박스로(첫 칸은 채움). **걷기 먼지** — `Art/VFX/Dust/VFX_WalkDust`를 플레이어(씬) · `StaffWorker` 프리팹 발밑에
+  - 테스트: 14개 들고 이동 → 위로 갈수록 크게 휨 · 먼지 자국, 에러 0(스크린샷). 기즈모는 씬 뷰에서 사람 눈 확인 아직
+  - **추가** (2026-11-19 2차, 사용자 요청): D도 `modelScale` 1.667(1.43 × 1.43 × 1.67m). **돈 다발** `CashBundle` 자식 ×1.3(0.65 × 0.18 × 0.36) + `CargoGridLayout.rowSpacing`(세로 줄 간격 따로) → 현금 존 0.66 · 0.37 · 층 0.185로 빈틈없이. **상차 트럭 조건**(GDD 8.1 바뀜): `OrderService.CreateForTruck` = 합계를 한 번 뽑아 두고 선반 여유(`Warehouse.GetShelfCount` + 상차로 들고 가는 수 − 남은 주문)로 채울 수 있을 때만, 옛 '갈색 기본' · `CanRequest` 삭제. **지게차 버그**: 랙이 비어 '바로 상차'로 4개를 꺼내 와 3개를 랙에 넣으면 예외가 꺼져 1개를 못 내려놓고 멈춤 → `TruckLoadZone.CanLoadDirect` = 예외 또는 랙 빈자리 0. **배경 장식**: `Module_BgGrass`에 `tree_L` · `tree_s` ×2 · `tulip` ×3, `Module_BgRoad`에 `street_lamp`, 잔디 칸마다 회전 다르게(SiteLayout 배경 표). **충돌체**: 모듈 주요 오브젝트 20개에 렌더러 크기 BoxCollider(사무실 책상 2 · 저금통 · 소파 · 탁자 · 화분 2 · 정수기 · 선반 2 · 휴지통, 반품 롤테이너 · 작업대, 쓰레기통, 하차 · 상차 손수레들) → 플레이어(CharacterController)가 막히고 네비메시에서 빠져 알바가 돌아감. 알바끼리는 그대로 충돌 없음(`NoObstacleAvoidance`), 지게차도 같은 알바 프리팹(반지름 0.3)
+  - 테스트: 시작 직후 선반 0 → 상차 트럭 0, B 선반 3개가 되자 `B3` 주문 트럭, D 랙 가득 + 지게차가 트럭 D 1개 든 채 → D 주문 도착 후 바로 실음(D6 → D5), 알바 4명 4배속 한 파트 경로 경고 0 · 에러 0, 돈 다발 · 배경 스크린샷. 플레이어가 사무실 책상 · 작업대에 막히는지 · 존에 닿는지는 사람 손 테스트 아직
+  - **추가** (2026-11-19 3차, 사용자 요청): **금** — `Cargo/Gold` ×1.6, `GoldenTruckConfig.pileLayout` 1.15 · 층 0.24 · 줄 0.47, `TruckPickupZone`은 쏟는 중 · 마지막 착지 전엔 흡수 안 함(GDD 6.4). **D 랙 1줄** — `PalletRack` 1 × 1 · 층 1.45(D 상자 높이). **트럭 글자 가림 무시** — `M_TruckLabelOverlay`(TMP `Distance Field Overlay`, 큐 4000)를 하차 `CountLabel` · 상차 `OrderLabel`에. **벽 반투명** — `SiteWalls`: 카메라 → 플레이어 발 · 머리 선이 조각(둘레 +0.7m)을 지나면 `M_PropFade`(URP Lit 투명, 알파 0.3)로 바꿈, 0.1초마다. **해금 발판 연출** — `PurchasePad`: 돈이 들어갈 때마다(0.07초) `UnlockBox` 통통 + 몸에서 `CashBundle`이 포물선으로 박스에 빨려 들어감. **배경 배치 에디터** — `APC > Art > Background Layout`(격자 창: 팔레트 · 왼클릭 놓기/돌리기 · 오른클릭 지우기 · 부지 바깥 칸 수 · 씬 미리보기 DontSave), `BackgroundPlacement` 행 · 열 음수 허용. **패킹 애니** — `Character.controller`에 `packing`(루프), `CharacterAnimator`: 재포장 테이블에서 게이지를 채우는 중이면 packing
+  - 테스트: 황금 트럭 금 10개 다 쌓인 뒤에도 저금통 0 → 플레이어가 가니 흡수, D 4개 1줄 탑, 벽 조각 반투명(스크린샷), 발판 결제 중 돈 다발 1개 비행 · 박스 게이지, 반품 알바 Working 중 `packing`, 배경 에디터 미리보기 30칸 · 창 닫으면 지움 · 씬 안 더럽힘, 에러 0. 배경 에디터 클릭 조작 · 트럭 글자가 다른 UI 위로 겹치는지는 사람 손 테스트 아직
+  - **바뀜** (2026-11-19 4차, 사용자 요청): 벽 반투명 **페이드**(알파 보간, 흐려짐 0.2초 · 돌아옴 0.35초) + 새 설정 `WallFadeConfig`(`Assets/Data`, `GameDatabase.wallFade` — 켜기 · 알파 · 시간 · 가로/세로 여유 · 확인 높이 · 가까이 무시 · 간격), 하차 · 상차 모듈 `Parking`에 `WallFadeTarget` → 주차장 지붕 · 기둥도 반투명. 배경 에디터 팔레트 = 상자 안 세로 스크롤 목록(높이 조절). 마카롱 코스튬 2 추가(`worker_macaron2`, 텍스처만 다름)
+  - 테스트: 벽 뒤 → 4조각 반투명, 페이드 시간 5초로 늘려 중간 알파 0.67 확인 후 되돌림, 하차 트럭 앞에서 주차장 반투명(스크린샷), 배경 에디터 창 열기 에러 0. 팔레트 스크롤 조작은 사람 손 테스트 아직
+- [x] **M15-3 하차 · 황금 · 상차 트럭 모델** — 하차 트럭 = 회사 색 × 단계 크기(`*_Small/Middle/Big_Truck_Open`, 보라 Small · Middle은 `_Open` 없음), 황금 = `Gold_*`(단계 크기, `GoldenTruckConfig` 칠하기는 끔 · 빛 · 반짝임 유지), 상차 = `White_Big_Truck_Open`. 크기마다 뒷면 · 화물 나오는 위치 · 주차 칸 · 대기 줄 간격 확인
+  - **진행** (2026-11-18, M16-4와 함께 사용자 요청): **하차 · 황금 트럭은 완료** — `CompanyDefinition.truckModels`(갈 · 초 · 파 · 보라 × Small · Middle · Big), `InboundTruck.SetModel`(0.85배 · 뒷면 z −2.2 맞춤 · M_Prop), 황금 = `goldModels` · 칠하기 끔. 테스트: 5색 × 3단계 나란히 스크린샷(색 · 크기 맞음, 뒷면 전부 −2.2), 하차 칸 주차 확인. **남은 것: 상차 트럭 `White_Big_Truck_Open`**, 대형 트럭 대기 줄 간격(7m) 사람 손 확인
+- [x] **M15-4 색별 선반 · D 랙 · 팔레트** — `Brown/Green/Blue_Shelf`(품목 색으로 고름, 지금 2개 등 맞대기 크기), D 랙 `Purple_Shelf` + `Purple_Plastic_Pallet`(지게차 포크도), 반품 팔레트 · 재포장 상자 팔레트 `Blue_Plastic_Pallet`
+- [x] **M15-5 재포장 테이블** — `Return_Inspection_Table` + `Tape_Stand` · `Tape_Cutter` · `Lap_Stand`, 재포장 중 상자 = 색별 `*_Open_Box`(18장 47), 입력 · 출력 · 작업 지점 위치를 테이블에 맞춤
+  - **진행** (2026-11-19, 사용자 요청): `Module_Returns` `RepackTableArea/TableModel` = `Return_Inspection_Table`(3.68 × 1.68 × 0.85, M_Prop, y 180° — 높은 판이 작업자 반대편), 옛 `RepackDesk`는 렌더러만 끔. `RepackTable`: 게이지가 차 있는 동안 `WorkPoint`에 다음 찌그러진 상자 색 **열린 상자**(`Item.OpenModel`, 나타날 때 튐), 채우는 동안 **작업 먼지**(`VFX_WorkDust`, `GaugeZone.IsTicking`). 테스트: 파랑 열린 상자 + 먼지 구름(스크린샷), 쓰레기 더미 테이블 끝. **남은 것**: `Tape_Stand` · `Tape_Cutter` · `Lap_Stand`, 입력 · 쓰레기 더미 높이(1.3)가 테이블 윗면과 맞는지, `StandardModules.BuildReturns`는 안 고침(Build Site 금지)
+- [x] **M15-6 사무실 · 표지판** — 책상 위 `Printer` · `Scaner` · `Small_Clip_Board`, 보관 구역 표지판 `sign_brown/green/blue`(D · 반품 · 쓰레기장 · `sign_yellow`는 18장 47)
+  - M15-3 ~ 5: 사용자가 테스트 · 수정 완료 (2026-11-19, 세부는 사용자 커밋)
+  - 확정 (2026-11-19, GDD 15.1): A~D 표지판 = 갈 · 초 · 파 · **보라(`sign_purple` 새로 받음)**, 보관 모듈 로컬 (-4, 1.5), 반품 · 쓰레기장 표지판 없음(`sign_yellow` 안 씀). B책상에 프린터 · 스캐너, A책상에 작은 클립보드
+  - 완료 (2026-11-19): `Module_ShelfArea_A~D/Content/Sign`(y −45° — 앞면이 카메라 쪽, M_Prop, 충돌체 없음), `Module_Office` `ComputerDesk/Printer`(-0.58, 0.73, 1.65) · `Scaner`(0.35, 0.73, 1.42) · `ClipboardDesk/SmallClipBoard`(-0.72, 0.72, 1.45). B책상 장식은 B책상과 함께 Lv.3 전 숨김(ContractPC가 자식 전부 끔)
+  - 테스트: 갈색 표지판 앞면 · 위치, A책상 작은 클립보드 스크린샷, 에러 0. 프린터 · 스캐너 위치 · 방향은 사람 손 확인 아직
+- [x] **M15-7 배경 · 벽 · 출입구** — 칠하기 팔레트에 새 바닥(`floor_green1~4` · `floor_grass` · `floor_daisy` · `floor_basic5~7` · `floor_road7` · `floor_crosswalk1~3`), 배경 모듈에 `tree_L/s/plam` · `tulip` · `street_lamp` · `vending_machine`, 벽 `wall_outside/inside` · `window_*` · `pillar_inside` · `blind` · `exit_seal`, 주차장 셔터 `truck_parking*`. 초안 배치 → 스크린샷 → 사용자가 손으로 조정
+  - **진행** (2026-11-19): 한 것 = 나무 · 튤립 · 가로등(배경 잔디 · 도로), 배경 배치 에디터, **자판기**(`Module_Office/Content/Decor/VendingMachine` (-4.55, 0, 2.9) 방 안쪽, 충돌판), **사무실 창문**(`SiteWalls.windowPrefab` = `window_outside`, 사무실 칸 바깥 벽 한 변마다 2개 — 조각 2~3 · 6~7 자리). 테스트: 사무실 두 벽 창문 · 자판기 스크린샷, 에러 0. **남은 것**: 새 바닥 타일 칠하기(사용자), `wall_outside/inside` · `pillar_inside` · `blind` · `exit_seal`, 주차장 셔터 `truck_parking*`
+  - 완료 (2026-11-19): 남은 것은 사용자가 채워 넣음 (바닥 타일 · 벽 · 기둥 · 블라인드 · 출구 · 셔터)
+  - 추가 (2026-11-19): `origin/shader-develop`(c9fde04에서 갈라짐)에서 **툰 · 외곽선 · 알바 탭 흰 외곽선만** 파일로 가져옴(`Shaders/Toon` · `Shaders/Outline` · `Scripts/Visuals` · `M_Toon` · `Outline/M_Outline*` · `OutlineValidator`), 씬 Player에 `CharacterToon`, `StaffWorker`에 `CharacterToon` · `ObserveOutline`. 벽 컷아웃 · 테스트 씬 · uniformT 재질 변경은 안 가져옴(사용자 결정 — 벽은 반투명 페이드 유지). 테스트: 플레이어 · 알바 툰 + 외곽선 스크린샷, 에러 0. 브랜치는 머지하지 않음(파일 체크아웃)
+  - 테스트 결과: 아직
+
+---
+
+## M16. 기획 타임라인 반영 · 프로토타입 빌드 (2026-11-18)
+
+> 기준: `Document/타임라인.xmind`(기획자 작성, 미션 진행). 표 · 수치를 아직 못 받아 **레벨 제도는 유지**하고 타임라인에서 4가지만 가져온다 (GDD 1.3). 나머지(휴게실 · 하차 5 · 상차 4 · 센터 확장 · 반품 · 지게차 2단계 · 지역 2 · 미션 진행)는 GDD 17 백로그. 순서: M16-1 → 6, M15(모델)와 섞어도 됨, 마지막에 M16-7.
+
+- [x] **M16-1 레벨표 다시 짜기** — 해금 레벨: 상차 2 Lv.4 → 3, D보관 Lv.5 → 4, A보관 2 · 상차 3 → Lv.5, 반품 2 → Lv.6. 최대 알바 2 · 3 · 4 · 5 · 6 · 7 · 8, 색 트럭 합류 (초 Lv.2 · 파 Lv.3 · 보라 Lv.4 D보관 뒤), 구루마 Lv.3 · 롤테이너 Lv.5 · 이동 속도 Lv.2 · 3 · 5, 지게차 알바 Lv.4 (`SiteLayout` · `LevelTable` · `PlayerConfig`) (GDD 4.2 · 10.3)
+  - 확정 (2026-11-18, GDD 10.1 · 10.3 · 18장 27 · 38): 필요 XP **3 · 6 · 9 · 6 · 9**, Lv.6~ 9 `임시`. XP = 트럭 단계 +3, **선반 단계는 XP 없음**
+  - 완료 (2026-11-18): 데이터만 — `SiteLayout`(StoreD 4 · Out2 3 · StoreA2 5 · Out3 5 · Ret2 6), `LevelTable`(3/2 · 6/3 · 9/4 · 6/5 · 9/6 · 9/7 · 9/8, 해금 메모), `PlayerConfig`(구루마 Lv.3 · 롤테이너 Lv.5, 이동 속도 → '스테미너 1~3' Lv.2 · 3 · 5), `Company_D` 합류 Lv.4. 코드 기본값 · 에셋 둘 다. 트럭 2단계는 이미 Lv.4(`truckStage2Level`), 컴퓨터 책상 Lv.2는 M16-2에서
+  - 테스트: Lv.3 → 발판 상차 2 · C보관 추가, 최대 알바 4 · 필요 XP 9 / Lv.4 → 보라 합류 · 알바 5, D보관 발판은 C보관을 지은 뒤 나옴(인접 규칙), 에러 0. 레벨업 배너 문구는 사람 손 테스트 아직
+- [x] **M16-2 책상 A · B** — A책상(사무실과 함께) = 클립보드 `고용 | 배치` + 컴퓨터 **스테미너**(이동 속도). B책상(**Lv.3** 팝 연출로 올라옴) = 설비(구루마 · 롤테이너) · 선반 단계 · 트럭 단계 · `모듈`(재배치). 옛 컴퓨터 책상 `업그레이드 | 모듈`(Lv.2) 정리 (GDD 4.3 · 4.4 · 5.1)
+  - **바뀜 · 확정** (2026-11-18, 기획자 답 — '스테미너'는 '스탯'을 잘못 쓴 것, GDD 4.3 · 5.1): A책상 = 지금 클립보드 책상 + 모니터(`Office_Computer`) 추가, 메뉴 하나 **`고용 | 배치 | 스탯`**(스탯 = 적재 도구 손 → 구루마 → 롤테이너 · 이동 속도, 옛 업그레이드 탭 내용). B책상 = 지금 컴퓨터 책상, Lv.3 전 숨김 → 팝, 메뉴 **`설비 | 트럭 | 모듈`**(설비 = 선반 단계 M16-3, 트럭 = M16-4 — 이번엔 탭 자리만). M16-1에서 바꾼 업그레이드 이름 '스테미너 1~3'은 '이동 속도 1~3'으로 되돌린다
+  - 완료 (2026-11-18): `ContractPC.deskB`(옛 `computerDesk`, `FormerlySerializedAs`) — B는 Lv.3 전 자식 숨김 · 레벨 되면 `FacilityPop`, `screen` 필드 삭제. `ContractPopup.Open(deskB)` 탭 3개씩 · `facilityTab` · `truckTab` · 페이지(준비 중 글자). 씬 팝업에 MCP로 설비 · 트럭 탭 · 페이지 추가, 업그레이드 탭 글자 → '스탯'. `Module_Office` B책상 `unlockLevel` 3, A책상에 모니터 `Computer` 복제. `PlayerConfig` 이름 '이동 속도 1~3'으로 되돌림. `TutorialGuide` 참조 이름 바꿈. Build Site 빌더는 안 고침(덮어쓰기 금지)
+  - 테스트: Lv.1 B책상 모델 0/5 숨김, A 팝업 `고용 | 배치 | 스탯`, Lv.3 B책상 5/5 보임 · 팝업 `설비 | 트럭 | 모듈`(설비 페이지 '준비 중'), 스크린샷, 에러 0. 팝 연출 · A책상 모니터 위치는 사람 손 테스트 아직
+- [x] **M16-3 선반 단계 2 → 3 → 4층** — 선반 6 → 9 → 12(층당 3), 팔레트 랙 4 → 6 → 8(층당 2), 세로로 한 층씩 모양 바뀜. B책상에서 **보관 모듈 단위**(선반 4개 한꺼번에), 지은 모듈은 바로 2단계 · 사면 3단계, 비용 150 / 300 `임시`. 반품 구역은 안 올림 (GDD 7.3 · 9.4)
+  - **바뀜 · 확정** (2026-11-18 저녁, GDD 7.3): **모델 · 모양은 바뀌지 않는다** — 용량만 6 → 9 → 12(지금 선반 2단 × 6칸 = 12칸에 그대로), 팔레트 랙 4 → 6 → 8. B책상 `설비` 탭에서 지은 보관 모듈마다 한 줄
+  - 완료 (2026-11-18): `Warehouse` 모듈별 단계 · `RaiseShelfStage` · `StageCapacity`(기본 × 1 / 1.5 / 2), `Shelf.BaseCapacity` · `SetCapacity`, 새 `FacilityPanel`(줄 복제), `EconomyConfig.shelfStageCosts` 150 · 300(옛 안 쓰던 `shelfCapacityUpgradeCosts` 대체). 씬 `FacilityPage`에 MCP로 붙임. 구매 연출은 `FacilityPop` 대신 살짝 튀기(크기 0이 되면 그때 들어온 상자가 크기 0으로 붙는 문제를 테스트에서 찾음)
+  - 테스트: Lv.3 · A~D 해금 → 설비 탭 4줄(`1단계 6개 → 2단계 9개 ₩150`, 보라 4 → 6), 갈색 2번 → 12 · `최대`, 보라 2번 → 8, 돈 1050 → 150, XP 그대로, 갈색 선반에 12개 2단으로 들어감(스크린샷), 에러 0. 사람 손 테스트 아직
+- [x] **M16-4 트럭 3단계** — 하차 트럭 10 → 15 → 20, B책상에서 산다(2단계 Lv.4 · 3단계 Lv.5, 400 / 800 `임시`), 새로 도착하는 트럭부터, 보라 4 그대로. 지금 '레벨이 되면 저절로 2단계'(M13-14)를 구매로 바꿈. 트럭 크기 모델은 M15-3 (GDD 7.1)
+  - 확정 (2026-11-18): ~~이번엔 상자 수만~~ → **바뀜**: 테스트 뒤 사용자 요청으로 색 · 단계별 트럭 모델도 함께 (M15-3 하차 · 황금 부분). 황금 트럭도 같은 단계 상자 수. B책상 `트럭` 탭 한 줄(`N단계 N개 → 다음` · `₩400` / `Lv.N 해금` / `최대`), XP +3
+  - 완료 (2026-11-18): `PlayerUpgrades`에 `Truck` 종류 · `TruckStep` 추가(같은 구매 · XP 규칙), `PlayerConfig.truckSteps`(2단계 Lv.4 ₩400 · 3단계 Lv.5 ₩800), `CompanyDefinition.inboundTruckCapacityStage3`(20, 보라 4) · `GetInboundCapacity(step)`, `StockBalancer`가 산 단계로 고름. `LogisticsConfig.truckStage2Level` 삭제. `UpgradePanel.truckPage` — 씬 `TruckPage` = 스탯 페이지 복제(한 줄). 트럭 모양은 그대로
+  - 테스트: Lv.3 `1단계 10개 → 2단계 15개 · Lv.4 해금`(못 삼), Lv.4 구매 → XP +3 · 다음 트럭 15, Lv.5 구매 → 갈 20 · 보라 4 · `최대`, 돈 2050 → 850, A책상 스탯 탭 그대로, 에러 0. 사람 손 테스트 아직 (20개 트럭과 하차 칸 공간 10의 흐름)
+- [x] **M16-5 빈 땅에서 건물 세우기 시작** — 도로변 · 입구에서 시작, 발판으로 건물(13칸) → 하차 1 → A보관 → 상차 1 차례로(시작 지갑 50 = 20 · 10 · 10 · 10 `임시`) → 트럭 시작 → 사무실 발판(100 `임시`). **사무실 전**: 주운 돈은 바로 지갑 · 파트 시계 멈춤 · 저금통 없음 (GDD 9.6 · 4.2)
+  - 확정 (2026-11-18, GDD 9.6): 빈 땅 = 13칸 바닥 + 둘레 공사 울타리(`ConstructionFence`), 입구 = 사무실 (2,1) 바깥 도로 쪽, 플레이어는 입구 앞 도로변. 건물 연출 = 울타리 사라짐 + 플레이어 칸부터 거리 순 팝(~1초). 시작 순서 동안은 그 발판 하나만, **사무실 뒤부터** 레벨 건설 타일(B보관 …). 디버그 **[시작 건너뛰기]**
+  - 완료 (2026-11-18): 새 `StartSequence`(SiteGrid 오브젝트, 실행 순서 −950) — 씬의 시작 모듈을 `SiteGrid.Park`로 꺼 두고 Unlock 때 그것을 켬(씬 수정 · 쓰레기장 180° 유지), 13칸에 빈 공간 타일 자리표시(부지 땅이 y 0보다 낮아 바닥 충돌체 필요) + 입구 칸 보이지 않는 바닥, 걷기 = 13칸 + 입구 칸(`SetExtraWalkable`). 발판 = `ExpansionPad`(`RewardXp` false · `Purchased`), 비용 `EconomyConfig.startBuildCosts` 20 · 10 · 10 · 10 · 100. `Wallet.DirectToCash`, `PartService.BeginFirstPart`, `InboundQueue`는 `TrucksOpen`, `SiteUnlocker` · `TutorialGuide`는 `OfficeBuilt` 기다림. 디버그 `Skip start`
+  - 테스트: 시작 = 도로변 · 울타리 입구 트임 · 건물 발판 20, 건물 → 칸 13 · 벽 · XP 0, 하차 · A보관 뒤 트럭 0 → 상차 1 뒤 트럭 도착 · 파트 0, 주운 120 → 지갑(저금통 0), 사무실 → 파트 1 · B보관 발판 · 튜토리얼 시작, `Skip start` = 옛 Lv.1(돈 50 · 원래 자리), 에러 0. 사람 손 테스트 아직
+- [x] **M16-6 첫 고용 · 튜토리얼 맞춤** — 사무실을 지으면 **하차 알바 1명 무료**(고정 스탯, 옛 보관 알바) + 1명 자유 고용(Lv.1 최대 2). 튜토리얼 단계를 시작 발판 · 사무실 순서에 맞춤 (GDD 13)
+  - 확정 (2026-11-18, GDD 13 단계 표): 무료 하차 알바 = **A책상 고용 탭의 무료 카드**(지금 `OfferFreeCandidate` 보관 → 하차). 튜토리얼은 **처음부터** 14단계(건물 · 하차 · A보관 · 상차 발판 → 상자 → 선반 → 상차 → 돈 → 사무실 → 무료 하차 알바 → **한 명 더 고용**(고용하거나 팝업 닫으면 넘어감) → 정산 → B보관 → Lv.2 반품)
+  - 완료 (2026-11-18): `TutorialGuide`만 — 사무실 기다림 삭제(처음부터 시작), `StartPadStep`(발판 가리킴 · `SiteGrid.IsUnlocked`로 끝, 건물 = `Trash`), 돈 줍기 끝 = 현금 존이 빔(사무실 전 저금통 없음), 무료 카드 `OfferFreeCandidate(Unload)`, 한 명 더 = 알바 2(또는 최대) 또는 팝업 열었다 닫음. 시작 건너뛰기면 앞 단계는 바로 지나감
+  - **알려진 버그** (2026-11-19, 사용자 테스트): 고저차가 있는 모듈 사이 벽에 비비면 칸 밖으로 빠져 탈출 — `CharacterController.Move`가 밀어낸 양은 `ClampToSite`를 안 거치고, 칸 밖이면 막지 않는 규칙 때문. **임시**: 디버그 `Return to site`(가장 가까운 열린 칸 가운데로). 고칠 안: Move 뒤 밖으로 나갔으면 가로 위치 되돌리기 + 밖에선 안쪽으로만
+  - **버그 고침** (2026-11-19, 사용자 테스트): 7단계에서 상차 트럭이 안 옴 — 상차 트럭 조건(선반에 주문 수량만큼)인데 6단계는 1개로 끝남 → `OrderService` 첫 주문만 선반 수만큼(`firstOrderMade`). 테스트: 선반 A 1개 → 첫 주문 `A1` 도착
+  - 테스트: 단계 1~4 발판 따라 진행(강조 · 화살표 · 배너 스크린샷), 돈 120 줍기 → 단계 9 사무실, 후보 1번 `Unload 무료 ₩0`, 무료 고용 → 단계 11, 팝업 열고 닫기 → 단계 12(정산), `Skip start` → 단계 5(상자)로 바로, 에러 0. 상자 · 선반 · 상차 단계는 디버그로 넘김 — 사람 손 테스트 아직
+  - **바뀜** (2026-11-18, 사람 손 테스트): 해금 팝 도중 다음 단계 강조(게임 멈춤)가 시작돼 모듈이 작은 채로 보임 → 강조 전 `spotlightDelay` 1초 `임시`, 건물 단계 끝 = 하차 발판이 나온 뒤(칸 팝이 다 끝남). 해금 발판 겉모습 = 사용자 프리팹 `Prefabs/UnlockBox_`(중첩 프리팹 — 아래서 위로 차는 `Fill` · `Frame` · 돈 아이콘 · `CostText`)로 교체, 옛 바닥판 · 원형 게이지 · 3D 금액 글자 삭제, 터치를 막지 않게 `GraphicRaycaster` 빼고 `raycastTarget` 끔. 테스트: 박스 보임 · 금액 20, 하차 해금 뒤 강조 때 모듈 크기 1, 에러 0
+- [ ] **M16-7 프로토타입 빌드 · 통플레이** — Lv.1(빈 땅) → Lv.5 처음부터 끝까지 사람 손 테스트 · XP · 비용 · 월급 1차 조정(M13-18 포함), Windows 빌드 (TechStack 1절), 빌드에서 에러 · 분홍 재질 확인
   - 테스트 결과: 아직
 
 ---
@@ -628,7 +688,8 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
 | M12 6 × 4 배치 · 재배치 | 2 | 2 |
 | M13 변경사항 2 | 19 | 18 |
 | M14 모델 적용 | 8 | 8 |
-| M15 모델 2차 | 7 | 0 |
-| **합계** | **113** | **98** |
+| M15 모델 2차 | 7 | 7 |
+| M16 타임라인 · 프로토타입 빌드 | 7 | 6 |
+| **합계** | **120** | **111** |
 
 > 2026-11-15: M10 11 → 4 (삭제 3 · M13으로 옮김 4), M11 11 → 6 (M12 · M13이 대신한 5), M13 18 추가.

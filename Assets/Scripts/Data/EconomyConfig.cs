@@ -8,6 +8,8 @@ namespace APC.Data
     {
         [Header("시작")]
         [SerializeField, Min(0), Tooltip("시작 보유 재화 (GDD 9.1)")] int startingCash = 50;
+        [SerializeField, Tooltip("시작 순서 발판 비용 [건물, 하차 1, A보관, 상차 1, 사무실] (GDD 9.6 임시). 앞 넷 합 = 시작 보유 재화")]
+        int[] startBuildCosts = { 20, 10, 10, 10, 100 };
 
         [Header("구매 패드")]
         [SerializeField, Min(0.1f), Tooltip("금액과 관계없이 전액이 들어가는 시간 (초)")] float padFillDuration = 1.5f;
@@ -15,7 +17,7 @@ namespace APC.Data
         [Header("업그레이드 (2순위) — 단계별 비용")]
         [SerializeField] int[] playerCarryUpgradeCosts = { 100, 200, 350 };
         [SerializeField] int[] playerSpeedUpgradeCosts = { 100, 200, 350 };
-        [SerializeField] int[] shelfCapacityUpgradeCosts = { 80, 150, 250, 380, 550 };
+        [SerializeField, Tooltip("선반 단계 2 · 3단계 비용 (보관 모듈 하나, GDD 7.3 · 9.4 임시). 단계 = 이 배열 길이 + 1")] int[] shelfStageCosts = { 150, 300 };
         [SerializeField] int[] storageCapacityUpgradeCosts = { 150, 300 };
 
         [Header("현금 더미 (GDD 7.6)")]
@@ -35,10 +37,13 @@ namespace APC.Data
         [SerializeField, Min(0), Tooltip("모듈 해금 발판 · 업그레이드 1번")] int xpPurchase = 3;
 
         public int StartingCash => startingCash;
+
+        /// <summary>시작 순서 발판 i번째 비용 (0 건물 · 1 하차 1 · 2 A보관 · 3 상차 1 · 4 사무실). 없으면 0.</summary>
+        public int StartBuildCost(int index) => startBuildCosts != null && index < startBuildCosts.Length ? startBuildCosts[index] : 0;
         public float PadFillDuration => padFillDuration;
         public int[] PlayerCarryUpgradeCosts => playerCarryUpgradeCosts;
         public int[] PlayerSpeedUpgradeCosts => playerSpeedUpgradeCosts;
-        public int[] ShelfCapacityUpgradeCosts => shelfCapacityUpgradeCosts;
+        public int[] ShelfStageCosts => shelfStageCosts;
         public int[] StorageCapacityUpgradeCosts => storageCapacityUpgradeCosts;
         public int CashPerBundle => cashPerBundle;
         public int CashMaxVisibleBundles => cashMaxVisibleBundles;

@@ -11,14 +11,18 @@ namespace APC.Logistics
         [Min(1)] public int rows;
         [Min(0.1f), Tooltip("상자 간격 (m)")] public float spacing;
         [Min(0.05f), Tooltip("층 높이 (m)")] public float layerHeight;
+        [Min(0f), Tooltip("세로(z) 줄 간격 (m). 0이면 spacing과 같음 — 길쭉한 물건(지폐 다발)을 빈틈없이 (2026-11-19)")] public float rowSpacing;
 
-        public CargoGridLayout(int columns, int rows, float spacing, float layerHeight)
+        public CargoGridLayout(int columns, int rows, float spacing, float layerHeight, float rowSpacing = 0f)
         {
             this.columns = columns;
             this.rows = rows;
             this.spacing = spacing;
             this.layerHeight = layerHeight;
+            this.rowSpacing = rowSpacing;
         }
+
+        public float RowSpacing => rowSpacing > 0f ? rowSpacing : spacing;
 
         public Vector3 GetLocalPosition(int index)
         {
@@ -31,7 +35,7 @@ namespace APC.Logistics
             return new Vector3(
                 (col - (cols - 1) * 0.5f) * spacing,
                 layer * layerHeight,
-                (row - (Mathf.Max(1, rows) - 1) * 0.5f) * spacing);
+                (row - (Mathf.Max(1, rows) - 1) * 0.5f) * RowSpacing);
         }
     }
 }

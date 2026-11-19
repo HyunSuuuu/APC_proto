@@ -97,6 +97,7 @@ namespace APC.Logistics
                 count.Value = items.Count;
                 cargo.transform.DOKill();
                 cargo.Visual.localPosition = Vector3.zero;
+                cargo.Visual.localRotation = Quaternion.identity; // 휘어짐 기울기 되돌림
                 Reflow(i);
                 Bounce();
                 return cargo;
@@ -120,10 +121,20 @@ namespace APC.Logistics
             leanVelocity *= Mathf.Exp(-config.SpringDamping * deltaTime);
             lean += leanVelocity * deltaTime;
 
+            // 휘어짐: 층마다 기울기 합 = lean × LeanFactor(i) (곡선 — 위로 갈수록 더 크게), 상자는 아래 상자에서 이어진 방향으로 기운다
+            var previous = 0f;
             for (var i = 0; i < items.Count; i++)
             {
                 var cargo = items[i];
-                cargo.Visual.position = cargo.transform.position + lean * (i + 1);
+                var factor = config.LeanFactor(i);
+                cargo.Visual.position = cargo.transform.position + lean * factor;
+                if (config.TiltAlongCurve)
+                {
+                    var height = Mathf.Max(0.05f, cargo.HeightScale * config.BoxHeight);
+                    var up = anchor.up * height + lean * (factor - previous);
+                    cargo.Visual.rotation = Quaternion.FromToRotation(anchor.up, up) * cargo.transform.rotation;
+                }
+                previous = factor;
             }
         }
 

@@ -93,9 +93,15 @@ namespace APC.Economy
             ContractService.Instance.OnContracted
                 .Subscribe(_ =>
                 {
-                    if (part.Value == 0) BeginPart(1);
+                    if (part.Value == 0 && Site.StartSequence.OfficeBuilt) BeginPart(1);
                 })
                 .AddTo(this);
+        }
+
+        /// <summary>사무실을 지었을 때 (StartSequence, GDD 9.6): 파트 시계가 멈춰 있었으면 1파트를 시작한다.</summary>
+        public void BeginFirstPart()
+        {
+            if (part.Value == 0 && ContractService.Instance != null && ContractService.Instance.HasAnyContract) BeginPart(1);
         }
 
         void OnDestroy()

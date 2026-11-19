@@ -32,6 +32,9 @@ namespace APC.Site
         SiteGrid grid;
         SiteLayout layout;
 
+        public ConstructionFence FencePrefab => fencePrefab;
+        public ExpansionPad PadPrefab => padPrefab;
+
         void Start()
         {
             grid = GetComponent<SiteGrid>();
@@ -44,6 +47,7 @@ namespace APC.Site
 
         public void Refresh()
         {
+            if (!StartSequence.OfficeBuilt) return; // 시작 순서 동안엔 그 순서의 발판만 (GDD 9.6)
             var level = GameManager.Instance.Level.Level.CurrentValue;
             var open = new List<SiteLayout.ModulePlacement>();
             var nextLevel = int.MaxValue;

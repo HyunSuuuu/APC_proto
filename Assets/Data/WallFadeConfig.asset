@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 218b69410c81ca34f9a55a01d8abe457, type: 3}
+  m_Name: WallFadeConfig
+  m_EditorClassIdentifier: Assembly-CSharp::APC.Data.WallFadeConfig
+  enabled: 1
+  fadeMaterial: {fileID: 2100000, guid: 136f976d2081d864286c067644dd6696, type: 2}
+  fadedAlpha: 0.3
+  fadeOutDuration: 0.2
+  fadeInDuration: 0.35
+  horizontalMargin: 1.3
+  verticalMargin: 0
+  checkHeights:
+  - 0.3
+  - 1.6
+  ignoreNear: 0.3
+  checkInterval: 0.1

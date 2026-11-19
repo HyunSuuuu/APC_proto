@@ -19,7 +19,7 @@ namespace APC.Logistics
     {
         [SerializeField] Transform pileRoot;
         [SerializeField, Tooltip("지폐 다발 1개 (외형만)")] Transform bundlePrefab;
-        [SerializeField] CargoGridLayout layout = new(4, 5, 0.55f, 0.16f);
+        [SerializeField, Tooltip("다발 0.65 × 0.18 × 0.36 (×1.3, 2026-11-19)에 맞춰 빈틈없이")] CargoGridLayout layout = new(4, 5, 0.66f, 0.185f, 0.37f);
         [SerializeField, Tooltip("다발이 최대 수를 넘으면 쌓인 총액을 보여 주는 글자 (없어도 됨)")] TMP_Text overflowLabel;
 
         readonly List<Transform> bundles = new();
@@ -36,7 +36,6 @@ namespace APC.Logistics
             economy = GameManager.Instance.Database.Economy;
             RefreshOverflow();
         }
-
         /// <summary>출고 현금을 쌓는다. 보이는 다발 = min(최대 수, 올림(금액 ÷ 다발 금액)).</summary>
         public void AddCash(int value)
         {
@@ -159,6 +158,9 @@ namespace APC.Logistics
 
         void OnDrawGizmos()
         {
+            // 지폐 다발이 쌓이는 자리 (첫 층)
+            CargoGizmos.DrawSlots(pileRoot != null ? pileRoot : transform, layout.GetLocalPosition, layout.columns * layout.rows, new Color(0.4f, 1f, 0.4f),
+                new Vector3(layout.spacing, layout.layerHeight, layout.RowSpacing));
             if (!Application.isPlaying || economy == null) return;
             Gizmos.color = new Color(0.3f, 0.9f, 0.4f, 0.6f);
             Gizmos.DrawWireSphere(transform.position, economy.CashPickupRadius);

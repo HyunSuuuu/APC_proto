@@ -13,6 +13,13 @@ namespace APC.Logistics
         [SerializeField, Tooltip("화물이 튀어나오는 위치 (픽업 존 쪽 옆면)")] Transform cargoExit;
         [SerializeField] TMP_Text countLabel;
 
+        [Header("모델 (색 × 트럭 단계, M16-4)")]
+        [SerializeField, Tooltip("모델을 갈아 끼울 부모 (자식 모델은 Load 때 바뀜)")] Transform modelRoot;
+        [SerializeField, Tooltip("황금 트럭 모델 [0] Small · [1] Middle · [2] Big. 있으면 금색 칠하기 대신 이 모델")] GameObject[] goldModels = new GameObject[3];
+        [SerializeField, Tooltip("갈아 끼운 모델에 입힐 재질 (M_Prop)")] Material modelMaterial;
+        [SerializeField, Min(0.1f)] float modelScale = 0.85f;
+        [SerializeField, Tooltip("모델 뒷면(짐칸 문)이 놓일 로컬 z — 주차 · 상자 나오는 위치 기준")] float backZ = -2.2f;
+
         readonly List<ItemDefinition> load = new();
         readonly ReactiveProperty<int> remaining = new(0);
 
@@ -57,10 +64,15 @@ namespace APC.Logistics
             Golden = true;
             var config = Core.GameManager.Instance.Database.GoldenTruck;
             goldenBlock = new MaterialPropertyBlock();
-            foreach (var r in GetComponentsInChildren<Renderer>())
+            var goldModel = goldModels != null && truckStep < goldModels.Length ? goldModels[truckStep] : null;
+            if (goldModel != null) SetModel(goldModel); // 금 모델이면 칠하지 않는다 (빛 · 반짝임만)
+            else
             {
-                if (r is ParticleSystemRenderer || r.GetComponent<TMP_Text>() != null) continue;
-                goldenRenderers.Add(r);
+                foreach (var r in GetComponentsInChildren<Renderer>())
+                {
+                    if (r is ParticleSystemRenderer || r.GetComponent<TMP_Text>() != null) continue;
+                    goldenRenderers.Add(r);
+                }
             }
             if (config.UseLight)
             {
@@ -131,12 +143,47 @@ namespace APC.Logistics
             ps.Play();
         }
 
+        int truckStep;
+
         public void Load(CompanyDefinition company, IEnumerable<ItemDefinition> items)
         {
             Company = company;
             load.Clear();
             load.AddRange(items);
             remaining.Value = load.Count;
+            truckStep = Core.GameManager.Instance.Upgrades.TruckStep.CurrentValue; // 상자 수와 같은 순간의 단계 (StockBalancer)
+            SetModel(company.GetTruckModel(truckStep));
+        }
+
+        /// <summary>
+        /// 모델을 갈아 끼운다: 크기 `modelScale`, 뒷면(로컬 −z 끝)을 `backZ`에 맞춤 → 모델 길이가 달라도 주차 · 상자 위치는 그대로.
+        /// 트럭이 크기 1일 때(생성 직후) 불러야 한다 — 줄 · 주차 연출로 크기 0이 되기 전.
+        /// </summary>
+        void SetModel(GameObject prefab)
+        {
+            if (prefab == null || modelRoot == null) return;
+            for (var i = modelRoot.childCount - 1; i >= 0; i--) Destroy(modelRoot.GetChild(i).gameObject);
+            var model = Instantiate(prefab, modelRoot);
+            var t = model.transform;
+            t.localRotation = prefab.transform.localRotation;
+            t.localScale = Vector3.one * modelScale;
+            t.localPosition = Vector3.zero;
+            var minZ = float.MaxValue;
+            foreach (var r in model.GetComponentsInChildren<Renderer>())
+            {
+                if (modelMaterial != null)
+                {
+                    var materials = new Material[r.sharedMaterials.Length];
+                    for (var i = 0; i < materials.Length; i++) materials[i] = modelMaterial;
+                    r.sharedMaterials = materials;
+                }
+                var b = r.bounds;
+                foreach (var x in new[] { b.min.x, b.max.x })
+                foreach (var z in new[] { b.min.z, b.max.z })
+                    minZ = Mathf.Min(minZ, modelRoot.InverseTransformPoint(new Vector3(x, b.center.y, z)).z);
+            }
+            foreach (var c in model.GetComponentsInChildren<Collider>()) Destroy(c);
+            t.localPosition = new Vector3(0f, 0f, backZ - minZ);
         }
 
         /// <summary>화물 1개를 꺼내 옆면에 만든다. 받는 쪽(운반 스택)이 날려 보낸다.</summary>

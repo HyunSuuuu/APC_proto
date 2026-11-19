@@ -1,7 +1,27 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git reset *)"
+      "Bash(git reset *)",
+      "PowerShell(git commit -q -F \"C:\\\\Users\\\\kim00\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\a1d1bf77f6b9cd96\\\\0f597e4b-ca69-428b-8b0d-2697bacb98b0\\\\scratchpad\\\\msg.txt\")",
+      "PowerShell(git add Assets/Art Assets/Document Assets/Prefabs Assets/Scenes Assets/Scripts)",
+      "PowerShell(git checkout -- \"Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset\")",
+      "PowerShell(git checkout -- \"Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset\" 2>$null)",
+      "PowerShell(git add Assets/Document Assets/Prefabs Assets/Scenes Assets/Scripts Assets/Settings Assets/FolderColor/Editor/FolderColor.asmdef ProjectSettings)",
+      "mcp__unityMCP__execute_code",
+      "mcp__unityMCP__refresh_unity",
+      "mcp__unityMCP__read_console",
+      "mcp__unityMCP__manage_editor",
+      "mcp__unityMCP__manage_camera",
+      "PowerShell(git add -A Assets/Art Assets/Data Assets/Document Assets/Prefabs Assets/Scenes Assets/Scripts)",
+      "PowerShell(git add Assets/Document Assets/Scenes Assets/Scripts Assets/Art/Materials/M_TruckWaitSlot.mat Assets/Art/Materials/M_TruckWaitSlot.mat.meta)",
+      "PowerShell(git add Packages/manifest.json Packages/packages-lock.json Assets/Document/TechStack.md)",
+      "PowerShell($dst = \"C:\\\\Users\\\\kim00\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\a1d1bf77f6b9cd96\\\\0f597e4b-ca69-428b-8b0d-2697bacb98b0\\\\scratchpad\\\\xmind\"; Remove-Item -Recurse -Force $dst -ErrorAction SilentlyContinue; Copy-Item \"Assets/Document/타임라인.xmind\" \"$dst.zip\" -Force; Expand-Archive \"$dst.zip\" -DestinationPath $dst -Force; Get-ChildItem -Recurse $dst | Select-Object FullName, Length)",
+      "PowerShell(& \"C:\\\\Users\\\\kim00\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\a1d1bf77f6b9cd96\\\\0f597e4b-ca69-428b-8b0d-2697bacb98b0\\\\scratchpad\\\\xmind_tree.ps1\" -Path \"C:\\\\Users\\\\kim00\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\a1d1bf77f6b9cd96\\\\0f597e4b-ca69-428b-8b0d-2697bacb98b0\\\\scratchpad\\\\xmind\\\\content.json\"; Get-ChildItem \"C:\\\\Users\\\\kim00\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\a1d1bf77f6b9cd96\\\\0f597e4b-ca69-428b-8b0d-2697bacb98b0\\\\scratchpad\\\\xmind\" | Select-Object Name, Length)",
+      "PowerShell(git add Assets/Data Assets/Document Assets/Scripts)",
+      "PowerShell(git add Assets/Data Assets/Document Assets/Prefabs Assets/Scenes Assets/Scripts)",
+      "PowerShell(git add Assets/Document Assets/Scenes Assets/Scripts Assets/Data)",
+      "PowerShell(Remove-Item -Recurse -Force \"d:\\\\Git\\\\APC_proto\\\\Assets\\\\Screenshots\" -Confirm:$false; Remove-Item -Force \"d:\\\\Git\\\\APC_proto\\\\Assets\\\\Screenshots.meta\" -ErrorAction SilentlyContinue -Confirm:$false; git -C d:\\\\Git\\\\APC_proto status --short)",
+      "PowerShell(Remove-Item -Recurse -Force \"d:\\\\Git\\\\APC_proto\\\\Assets\\\\Screenshots\" -Confirm:$false; Remove-Item -Force \"d:\\\\Git\\\\APC_proto\\\\Assets\\\\Screenshots.meta\" -ErrorAction SilentlyContinue -Confirm:$false)"
     ]
   }
 }

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Company_C
   m_EditorClassIdentifier: Assembly-CSharp::APC.Data.CompanyDefinition
   id: C
-  displayName: "파랑"
+  displayName: "\uD30C\uB791"
   unlockLevel: 3
   weight: 20
   isLarge: 0
@@ -21,5 +21,10 @@ MonoBehaviour:
   - {fileID: 11400000, guid: ee05991652f7dac4e9fdcedf47461252, type: 2}
   inboundTruckCapacity: 10
   inboundTruckCapacityStage2: 15
+  inboundTruckCapacityStage3: 20
+  truckModels:
+  - {fileID: 919132149155446097, guid: ddc16b7bd234c25478cb3e98f807054c, type: 3}
+  - {fileID: 919132149155446097, guid: 99ecbcec4d4b0ff4181f31ed300420e7, type: 3}
+  - {fileID: 919132149155446097, guid: 918f0787380f51a469b36cbb47cf8495, type: 3}
   contractUnitPrice: 14
   shelfAreaId: StoreC

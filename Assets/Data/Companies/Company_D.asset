@@ -13,13 +13,18 @@ MonoBehaviour:
   m_Name: Company_D
   m_EditorClassIdentifier: Assembly-CSharp::APC.Data.CompanyDefinition
   id: D
-  displayName: "주황"
-  unlockLevel: 5
+  displayName: "\uBCF4\uB77C"
+  unlockLevel: 4
   weight: 10
   isLarge: 1
   items:
   - {fileID: 11400000, guid: dead8f60eb668074498a6a352e3a3862, type: 2}
   inboundTruckCapacity: 4
   inboundTruckCapacityStage2: 4
+  inboundTruckCapacityStage3: 4
+  truckModels:
+  - {fileID: 919132149155446097, guid: 09b79120e49748c41a1f42806496c6bb, type: 3}
+  - {fileID: 919132149155446097, guid: ccbef1020b204e3469c1eab564ad0cdb, type: 3}
+  - {fileID: 919132149155446097, guid: 41d8da68a9bc9204b8a722fd84d502aa, type: 3}
   contractUnitPrice: 40
   shelfAreaId: StoreD

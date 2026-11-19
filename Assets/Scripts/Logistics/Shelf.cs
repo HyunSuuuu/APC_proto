@@ -41,10 +41,21 @@ namespace APC.Logistics
 
         void OnDestroy() => count.Dispose();
 
+        /// <summary>1단계 용량 (선반 6 · 팔레트 랙 4). 단계 용량은 Warehouse가 이것으로 계산한다.</summary>
+        public int BaseCapacity { get; private set; }
+
+        /// <summary>선반 단계 (GDD 7.3): 용량만 바뀌고 모양 · 상자는 그대로.</summary>
+        public void SetCapacity(int value)
+        {
+            capacity = value;
+            countLabel.text = $"{count.Value}/{capacity}";
+        }
+
         public void Setup(ItemDefinition item, int shelfCapacity)
         {
             Item = item;
             capacity = shelfCapacity;
+            BaseCapacity = shelfCapacity;
 
             var block = new MaterialPropertyBlock();
             iconRenderer.GetPropertyBlock(block);
@@ -67,6 +78,14 @@ namespace APC.Logistics
             var cargo = pile.RemoveAt(pile.Count - 1);
             count.Value = pile.Count;
             return cargo;
+        }
+
+        // 상자 칸 (1 · 2단, 실행 중엔 용량만큼)
+        void OnDrawGizmos()
+        {
+            var rows = boxRows > 0 ? boxRows : boxesPerSide;
+            var n = Application.isPlaying && capacity > 0 ? capacity : boxesPerSide * rows * 2;
+            CargoGizmos.DrawSlots(boxRoot != null ? boxRoot : transform, SlotPosition, n, new Color(0.3f, 0.8f, 1f), CargoGizmos.BoxSize);
         }
 
         Vector3 SlotPosition(int index)

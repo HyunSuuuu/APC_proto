@@ -74,6 +74,13 @@ namespace APC.Logistics
 
         void Awake() => pile = new CargoPile(pileRoot, layout.GetLocalPosition);
 
+        // 쌓이는 자리 (첫 두 층, 실행 중엔 용량만큼)
+        void OnDrawGizmos()
+        {
+            var n = Application.isPlaying && capacity > 0 ? capacity : layout.columns * layout.rows * 2;
+            CargoGizmos.DrawSlots(pileRoot != null ? pileRoot : transform, layout.GetLocalPosition, n, new Color(1f, 0.8f, 0.2f), CargoGizmos.BoxSize);
+        }
+
         void OnEnable() => Registered.Add(this);
 
         void OnDisable() => Registered.Remove(this);

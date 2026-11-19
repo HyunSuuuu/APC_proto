@@ -10,7 +10,7 @@ namespace APC.Orders
 {
     /// <summary>
     /// 상차 트럭 주문 (GDD 8.1~8.4, 변경사항 2). 주문서 큐 · 생성 간격은 없다: **상차 칸이 비면** 그 칸이 `CreateForTruck`으로 새 주문을 바로 만든다.
-    /// 주문 = 색(회사)별 필요 개수, 합계 3~6 · 색 최대 2. 구역이나 상자가 없는 색은 요구하지 않고, 하나도 없으면 갈색(첫 회사).
+    /// 주문 = 색(회사)별 필요 개수, 합계 3~6 · 색 최대 2. **선반에 주문 수량만큼 있을 때만** 주문(= 트럭)이 생긴다 (2026-11-19).
     /// 다 실으면 Complete로 보상을 받는다. 씬에 하나 둔다 (Site/Logistics).
     /// </summary>
     public sealed class OrderService : MonoBehaviour
@@ -23,6 +23,8 @@ namespace APC.Orders
         readonly List<CompanyDefinition> candidates = new();
 
         int nextNumber = 1;
+        int pendingQuantity; // 다음 주문 수량 (선반이 찰 때까지 그대로, 0 = 아직 안 뽑음)
+        bool firstOrderMade; // 첫 상차 트럭은 선반에 있는 만큼만 (튜토리얼)
 
         /// <summary>출발하지 않은 주문 (상차 칸마다 1건).</summary>
         public IReadOnlyList<Order> Orders => orders;
@@ -50,41 +52,70 @@ namespace APC.Orders
             removed.Dispose();
         }
 
-        /// <summary>빈 상차 칸이 들어올 트럭의 주문 1건을 만든다 (GDD 8.1 · 8.2). 첫 회사가 아직 없으면 null.</summary>
+        /// <summary>
+        /// 빈 상차 칸이 들어올 트럭의 주문 1건을 만든다 (GDD 8.1 · 8.2). **선반에 주문 수량만큼 있을 때만** 만든다 (2026-11-19) —
+        /// 없으면 null(트럭이 아직 안 옴, OutboundBay가 매 프레임 다시 부름). 수량은 한 번 뽑아 두고 주문이 생길 때까지 그대로 (작은 수가 유리해지지 않게).
+        /// 색 = 선반 여유(선반 수 − 다른 주문에 잡힌 수)가 있는 색 중 가중치로, 최대 2색.
+        /// </summary>
         public Order CreateForTruck()
         {
             var contracts = ContractService.Instance;
-            if (contracts == null || !contracts.HasAnyContract) return null;
+            if (contracts == null || !contracts.HasAnyContract || Warehouse.Instance == null) return null;
 
             var rules = GameManager.Instance.Database.Orders;
-            var total = rules.RollQuantity();
+            if (pendingQuantity <= 0) pendingQuantity = rules.RollQuantity();
+            var total = pendingQuantity;
 
             candidates.Clear();
+            var free = new Dictionary<CompanyDefinition, int>();
+            var sum = 0;
             foreach (var company in contracts.Contracted)
             {
-                if (CanRequest(company)) candidates.Add(company);
+                var n = ShelfFree(company.Items[0]);
+                if (n <= 0) continue;
+                candidates.Add(company);
+                free[company] = n;
+                sum += n;
             }
+            // 첫 상차 트럭(튜토리얼 7단계)은 선반에 있는 만큼만 — 6단계가 1개만 올려도 끝나서 트럭이 안 오던 문제 (2026-11-19)
+            if (!firstOrderMade && sum > 0) total = Mathf.Min(total, sum);
+            if (sum < total) return null; // 선반에 아직 모자람
 
             var lines = new List<OrderLine>();
-            if (candidates.Count == 0)
+            var first = StockBalancer.PickByWeight(candidates);
+            candidates.Remove(first);
+            var twoColors = candidates.Count > 0 && total >= 2 && (free[first] < total || Random.value < rules.TwoColorChance);
+            if (!twoColors)
             {
-                lines.Add(new OrderLine(contracts.Contracted[0], total)); // 요구할 색이 없으면 갈색 (2026-11-16)
+                if (free[first] < total) return null; // 한 색으로 모자라고 두 번째 색도 없음
+                lines.Add(new OrderLine(first, total));
             }
             else
             {
-                var first = StockBalancer.PickByWeight(candidates);
-                candidates.Remove(first);
-                if (candidates.Count > 0 && total >= 2 && Random.value < rules.TwoColorChance)
+                // 두 색 다 1개 이상, 각 색 선반 여유 안에서
+                OrderLine split = null;
+                for (var tries = 0; tries < 4 && split == null && candidates.Count > 0; tries++)
                 {
-                    var firstCount = Random.Range(1, total); // 1 ~ total−1, 두 색 다 1개 이상
-                    lines.Add(new OrderLine(first, firstCount));
-                    lines.Add(new OrderLine(StockBalancer.PickByWeight(candidates), total - firstCount));
+                    var second = StockBalancer.PickByWeight(candidates);
+                    var min = Mathf.Max(1, total - free[second]);
+                    var max = Mathf.Min(free[first], total - 1);
+                    if (min <= max)
+                    {
+                        var firstCount = Random.Range(min, max + 1);
+                        lines.Add(new OrderLine(first, firstCount));
+                        split = new OrderLine(second, total - firstCount);
+                    }
+                    else candidates.Remove(second);
                 }
-                else
+                if (split == null)
                 {
+                    if (free[first] < total) return null;
                     lines.Add(new OrderLine(first, total));
                 }
+                else lines.Add(split);
             }
+            pendingQuantity = 0;
+            firstOrderMade = true;
 
             var order = new Order(nextNumber++, lines);
             order.SetState(OrderState.Arriving);
@@ -133,20 +164,14 @@ namespace APC.Orders
         }
 
         /// <summary>
-        /// 요구할 수 있는 색 (GDD 8.1): 그 색 선반(보관 구역)이 있고, 선반 · 하차 칸 · 하차 트럭 · 손 어딘가에 그 색 상자가 있다.
-        /// 대형(D 가구)도 D보관이 있으면 요구한다 (지게차 알바가 없으면 그 트럭은 기다림, 2026-11-18).
+        /// 새 주문에 쓸 수 있는 선반 여유 = 선반(랙 포함)에 있는 수 + 이미 꺼내 상차하러 가는 수 − 출발 안 한 주문들의 남은 수량.
+        /// (옛 규칙 '하차 칸 · 트럭 어딘가에 있으면 요구 · 없으면 갈색'은 2026-11-19 삭제 — 선반에 충분할 때만 트럭이 온다.)
         /// </summary>
-        static bool CanRequest(CompanyDefinition company)
+        int ShelfFree(ItemDefinition item)
         {
-            var item = company.Items[0];
-            var warehouse = Warehouse.Instance;
-            if (warehouse == null || !warehouse.HasShelf(item)) return false;
-            if (warehouse.GetStock(item) > 0 || Warehouse.CountCarried(item, CargoOrigin.Truck) > 0 || Warehouse.CountCarried(item, CargoOrigin.Storage) > 0) return true;
-            foreach (var truck in FindObjectsByType<InboundTruck>(FindObjectsSortMode.None))
-            {
-                if (truck.CountOf(item) > 0) return true;
-            }
-            return false;
+            var committed = 0;
+            foreach (var order in orders) committed += order.GetRemaining(item);
+            return Warehouse.Instance.GetShelfCount(item) + Warehouse.CountCarried(item, CargoOrigin.Shelf) - committed;
         }
     }
 }

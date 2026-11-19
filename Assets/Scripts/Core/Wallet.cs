@@ -32,11 +32,15 @@ namespace APC.Core
             cash.Value += amount;
         }
 
-        /// <summary>주운 현금을 저금통에 넣는다 (현금 존).</summary>
+        /// <summary>true면 주운 돈이 저금통 대신 보유 재화로 바로 간다 (사무실 · 저금통을 짓기 전, GDD 9.6).</summary>
+        public bool DirectToCash { get; set; }
+
+        /// <summary>주운 현금을 저금통에 넣는다 (현금 존). DirectToCash면 보유 재화로.</summary>
         public void AddToPiggy(int amount)
         {
             if (amount < 0) throw new ArgumentOutOfRangeException(nameof(amount));
-            piggy.Value += amount;
+            if (DirectToCash) cash.Value += amount;
+            else piggy.Value += amount;
         }
 
         /// <summary>

@@ -13,7 +13,10 @@ MonoBehaviour:
   m_Name: Item_A
   m_EditorClassIdentifier: Assembly-CSharp::APC.Data.ItemDefinition
   id: A
-  displayName: "A 갈색"
+  displayName: "A \uAC08\uC0C9"
   tapeColor: {r: 0.55, g: 0.36, b: 0.2, a: 1}
   icon: {fileID: 0}
   unitPrice: 10
+  boxModel: {fileID: 919132149155446097, guid: 8c01351cf4ba4584481ad89ca689874a, type: 3}
+  returnModel: {fileID: 919132149155446097, guid: 6ae0fcf429c870e42a4ef56652bd738e, type: 3}
+  openModel: {fileID: 919132149155446097, guid: 436e74176bb557242a2dc3c7cbf5e632, type: 3}

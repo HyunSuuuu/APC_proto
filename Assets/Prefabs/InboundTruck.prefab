@@ -49,6 +49,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::APC.Logistics.InboundTruck
   cargoExit: {fileID: 7088879492084929821}
   countLabel: {fileID: 2741732886602937031}
+  modelRoot: {fileID: 2988362399079186803}
+  goldModels:
+  - {fileID: 919132149155446097, guid: e2099a032acbc8047949fe0deea75940, type: 3}
+  - {fileID: 919132149155446097, guid: 8aaeefc4b94bfa741ab5509477e7c930, type: 3}
+  - {fileID: 919132149155446097, guid: 4d2604032babc004982338922da61f6e, type: 3}
+  modelMaterial: {fileID: 2100000, guid: c5e9eb1737ca8ec4186905aeab7a8c0c, type: 2}
+  modelScale: 0.85
+  backZ: -2.2
 --- !u!1 &1395120144994365089
 GameObject:
   m_ObjectHideFlags: 0
@@ -175,7 +183,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 76a84a2596bf42d49894c3f8ee398cfd, type: 2}
+  - {fileID: 2100000, guid: 39c88c2fab0058a4690435bac5c0fec3, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -222,7 +230,7 @@ MonoBehaviour:
   m_text: 8
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 3424636d70da88e499df43646bf3ac75, type: 2}
-  m_sharedMaterial: {fileID: 2100000, guid: 76a84a2596bf42d49894c3f8ee398cfd, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 39c88c2fab0058a4690435bac5c0fec3, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
