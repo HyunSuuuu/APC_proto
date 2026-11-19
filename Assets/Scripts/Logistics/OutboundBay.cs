@@ -31,7 +31,8 @@ namespace APC.Logistics
             while (true)
             {
                 Order order = null;
-                yield return new WaitUntil(() => OrderService.Instance != null && (order = OrderService.Instance.CreateForTruck()) != null);
+                // 상차 파트(2)일 때만 새 트럭 (사무실 전은 언제나, 2026-11-19)
+                yield return new WaitUntil(() => Economy.PartService.OutboundOpen && OrderService.Instance != null && (order = OrderService.Instance.CreateForTruck()) != null);
                 var orders = OrderService.Instance;
 
                 // 로컬 좌표로 움직인다 (확장 모듈이 커지는 중에 나와도 제자리로, InboundBay와 같음)

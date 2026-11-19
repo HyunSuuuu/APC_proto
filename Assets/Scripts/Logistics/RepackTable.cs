@@ -35,6 +35,32 @@ namespace APC.Logistics
         /// <summary>쓰레기 출력이 가득 차 재포장이 막혔는가 (반품 알바는 쓰레기부터 치운다).</summary>
         public bool TrashFull => !trash.HasSpace;
 
+        /// <summary>
+        /// 이 테이블을 맡은 알바 (2026-11-19 알바 상호작용 개편: 존 중 **테이블만 1명 예약**이 남는다). 비어 있으면 null.
+        /// 플레이어는 상관없다 (여럿이 서 있어도 게이지는 1배, GDD 11.3).
+        /// </summary>
+        public Component Operator { get; private set; }
+
+        public bool IsFreeFor(Component who) => Operator == null || Operator == who;
+
+        public bool TryClaim(Component who)
+        {
+            if (!IsFreeFor(who)) return false;
+            Operator = who;
+            return true;
+        }
+
+        public void Release(Component who)
+        {
+            if (Operator == who) Operator = null;
+        }
+
+        protected override void OnDisable()
+        {
+            base.OnDisable();
+            Operator = null;
+        }
+
         void Start()
         {
             var config = GameManager.Instance.Database.Logistics;

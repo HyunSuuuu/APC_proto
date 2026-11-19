@@ -297,6 +297,8 @@ namespace APC.EditorTools
             BuildKit.SetRef(zone, "pileRoot", pile);
             BuildKit.SetRef(zone, "bundlePrefab", CashBundlePrefab());
             BuildKit.SetRef(zone, "overflowLabel", overflow);
+            // 타일 테두리 글로우 (돈이 있을 때, 2026-11-19). 타일 크기는 위 Floor와 같은 필드 기본값 2.4 × 2.9
+            BuildKit.SetRef(zone, "glowMaterial", AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Materials/M_CashGlow.mat"));
             return zone;
         }
 

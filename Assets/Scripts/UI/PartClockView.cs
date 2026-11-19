@@ -34,7 +34,8 @@ namespace APC.UI
             if (number <= 0) return;
 
             var seconds = Mathf.CeilToInt(parts.Remaining.CurrentValue);
-            label.text = $"{number}파트 · {seconds / 60:00}:{seconds % 60:00}";
+            var kind = number == PartService.InboundPart ? " 하차" : number == PartService.OutboundPart ? " 상차" : ""; // 1 · 2 반복 (2026-11-19)
+            label.text = $"{number}파트{kind} · {seconds / 60:00}:{seconds % 60:00}";
             label.color = parts.Remaining.CurrentValue <= warningSeconds ? warningColor : normalColor;
         }
     }

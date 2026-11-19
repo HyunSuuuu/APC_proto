@@ -12,6 +12,7 @@ namespace APC.Logistics
     /// <summary>
     /// 하차 트럭 도착 · 차량 대기열 (GDD 7.1, M13-9). 물류센터 전체에 `inboundArrivalInterval`마다 트럭 1대가 도착한다 (시작 때 1대 바로).
     /// 빈 하차 칸(기다리는 InboundBay)이 있으면 바로 넘기고, 없으면 부지 밖 도로의 대기 자리에 줄을 세운다. 줄이 차면 도착을 멈춘다.
+    /// 하차장에 넘기는 것은 하차 파트(1)와 사무실 전에만 (PartService.InboundOpen, 2026-11-19). 상차 파트 동안 도착한 트럭은 줄에서 기다린다.
     /// 트럭 색은 도착할 때 정한다. SiteGrid 오브젝트에 붙는다 (줄 자리는 월드 좌표).
     /// </summary>
     public sealed class InboundQueue : MonoBehaviour
@@ -67,7 +68,7 @@ namespace APC.Logistics
                 truck.Load(company, StockBalancer.ComposeInboundLoad(company));
                 if (ForceGoldenNext || Random.value < GameManager.Instance.Database.GoldenTruck.Chance) truck.MakeGolden(); // 황금 트럭 (GDD 6.4)
                 ForceGoldenNext = false;
-                if (waiting.Count > 0)
+                if (waiting.Count > 0 && Economy.PartService.InboundOpen)
                 {
                     var bay = waiting[0];
                     waiting.RemoveAt(0);
@@ -88,11 +89,25 @@ namespace APC.Logistics
         /// <summary>빈 하차 칸이 트럭을 달라고 한다. 줄에 있으면 맨 앞을 넘기고(줄은 한 칸씩 당김), 없으면 다음 도착 때 넘긴다.</summary>
         public void Request(InboundBay bay)
         {
-            if (line.Count == 0)
+            if (line.Count == 0 || !Economy.PartService.InboundOpen)
             {
                 if (!waiting.Contains(bay)) waiting.Add(bay);
                 return;
             }
+            Dispatch(bay);
+        }
+
+        /// <summary>하차 파트가 다시 열리면 기다리던 하차 칸에 줄 맨 앞부터 넘긴다.</summary>
+        void Update()
+        {
+            if (waiting.Count == 0 || line.Count == 0 || !Economy.PartService.InboundOpen) return;
+            var bay = waiting[0];
+            waiting.RemoveAt(0);
+            Dispatch(bay);
+        }
+
+        void Dispatch(InboundBay bay)
+        {
             var truck = line[0];
             line.RemoveAt(0);
             for (var i = 0; i < line.Count; i++)

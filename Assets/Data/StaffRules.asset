@@ -37,6 +37,11 @@ MonoBehaviour:
   interactionDelay: 0.5
   workIdleTimeout: 0.5
   thinkInterval: 0.25
+  crowdPenalty: 4
+  standSpacing: 0.5
+  zoneEdgeMargin: 0.3
+  waitOffset: 0.6
+  waitSpacing: 0.6
   candidateCount: 3
   hireCostPerStat: 15
   wagePerStat: 4
