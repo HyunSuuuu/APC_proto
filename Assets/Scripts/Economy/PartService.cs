@@ -71,7 +71,10 @@ namespace APC.Economy
         /// <summary>새 상차 트럭이 들어와도 되는가: 사무실 전, 또는 상차 파트 진행 중.</summary>
         public static bool OutboundOpen => IsOpen(OutboundPart);
 
-        static bool IsOpen(int number) => Instance == null || Instance.part.Value == 0 || (Instance.part.Value == number && Instance.IsRunning);
+        static bool IsOpen(int number) => AlwaysOpen || Instance == null || Instance.part.Value == 0 || (Instance.part.Value == number && Instance.IsRunning);
+
+        /// <summary>타이쿤 시험 씬(TycoonTest): 하차 · 상차를 둘 다 열고 파트 시간도 흐르지 않는다 (정산 없음).</summary>
+        public static bool AlwaysOpen;
 
         /// <summary>직전 파트 정산액 (저금통 가득 기준용).</summary>
         public int LastSettlement { get; private set; }
@@ -90,7 +93,11 @@ namespace APC.Economy
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() => Instance = null;
+        static void ResetStatics()
+        {
+            Instance = null;
+            AlwaysOpen = false;
+        }
 
         void Awake()
         {
@@ -130,7 +137,7 @@ namespace APC.Economy
 
         void Update()
         {
-            if (!IsRunning) return;
+            if (!IsRunning || AlwaysOpen) return;
             remaining.Value = Mathf.Max(0f, remaining.Value - Time.deltaTime);
             if (remaining.Value <= 0f) EndPart();
         }
