@@ -150,6 +150,7 @@ namespace APC.Logistics
             ResetGauge();
             var cargo = input.Take(CargoState.Return);
             if (cargo == null) return;
+            Economy.PartService.Instance?.CountReturn(); // 영수증 집계
             var at = workPoint != null ? workPoint.position : transform.position;
             cargo.transform.position = at;
 

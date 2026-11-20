@@ -205,9 +205,10 @@ namespace APC.Debugging
             if (parts == null) return;
 
             Header("Part");
-            GUILayout.Label($"Part {parts.Part.CurrentValue}   {parts.Remaining.CurrentValue:0}s", labelStyle);
+            GUILayout.Label($"Part {parts.Part.CurrentValue}   {parts.Remaining.CurrentValue:0}s{(parts.BonusDraining ? "  bonus" : "")}", labelStyle);
             GUI.enabled = parts.IsRunning;
             if (GUILayout.Button("End Part", buttonStyle)) parts.EndPart();
+            if (GUILayout.Button("Time bonus", buttonStyle)) parts.StartBonusDrain(); // 할 일이 없을 때처럼 남은 시간 → 보너스 (M17-3)
             GUI.enabled = true;
         }
 

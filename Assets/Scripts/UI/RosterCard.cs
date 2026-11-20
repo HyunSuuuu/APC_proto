@@ -1,85 +1,42 @@
-using System.Collections.Generic;
 using APC.Data;
 using APC.Staff;
 using TMPro;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace APC.UI
 {
     /// <summary>
-    /// 배치 탭의 알바 카드 1장 (GDD 11.3): 역할 색 · 이름 · 스탯 · 시급.
-    /// 해고 칸에 끌어다 놓으면 해고 확인 (RosterPanel.Drop, 직무 변경 없음).
-    /// 끄는 동안은 레이아웃에서 빠지도록 드래그 층으로 옮겨 둔다.
+    /// 배치 탭(알바 명부)의 알바 한 줄 (GDD 11.3): 직무 색 · 이름(밀린 시급) · 이동 속도 · 적재 게이지 · 시급 · [해고].
+    /// 모양은 UI 샘플 ClipboardScene 직원 명부 (2026-11-19). 끌어서 옮기기는 없다 (직무 변경 없음).
     /// </summary>
-    [RequireComponent(typeof(CanvasGroup))]
-    public sealed class RosterCard : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
+    public sealed class RosterCard : MonoBehaviour
     {
         [SerializeField] Image colorBar;
         [SerializeField] TMP_Text nameLabel;
-        [SerializeField] TMP_Text statsLabel;
-
-        static readonly List<RaycastResult> Hits = new();
-
-        CanvasGroup group;
-        Vector2 grabOffset;
+        [SerializeField, Tooltip("시급")] TMP_Text statsLabel;
+        [SerializeField] TMP_Text speedLabel;
+        [SerializeField, Tooltip("게이지 채움 (가로 늘림, anchorMax.x = 비율)")] Image speedBar;
+        [SerializeField] TMP_Text carryLabel;
+        [SerializeField] Image carryBar;
+        [SerializeField] Button fireButton;
 
         public StaffWorker Worker { get; private set; }
-        public bool Dragging { get; private set; }
 
-        void Awake() => group = GetComponent<CanvasGroup>();
-
-        void OnDisable() => EndDragState();
+        void Awake() => fireButton.onClick.AddListener(() => GetComponentInParent<RosterPanel>()?.AskFire(Worker));
 
         public void Bind(StaffWorker worker, StaffRules rules)
         {
             Worker = worker;
             colorBar.color = rules.GetRoleColor(worker.Role);
-            nameLabel.text = worker.Owed > 0 ? $"{worker.DisplayName}  <color=#D9262B>₩{worker.Owed:N0} 밀림</color>" : worker.DisplayName;
+            nameLabel.text = worker.Owed > 0 ? $"{worker.DisplayName}  <size=75%><color=#D9262B>₩{worker.Owed:N0} 밀림</color></size>" : worker.DisplayName;
             var stats = worker.Stats;
-            statsLabel.text = $"이동 {stats.moveSpeed} · 적재 {rules.GetCarry(worker.Role, stats.carry)}개 · 시급 {rules.GetWage(stats.Total):N0}";
-        }
-
-        public void OnBeginDrag(PointerEventData eventData)
-        {
-            var panel = GetComponentInParent<RosterPanel>();
-            if (panel == null) return;
-            Dragging = true;
-            group.blocksRaycasts = false; // 아래 칸이 레이캐스트에 잡히게
-            transform.SetParent(panel.DragLayer, worldPositionStays: true);
-            grabOffset = (Vector2)transform.position - eventData.position;
-        }
-
-        public void OnDrag(PointerEventData eventData)
-        {
-            if (Dragging) transform.position = eventData.position + grabOffset; // Screen Space Overlay: 월드 = 화면 좌표
-        }
-
-        public void OnEndDrag(PointerEventData eventData)
-        {
-            if (!Dragging) return;
-            EndDragState();
-            var panel = GetComponentInParent<RosterPanel>();
-            if (panel != null) panel.Drop(this, FindColumn(eventData));
-        }
-
-        void EndDragState()
-        {
-            Dragging = false;
-            if (group != null) group.blocksRaycasts = true;
-        }
-
-        static RosterColumn FindColumn(PointerEventData eventData)
-        {
-            Hits.Clear();
-            EventSystem.current.RaycastAll(eventData, Hits);
-            foreach (var hit in Hits)
-            {
-                var column = hit.gameObject.GetComponentInParent<RosterColumn>();
-                if (column != null) return column;
-            }
-            return null;
+            var fixedCarry = worker.Role is StaffRole.Returns or StaffRole.Forklift; // 반품 · 지게차는 스탯 무관
+            speedLabel.text = $"이동 속도  {stats.moveSpeed}/{rules.StatMax}";
+            carryLabel.text = fixedCarry ? $"적재  {rules.GetCarry(worker.Role, stats.carry)}개 고정" : $"적재량  {stats.carry}/{rules.StatMax}";
+            speedBar.rectTransform.anchorMax = new Vector2(Mathf.Clamp01((float)stats.moveSpeed / rules.StatMax), 1f);
+            carryBar.rectTransform.anchorMax = new Vector2(fixedCarry ? 1f : Mathf.Clamp01((float)stats.carry / rules.StatMax), 1f);
+            statsLabel.text = $"<size=70%>시급</size>\n{rules.GetWage(stats.Total):N0}";
         }
     }
 }

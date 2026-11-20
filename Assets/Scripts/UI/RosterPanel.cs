@@ -9,16 +9,16 @@ using UnityEngine.UI;
 namespace APC.UI
 {
     /// <summary>
-    /// 클립보드 책상 팝업의 배치 탭 (GDD 11.3): 하차 · 보관 · 상차 · 반품 · 지게차 열에 알바 카드, 열 제목에 인원 수, 오른쪽 해고 칸.
-    /// 반품 · 지게차 열은 그 구역을 지은 뒤에 열린다 (StaffService.IsRoleOpen, 표시만).
-    /// 카드를 해고 칸에 놓으면 확인 창 → [해고] (고용금은 돌려받지 않음). 직무 변경은 없다 — 다른 열에 놓으면 제자리 (2026-11-18).
+    /// 클립보드 책상 팝업의 배치 탭 = 알바 명부 (GDD 11.3, UI 샘플 ClipboardScene 직원 명부 방식 2026-11-19).
+    /// 하차 · 보관 · 상차 · 반품 · 지게차 직군 칸(둥근 상자, 제목에 인원 수)에 그 직군 알바 줄(스탯 게이지 · 시급 · [해고]). 세로 스크롤.
+    /// 반품 · 지게차 칸은 그 구역을 지은 뒤에 열린다 (StaffService.IsRoleOpen, 표시만).
+    /// [해고] → 확인 창 → [해고] (고용금은 돌려받지 않음). 직무 변경 · 끌어서 옮기기는 없다.
     /// 명단 규칙은 StaffService가 정한다.
     /// </summary>
     public sealed class RosterPanel : MonoBehaviour
     {
-        [SerializeField, Tooltip("직무 열 (하차 · 보관 · 상차 · 반품)")] RosterColumn[] columns;
+        [SerializeField, Tooltip("직군 칸 (하차 · 보관 · 상차 · 반품 · 지게차)")] RosterColumn[] columns;
         [SerializeField] RosterCard cardTemplate;
-        [SerializeField, Tooltip("끄는 동안 카드를 올려 둘 곳 (레이아웃 밖, 맨 위)")] RectTransform dragLayer;
         [SerializeField, Tooltip("알바 n/최대")] TMP_Text headerLabel;
 
         [Header("해고 확인")]
@@ -29,8 +29,6 @@ namespace APC.UI
 
         readonly List<RosterCard> cards = new();
         StaffWorker pendingFire;
-
-        public RectTransform DragLayer => dragLayer;
 
         void Awake()
         {
@@ -49,17 +47,10 @@ namespace APC.UI
 
         void OnDisable() => CloseConfirm();
 
-        /// <summary>카드를 놓았다. 해고 칸이면 확인 창. 어디든 카드는 제자리(직무 열)로 돌아간다.</summary>
-        internal void Drop(RosterCard card, RosterColumn column)
+        /// <summary>줄의 [해고]를 눌렀다.</summary>
+        internal void AskFire(StaffWorker worker)
         {
-            var worker = card.Worker;
-            var staff = StaffService.Instance;
-            if (column != null && column.Fire && worker != null && staff != null) AskFire(worker);
-            Refresh();
-        }
-
-        void AskFire(StaffWorker worker)
-        {
+            if (worker == null) return;
             pendingFire = worker;
             confirmLabel.text = $"{worker.DisplayName}을(를) 해고할까요?\n<size=75%>고용금은 돌려받지 않습니다</size>";
             confirm.SetActive(true);
@@ -84,8 +75,8 @@ namespace APC.UI
             if (staff == null || gm == null) return;
 
             var workers = staff.Workers;
-            headerLabel.text = $"알바 {workers.Count}/{staff.MaxStaff}   ·   카드를 해고 칸에 끌어 해고";
-            while (cards.Count < workers.Count) cards.Add(Instantiate(cardTemplate, dragLayer));
+            headerLabel.text = $"알바 {workers.Count}/{staff.MaxStaff}";
+            while (cards.Count < workers.Count) cards.Add(Instantiate(cardTemplate, cardTemplate.transform.parent));
 
             for (var i = 0; i < cards.Count; i++)
             {

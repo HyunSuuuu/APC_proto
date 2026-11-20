@@ -33,6 +33,13 @@ namespace APC.Data
         [SerializeField, Min(1), Tooltip("저금통 가득 기준 최소값")] int piggyFullMin = 300;
         [SerializeField, Min(1f), Tooltip("저금통 가득 기준 = MAX(최소값, 직전 파트 정산액 × 이 값)")] float piggyFullRatio = 1.2f;
 
+        [Header("남은 시간 보너스 (GDD 9.5, M17-3 — 더 할 일이 없으면)")]
+        [SerializeField, Min(0.1f), Tooltip("남은 시간이 0까지 줄어드는 시간 (초, 남은 시간과 관계없이) `임시`")] float idleBonusDrainSeconds = 3f;
+        [SerializeField, Min(1f), Tooltip("보너스 한 번에 해당하는 남은 시간 (초). 모자란 나머지는 버림")] float idleBonusSecondsPerUnit = 10f;
+        [SerializeField, Min(0), Tooltip("남은 시간 idleBonusSecondsPerUnit초마다 저금통에 더하는 금액 `임시`")] int idleBonusPerUnit = 5;
+        [SerializeField, Min(0.1f), Tooltip("할 일이 남았는지 확인하는 간격 (초)")] float idleCheckInterval = 0.5f;
+        [SerializeField, Min(0f), Tooltip("'할 일 없음'이 이만큼(초) 이어져야 보너스 시작 — 모듈 팝 · 트럭 교대 같은 잠깐의 빈틈 무시 `임시`")] float idleConfirmSeconds = 2f;
+
         [Header("경험치 — 해금 · 업그레이드로만 얻는다 (GDD 10.1, 2026-11-14)")]
         [SerializeField, Min(0), Tooltip("모듈 해금 발판 · 업그레이드 1번")] int xpPurchase = 3;
 
@@ -53,6 +60,11 @@ namespace APC.Data
         public int PiggyStepCount => piggyStepCount;
         public int PiggyFullMin => piggyFullMin;
         public float PiggyFullRatio => piggyFullRatio;
+        public float IdleBonusDrainSeconds => idleBonusDrainSeconds;
+        public float IdleBonusSecondsPerUnit => idleBonusSecondsPerUnit;
+        public int IdleBonusPerUnit => idleBonusPerUnit;
+        public float IdleCheckInterval => idleCheckInterval;
+        public float IdleConfirmSeconds => idleConfirmSeconds;
         public int XpPurchase => xpPurchase;
     }
 }
