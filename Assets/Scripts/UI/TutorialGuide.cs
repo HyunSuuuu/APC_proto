@@ -19,8 +19,8 @@ using UnityEngine.UI;
 namespace APC.UI
 {
     /// <summary>
-    /// 튜토리얼 (GDD 13 단계 표, M13-17 · M16-6). 시작 발판(건물 → 하차 → A보관 → 상차) → 하차 → 선반 → 상차 → 돈 줍기
-    /// → 사무실 발판 → 무료 하차 알바 → 한 명 더 고용(팝업 닫으면 넘어감) → 정산 → B보관 → Lv.2 반품 구역.
+    /// 튜토리얼 (GDD 13 단계 표, M13-17 · M16-6). 시작 발판(건물 → 하차 → A보관 → 상차) → 하차(튜토리얼 1파트) → 선반(→ 2파트 교대) → 상차 → 돈 줍기 → 튜토리얼 정산(→ 진짜 1파트)
+    /// → 사무실 발판 → 무료 하차 알바 → 한 명 더 고용(팝업 닫으면 넘어감) → B보관 → Lv.2 반품 구역.
     /// 시작 건너뛰기(StartSequence.Skip)면 앞 단계들은 이미 끝난 것으로 바로 넘어간다.
     /// 단계가 시작할 때 게임을 멈추고 카메라가 대상으로 날아가 확대 → `holdTime`초(또는 탭) 뒤 돌아와 재개, 그 뒤로는 가이드 화살표가 대상을 가리킨다.
     /// 안내 글은 화면 위 한 줄 배너 (단계가 끝날 때까지). 첫 고용은 무료 · 픽업 3 · 이동속도 1 고정 하차 알바 (기본 옷).
@@ -192,13 +192,22 @@ namespace APC.UI
                 {
                     Message = "트럭 뒷문에서 상자를 꺼내세요",
                     Target = () => Find<TruckPickupZone>(_ => true),
-                    Done = () => player != null && player.Stack != null && player.Stack.Items.Count > 0,
+                    Done = () =>
+                    {
+                        PartService.Instance?.BeginTutorialPart(); // 튜토리얼 1파트(하차) — 시계 없음
+                        return player != null && player.Stack != null && player.Stack.Items.Count > 0;
+                    },
                 },
                 new()
                 {
-                    Message = "팔레트에 내려놓고, 같은 색 선반으로 옮기세요", // 트럭 → 하차 칸 공간 → 선반 (GDD 7.2)
+                    Message = $"상자 {PartService.TutorialBoxes}개를 모두 같은 색 선반에 올리세요", // 트럭 → 하차 칸 공간 → 선반 (GDD 7.2)
                     Target = () => Find<Shelf>(s => s.Item != null),
-                    Done = () => Find<Shelf>(s => s.Count.CurrentValue > 0) != null,
+                    Done = () =>
+                    {
+                        if (ShelvedCount() < PartService.TutorialBoxes) return false;
+                        PartService.Instance?.ShiftTutorial(); // 튜토리얼 상자가 모두 선반에 오르면 2파트(상차)로 교대
+                        return true;
+                    },
                 },
                 new()
                 {
@@ -211,6 +220,19 @@ namespace APC.UI
                     Message = "돈을 주우세요",
                     Target = () => Find<CashZone>(c => c.StoredCash > 0) ?? Find<CashZone>(_ => true),
                     Done = () => Find<CashZone>(c => c.StoredCash > 0) == null, // 사무실 전엔 바로 지갑 (저금통 없음)
+                },
+                new()
+                {
+                    // 튜토리얼 2파트를 끝내 정산을 보여 주고, [확인]하면 진짜 1파트 (2026-11-20)
+                    Message = "2파트(상차)가 끝났어요. 정산을 확인하세요",
+                    Target = null,
+                    Done = () =>
+                    {
+                        var parts = PartService.Instance;
+                        if (parts == null) return true;
+                        if (parts.Tutorial && parts.IsRunning) parts.EndPart();
+                        return !parts.Tutorial && parts.IsRunning;
+                    },
                 },
                 StartPadStep("돈을 모아 사무실을 지으세요", "Office"),
                 new()
@@ -240,12 +262,6 @@ namespace APC.UI
                 },
                 new()
                 {
-                    Message = "파트가 끝나면 정산을 확인하세요",
-                    Target = null,
-                    Done = () => PartService.Instance == null || PartService.Instance.Part.CurrentValue >= 2,
-                },
-                new()
-                {
                     Message = "B보관 건설 타일에 돈을 채워 지으세요",
                     Target = () => Find<ExpansionPad>(p => p.PlacementId == "StoreB"),
                     Done = () => SiteGrid.Instance == null || SiteGrid.Instance.IsUnlocked("StoreB"),
@@ -266,6 +282,13 @@ namespace APC.UI
             Target = () => Find<ExpansionPad>(p => p.enabled && p.PlacementId == placementId),
             Done = () => Built(placementId),
         };
+
+        static int ShelvedCount()
+        {
+            var n = 0;
+            foreach (var shelf in FindObjectsByType<Shelf>(FindObjectsSortMode.None)) n += shelf.Count.CurrentValue;
+            return n;
+        }
 
         static bool Built(string id) => SiteGrid.Instance == null || SiteGrid.Instance.IsUnlocked(id);
 

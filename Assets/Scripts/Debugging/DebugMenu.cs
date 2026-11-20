@@ -7,7 +7,7 @@ using UnityEngine.InputSystem;
 namespace APC.Debugging
 {
     /// <summary>
-    /// 테스트용 치트 메뉴 (GDD 14.5). 에디터와 Development 빌드에서만 동작한다.
+    /// 테스트용 치트 메뉴 (GDD 14.5). 에디터 · Development 빌드, 그리고 `releaseBuild`가 켜져 있으면 일반 빌드에서도 동작한다 (2026-11-20).
     /// 화면 왼쪽 아래 [DEBUG] 버튼 또는 F1로 연다. 마일스톤마다 항목을 추가한다.
     /// </summary>
     public sealed class DebugMenu : MonoBehaviour
@@ -19,6 +19,7 @@ namespace APC.Debugging
 
         [SerializeField] bool openOnStart;
         [SerializeField] Key toggleKey = Key.F1;
+        [SerializeField, Tooltip("일반(Release) 빌드에서도 보인다 — 출시 전에 끈다")] bool releaseBuild = true;
 
         static DebugMenu active;
         static Rect toggleScreenRect;
@@ -49,7 +50,7 @@ namespace APC.Debugging
 
         void Awake()
         {
-            if (!Debug.isDebugBuild)
+            if (!Debug.isDebugBuild && !releaseBuild)
             {
                 Destroy(this);
                 return;
@@ -204,9 +205,10 @@ namespace APC.Debugging
             if (parts == null) return;
 
             Header("Part");
-            GUILayout.Label($"Part {parts.Part.CurrentValue}   {parts.Remaining.CurrentValue:0}s", labelStyle);
+            GUILayout.Label($"Part {parts.Part.CurrentValue}   {parts.Remaining.CurrentValue:0}s{(parts.BonusDraining ? "  bonus" : "")}", labelStyle);
             GUI.enabled = parts.IsRunning;
             if (GUILayout.Button("End Part", buttonStyle)) parts.EndPart();
+            if (GUILayout.Button("Time bonus", buttonStyle)) parts.StartBonusDrain(); // 할 일이 없을 때처럼 남은 시간 → 보너스 (M17-3)
             GUI.enabled = true;
         }
 

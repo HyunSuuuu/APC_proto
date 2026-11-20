@@ -63,7 +63,7 @@ namespace APC.Logistics
             }
             if (Room <= 0)
             {
-                Notice(who, bay.Storage.CountLabel, truck.transform.position + Vector3.up * 3.5f, "공간 가득");
+                Notice(who, bay.Storage.CountLabel, truck.transform.position + Vector3.up * 4.5f, "공간 가득"); // 트럭 남은 수 글자(3.5m) 한 줄 위
                 return false;
             }
 

@@ -5,6 +5,7 @@ using APC.Core;
 using APC.Data;
 using APC.Orders;
 using DG.Tweening;
+using R3;
 using UnityEngine;
 
 namespace APC.Logistics
@@ -12,6 +13,7 @@ namespace APC.Logistics
     /// <summary>
     /// 하차 트럭 도착 · 차량 대기열 (GDD 7.1, M13-9). 물류센터 전체에 `inboundArrivalInterval`마다 트럭 1대가 도착한다 (시작 때 1대 바로).
     /// 빈 하차 칸(기다리는 InboundBay)이 있으면 바로 넘기고, 없으면 부지 밖 도로의 대기 자리에 줄을 세운다. 줄이 차면 도착을 멈춘다.
+    /// 하차장에 넘기는 것은 하차 파트(1)와 사무실 전에만 (PartService.InboundOpen, 2026-11-19). 상차 파트 동안 도착한 트럭은 줄에서 기다린다.
     /// 트럭 색은 도착할 때 정한다. SiteGrid 오브젝트에 붙는다 (줄 자리는 월드 좌표).
     /// </summary>
     public sealed class InboundQueue : MonoBehaviour
@@ -29,6 +31,8 @@ namespace APC.Logistics
 
         readonly List<InboundTruck> line = new();
         readonly List<InboundBay> waiting = new();
+        int arrived; // 만든 하차 트럭 수 (첫 대 = 튜토리얼 트럭)
+        int docked;  // 하차장에 넘긴 트럭 수
 
         public int Count => line.Count;
 
@@ -37,6 +41,21 @@ namespace APC.Logistics
 
         void Awake() => Instance = this;
 
+        /// <summary>줄의 트럭을 모두 회차: 줄 뒤쪽으로 빠져나가며 작아진 뒤 사라짐.</summary>
+        void SendAwayLine()
+        {
+            foreach (var truck in line)
+            {
+                var t = truck.transform;
+                t.DOKill();
+                DOTween.Sequence().SetLink(truck.gameObject)
+                    .Append(t.DOMove(t.position + lineDirection.normalized * spacing * 3f, 0.8f).SetEase(Ease.InCubic))
+                    .Join(t.DOScale(0f, 0.8f).SetEase(Ease.InBack))
+                    .OnComplete(() => Destroy(truck.gameObject));
+            }
+            line.Clear();
+        }
+
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
@@ -44,6 +63,8 @@ namespace APC.Logistics
 
         IEnumerator Start()
         {
+            // 상차 파트가 되면 줄에 선 하차 트럭은 바로 돌아간다 (2026-11-20). 하차장에 정차한 트럭은 남음
+            if (Economy.PartService.Instance != null) Economy.PartService.Instance.OnShift.Subscribe(_ => SendAwayLine()).AddTo(this);
             var config = GameManager.Instance.Database.Logistics;
             for (var i = 0; i < config.InboundQueueSize; i++) CreateMarker(i);
 
@@ -64,13 +85,16 @@ namespace APC.Logistics
 
                 var company = StockBalancer.PickInboundCompany(candidates);
                 var truck = Instantiate(truckPrefab, transform);
-                truck.Load(company, StockBalancer.ComposeInboundLoad(company));
-                if (ForceGoldenNext || Random.value < GameManager.Instance.Database.GoldenTruck.Chance) truck.MakeGolden(); // 황금 트럭 (GDD 6.4)
+                var tutorialTruck = arrived++ == 0 && !Site.StartSequence.OfficeBuilt; // 튜토리얼 트럭: 상자 TutorialBoxes개, 황금 없음
+                var load = StockBalancer.ComposeInboundLoad(company);
+                truck.Load(company, tutorialTruck ? System.Linq.Enumerable.Take(load, Economy.PartService.TutorialBoxes) : load);
+                if (!tutorialTruck && (ForceGoldenNext || Random.value < GameManager.Instance.Database.GoldenTruck.Chance)) truck.MakeGolden(); // 황금 트럭 (GDD 6.4)
                 ForceGoldenNext = false;
-                if (waiting.Count > 0)
+                if (waiting.Count > 0 && CanDock)
                 {
                     var bay = waiting[0];
                     waiting.RemoveAt(0);
+                    docked++;
                     bay.Receive(truck);
                 }
                 else
@@ -88,11 +112,29 @@ namespace APC.Logistics
         /// <summary>빈 하차 칸이 트럭을 달라고 한다. 줄에 있으면 맨 앞을 넘기고(줄은 한 칸씩 당김), 없으면 다음 도착 때 넘긴다.</summary>
         public void Request(InboundBay bay)
         {
-            if (line.Count == 0)
+            if (line.Count == 0 || !CanDock)
             {
                 if (!waiting.Contains(bay)) waiting.Add(bay);
                 return;
             }
+            Dispatch(bay);
+        }
+
+        /// <summary>하차 파트가 다시 열리면 기다리던 하차 칸에 줄 맨 앞부터 넘긴다.</summary>
+        void Update()
+        {
+            if (waiting.Count == 0 || line.Count == 0 || !CanDock) return;
+            var bay = waiting[0];
+            waiting.RemoveAt(0);
+            Dispatch(bay);
+        }
+
+        /// <summary>하차장에 넘겨도 되는가: 하차 파트 진행 중이고, 튜토리얼 구간이면 아직 한 대도 안 넘겼을 때 (2026-11-20).</summary>
+        bool CanDock => Economy.PartService.InboundOpen && !(docked > 0 && Economy.PartService.TutorialPhase);
+
+        void Dispatch(InboundBay bay)
+        {
+            docked++;
             var truck = line[0];
             line.RemoveAt(0);
             for (var i = 0; i < line.Count; i++)

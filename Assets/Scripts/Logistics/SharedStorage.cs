@@ -237,11 +237,14 @@ namespace APC.Logistics
             return free;
         }
 
-        /// <summary>그 품목을 선반에 더 보낼 수 있는 수 = 선반 빈자리 − 이미 들고 가는 수 − 분류 알바 예약.</summary>
+        /// <summary>
+        /// 그 품목을 선반에 더 보낼 수 있는 수 = 선반 빈자리 − 이미 들고 가는 수 − 분류 알바 예약
+        /// − 선반에서 꺼내 들고 있는 상차용 상자 수(회차하면 되돌릴 자리, M17-1).
+        /// </summary>
         public static int ShelfAllowance(ItemDefinition item)
         {
             var warehouse = Warehouse.Instance;
-            return warehouse.GetShelfFreeSpace(item) - Warehouse.CountCarried(item, CargoOrigin.Storage) - warehouse.GetReservedShelfSpace(item);
+            return warehouse.GetShelfFreeSpace(item) - Warehouse.CountCarried(item, CargoOrigin.Storage) - Warehouse.CountCarried(item, CargoOrigin.Shelf) - warehouse.GetReservedShelfSpace(item);
         }
     }
 }
