@@ -187,7 +187,7 @@ namespace APC.Logistics
         /// <summary>D 하차 트럭에서 더 꺼낼 수 있는 수 = 팔레트 랙 빈자리 − 트럭에서 꺼내 든 수. 예외(바로 상차)면 상차 수요까지 (GDD 11.3).</summary>
         public int LargeRoom(ItemDefinition item)
         {
-            var room = GetShelfFreeSpace(item) - CountCarried(item, CargoOrigin.Truck);
+            var room = GetShelfFreeSpace(item) - CountCarried(item, CargoOrigin.Truck) - CountCarried(item, CargoOrigin.Shelf); // 꺼내 든 상차용 D는 되돌릴 자리 (M17-1)
             if (DirectLoad(item)) room = Mathf.Max(room, Orders.OrderService.Instance.GetDemand(item) - CountCarried(item, CargoOrigin.Truck));
             return room;
         }

@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using APC.Core;
 using DG.Tweening;
 using R3;
@@ -28,13 +29,27 @@ namespace APC.Logistics
 
         void Awake() => Storage = GetComponentInParent<SharedStorage>();
 
+        static readonly List<InboundBay> Registered = new();
+
+        /// <summary>켜진 하차 칸 전부 (남은 시간 보너스 판단, M17-3).</summary>
+        public static IReadOnlyList<InboundBay> All => Registered;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics() => Registered.Clear();
+
         InboundTruck received;
         bool leaving; // 상차 파트 시작 → 회차
 
         /// <summary>InboundQueue가 이 칸에 트럭을 넘긴다 (도착 · 줄 맨 앞).</summary>
         public void Receive(InboundTruck truck) => received = truck;
 
-        void OnDisable() => InboundQueue.Instance?.Cancel(this);
+        void OnEnable() => Registered.Add(this);
+
+        void OnDisable()
+        {
+            Registered.Remove(this);
+            InboundQueue.Instance?.Cancel(this);
+        }
 
         IEnumerator Start()
         {

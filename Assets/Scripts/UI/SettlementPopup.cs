@@ -17,6 +17,7 @@ namespace APC.UI
     /// 출력기 = 배출구 · 몸체를 틈 없이 쌓고, 영수증은 그 위 마스크 안에서 배출구 틈부터 올라온다 (2026-11-20).
     /// 영수증 윗부분은 나온 길이만큼 화면 안쪽(뒤)으로 말려 넘어간다 (ReceiptCurl, UI 샘플과 같음). 줄이 나올 때마다 살짝 펄럭이고, 뜯을 때 더 말린다.
     /// [확인] → 영수증이 위로 뜯겨 날아가고 출력기가 내려간 뒤 PartService.Confirm (저금통 → 지갑, 다음 1파트).
+    /// [확인]은 처음부터 보이고, 출력 중에 누르면 바로 완료(넘어가진 않음). 출력이 끝나면 흔들리며 `확인 (5)` 카운트다운 → 0이면 자동 [확인] (M17-2, 2026-11-20).
     /// 이 오브젝트는 항상 켜 두고 자식 body만 켜고 끈다.
     /// </summary>
     public sealed class SettlementPopup : MonoBehaviour
@@ -42,6 +43,7 @@ namespace APC.UI
         [SerializeField, Tooltip("알바 시급")] TMP_Text wageValue;
         [SerializeField, Tooltip("출고 트럭 · 상자")] TMP_Text shippedValue;
         [SerializeField, Tooltip("반품 처리")] TMP_Text returnsValue;
+        [SerializeField, Tooltip("남은 시간 보너스 (M17-3, 반품 처리 다음 줄)")] TMP_Text bonusValue;
         [SerializeField, Tooltip("순수익")] TMP_Text totalValue;
         [SerializeField, Tooltip("미지급 · 퇴사 알바 명단 + 경고 (GDD 11.7)")] TMP_Text staffLabel;
         [SerializeField, Tooltip("`정산 완료` 도장 (CanvasGroup)")] RectTransform stamp;
@@ -50,6 +52,11 @@ namespace APC.UI
         [SerializeField] Color expenseColor = new(0.88f, 0.11f, 0.28f);
         [SerializeField, Min(0.05f)] float feedDuration = 0.34f;
         [SerializeField, Min(0.1f)] float rowInterval = 0.58f;
+
+        [Header("[확인] 버튼 (M17-2)")]
+        [SerializeField, Min(1f), Tooltip("출력이 끝난 뒤 이 시간(초) 안에 누르지 않으면 자동으로 넘어감 `임시`")] float autoConfirmSeconds = 5f;
+        [SerializeField, Tooltip("흔들림 간격 (초)")] float shakeInterval = 1f;
+        [SerializeField, Tooltip("흔들림 각도 (도)")] float shakeDegrees = 12f;
 
         [Header("말림")]
         [SerializeField, Tooltip("영수증 루트의 말림 변형기")] ReceiptCurl curl;
@@ -62,6 +69,10 @@ namespace APC.UI
         Tween ledLoop;
         Tween shakeLoop;
         Tween flutterTween;
+        Tween buttonShake;
+        TMP_Text confirmLabel;
+        string confirmText;
+        float autoRemaining = -1f; // 0 이상이면 자동 넘김 카운트다운 중
         float paperOut; // 배출구 위로 나온 길이
         float flutter;
         float tearCurl;
@@ -75,7 +86,9 @@ namespace APC.UI
         void Awake()
         {
             confirmButton.onClick.AddListener(Confirm);
-            dim.onClick.AddListener(() => { if (printing) sequence.Complete(true); });
+            confirmLabel = confirmButton.GetComponentInChildren<TMP_Text>(true);
+            confirmText = confirmLabel != null ? confirmLabel.text : "";
+            dim.onClick.AddListener(SkipPrinting);
             printerHome = printer.anchoredPosition;
             paperHome = paper.anchoredPosition;
             body.SetActive(false);
@@ -83,6 +96,7 @@ namespace APC.UI
 
         void Update()
         {
+            TickAutoConfirm();
             if (curl == null) return;
             var ramp = curlRampDistance > 0f ? Mathf.Clamp01(paperOut / curlRampDistance) : 1f;
             ramp = ramp * ramp * (3f - 2f * ramp);
@@ -109,6 +123,11 @@ namespace APC.UI
             outboundValue.color = incomeColor;
             wageValue.text = $"−{result.Wages:N0}";
             wageValue.color = expenseColor;
+            if (bonusValue != null)
+            {
+                bonusValue.text = $"+{result.TimeBonus:N0}";
+                bonusValue.color = incomeColor;
+            }
             totalValue.text = $"{(result.Total >= 0 ? "+" : "−")}{Mathf.Abs(result.Total):N0}";
             totalValue.color = result.Total >= 0 ? incomeColor : expenseColor;
             staffLabel.text = StaffText(result.WagePlan);
@@ -121,7 +140,8 @@ namespace APC.UI
             paper.localRotation = Quaternion.identity;
             SetEmerged(0f);
             stamp.gameObject.SetActive(false);
-            confirmButton.gameObject.SetActive(false);
+            ResetConfirmButton();
+            confirmButton.gameObject.SetActive(true); // 처음부터 보임 — 출력 중 누르면 바로 완료 (M17-2)
             printer.anchoredPosition = printerHome + Vector2.down * 700f;
             SetPrinting(false);
             statusLabel.text = "";
@@ -160,9 +180,9 @@ namespace APC.UI
         /// <summary>그 줄의 값 글자 (번 돈 · 시급 · 합계), 없으면 null.</summary>
         RectTransform ValueIn(CanvasGroup row)
         {
-            foreach (var value in new[] { outboundValue, wageValue, shippedValue, returnsValue, totalValue })
+            foreach (var value in new[] { outboundValue, wageValue, shippedValue, returnsValue, bonusValue, totalValue })
             {
-                if (value.transform.IsChildOf(row.transform)) return value.rectTransform;
+                if (value != null && value.transform.IsChildOf(row.transform)) return value.rectTransform;
             }
             return null;
         }
@@ -205,9 +225,46 @@ namespace APC.UI
             printing = false;
             SetPrinting(false);
             foreach (var row in rows) row.alpha = row.transform == staffLabel.transform && staffLabel.text.Length == 0 ? 0f : 1f;
-            confirmButton.gameObject.SetActive(true);
-            confirmButton.transform.localScale = Vector3.zero;
-            confirmButton.transform.DOScale(1f, 0.3f).SetEase(Ease.OutBack).SetUpdate(true).SetLink(gameObject);
+
+            // 넘어갈 수 있다는 표시: 1초마다 좌우로 흔들림 + `확인 (5)` 카운트다운 → 0이면 자동 [확인] (M17-2)
+            var t = confirmButton.transform;
+            buttonShake?.Kill();
+            buttonShake = DOTween.Sequence().SetUpdate(true).SetLink(confirmButton.gameObject)
+                .Append(t.DOPunchRotation(new Vector3(0f, 0f, shakeDegrees), 0.45f, 8, 0.6f))
+                .AppendInterval(Mathf.Max(0f, shakeInterval - 0.45f))
+                .SetLoops(-1, LoopType.Restart);
+            autoRemaining = autoConfirmSeconds;
+            UpdateCountdown();
+        }
+
+        /// <summary>출력 중이면 영수증을 바로 다 나온 상태로 (배경 · [확인] 탭, 넘어가지는 않음).</summary>
+        void SkipPrinting()
+        {
+            if (printing) sequence.Complete(true);
+        }
+
+        void TickAutoConfirm()
+        {
+            if (autoRemaining < 0f || !open || printing) return;
+            autoRemaining -= Time.unscaledDeltaTime; // 팝업 중엔 게임 시간이 멈춰 있다
+            if (autoRemaining <= 0f) Confirm();
+            else UpdateCountdown();
+        }
+
+        void UpdateCountdown()
+        {
+            if (confirmLabel != null) confirmLabel.text = $"{confirmText} ({Mathf.CeilToInt(autoRemaining)})";
+        }
+
+        /// <summary>흔들림 · 카운트다운을 멈추고 버튼 모양 · 글자를 원래대로.</summary>
+        void ResetConfirmButton()
+        {
+            buttonShake?.Kill();
+            buttonShake = null;
+            autoRemaining = -1f;
+            confirmButton.transform.localRotation = Quaternion.identity;
+            confirmButton.transform.localScale = Vector3.one;
+            if (confirmLabel != null) confirmLabel.text = confirmText;
         }
 
         /// <summary>출력 중: 출력기 떨림 + LED 주황, 번짐이 퍼져 나가며 사라짐 반복 (UI 샘플 ping). 끝: LED 초록, 번짐은 일정하게 유지.</summary>
@@ -260,8 +317,14 @@ namespace APC.UI
         /// <summary>[확인]: 영수증이 위로 뜯겨 날아가고, 출력기가 내려가고, 배경이 밝아진 뒤 다음 파트.</summary>
         void Confirm()
         {
-            if (!open || printing) return;
+            if (!open) return;
+            if (printing)
+            {
+                SkipPrinting(); // 출력 중 [확인] = 바로 완료 (M17-2)
+                return;
+            }
             open = false;
+            ResetConfirmButton();
             confirmButton.gameObject.SetActive(false);
             ledLoop?.Kill();
             shakeLoop?.Kill();

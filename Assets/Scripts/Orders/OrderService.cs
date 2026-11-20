@@ -53,6 +53,19 @@ namespace APC.Orders
         }
 
         /// <summary>
+        /// 지금 새 상차 트럭(주문)이 생길 수 있는가 = 선반 여유 합 ≥ 다음 주문 수량 (`CreateForTruck`과 같은 기준, 만들지는 않음 — 남은 시간 보너스 판단, M17-3).
+        /// </summary>
+        public bool CanCreateForTruck()
+        {
+            var contracts = ContractService.Instance;
+            if (contracts == null || !contracts.HasAnyContract || Warehouse.Instance == null) return false;
+            if (pendingQuantity <= 0) pendingQuantity = GameManager.Instance.Database.Orders.RollQuantity();
+            var sum = 0;
+            foreach (var company in contracts.Contracted) sum += Mathf.Max(0, ShelfFree(company.Items[0]));
+            return firstOrderMade ? sum >= pendingQuantity : sum > 0;
+        }
+
+        /// <summary>
         /// 빈 상차 칸이 들어올 트럭의 주문 1건을 만든다 (GDD 8.1 · 8.2). **선반에 주문 수량만큼 있을 때만** 만든다 (2026-11-19) —
         /// 없으면 null(트럭이 아직 안 옴, OutboundBay가 매 프레임 다시 부름). 수량은 한 번 뽑아 두고 주문이 생길 때까지 그대로 (작은 수가 유리해지지 않게).
         /// 색 = 선반 여유(선반 수 − 다른 주문에 잡힌 수)가 있는 색 중 가중치로, 최대 2색.
