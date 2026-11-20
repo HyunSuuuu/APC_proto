@@ -7,6 +7,7 @@ namespace APC.Logistics
     /// <summary>
     /// 정사각형 선반 둘레 존 (GDD 7.3, 7.4). 근처에서 멈추면 내려놓기를 먼저 하고(그 품목 · 공용 보관소에서 집은 화물),
     /// 내려놓을 것이 없으면 **주문 수요만큼만** 집는다 (정차 트럭 남은 수 − 이미 들고 있는 수, GDD 8.4).
+    /// 상차 시간이 아니면(2파트가 끝나 회차한 뒤) 선반에서 꺼내 들고 있던 상자도 되돌려 받는다 (M17-1, GDD 7.6). 그 자리는 들고 있는 동안 잡혀 있다(`SharedStorage.ShelfAllowance`).
     /// </summary>
     public sealed class ShelfZone : CargoZone
     {
@@ -22,7 +23,8 @@ namespace APC.Logistics
 
         protected override bool CanReceive(Cargo cargo, Interactor who)
             => cargo.Item == shelf.Item
-               && cargo.Origin == (who.Forklift ? CargoOrigin.Truck : CargoOrigin.Storage) // 지게차는 트럭에서 바로 팔레트 랙으로 (M11-8)
+               && (cargo.Origin == (who.Forklift ? CargoOrigin.Truck : CargoOrigin.Storage) // 지게차는 트럭에서 바로 팔레트 랙으로 (M11-8)
+                   || (cargo.Origin == CargoOrigin.Shelf && !Economy.PartService.OutboundOpen)) // 상차 시간이 아니면 꺼낸 상자를 되돌림 (M17-1, GDD 7.6)
                && cargo.State == CargoState.Normal
                && shelf.HasSpace;
 

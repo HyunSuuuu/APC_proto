@@ -9,9 +9,10 @@ namespace APC.Economy
     /// <summary>파트 정산 내역 (정산 팝업에 표시, GDD 9.5).</summary>
     public readonly struct SettlementResult
     {
-        public SettlementResult(int part, int outboundIncome, WagePlan wagePlan, int trucks = 0, int boxes = 0, int returns = 0, bool tutorial = false)
+        public SettlementResult(int part, int outboundIncome, WagePlan wagePlan, int trucks = 0, int boxes = 0, int returns = 0, bool tutorial = false, int timeBonus = 0)
         {
             Part = part;
+            TimeBonus = timeBonus;
             Tutorial = tutorial;
             Trucks = trucks;
             Boxes = boxes;
@@ -32,7 +33,10 @@ namespace APC.Economy
         /// <summary>누가 받았고 누가 미지급 · 퇴사인지 ([확인] 때 StaffService.ApplyWages).</summary>
         public WagePlan WagePlan { get; }
 
-        public int Total => OutboundIncome - Wages;
+        /// <summary>남은 시간 보너스 (그날 1 · 2파트 합, 이미 저금통에 들어 있음 — M17-3).</summary>
+        public int TimeBonus { get; }
+
+        public int Total => OutboundIncome + TimeBonus - Wages;
 
         /// <summary>오늘(하루 = 1 · 2파트) 떠난 상차 트럭 수 · 실린 상자 수 · 처리한 반품 수 (영수증 표시용).</summary>
         public int Trucks { get; }
@@ -52,6 +56,7 @@ namespace APC.Economy
     /// 사무실 전엔 저금통이 없어 돈이 바로 지갑으로 가므로, 그때 정산의 번 돈 = 그날 상차 트럭이 받은 돈(dayIncome).
     /// 정산은 **2파트가 끝날 때만** = 하루 정산 (2026-11-20). 1파트가 끝나면 정산 없이 바로 2파트(OnShift → 파트 교대 배너). 시급은 하루 한 파트 몫 (2026-11-20 확정).
     /// 사무실 전(파트 0)은 둘 다 열림 (튜토리얼 앞부분). 정차한 트럭은 파트가 바뀌어도 남는다.
+    /// 남은 시간 보너스 (M17-3, 2026-11-20): 더 할 일이 없으면(`Logistics.WorkCheck`) 남은 시간이 3초 만에 0까지 줄고, 10초당 5씩 저금통에 들어간다 (그날 합 = 영수증 `시간 보너스`).
     /// </summary>
     public sealed class PartService : MonoBehaviour
     {
@@ -71,7 +76,16 @@ namespace APC.Economy
 
         /// <summary>사무실 전 튜토리얼 구간 (파트 0 또는 튜토리얼 파트): 하차 트럭은 첫 대만 받는다.</summary>
         public static bool TutorialPhase => Instance != null && !Site.StartSequence.OfficeBuilt && (Instance.Tutorial || Instance.part.Value == 0);
-        int dayTrucks, dayBoxes, dayReturns, dayIncome; // 하루 집계, 정산 [확인] 때 0
+        int dayTrucks, dayBoxes, dayReturns, dayIncome, dayBonus; // 하루 집계, 정산 [확인] 때 0
+
+        // 남은 시간 보너스 (M17-3): 할 일이 없으면 남은 시간을 drainSeconds 동안 0까지 줄이며 저금통에 보너스
+        bool draining;
+        float drainRate, drainStart, idleCheckTimer;
+        float idleSince = -1f; // '할 일 없음'이 시작된 시각 (게임 시간), 아니면 −1
+        int partBonus;
+
+        /// <summary>남은 시간을 보너스로 바꾸는 중 (시계가 빠르게 줄어듦).</summary>
+        public bool BonusDraining => draining;
 
         /// <summary>현재 파트 번호 (1 = 하차 · 2 = 상차, 반복). 0이면 아직 시작 전 (사무실 전).</summary>
         public ReadOnlyReactiveProperty<int> Part => part;
@@ -198,8 +212,52 @@ namespace APC.Economy
         void Update()
         {
             if (!IsRunning || Tutorial) return;
-            remaining.Value = Mathf.Max(0f, remaining.Value - Time.deltaTime);
+            var deltaTime = Time.deltaTime;
+            if (!draining)
+            {
+                idleCheckTimer -= deltaTime;
+                if (idleCheckTimer <= 0f)
+                {
+                    var economy = GameManager.Instance.Database.Economy;
+                    idleCheckTimer = economy.IdleCheckInterval;
+                    if (HasWorkLeft()) idleSince = -1f;
+                    else if (idleSince < 0f) idleSince = Time.time;
+                    if (idleSince >= 0f && Time.time - idleSince >= economy.IdleConfirmSeconds) StartBonusDrain(); // 잠깐의 빈틈은 무시
+                }
+            }
+            if (draining)
+            {
+                remaining.Value = Mathf.Max(0f, remaining.Value - drainRate * deltaTime);
+                PayTimeBonus();
+            }
+            else remaining.Value = Mathf.Max(0f, remaining.Value - deltaTime);
             if (remaining.Value <= 0f) EndPart();
+        }
+
+        /// <summary>이 파트에 할 일이 남았는가 (1 = 하차 · 2 = 상차, GDD 9.5 · M17-3).</summary>
+        bool HasWorkLeft() => part.Value == InboundPart ? Logistics.WorkCheck.CanUnload() : Logistics.WorkCheck.CanLoad();
+
+        /// <summary>남은 시간 보너스 시작 (디버그 'Time bonus'도 부름): 남은 시간과 관계없이 `idleBonusDrainSeconds` 만에 0.</summary>
+        public void StartBonusDrain()
+        {
+            if (!IsRunning || Tutorial || draining || remaining.Value <= 0f) return;
+            draining = true;
+            drainStart = remaining.Value;
+            drainRate = drainStart / GameManager.Instance.Database.Economy.IdleBonusDrainSeconds;
+            partBonus = 0;
+        }
+
+        /// <summary>줄어든 시간 `idleBonusSecondsPerUnit`초마다 `idleBonusPerUnit`씩 저금통에 (모자란 나머지는 버림).</summary>
+        void PayTimeBonus()
+        {
+            var economy = GameManager.Instance.Database.Economy;
+            var units = Mathf.FloorToInt((drainStart - remaining.Value) / economy.IdleBonusSecondsPerUnit + 0.0001f);
+            var target = Mathf.Min(units, Mathf.FloorToInt(drainStart / economy.IdleBonusSecondsPerUnit + 0.0001f)) * economy.IdleBonusPerUnit;
+            var add = target - partBonus;
+            if (add <= 0) return;
+            partBonus = target;
+            dayBonus += add;
+            GameManager.Instance.Wallet.AddToPiggy(add); // 사무실 전엔 바로 지갑 (Wallet.DirectToCash)
         }
 
         /// <summary>파트를 지금 끝낸다 (디버그 '파트 즉시 종료').</summary>
@@ -223,8 +281,8 @@ namespace APC.Economy
             // 시급은 정산 금액 + 보유 재화로 고용 순서대로 (GDD 11.7)
             var available = wallet.Piggy.CurrentValue + wallet.Cash.CurrentValue;
             var wages = StaffService.Instance != null ? StaffService.Instance.PlanWages(available) : WagePlan.Empty;
-            var income = Site.StartSequence.OfficeBuilt ? wallet.Piggy.CurrentValue : dayIncome; // 사무실 전엔 저금통 없음 (이미 지갑에)
-            var result = new SettlementResult(part.Value, income, wages, dayTrucks, dayBoxes, dayReturns, Tutorial);
+            var income = Site.StartSequence.OfficeBuilt ? Mathf.Max(0, wallet.Piggy.CurrentValue - dayBonus) : dayIncome; // 사무실 전엔 저금통 없음 (이미 지갑에). 보너스는 따로 한 줄
+            var result = new SettlementResult(part.Value, income, wages, dayTrucks, dayBoxes, dayReturns, Tutorial, dayBonus);
             pending = result;
             settlementReady.OnNext(result);
         }
@@ -240,13 +298,17 @@ namespace APC.Economy
             GameManager.Instance.Wallet.SettlePiggy(-result.Wages);
             LastSettlement = result.Total;
             if (!result.Tutorial) settled++;
-            dayTrucks = dayBoxes = dayReturns = dayIncome = 0;
+            dayTrucks = dayBoxes = dayReturns = dayIncome = dayBonus = 0;
             BeginPart(result.Part == InboundPart ? OutboundPart : InboundPart); // 1 · 2 반복 (2026-11-19)
         }
 
         void BeginPart(int number)
         {
             Tutorial = false;
+            draining = false;
+            partBonus = 0;
+            idleSince = -1f;
+            idleCheckTimer = GameManager.Instance.Database.Economy.IdleCheckInterval;
             CurrentPartLength = GameManager.Instance.Database.Economy.PartLengthSeconds;
             remaining.Value = CurrentPartLength;
             part.Value = number;

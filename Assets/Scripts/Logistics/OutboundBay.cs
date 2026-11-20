@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using APC.Core;
 using APC.Orders;
 using DG.Tweening;
@@ -24,6 +25,20 @@ namespace APC.Logistics
 
         /// <summary>정차해서 상차를 받는 중인 트럭. 없으면 null.</summary>
         public OutboundTruck DockedTruck { get; private set; }
+
+        /// <summary>주문을 받은 트럭이 오는 중 (아직 정차 전, M17-3).</summary>
+        public bool Arriving => current != null && DockedTruck == null && !sentAway && !current.IsFulfilled;
+
+        static readonly List<OutboundBay> Registered = new();
+
+        /// <summary>켜진 상차 칸 전부 (남은 시간 보너스 판단, M17-3).</summary>
+        public static IReadOnlyList<OutboundBay> All => Registered;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics() => Registered.Clear();
+
+        void OnEnable() => Registered.Add(this);
+        void OnDisable() => Registered.Remove(this);
 
         Order current;
         bool sentAway; // 하루 끝 → 회차
