@@ -40,6 +40,8 @@ namespace APC.Data
         [Header("'넣을 수 없음' 그림 (떠올랐다 사라짐)")]
         [SerializeField, Tooltip("Art/Temp/candoit")] Sprite cannotDropIcon;
         [SerializeField, Min(0.1f), Tooltip("그림 높이 (m)")] float cannotDropIconSize = 1.2f;
+        [SerializeField, Tooltip("떠오르는 알림 글자('공간 가득' 등) 재질 — TMP Overlay라 건물에 가리지 않는다. 글자 원본과 같은 폰트 아틀라스여야 쓰고, 비우면 원본 재질")]
+        Material noticeMaterial;
 
         public float BoxHeight => boxHeight;
         public float FlyDuration => flyDuration;
@@ -62,5 +64,6 @@ namespace APC.Data
         public float MaxPulsePeriod => maxPulsePeriod;
         public Sprite CannotDropIcon => cannotDropIcon;
         public float CannotDropIconSize => cannotDropIconSize;
+        public Material NoticeMaterial => noticeMaterial;
     }
 }

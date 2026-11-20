@@ -219,6 +219,7 @@
 | Move Speed | 최대 이동 속도 (m/s) | 4 |
 | Turn Speed | 도는 속도 (도/초) | 720 |
 | Run Threshold | 조이스틱을 이만큼 이상 당기면 뛰는 애니 (0~1) | 0.5 |
+| Wall Clearance | 든 상자 · 도구 끝과 칸 경계 사이 최소 거리 (m). 벽 두께만큼 — 키우면 벽에서 더 떨어져 멈춤 | 0.25 `임시` |
 | Max Carry | 맨손으로 들 수 있는 상자 수 | 3 |
 | Pick Interval | 상자 1개 집기 · 내려놓기 간격 (초) | 0.15 |
 | Interaction Delay | 존에서 이만큼 멈춰야 상호작용 시작 (초) | 0.5 |
@@ -272,7 +273,8 @@
 
 느낌을 다듬는 값이라 게임 규칙에는 영향이 없다. 마음껏 바꿔 보고 Play로 확인한다.
 
-- **CarryConfig** — 상자 들기: `Fly Duration`(상자가 날아가는 시간) · `Jump Power`(포물선 높이) · `Lean Per Speed` / `Max Lean Per Level`(들고 뛸 때 기울기) · `Spring Damping`(작을수록 더 출렁임) · `Max Pulse Scale`(MAX 글자 커지는 정도).
+- **CarryConfig** — 상자 들기: `Fly Duration`(상자가 날아가는 시간) · `Jump Power`(포물선 높이) · `Lean Per Speed` / `Max Lean Per Level`(들고 뛸 때 기울기) · `Spring Damping`(작을수록 더 출렁임) · `Max Pulse Scale`(MAX 글자 커지는 정도) · `Notice Material`('공간 가득' 같은 알림 글자 재질, 기본 `TmoneyRoundWindExtraBold SDF Outline Overlay` = 건물에 안 가림. 비우면 원래 재질이라 가려질 수 있음).
+- **WallCutoutTarget** (트럭 프리팹 `InboundTruck` · `OutboundTruck` 루트, 2026-11-20) — 주차장 지붕에 뚫리는 트럭 구멍: `Radius`(구멍 반지름 m, 3.2 `임시`) · `Offset`(구멍 중심, 트럭 기준 m). 컴포넌트 체크는 **꺼 둔 채로** 둔다 (주차 칸에 들어올 때 코드가 켬). 플레이어 구멍 크기는 씬 Player의 `WallCutout` → `Radius`.
 - **CashFlyConfig** — 돈이 HUD 저금통으로 날아감: `Duration` · `Arc Height`(곡선 높이) · `Size` · 그래프 2개(곡선을 클릭해 모양 편집) · `Target Punch`(도착 때 저금통이 튀는 정도).
 - **GoldenTruckConfig** — 황금 트럭 (GDD 6.4). 시험할 때는 Play 중 왼쪽 아래 `DEBUG` → `Golden truck`을 누르면 다음 트럭이 황금 트럭으로 온다. 몸체 색 · 빛 세기는 Play 중 바꾸면 바로 보이고, 나머지는 다음 황금 트럭부터.
   - 확률 · 값: `Chance`(0.0005 = 0.05%, `임시`) · `Value Multiplier`(금 1덩이 = 지폐 다발 × 이 값, 2).

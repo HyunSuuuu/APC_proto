@@ -321,10 +321,10 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | [EconomyConfig](../Scripts/Data/EconomyConfig.cs) | `EconomyConfig` | 시작 보유 재화, **시작 발판 비용** `startBuildCosts`(건물 20 · 하차 10 · A보관 10 · 상차 10 · 사무실 100), 구매 패드 시간, 업그레이드 비용, **선반 단계 비용** `shelfStageCosts`(150 · 300), **현금 더미**(다발 금액 · 최대 보이는 수 · 흡수 반경 · 날아가는 간격/시간), **파트 · 정산**(파트 길이 180 · 저금통 단계 3 · 가득 기준), **남은 시간 보너스**(줄어드는 시간 3초 · 10초당 5 · 확인 간격 0.5 · 이어짐 2초, M17-3), 경험치 |
 | [OrderRules](../Scripts/Data/OrderRules.cs) | `OrderRules` | 상차 트럭 1대 합계 수량 가중치(3~6 = 40/30/20/10), 두 색 확률 `twoColorChance`(0.5) |
 | [StaffRules](../Scripts/Data/StaffRules.cs) | `StaffRules` | 알바 스탯 생성 · 스탯 효과 · 고용금 · 시급 · 직무 색(4개) · 코스튬 확률(`costumeChance` 0.1) · 작업 대기 · 집기 간격 (M6, M13-7) |
-| [PlayerConfig](../Scripts/Data/PlayerConfig.cs) | `PlayerConfig` | 이동 속도 · 회전 속도 · 뛰기 기준, 기본 적재(손 3개), **업그레이드 단계** `carrySteps` · `speedSteps` (`PlayerUpgradeStep` 이름 · 값 · 해금 레벨 · 비용), 집기 간격, **상호작용 대기 시간**, 내려놓기 ↔ 집기 전환 쿨타임 |
+| [PlayerConfig](../Scripts/Data/PlayerConfig.cs) | `PlayerConfig` | 이동 속도 · 회전 속도 · 뛰기 기준 · **벽 여유** `wallClearance`, 기본 적재(손 3개), **업그레이드 단계** `carrySteps` · `speedSteps` (`PlayerUpgradeStep` 이름 · 값 · 해금 레벨 · 비용), 집기 간격, **상호작용 대기 시간**, 내려놓기 ↔ 집기 전환 쿨타임 |
 | [ControlsConfig](../Scripts/Data/ControlsConfig.cs) | `ControlsConfig` | 조이스틱 반경, 카메라 각도 · 렌즈 · 줌 · 복귀 시간 |
 | [WallFadeConfig](../Scripts/Data/WallFadeConfig.cs) | `WallFadeConfig` | 벽 반투명 (2026-11-19): 켜기 · 반투명 재질 · 알파 · 흐려짐/돌아옴 시간 · 가로/세로 여유 · 확인 높이 · 가까이 무시 · 확인 간격. `GameDatabase.WallFade`(비면 안 함) |
-| [CarryConfig](../Scripts/Data/CarryConfig.cs) | `CarryConfig` | 상자 높이(0.5 = 색 상자 0.3 × 배율 1.667, M15-2), 쓰레기 모델 배율 2.5, **스택 휘어짐**(`leanCurve` · `curveLevels` · `tiltAlongCurve`, `LeanFactor(층)`), 비행 · 착지 연출, 스택 흔들림 스프링, MAX 표시 |
+| [CarryConfig](../Scripts/Data/CarryConfig.cs) | `CarryConfig` | 상자 높이(0.5 = 색 상자 0.3 × 배율 1.667, M15-2), 쓰레기 모델 배율 2.5, **스택 휘어짐**(`leanCurve` · `curveLevels` · `tiltAlongCurve`, `LeanFactor(층)`), 비행 · 착지 연출, 스택 흔들림 스프링, MAX 표시, '넣을 수 없음' 그림, **알림 글자 재질** `noticeMaterial`(TMP Overlay) |
 | [LogisticsConfig](../Scripts/Data/LogisticsConfig.cs) | `LogisticsConfig` | 보관소 · 선반 용량, **반품**(반품 확률 · 반품 팔레트 12 · 재포장 입력 6 · 성공 70% · 쓰레기 출력 6 · 재포장 팔레트 6 · 재포장 2초 · 쓰레기 들기 12), 입고 · 출고 트럭 후진 · 출발 · 재등장 시간, 사무실 게이지, 팝 연출 시간 |
 | [SiteLayout](../Scripts/Data/SiteLayout.cs) | `SiteLayout` | 칸 크기, **모듈 배치 목록** (아래 설명) |
 | [CashFlyConfig](../Scripts/Data/CashFlyConfig.cs) | `CashFlyConfig` | 주운 현금 → HUD 저금통 **달러 아이콘 연출**: 비행 시간, **속도 그래프**(`moveCurve`, 시간 0~1 → 경로 진행 0~1, 기울기 = 속도, 1을 넘기면 지나쳤다 돌아옴), 포물선 높이, **출발 랜덤 반경**(`startRadius`, HUD px — 플레이어 화면 위치 둘레 원 안 무작위 지점에서 출발, 0 = 중앙), 기본 크기, **크기 그래프**(`scaleCurve`, 시간 → 배율), 도착 때 저금통 아이콘 튐. Build Site가 `CashFlyEffect`에 직접 연결 (없으면 만듦, 비면 `OrDefault`) |
@@ -388,12 +388,13 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Characters/PlayerMover.cs](../Scripts/Characters/PlayerMover.cs)
 - **역할**: 조이스틱 입력으로 플레이어(CharacterController)를 움직인다.
 - **동작**: 속도 = 입력 크기 × `PlayerUpgrades.MoveSpeed`(기본 `PlayerConfig.moveSpeed`), 방향은 카메라 Yaw 기준. 이동 전에 `ClampToSite`가 다음 위치가 열린 칸 안인지 확인하고, 막히면 X축 또는 Z축 한쪽으로만 움직여 벽을 따라 미끄러진다. 중력 처리 포함.
-- **주의**: 이미 칸 밖에 있으면(순간이동 등) 돌아올 수 있게 막지 않는다. `MoveAmount` · `IsRunning`은 애니메이션용이다.
+- **든 물건 벽 뚫림 막기** (2026-11-19): 빈손이면 반지름 = 몸(`controller.radius` 0.4). 상자를 들었거나 도구가 켜져 있으면 반지름 = `CarryReach()`(든 상자 · `PlayerSetup.ToolRenderers`의 렌더러 로컬 경계 꼭짓점 중 몸 중심에서 수평으로 가장 먼 거리 — 맨손 3개 0.78 · 구루마 1.52 · 롤테이너 1.32m) + `PlayerConfig.wallClearance`(0.25, 벽 조각이 경계 안쪽으로 들어온 두께). 방향 없는 원이라 벽 앞에서 돌아도 안 뚫린다. 이미 그 안쪽이면(벽 옆에서 집음 · 업그레이드) 0.05m씩 줄여 지금 여유를 찾고 그보다 더 다가가지 못하게만 막는다 (+0.01로 재서 프레임마다 밀려들지 않음).
+- **주의**: 몸이 이미 칸 밖에 있으면(순간이동 등) 돌아올 수 있게 막지 않는다. 상자가 날아오는 중(점프 연출)에는 아직 몸 가까이에 있어 덜 막는다. 알바(네비메시)는 해당 없음. `MoveAmount` · `IsRunning`은 애니메이션용이다.
 
 #### PlayerSetup
 [Characters/PlayerSetup.cs](../Scripts/Characters/PlayerSetup.cs)
 - **역할**: `PlayerConfig` 값을 `CarryStack`(최대 적재 = `PlayerUpgrades.Capacity`, 단계가 오르면 다시 넣음)과 `Interactor`(집기 간격, 대기 시간)에 넣는다. 알바는 `StaffWorker`가 같은 컴포넌트에 스탯 기반 값을 넣는다.
-- **동작**: 적재 도구가 구루마 이상(`CarryStep > 0`)이면 `CharacterAnimator.UsePush`를 켜고, `tools[단계 − 1]`(씬 Player `Tools/Wagon` · `Tools/Rolltainer`, 앞에 두고 미는 모델)만 켠 뒤 그 자식 `StackAnchor`로 `CarryStack.UseAnchor` (M14-4). 0단계는 원래 손 앵커.
+- **동작**: 적재 도구가 구루마 이상(`CarryStep > 0`)이면 `CharacterAnimator.UsePush`를 켜고, `tools[단계 − 1]`(씬 Player `Tools/Wagon` · `Tools/Rolltainer`, 앞에 두고 미는 모델)만 켠 뒤 그 자식 `StackAnchor`로 `CarryStack.UseAnchor` (M14-4). 0단계는 원래 손 앵커. 켠 도구의 렌더러는 `ToolRenderers`로 내놓는다 (`PlayerMover` 벽 거리용, 맨손 = 빈 배열).
 
 #### CharacterAnimator
 [Characters/CharacterAnimator.cs](../Scripts/Characters/CharacterAnimator.cs)
@@ -841,7 +842,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### FloatingNotice
 [UI/FloatingNotice.cs](../Scripts/UI/FloatingNotice.cs)
-- **역할**: 월드에 잠깐 떠올랐다(0.8m, 1초) 사라지는 빨간 알림 글자 (static). `Show(template, position, text)` — 원본 월드 글자(폰트 · 외곽선 · `Billboard`)를 복제해 쓴다.
+- **역할**: 월드에 잠깐 떠올랐다(0.8m, 1초) 사라지는 빨간 알림 글자 (static). `Show(template, position, text)` — 원본 월드 글자(폰트 · 외곽선 · `Billboard`)를 복제해 쓴다. 재질은 `CarryConfig.noticeMaterial`(`Fonts/TmoneyRoundWindExtraBold SDF Outline Overlay`, TMP Overlay)로 바꿔 **건물 · 지붕에 가리지 않는다** (2026-11-20, 원본과 아틀라스가 같을 때만). 그림(`ShowIcon`)은 그대로 가려질 수 있음.
 - **그림**: `ShowIcon(sprite, position, height)` — SpriteRenderer를 만들어 카메라를 보게 두고 같은 연출(떠오르며 투명). '넣을 수 없음' = `CarryConfig.cannotDropIcon`(`Art/Temp/candoit`, 높이 1.2m), `CargoZone.NoticeCannotDrop` (2026-11-18, 옛 글자 대체).
 - **연결**: `CargoZone.Notice` · `NoticeCannotDrop`이 부른다 — `TruckPickupZone`('공간 가득'), `ShelfZone`(금지 그림 · '가득'), `StorageZone`('선반 가득', 반품 팔레트 · 재포장 입력 금지 그림 · '가득').
 
@@ -988,9 +989,15 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### WallCutout
 [Visuals/WallCutout.cs](../Scripts/Visuals/WallCutout.cs)
-- **역할**: 플레이어를 가리는 구조물 · 배경에 원형 구멍 (셰이더 `APC/WallCutout`, `Shaders/WallCutout.shader` · `.hlsl`, 재질 `M_WallCutout`). Game 씬 · ShaderTestScene의 Player에 붙음.
-- **동작**: 매 프레임 구멍 중심(발 + `height`) · 반지름 · 디더 폭 · `depthBias`를 전역 셰이더 값으로. `scanInterval`마다 이름이 `structurePrefixes`(wall_ · pillar_ · window_ · parking · tree_ 등)로 시작하는 렌더러(또는 부모)와 `extraWalls` 아래 렌더러의 URP Lit 재질을 사본 + 컷아웃 셰이더로 바꿈. 끄면 되돌림.
-- **주의**: `SiteWalls` 반투명(`WallFadeConfig.enabled`)과 같이 켜면 같은 재질을 둘이 바꿔 충돌 — 하나만 켠다. 0.5초마다 씬 렌더러 전부를 훑는다(shortcut).
+- **역할**: 플레이어와 `WallCutoutTarget`(주차한 트럭 등)을 가리는 구조물 · 배경에 원형 구멍 (셰이더 `APC/WallCutout`, `Shaders/WallCutout.shader` · `.hlsl`, 재질 `M_WallCutout`). Game 씬 · ShaderTestScene의 Player에 붙음.
+- **동작**: 매 프레임 구멍 대상 배열 `_WallCutoutCenters`(최대 8 = `MaxTargets` = hlsl `WALL_CUTOUT_MAX`, [0] = 플레이어 발 + `height` · `radius`, 나머지 = `WallCutoutTarget.All` 순서, 넘치면 뺌) · `_WallCutoutCount` · 디더 폭 · `depthBias`를 전역 셰이더 값으로 (2026-11-20 배열로 바뀜). 픽셀마다 대상 수만큼 반복해 가장 많이 버리는 값을 씀. 부지가 바뀔 때만(켜질 때 · `SiteGrid.OnUnlocked` · `OnMoved` · 레벨 변경 = 공사 울타리, 2026-11-20 — 전에는 0.5초마다) 그 프레임 LateUpdate에서 씬 렌더러를 한 번 훑어, 이름이 `structurePrefixes`(wall_ · pillar_ · window_ · parking · tree_ 등)로 시작하는 렌더러(또는 부모)와 `extraWalls` 아래 렌더러의 URP Lit 재질을 사본 + 컷아웃 셰이더로 바꿈. 지워진 옛 벽 조각은 그때 목록에서 뺌. 끄면 되돌림.
+- **주의**: `SiteWalls` 반투명(`WallFadeConfig.enabled`)과 같이 켜면 같은 재질을 둘이 바꿔 충돌 — 하나만 켠다. 해금 · 레벨업 신호 없이 구조물을 새로 만드는 코드를 추가하면 그 벽에는 구멍이 안 난다 → 그 코드에서도 신호를 내거나 여기 구독을 더한다.
+- **해금 → 사무실 타일 구매 · 직접 배치로 바뀔 때 (예정, 2026-11-20 사용자)**: ① 권장 — 배치 순간 기존 `SiteGrid` 이벤트를 낸다(새 칸 `OnUnlocked`, 옮김 `OnMoved`). `SiteWalls` · `SiteUnlocker`도 같은 이벤트를 구독하므로 WallCutout은 고칠 것 없음. ② 새 이벤트(예: `OnTilePlaced`)를 만들면 `WallCutout.Start`에 `grid.OnTilePlaced.Subscribe(_ => dirty = true).AddTo(this);` 한 줄 추가(+ `SiteWalls` · `SiteUnlocker`에도). 신호는 배치 연출이 끝나 구조물이 **다 생긴 뒤** 낸다 — 벽 찾기는 신호가 온 프레임 끝에 한 번만 돈다. 드래그 미리보기(고스트)는 훑지 않아 구멍이 안 남(의도). 훑는 시간 · 바꾼 렌더러 수를 정적 `LastScanMs` · `MaxScanMs` · `ScanCount` · `TotalScanMs` · `SwappedCount`로 남김 → `PerformanceHUD`가 표시. 예전 0.5초 방식은 실기기 비교(1회 12.7ms, GC의 절반) 뒤 지움.
+
+#### WallCutoutTarget
+[Visuals/WallCutoutTarget.cs](../Scripts/Visuals/WallCutoutTarget.cs)
+- **역할**: 벽 컷아웃 대상 표시 (2026-11-20). 켜져 있는 동안 이 오브젝트를 가리는 구조물(주차장 지붕 등)에 `radius` 구멍, 중심 = 로컬 `offset`. 스스로 `All`에 등록 → `WallCutout`이 읽는다.
+- **연결**: `InboundTruck` · `OutboundTruck` 프리팹 루트 (MCP, 반지름 3.2 · 중심 (0, 1.2, 0.66) = 트럭 모델 경계 중심 `임시`). 프리팹에서는 **꺼져 있고**, `InboundBay` · `OutboundBay`가 트럭을 자기 주차 칸 생성 지점에 세울 때 켠다 → 후진 · 주차 · 출발하는 동안만 구멍, 대기 줄 트럭은 대상 아님. 떠나면 트럭이 지워지며 빠진다. 플레이어 포함 8개가 넘으면 뒤 대상은 빠짐.
 
 #### CharacterToon
 [Visuals/CharacterToon.cs](../Scripts/Visuals/CharacterToon.cs)
@@ -1022,9 +1029,20 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### DebugMenu
 [Debugging/DebugMenu.cs](../Scripts/Debugging/DebugMenu.cs)
-- **역할**: 치트 메뉴 (IMGUI). 에디터와 Development 빌드에서만 동작한다. **왼쪽 아래** `DEBUG` 버튼 또는 F1.
-- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / **현금 존**: `Zone +200`(첫 현금 존에 쌓기) · `Collect n`(모든 현금 존 돈을 반경 무시하고 플레이어가 줍기 — 다발 · 달러 아이콘 연출 그대로, `CashZone.CollectBy`) / 레벨업 · XP +10 · **Lv.5**(목표 레벨) / 배속 ×1 · ×2 · ×4 / 일시정지 / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick / Returns 생성, **Costume 100%** 토글(켜면 생성 · 고용 탭 새 후보가 모두 코스튬, `StaffRules.ForceCostume`, Play마다 꺼짐), 알바별 `이름 spd cap 상태 들고있는수/최대`. 튜토리얼 중이면 `Tutorial n → next`(단계 건너뛰기) · `Tutorial off`. **Part** 절: 남은 시간(보너스 중이면 `bonus`) · `End Part` · `Time bonus`(할 일이 없을 때처럼 남은 시간 → 보너스, M17-3).
-- **주의**: IMGUI는 EventSystem에 안 잡히므로 `ContainsScreenPoint`로 `UiHitTest`에 영역을 알려 준다. 새 치트는 `DrawContent`에 추가한다. 패널은 스크롤 뷰 — 마우스 · 터치 드래그(버튼 위에서도) · 휠로 내린다. 조이스틱 차단 영역은 패널 영역 전체.
+- **역할**: 치트 메뉴 (IMGUI). 에디터 · Development 빌드에서 동작하고, `releaseBuild`(기본 켬, 2026-11-20)면 일반 빌드에서도 동작한다 — 출시 전에 끈다. **왼쪽 아래** `DEBUG` 버튼 또는 F1.
+- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / **현금 존**: `Zone +200`(첫 현금 존에 쌓기) · `Collect n`(모든 현금 존 돈을 반경 무시하고 플레이어가 줍기 — 다발 · 달러 아이콘 연출 그대로, `CashZone.CollectBy`) / 레벨업 · XP +10 · **Lv.5**(목표 레벨) / 배속 ×1 · ×2 · ×4 / 일시정지 / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick / Returns 생성, **Costume 100%** 토글(켜면 생성 · 고용 탭 새 후보가 모두 코스튬, `StaffRules.ForceCostume`, Play마다 꺼짐), 알바별 `이름 spd cap 상태 들고있는수/최대`. 튜토리얼 중이면 `Tutorial n → next`(단계 건너뛰기) · `Tutorial off`.- **주의**: IMGUI는 EventSystem에 안 잡히므로 `ContainsScreenPoint`로 `UiHitTest`에 영역을 알려 준다. 새 치트는 `DrawContent`에 추가한다. 패널은 스크롤 뷰 — 마우스 · 터치 드래그(버튼 위에서도) · 휠로 내린다. 조이스틱 차단 영역은 패널 영역 전체.
+
+#### PerformanceHUD
+[Debugging/PerformanceHUD.cs](../Scripts/Debugging/PerformanceHUD.cs)
+- **역할**: 성능 측정 패널 (2026-11-20, 사용자 제공 코드). 지금은 `TycoonTest.unity`에만 있음 (`TycoonTestBuilder`가 `PerformanceHUD` 캔버스 · 정렬 1000으로 만듦).
+- **동작**: 왼쪽 아래 DEBUG 오른쪽 [PERF] 버튼 · F2로 열고 닫음 (처음 열림, `startOpen`). 열려 있을 때만 0.5초마다 FPS · 프레임 시간, CPU 메인 · 렌더 · GPU 시간(`ProfilerRecorder`), 정점 · 삼각형 · 드로우콜 · 배치 · SetPass, Unity 할당 · 예약 · 관리 힙 · 기기 RAM을 글자로. 2026-11-20 추가: 구간 안 가장 긴 프레임(`max`), 벽 찾기 시간(마지막 · 최대) · 바꾼 벽 수(`WallCutout` 정적 값), GC 할당 KB/s · 프레임 최대(`GC Allocated In Frame`). **누적 평균 `[Avg n s]`**: 패널을 연 때부터(닫았다 열면 처음부터) FPS · 프레임 평균 · 최대 · 33ms 넘은 프레임 수(끊김, 20ms는 실기기 평균 근처라 올림) · 벽 찾기 평균 × 횟수 · GC KB/s · 늘어난 GC 횟수.
+- **주의**: Awake에서 `Application.targetFrameRate = 120`(인스펙터 `targetFPS`). CPU 렌더 · GPU 시간은 Frame Timing Stats가 꺼져 있거나 에디터에서는 N/A일 수 있음. GC 할당은 Development 빌드에서만 값이 있음(일반 빌드 N/A), 에디터 값은 에디터 할당까지 섞여 큼. 패널 380 × 580 → 480 × 880 (글자 줄 늘어서, 씬은 위쪽 왼쪽 모서리 유지 — 씬 패널 위치는 빌더와 다름).
+
+#### TycoonTest
+[Debugging/TycoonTest.cs](../Scripts/Debugging/TycoonTest.cs)
+- **역할**: 타이쿤 시험 씬 `Scenes/TycoonTest.unity` 전용 (2026-11-20). Game 씬에는 두지 않는다. `Site/Logistics`에 붙음.
+- **동작**: Start에 `PartService.AlwaysOpen` 켬 → `targetLevel`(5, 회사 4곳 전부)까지 레벨업 → 지갑에 `startCash`(100,000) → 네비메시가 생기면 직무별 수(인스펙터, 기본 0)만큼 `StaffService.Spawn`을 `spawnInterval`(0.1초) 간격으로 (고용금 · 최대 인원 무시). **바뀜 (2026-11-20)**: 자동 78명 → 기본 0명, 알바는 고용 탭이나 DEBUG Staff 버튼으로 직접 (최적화 시험용).
+- **연결**: 씬 · 데이터는 `TycoonTestBuilder`가 만든다.
 
 ### 4.11 Editor — 에디터 도구
 
@@ -1035,6 +1053,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | `APC > Art > Background Layout` | [BackgroundLayoutWindow](../Scripts/Editor/BackgroundLayoutWindow.cs) | 배경 모듈 배치 격자 창 (2026-11-19). `SiteLayout.background`를 칸 클릭으로 고친다(놓기 · 돌리기 · 지우기, 부지 바깥 칸 수 조절), 씬 미리보기 `[BackgroundPreview]`(DontSave, Play · 창 닫기 때 지움) |
 | `APC > Setup > Run M0 Setup` | [ProjectBootstrap](../Scripts/Editor/ProjectBootstrap.cs) | 폴더, 가로 화면 설정, 데이터 에셋(GDD 수치), Game 씬. **이미 있는 에셋 · 씬은 건드리지 않고** 빈 참조만 채운다 |
 | `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground(네비메시 제외) · NavMeshSurface · Logistics(Warehouse · ContractService · OrderService · StaffService) → 시작 모듈 인스턴스 + SiteUnlocker → HUD(레벨 · 현금 · 레벨업 배너 + 색종이 · (옛 주문서 큐는 지움) · 계약 PC 팝업(고용 · 배치 · 업그레이드 · 모듈 탭) · 정산 팝업 · 현금 아이콘 층 `CashFly`, 자식은 꺼진 채 저장 + `UiBootstrap`) → 플레이어 위치 + CashCollector → 씬 저장 |
+| `APC > Test > Build Tycoon 8x8 (TycoonTest 씬 덮어쓰기)` | [TycoonTestBuilder](../Scripts/Editor/TycoonTestBuilder.cs) | 타이쿤 시험 (2026-11-20). 데이터 복사본 `Assets/Data/Tycoon/*_Tycoon`(GameDatabase · SiteLayout · LogisticsConfig · LevelTable · ControlsConfig — 없을 때만 복사, 원본 안 바꿈)에 8 × 8 배치(1열 하차장 8 · 회전 0, 8열 상차장 8 · 회전 180, 가운데 = 사무실 (1,2) + 보관 A~D 대각선 섞기 47칸, 하나만 id `StoreD`), 주차 칸 배경, 트럭 간격 2초 · 줄 30, 최대 알바 999, 카메라 최대 거리 120 → `Game.unity`를 `TycoonTest.unity`로 복사 → GameManager 데이터 교체, `StartSequence` · `TutorialGuide` 제거, 모듈 64개 배치, 대기 줄(부지 아래, 남쪽으로) · 바닥(줄 끝까지) · 플레이어 자리, `TycoonTest` · 성능 패널(`PerformanceHUD`) 추가 → 저장 |
 | `APC > Setup > Apply M6 Staff (프리팹 덮어쓰기)` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 · 선반 · 알바 프리팹(`StaffWorker.prefab`)을 덮어쓰고 Build Site. config(SiteLayout · 레벨 표)는 건드리지 않는다 |
 | `APC > Module > New Module...` | [ModuleFactory](../Scripts/Editor/ModuleFactory.cs) (`ModuleCreatorWindow`) | 빈 n × m 모듈 틀을 `Assets/Prefabs/Modules/Module_이름.prefab`으로 만든다 |
 | `APC > Art > Build Test Module` | [ArtModuleBuilder](../Scripts/Editor/ArtModuleBuilder.cs) | 아트 시험용 빈 모듈 `Assets/Prefabs/Modules/Test/Module_ArtTest.prefab`: 바닥 `floor1_basic.fbx` 10 × 10장(1장 = 1m, 메시 실제 크기를 재서 맞춤) + 공용 재질 `M_Prop`(`Color_Pallet.png`). 바닥 충돌체는 그대로 두고 큐브 렌더러만 끔. 게임 배치(SiteLayout)에는 안 들어감 |

@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: CarryConfig
   m_EditorClassIdentifier: Assembly-CSharp::APC.Data.CarryConfig
   boxHeight: 0.5
+  trashModelScale: 2.5
   flyDuration: 0.25
   jumpPower: 1
   landPunch: 0.2
@@ -22,9 +23,36 @@ MonoBehaviour:
   maxLeanPerLevel: 0.06
   springStiffness: 150
   springDamping: 10
+  leanCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 2
+      inSlope: 2
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  curveLevels: 15
+  tiltAlongCurve: 1
   stackBounce: {x: 0.06, y: -0.08, z: 0.06}
   stackBounceDuration: 0.2
   maxPulseScale: 1.1
   maxPulsePeriod: 0.6
   cannotDropIcon: {fileID: 1110431024552498839, guid: 54293ecf1dc605142aad869fd86891ae, type: 3}
   cannotDropIconSize: 1.2
+  noticeMaterial: {fileID: 2100000, guid: 0fc1f82fa34dc5649b55738521225762, type: 2}
