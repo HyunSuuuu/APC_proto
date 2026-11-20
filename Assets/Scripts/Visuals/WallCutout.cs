@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using APC.Core;
+using APC.Site;
+using R3;
 using UnityEngine;
 
 namespace APC.Visuals
@@ -35,11 +38,40 @@ namespace APC.Visuals
         [SerializeField, Min(0f), Tooltip("가장자리 디더 폭 (m)")] float softness = 0.4f;
         [SerializeField, Tooltip("구멍 중심 높이 (발밑에서 m)")] float height = 1f;
         [SerializeField, Min(0f), Tooltip("플레이어보다 이만큼(m) 카메라 쪽에 있는 벽부터 뚫는다")] float depthBias = 0.3f;
-        [SerializeField, Min(0.1f), Tooltip("새로 생긴 벽 찾는 간격 (초). SiteWalls는 해금마다 벽을 다시 세운다")] float scanInterval = 0.5f;
 
         readonly Dictionary<Renderer, Material[]> originals = new();
         readonly Dictionary<Material, Material> copies = new();
-        float nextScan;
+        readonly List<Renderer> stale = new();
+        readonly System.Diagnostics.Stopwatch scanWatch = new();
+        bool dirty; // 부지가 바뀜 → 이번 프레임 끝에 한 번 벽을 찾는다
+
+        // 성능 측정용 (PerformanceHUD가 읽는다): 벽 찾기 1회 시간 · 지금까지 최대 · 횟수 · 바꾼 렌더러 수
+        public static float LastScanMs { get; private set; }
+        public static float MaxScanMs { get; private set; }
+        public static int ScanCount { get; private set; }
+        public static double TotalScanMs { get; private set; }
+        public static int SwappedCount { get; private set; }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStats()
+        {
+            LastScanMs = MaxScanMs = ScanCount = SwappedCount = 0;
+            TotalScanMs = 0;
+        }
+
+        void OnEnable() => dirty = true;
+
+        void Start()
+        {
+            // 구조물은 해금(벽 다시 세움 · 모듈) · 모듈 이동 · 레벨업(공사 울타리) 때만 생긴다 — 모두 그 프레임 안에서 만들어지므로 LateUpdate에서 찾으면 된다
+            var grid = SiteGrid.Instance;
+            if (grid != null)
+            {
+                grid.OnUnlocked.Subscribe(_ => dirty = true).AddTo(this);
+                grid.OnMoved.Subscribe(_ => dirty = true).AddTo(this);
+            }
+            if (GameManager.Instance != null) GameManager.Instance.Level.Level.Subscribe(_ => dirty = true).AddTo(this);
+        }
 
         void LateUpdate()
         {
@@ -57,10 +89,29 @@ namespace APC.Visuals
             Shader.SetGlobalFloat(CountId, count);
             Shader.SetGlobalVector(ParamsId, new Vector4(0f, softness, depthBias, 0f));
 
-            if (Time.time < nextScan || cutoutMaterial == null) return;
-            nextScan = Time.time + scanInterval;
+            // 예전엔 0.5초마다 훑었다 — 실기기 TycoonTest에서 1회 12.7ms · GC 절반이라 바꿈 (2026-11-20)
+            if (!dirty || cutoutMaterial == null) return;
+            dirty = false;
 
-            // shortcut: 0.5초마다 씬 렌더러 전부를 훑는다, 렌더러가 수천 개로 늘어 버벅이면 벽 생성 시점에 등록하는 방식으로 바꾼다
+            scanWatch.Restart();
+            Scan();
+            scanWatch.Stop();
+            LastScanMs = (float)scanWatch.Elapsed.TotalMilliseconds;
+            MaxScanMs = Mathf.Max(MaxScanMs, LastScanMs);
+            ScanCount++;
+            TotalScanMs += LastScanMs;
+            SwappedCount = originals.Count;
+        }
+
+        void Scan()
+        {
+            // 해금 때 지워진 옛 벽 조각은 목록에서 뺀다
+            stale.Clear();
+            foreach (var r in originals.Keys)
+                if (r == null) stale.Add(r);
+            foreach (var r in stale) originals.Remove(r);
+
+            // 부지가 바뀔 때만 불리므로 씬 전체를 훑어도 된다 (타이쿤 시험 실기기 약 7ms, 해금 프레임에 한 번)
             foreach (var r in FindObjectsByType<Renderer>(FindObjectsSortMode.None))
                 if (!originals.ContainsKey(r) && IsWall(r.transform)) Swap(r);
             if (extraWalls == null) return;

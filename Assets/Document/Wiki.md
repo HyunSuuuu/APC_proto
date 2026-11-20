@@ -959,8 +959,9 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### WallCutout
 [Visuals/WallCutout.cs](../Scripts/Visuals/WallCutout.cs)
 - **역할**: 플레이어와 `WallCutoutTarget`(주차한 트럭 등)을 가리는 구조물 · 배경에 원형 구멍 (셰이더 `APC/WallCutout`, `Shaders/WallCutout.shader` · `.hlsl`, 재질 `M_WallCutout`). Game 씬 · ShaderTestScene의 Player에 붙음.
-- **동작**: 매 프레임 구멍 대상 배열 `_WallCutoutCenters`(최대 8 = `MaxTargets` = hlsl `WALL_CUTOUT_MAX`, [0] = 플레이어 발 + `height` · `radius`, 나머지 = `WallCutoutTarget.All` 순서, 넘치면 뺌) · `_WallCutoutCount` · 디더 폭 · `depthBias`를 전역 셰이더 값으로 (2026-11-20 배열로 바뀜). 픽셀마다 대상 수만큼 반복해 가장 많이 버리는 값을 씀. `scanInterval`마다 이름이 `structurePrefixes`(wall_ · pillar_ · window_ · parking · tree_ 등)로 시작하는 렌더러(또는 부모)와 `extraWalls` 아래 렌더러의 URP Lit 재질을 사본 + 컷아웃 셰이더로 바꿈. 끄면 되돌림.
-- **주의**: `SiteWalls` 반투명(`WallFadeConfig.enabled`)과 같이 켜면 같은 재질을 둘이 바꿔 충돌 — 하나만 켠다. 0.5초마다 씬 렌더러 전부를 훑는다(shortcut).
+- **동작**: 매 프레임 구멍 대상 배열 `_WallCutoutCenters`(최대 8 = `MaxTargets` = hlsl `WALL_CUTOUT_MAX`, [0] = 플레이어 발 + `height` · `radius`, 나머지 = `WallCutoutTarget.All` 순서, 넘치면 뺌) · `_WallCutoutCount` · 디더 폭 · `depthBias`를 전역 셰이더 값으로 (2026-11-20 배열로 바뀜). 픽셀마다 대상 수만큼 반복해 가장 많이 버리는 값을 씀. 부지가 바뀔 때만(켜질 때 · `SiteGrid.OnUnlocked` · `OnMoved` · 레벨 변경 = 공사 울타리, 2026-11-20 — 전에는 0.5초마다) 그 프레임 LateUpdate에서 씬 렌더러를 한 번 훑어, 이름이 `structurePrefixes`(wall_ · pillar_ · window_ · parking · tree_ 등)로 시작하는 렌더러(또는 부모)와 `extraWalls` 아래 렌더러의 URP Lit 재질을 사본 + 컷아웃 셰이더로 바꿈. 지워진 옛 벽 조각은 그때 목록에서 뺌. 끄면 되돌림.
+- **주의**: `SiteWalls` 반투명(`WallFadeConfig.enabled`)과 같이 켜면 같은 재질을 둘이 바꿔 충돌 — 하나만 켠다. 해금 · 레벨업 신호 없이 구조물을 새로 만드는 코드를 추가하면 그 벽에는 구멍이 안 난다 → 그 코드에서도 신호를 내거나 여기 구독을 더한다.
+- **해금 → 사무실 타일 구매 · 직접 배치로 바뀔 때 (예정, 2026-11-20 사용자)**: ① 권장 — 배치 순간 기존 `SiteGrid` 이벤트를 낸다(새 칸 `OnUnlocked`, 옮김 `OnMoved`). `SiteWalls` · `SiteUnlocker`도 같은 이벤트를 구독하므로 WallCutout은 고칠 것 없음. ② 새 이벤트(예: `OnTilePlaced`)를 만들면 `WallCutout.Start`에 `grid.OnTilePlaced.Subscribe(_ => dirty = true).AddTo(this);` 한 줄 추가(+ `SiteWalls` · `SiteUnlocker`에도). 신호는 배치 연출이 끝나 구조물이 **다 생긴 뒤** 낸다 — 벽 찾기는 신호가 온 프레임 끝에 한 번만 돈다. 드래그 미리보기(고스트)는 훑지 않아 구멍이 안 남(의도). 훑는 시간 · 바꾼 렌더러 수를 정적 `LastScanMs` · `MaxScanMs` · `ScanCount` · `TotalScanMs` · `SwappedCount`로 남김 → `PerformanceHUD`가 표시. 예전 0.5초 방식은 실기기 비교(1회 12.7ms, GC의 절반) 뒤 지움.
 
 #### WallCutoutTarget
 [Visuals/WallCutoutTarget.cs](../Scripts/Visuals/WallCutoutTarget.cs)
@@ -992,14 +993,13 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### DebugMenu
 [Debugging/DebugMenu.cs](../Scripts/Debugging/DebugMenu.cs)
 - **역할**: 치트 메뉴 (IMGUI). 에디터 · Development 빌드에서 동작하고, `releaseBuild`(기본 켬, 2026-11-20)면 일반 빌드에서도 동작한다 — 출시 전에 끈다. **왼쪽 아래** `DEBUG` 버튼 또는 F1.
-- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / **현금 존**: `Zone +200`(첫 현금 존에 쌓기) · `Collect n`(모든 현금 존 돈을 반경 무시하고 플레이어가 줍기 — 다발 · 달러 아이콘 연출 그대로, `CashZone.CollectBy`) / 레벨업 · XP +10 · **Lv.5**(목표 레벨) / 배속 ×1 · ×2 · ×4 / 일시정지 / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick / Returns 생성, **Costume 100%** 토글(켜면 생성 · 고용 탭 새 후보가 모두 코스튬, `StaffRules.ForceCostume`, Play마다 꺼짐), 알바별 `이름 spd cap 상태 들고있는수/최대`. 튜토리얼 중이면 `Tutorial n → next`(단계 건너뛰기) · `Tutorial off`.
-- **주의**: IMGUI는 EventSystem에 안 잡히므로 `ContainsScreenPoint`로 `UiHitTest`에 영역을 알려 준다. 새 치트는 `DrawContent`에 추가한다. 패널은 스크롤 뷰 — 마우스 · 터치 드래그(버튼 위에서도) · 휠로 내린다. 조이스틱 차단 영역은 패널 영역 전체.
+- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / **현금 존**: `Zone +200`(첫 현금 존에 쌓기) · `Collect n`(모든 현금 존 돈을 반경 무시하고 플레이어가 줍기 — 다발 · 달러 아이콘 연출 그대로, `CashZone.CollectBy`) / 레벨업 · XP +10 · **Lv.5**(목표 레벨) / 배속 ×1 · ×2 · ×4 / 일시정지 / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick / Returns 생성, **Costume 100%** 토글(켜면 생성 · 고용 탭 새 후보가 모두 코스튬, `StaffRules.ForceCostume`, Play마다 꺼짐), 알바별 `이름 spd cap 상태 들고있는수/최대`. 튜토리얼 중이면 `Tutorial n → next`(단계 건너뛰기) · `Tutorial off`.- **주의**: IMGUI는 EventSystem에 안 잡히므로 `ContainsScreenPoint`로 `UiHitTest`에 영역을 알려 준다. 새 치트는 `DrawContent`에 추가한다. 패널은 스크롤 뷰 — 마우스 · 터치 드래그(버튼 위에서도) · 휠로 내린다. 조이스틱 차단 영역은 패널 영역 전체.
 
 #### PerformanceHUD
 [Debugging/PerformanceHUD.cs](../Scripts/Debugging/PerformanceHUD.cs)
 - **역할**: 성능 측정 패널 (2026-11-20, 사용자 제공 코드). 지금은 `TycoonTest.unity`에만 있음 (`TycoonTestBuilder`가 `PerformanceHUD` 캔버스 · 정렬 1000으로 만듦).
-- **동작**: 왼쪽 아래 DEBUG 오른쪽 [PERF] 버튼 · F2로 열고 닫음 (처음 열림, `startOpen`). 열려 있을 때만 0.5초마다 FPS · 프레임 시간, CPU 메인 · 렌더 · GPU 시간(`ProfilerRecorder`), 정점 · 삼각형 · 드로우콜 · 배치 · SetPass, Unity 할당 · 예약 · 관리 힙 · 기기 RAM을 글자로.
-- **주의**: Awake에서 `Application.targetFrameRate = 120`(인스펙터 `targetFPS`). CPU 렌더 · GPU 시간은 Frame Timing Stats가 꺼져 있거나 에디터에서는 N/A일 수 있음.
+- **동작**: 왼쪽 아래 DEBUG 오른쪽 [PERF] 버튼 · F2로 열고 닫음 (처음 열림, `startOpen`). 열려 있을 때만 0.5초마다 FPS · 프레임 시간, CPU 메인 · 렌더 · GPU 시간(`ProfilerRecorder`), 정점 · 삼각형 · 드로우콜 · 배치 · SetPass, Unity 할당 · 예약 · 관리 힙 · 기기 RAM을 글자로. 2026-11-20 추가: 구간 안 가장 긴 프레임(`max`), 벽 찾기 시간(마지막 · 최대) · 바꾼 벽 수(`WallCutout` 정적 값), GC 할당 KB/s · 프레임 최대(`GC Allocated In Frame`). **누적 평균 `[Avg n s]`**: 패널을 연 때부터(닫았다 열면 처음부터) FPS · 프레임 평균 · 최대 · 33ms 넘은 프레임 수(끊김, 20ms는 실기기 평균 근처라 올림) · 벽 찾기 평균 × 횟수 · GC KB/s · 늘어난 GC 횟수.
+- **주의**: Awake에서 `Application.targetFrameRate = 120`(인스펙터 `targetFPS`). CPU 렌더 · GPU 시간은 Frame Timing Stats가 꺼져 있거나 에디터에서는 N/A일 수 있음. GC 할당은 Development 빌드에서만 값이 있음(일반 빌드 N/A), 에디터 값은 에디터 할당까지 섞여 큼. 패널 380 × 580 → 480 × 880 (글자 줄 늘어서, 씬은 위쪽 왼쪽 모서리 유지 — 씬 패널 위치는 빌더와 다름).
 
 #### TycoonTest
 [Debugging/TycoonTest.cs](../Scripts/Debugging/TycoonTest.cs)

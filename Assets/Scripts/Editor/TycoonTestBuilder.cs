@@ -190,8 +190,8 @@ namespace APC.EditorTools
             var toggle = button.gameObject.AddComponent<Button>();
             var label = BuildKit.UIText("Label", button.transform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(128f, 56f), "PERF", 26f, BuildKit.BodyFont, Color.white);
 
-            var panel = BuildKit.UIImage("Panel", canvasGo.transform, bottomLeft, bottomLeft, new Vector2(484f + 190f, 80f + 290f), new Vector2(380f, 580f), new Color(0f, 0f, 0f, 0.7f), null);
-            var text = BuildKit.UIText("Text", panel.transform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(350f, 550f), "", 22f, BuildKit.BodyFont, Color.white);
+            var panel = BuildKit.UIImage("Panel", canvasGo.transform, bottomLeft, bottomLeft, new Vector2(484f + 240f, 80f + 440f), new Vector2(480f, 880f), new Color(0f, 0f, 0f, 0.7f), null);
+            var text = BuildKit.UIText("Text", panel.transform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(450f, 850f), "", 22f, BuildKit.BodyFont, Color.white);
             text.alignment = TextAlignmentOptions.TopLeft;
 
             var hud = canvasGo.AddComponent<APC.Debugging.PerformanceHUD>();
