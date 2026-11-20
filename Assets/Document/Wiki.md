@@ -30,6 +30,7 @@
    - [Orders](#47-orders--주문)
    - [Site](#48-site--부지-모듈)
    - [UI](#49-ui)
+   - [BrokeCash](#49c-brokecash--정산-저금통-깨기-rd)
    - [Debugging](#410-debugging)
    - [Editor](#411-editor--에디터-도구)
 5. [자주 하는 작업](#5-자주-하는-작업)
@@ -54,6 +55,7 @@
 | `Contracts` | 회사 계약 |
 | `Orders` | 주문 데이터 · 주문 큐 · 수요 계산 · 교착 방지 가중치 |
 | `Economy` | 파트 타이머 · 파트 종료 정산 · 사무실 투명 저금통 |
+| `BrokeCash` | 정산 저금통 깨기 연출 R&D (DOTween · 2D 스켈레톤 비교용, 별도 씬 `BrokeCashScene`). 아직 게임 흐름에 연결 안 됨 |
 | `Site` | 부지 격자와 모듈 해금 |
 | `UI` | 팝업, 월드 글자 정렬, HUD 초기화 (`UiBootstrap`) |
 | `Debugging` | 치트 메뉴 (에디터 · 개발 빌드 전용) |
@@ -327,6 +329,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | [CarryConfig](../Scripts/Data/CarryConfig.cs) | `CarryConfig` | 상자 높이(0.5 = 색 상자 0.3 × 배율 1.667, M15-2), 쓰레기 모델 배율 2.5, **스택 휘어짐**(`leanCurve` · `curveLevels` · `tiltAlongCurve`, `LeanFactor(층)`), 비행 · 착지 연출, 스택 흔들림 스프링, MAX 표시 |
 | [LogisticsConfig](../Scripts/Data/LogisticsConfig.cs) | `LogisticsConfig` | 보관소 · 선반 용량, **반품**(반품 확률 · 반품 팔레트 12 · 재포장 입력 6 · 성공 70% · 쓰레기 출력 6 · 재포장 팔레트 6 · 재포장 2초 · 쓰레기 들기 12), 입고 · 출고 트럭 후진 · 출발 · 재등장 시간, 사무실 게이지, 팝 연출 시간 |
 | [SiteLayout](../Scripts/Data/SiteLayout.cs) | `SiteLayout` | 칸 크기, **모듈 배치 목록** (아래 설명) |
+| [BrokeCashConfig](../Scripts/Data/BrokeCashConfig.cs) | `BrokeCashConfig` | 정산 저금통 깨기 연출 (R&D, 2026-11-20): 번 돈 ÷ 기준 = 비율 → `maxRatio`(2)까지 `amountCurve`로 t → 조각 수(8~120) · 흘러내리는 시간 · 더미 반경 · 높이 · 출렁 각도 · 카메라 흔들림을 (최소, 최대) 보간, 저금통 안 돈 높이(비율 0~1), 돈 종류 단계(`billRatio` 0.3 · `bundleRatio` 1), 타이밍(내려옴 0.75 · 쩌적까지 0.35 · 깨짐까지 0.3), 금액 가중치(동전 1 · 지폐 3 · 다발 8). 값은 모두 `임시`. GameDatabase에 안 넣음 — BrokeCashScene의 `BrokeCashDirector`가 직접 참조 |
 | [CashFlyConfig](../Scripts/Data/CashFlyConfig.cs) | `CashFlyConfig` | 주운 현금 → HUD 저금통 **달러 아이콘 연출**: 비행 시간, **속도 그래프**(`moveCurve`, 시간 0~1 → 경로 진행 0~1, 기울기 = 속도, 1을 넘기면 지나쳤다 돌아옴), 포물선 높이, **출발 랜덤 반경**(`startRadius`, HUD px — 플레이어 화면 위치 둘레 원 안 무작위 지점에서 출발, 0 = 중앙), 기본 크기, **크기 그래프**(`scaleCurve`, 시간 → 배율), 도착 때 저금통 아이콘 튐. Build Site가 `CashFlyEffect`에 직접 연결 (없으면 만듦, 비면 `OrDefault`) |
 | [GoldenTruckConfig](../Scripts/Data/GoldenTruckConfig.cs) | `GoldenTruckConfig` | **황금 트럭** (GDD 6.4, 2026-11-18 `LogisticsConfig`에서 옮김): 확률 · 금 값 배율, 몸체 색(`solidColor` = `_BaseMap`을 흰색으로 덮어 단색) · 깜빡임, 점광원, 반짝임 파티클(`M_GoldSparkle`), 쏟기(지연 · 간격 · 튐 · 쌓는 모양 · 떠남 지연), 흡수(반경 · 간격 · 비행 · 회전 · 크기 그래프). `GameDatabase.GoldenTruck` (비면 `OrDefault`). 값은 매번 읽으므로 Play 중 조절 가능 |
 | [StampConfig](../Scripts/Data/StampConfig.cs) | `StampConfig` | 계약 PC **도장 연출**: 누르기 배율 · 시간, 카드 위 머무는 시간, 복귀 시간 · 이징, 자국 · 필터, 흔들림 · 사유 시간, 계약 후 팝업 닫힘 지연. **`GameDatabase`가 아니라** Build Site가 `Stamp` · `StampCard` · `ContractPopup`에 직접 연결 (없으면 만들고, 연결이 비면 기본값 `OrDefault`) |
@@ -1018,6 +1021,39 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **동작**: `Start`에서 링(48조각) + 삼각형(+Z) 메시를 만들어 자식 `FacingIndicator`(발 + `height`)로 붙인다 — 캐릭터 회전을 그대로 따름. 그림자 없음. 반지름 · 두께 · 삼각형 크기는 인스펙터.
 - **연결**: 씬 `Player` 루트(씬 YAML 직접 추가), 재질 `Art/Materials/M_FacingIndicator`(URP 투명 Unlit, 흰색 알파 0.7). 재질이 비면 표시하지 않음.
 
+### 4.9c BrokeCash — 정산 저금통 깨기 (R&D)
+
+2026-11-20. 같은 연출을 **DOTween 버전**과 **2D 스켈레톤 버전**(다음 작업)으로 따로 만들어 비교한다. 씬 `Assets/Scenes/BrokeCashScene.unity` = DOTween 버전 (메뉴 `APC > Broke Cash > Build DOTween Scene`로 다시 만듦). 2D 직교 카메라 · 스프라이트, Game 씬 · 정산 팝업과는 아직 연결 안 함.
+흐름: 사슬에 매달린 유리 저금통이 내려와 출렁 → 쩌적(우측 하단 금이 한 번에) → 0.3초 뒤 깨짐 → 구멍에서 돈 조각이 흘러내려 바닥 더미 → 조각마다 `CashFlyEffect`로 좌측 하단 "정산할 돈"에 날아가 숫자 증가 → 영수증 안내. 0원이면 먼지 · 나방 · 단추 개그.
+
+#### BrokeCashPlan
+[BrokeCash/BrokeCashPlan.cs](../Scripts/BrokeCash/BrokeCashPlan.cs)
+- **역할**: 한 번의 연출 계획 (순수 계산, 공용). `Create(번 돈, 기준, config, 날아가는 때, seed)` → 비율 · t · 단계(1 동전 · 2 + 지폐 · 3 + 다발) · 조각마다 종류 · 금액 · 출발 시각 · 더미 자리 · 날아가는 시각. 같은 seed면 결과가 같다 (두 버전 비교용).
+- **동작**: 금액은 종류 가중치 비례로 나누고 나머지는 마지막 조각 → 합 = 번 돈. 시각은 깨지는 순간 기준. `FillAt(t, 구멍 높이)` = 깨진 뒤 남은 돈 높이.
+
+#### BrokeCashDirector
+[BrokeCash/BrokeCashDirector.cs](../Scripts/BrokeCash/BrokeCashDirector.cs)
+- **역할**: 연출 진행 (공용). `Play(번 돈, 기준, 모드, seed)` · `Skip()` · `Finished`.
+- **동작**: 몸체(`PiggyBody`)에 Prepare → Lower → (crackDelay) Crack + "쩌적!" → (breakDelay) Break + "와장창!" · 유리 조각 12 · 카메라 흔들림 → 조각마다 구멍에서 `DOJump`(+회전) → 착지(납작 + 튐, 아래일수록 앞) → `Fly` 시각에 숨기고 `CashFlyEffect.Fly` → 도착마다 `BrokeCashHud.Add`. 다 도착하면 Finish → 영수증 안내. 배경(벽 · 바닥 사각형)은 Awake에 코드로.
+- **주의**: 모든 트윈 `SetUpdate(true)`(정산 중 timeScale 0 대비) + `SetId(this)` — 건너뛰기 · 다시 재생은 `DOTween.Kill(this)` 한 번. 늦게 도착한 비행은 `playId`로 무시. 조각 120개라 Awake에서 `DOTween.SetTweensCapacity(1250, 312)`.
+
+#### PiggyBody · PiggyBodyTween
+[BrokeCash/PiggyBody.cs](../Scripts/BrokeCash/PiggyBody.cs) · [BrokeCash/PiggyBodyTween.cs](../Scripts/BrokeCash/PiggyBodyTween.cs)
+- **역할**: `PiggyBody`(추상, 공용) = 안에 든 돈(몸통 타원 `SpriteMask` 안 격자 스프라이트, `SetFill`로 높이만큼 보임) · 금(`PiggyCracks`) · `HolePosition` · `HoleFraction`. 움직임 `Lower` · `Crack` · `Break` · `SnapBroken`은 버전마다.
+- **PiggyBodyTween**: 오브젝트 = 사슬 고정점(화면 위 밖), 자식 `Body`(유리 이미지 한 장)를 통째로. 내려옴 `DOMoveY`(OutBack 1.6) · 출렁 = `DOLocalRotate` 왕복 Sequence(진폭 × −0.62씩 6번) · 쩌적/깨짐 = `Body.DOPunchPosition`.
+- **연결**: 이미지 `Art/Temp/BrokeCash/Piggy_Glass.png`(1024 × 572, 100 px = 1) + 재질 `M_SpriteMultiply`. 몸통 · 구멍 · 고정점 위치는 빌더가 이미지 픽셀 좌표로 잡음(몸통 (520, 305) 반지름 262 × 188, 구멍 (727, 430)).
+
+#### PiggyCracks
+[BrokeCash/PiggyCracks.cs](../Scripts/BrokeCash/PiggyCracks.cs)
+- **역할**: 우측 하단 금 · 구멍 (공용). 위치 = 금 시작점 = 돈이 나오는 곳. `Prepare(seed)` → 금 11줄(LineRenderer 흰 번짐 + 어두운 선, 대부분 몸통 안쪽으로) · 구멍 테두리 12각을 뽑고 숨김, `Crack(초)` = 한 번에 퍼짐 + 반짝임, `Break` = 구멍 테두리.
+- **주의**: 로컬 좌표라 부모(DOTween 이미지 · 스켈레톤 금 뼈)를 따라감.
+
+#### BrokeCashHud · BrokeCashArt · BrokeCashTester
+[BrokeCash/BrokeCashHud.cs](../Scripts/BrokeCash/BrokeCashHud.cs) · [BrokeCash/BrokeCashArt.cs](../Scripts/BrokeCash/BrokeCashArt.cs) · [BrokeCash/BrokeCashTester.cs](../Scripts/BrokeCash/BrokeCashTester.cs)
+- **BrokeCashHud**: 좌측 하단 "정산할 돈"(아이콘 = `CashFlyEffect` 목표) — `Add`(숫자 + 튐) · `Finish`(큰 튐 + 색) · `ShowEmpty`("…텅") · `ShowReceipt`(아래 가운데 안내).
+- **BrokeCashArt**: 동전 · 지폐 · 다발 · 원 · 유리 조각 · 단추 · 사각형 스프라이트를 코드로 그려 캐시 (아트 오면 교체).
+- **BrokeCashTester**: IMGUI 오른쪽 위 — 번 돈 예시(0 · 60 · 200 · 450 · 900) · 번 돈/기준 입력 · 날아가는 때(착지하자마자 / 다 쏟아진 뒤) · 다시 재생 · 같은 모양 다시 · 건너뛰기 · 배속(`DOTween.timeScale` 1 · 0.5 · 0.25). 시작하면 450 / 300.
+
 ### 4.10 Debugging
 
 #### DebugMenu
@@ -1033,6 +1069,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | 메뉴 | 스크립트 | 하는 일 |
 |---|---|---|
 | `APC > Art > Background Layout` | [BackgroundLayoutWindow](../Scripts/Editor/BackgroundLayoutWindow.cs) | 배경 모듈 배치 격자 창 (2026-11-19). `SiteLayout.background`를 칸 클릭으로 고친다(놓기 · 돌리기 · 지우기, 부지 바깥 칸 수 조절), 씬 미리보기 `[BackgroundPreview]`(DontSave, Play · 창 닫기 때 지움) |
+| `APC > Broke Cash > Build DOTween Scene` | [BrokeCashBuilder](../Scripts/Editor/BrokeCashBuilder.cs) | 저금통 깨기 R&D 씬 `BrokeCashScene`을 **비우고 다시 만든다**: 저금통 이미지 import(Sprite · 100 px) · 재질 `M_SpriteMultiply` · `Data/BrokeCashConfig`(없을 때만) → 직교 카메라(크기 3.575) · `Piggy (DOTween)` · HUD(정산할 돈 · 영수증 안내 · `CashFly`) · `BrokeCash Director`(+ Tester · 월드 글자 3개) → 씬 저장 |
 | `APC > Setup > Run M0 Setup` | [ProjectBootstrap](../Scripts/Editor/ProjectBootstrap.cs) | 폴더, 가로 화면 설정, 데이터 에셋(GDD 수치), Game 씬. **이미 있는 에셋 · 씬은 건드리지 않고** 빈 참조만 채운다 |
 | `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground(네비메시 제외) · NavMeshSurface · Logistics(Warehouse · ContractService · OrderService · StaffService) → 시작 모듈 인스턴스 + SiteUnlocker → HUD(레벨 · 현금 · 레벨업 배너 + 색종이 · (옛 주문서 큐는 지움) · 계약 PC 팝업(고용 · 배치 · 업그레이드 · 모듈 탭) · 정산 팝업 · 현금 아이콘 층 `CashFly`, 자식은 꺼진 채 저장 + `UiBootstrap`) → 플레이어 위치 + CashCollector → 씬 저장 |
 | `APC > Setup > Apply M6 Staff (프리팹 덮어쓰기)` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 · 선반 · 알바 프리팹(`StaffWorker.prefab`)을 덮어쓰고 Build Site. config(SiteLayout · 레벨 표)는 건드리지 않는다 |
