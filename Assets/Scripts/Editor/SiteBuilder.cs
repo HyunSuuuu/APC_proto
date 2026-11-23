@@ -123,6 +123,7 @@ namespace APC.EditorTools
             SetRef(walls, "lowPillar", AssetDatabase.LoadAssetAtPath<GameObject>(prop + "pillar_s.fbx"));
             SetRef(walls, "highPillar", AssetDatabase.LoadAssetAtPath<GameObject>(prop + "pillar_L.fbx"));
             SetRef(walls, "material", AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Materials/M_Prop.mat"));
+            SetRef(walls, "wallMaterial", AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Materials/M_Wall.mat"));
         }
 
         static SiteGrid BakeGrid(Transform site, SiteLayout layout)

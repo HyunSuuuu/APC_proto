@@ -776,7 +776,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Site/SiteWalls.cs](../Scripts/Site/SiteWalls.cs)
 - **역할**: 부지 바깥 벽 (M14-2). 열린 칸과 안 열린 칸 · 부지 밖 사이 변에만 1m 조각(`wall_s` 앞 · `wall_l` 뒤)을 이어 세우고 꼭짓점에 기둥(`pillar_s` · `pillar_L`). 앞 / 뒤 = 변 바깥 방향이 카메라 쪽이면 앞(낮은 벽).
 - **동작**: `Start`와 `SiteGrid.OnUnlocked`마다 `Walls` 자식을 지우고 다시 세운다 → 해금되면 칸 사이 벽이 사라지고 새 테두리에 생긴다. 하차 · 상차장 모듈(`InboundBay` · `OutboundBay`)의 주차장 쪽(모듈 로컬 −x) 변은 비운다.
-- **연결**: Build Site `AddWalls`가 `SiteGrid` 오브젝트에 붙이고 Prop fbx · `M_Prop`을 연결한다.
+- **연결**: Build Site `AddWalls`가 `SiteGrid` 오브젝트에 붙이고 Prop fbx · `M_Prop` · `M_Wall`을 연결한다.
+- **안쪽 면 그라데이션** (2026-11-23): 벽 조각만 `wallMaterial`(`M_Wall` = `APC/WallCutout` + `_WALL_GRADIENT`), 기둥 · 창문은 `material`. `Start` · `OnValidate`(인스펙터 수정 즉시, Play 중 포함)에서 `gradientBottom`(234, 98, 54) · `gradientTop`(#E6D9AE) · `gradientHeight`(3.69m, 위 갈색 띠 아래까지)를 전역 `_WallGradientBottom` · `_WallGradientTop` · `_WallGradientHeight`로 넘김 → 셰이더가 메시 로컬 +y 면(부지 안쪽)의 albedo만 바꿈. 바깥 면 · 띠는 원래 색.
 - **창문** (2026-11-19): 사무실 모듈(`ContractPC`가 있는 모듈) 칸의 바깥 벽은 한 변마다 `windowStarts`(2, 6)번째 조각부터 2칸 자리에 `windowPrefab`(`window_outside`, 폭 2m)을 놓는다. 씬 SiteWalls에 MCP로 연결.
 - **반투명** (2026-11-19, 값은 `WallFadeConfig`): 대상 = 벽 조각 + `WallFadeTarget` 렌더러(하차 · 상차 모듈 `Parking`). `CheckInterval`마다 카메라 → 플레이어 확인 높이(`CheckHeights`) 선이 경계(`HorizontalMargin` · `VerticalMargin` 넓힘, 플레이어 `IgnoreNear` 안은 무시)를 지나면 가림. 알파는 매 프레임 목표(`FadedAlpha` / 1)로 `FadeOut` · `FadeInDuration`에 맞춰 움직이고, 1 미만이 되면 재질을 `FadeMaterial`(`M_PropFade`)로 바꿔 MaterialPropertyBlock `_BaseColor` 알파로 칠함, 1이 되면 원래 재질 · 블록 되돌림. 설정이 없거나 꺼지면 모두 되돌림.
 - **주의**: 충돌체 없음 (걷는 범위는 `IsWalkable` · 네비메시). 재배치는 열린 칸이 안 바뀌어 다시 세우지 않는다. 허물어지는 연출은 아직. 반투명 대상은 모두 `M_Prop` 재질 기준(재질이 다른 오브젝트에 붙이면 반투명일 때 `M_PropFade` 모습이 됨).
@@ -999,7 +1000,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### WallCutout
 [Visuals/WallCutout.cs](../Scripts/Visuals/WallCutout.cs)
-- **역할**: 플레이어를 가리는 구조물 · 배경에 원형 구멍 (셰이더 `APC/WallCutout`, `Shaders/WallCutout.shader` · `.hlsl`, 재질 `M_WallCutout`). Game 씬 · ShaderTestScene의 Player에 붙음.
+- **역할**: 플레이어를 가리는 구조물 · 배경에 원형 구멍 (셰이더 `APC/WallCutout`, `Shaders/WallCutout.shader` · `.hlsl`, 재질 `M_WallCutout`). Game 씬 · ShaderTestScene의 Player에 붙음. 같은 셰이더의 `_WALL_GRADIENT` 키워드(forward 패스만, `M_Wall`)는 `SiteWalls` 안쪽 면 그라데이션 — URP `LitPassFragment` 복사본이라 URP를 올리면 맞춰 볼 것. `M_Wall`은 Lit이 아니라 이 스크립트가 사본을 만들지 않고 그대로 씀.
 - **동작**: 매 프레임 구멍 대상 배열 `_WallCutoutCenters`(최대 8 = `MaxTargets` = hlsl `WALL_CUTOUT_MAX`, [0] = 플레이어 발 + `height` · `radius`만 씀 — 트럭 대상 `WallCutoutTarget`은 2026-11-23 삭제) · `_WallCutoutCount`(= 1) · 디더 폭 · `depthBias`를 전역 셰이더 값으로 (2026-11-20 배열로 바뀜). 픽셀마다 대상 수만큼 반복해 가장 많이 버리는 값을 씀. 부지가 바뀔 때만(켜질 때 · `SiteGrid.OnUnlocked` · `OnMoved` · 레벨 변경 = 공사 울타리, 2026-11-20 — 전에는 0.5초마다) 그 프레임 LateUpdate에서 씬 렌더러를 한 번 훑어, 이름이 `structurePrefixes`(wall_ · pillar_ · window_ · parking · tree_ 등)로 시작하는 렌더러(또는 부모)와 `extraWalls` 아래 렌더러의 URP Lit 재질을 사본 + 컷아웃 셰이더로 바꿈. 지워진 옛 벽 조각은 그때 목록에서 뺌. 끄면 되돌림.
 - **주의**: `SiteWalls` 반투명(`WallFadeConfig.enabled`)과 같이 켜면 같은 재질을 둘이 바꿔 충돌 — 하나만 켠다. 해금 · 레벨업 신호 없이 구조물을 새로 만드는 코드를 추가하면 그 벽에는 구멍이 안 난다 → 그 코드에서도 신호를 내거나 여기 구독을 더한다.
 - **해금 → 사무실 타일 구매 · 직접 배치로 바뀔 때 (예정, 2026-11-20 사용자)**: ① 권장 — 배치 순간 기존 `SiteGrid` 이벤트를 낸다(새 칸 `OnUnlocked`, 옮김 `OnMoved`). `SiteWalls` · `SiteUnlocker`도 같은 이벤트를 구독하므로 WallCutout은 고칠 것 없음. ② 새 이벤트(예: `OnTilePlaced`)를 만들면 `WallCutout.Start`에 `grid.OnTilePlaced.Subscribe(_ => dirty = true).AddTo(this);` 한 줄 추가(+ `SiteWalls` · `SiteUnlocker`에도). 신호는 배치 연출이 끝나 구조물이 **다 생긴 뒤** 낸다 — 벽 찾기는 신호가 온 프레임 끝에 한 번만 돈다. 드래그 미리보기(고스트)는 훑지 않아 구멍이 안 남(의도). 훑는 시간 · 바꾼 렌더러 수를 정적 `LastScanMs` · `MaxScanMs` · `ScanCount` · `TotalScanMs` · `SwappedCount`로 남김 → `PerformanceHUD`가 표시. 예전 0.5초 방식은 실기기 비교(1회 12.7ms, GC의 절반) 뒤 지움.
