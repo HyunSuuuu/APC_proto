@@ -1009,6 +1009,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Visuals/CharacterToon.cs](../Scripts/Visuals/CharacterToon.cs)
 - **역할**: 캐릭터 툰 + 검정 외곽선. 켜지면 자식 `SkinnedMeshRenderer`(꺼진 코스튬 포함)의 URP Lit 재질을 "원래 재질 사본 + `M_Toon`(Shader Graphs/APC_Toon) 셰이더"로 바꾸고 마지막에 `M_Outline` 슬롯을 붙인다. 끄면 되돌림. 들고 있는 상자(MeshRenderer)는 건드리지 않음.
 - **연결**: 씬 `Player` · `StaffWorker` 프리팹 루트 (MCP).
+- **주의**: APC_Toon은 그림자색 = 채도(원색, `_ShadowSaturation` 0~3, 기본 1) × 명도(`_ShadowBrightness` 0~1, 기본 0.5) × 색조(`_BaseMap` A채널로 `_ShadowWarmColor`(검정) ↔ `_ShadowCoolColor`(흰색) 섞음, 둘 다 기본 흰색), 밝은 쪽 = 원색으로 따로 만든 뒤 빛 경계로 섞는다. 경계는 `smoothstep(0.5 ± _ShadowSoftness, N·L)`(0.001~0.5, 기본 0.1)로 그라데이션. 이 네 값은 Lit 재질에 없어서 사본을 만들 때 `M_Toon` 값을 복사한다. 사본은 켜질 때 만드므로 Play 중에 M_Toon 값을 바꾸면 컴포넌트를 껐다 켜야 반영된다.
 
 #### ObserveOutline · ObserveOutlinePicker
 [Visuals/ObserveOutline.cs](../Scripts/Visuals/ObserveOutline.cs) · [Visuals/ObserveOutlinePicker.cs](../Scripts/Visuals/ObserveOutlinePicker.cs)

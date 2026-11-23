@@ -12,6 +12,11 @@ namespace APC.Visuals
     public sealed class CharacterToon : MonoBehaviour
     {
         const string LitShaderName = "Universal Render Pipeline/Lit";
+        static readonly int ShadowSaturationId = Shader.PropertyToID("_ShadowSaturation");
+        static readonly int ShadowBrightnessId = Shader.PropertyToID("_ShadowBrightness");
+        static readonly int ShadowCoolColorId = Shader.PropertyToID("_ShadowCoolColor");
+        static readonly int ShadowWarmColorId = Shader.PropertyToID("_ShadowWarmColor");
+        static readonly int ShadowSoftnessId = Shader.PropertyToID("_ShadowSoftness");
 
         [SerializeField, Tooltip("M_Toon — 셰이더(Shader Graphs/APC_Toon)만 쓴다. 빌드에 셰이더가 들어가도록 참조로 둔다")] Material toonMaterial;
         [SerializeField, Tooltip("M_Outline — 렌더러마다 마지막 슬롯에 붙는다. 비우면 툰만")] Material outlineMaterial;
@@ -40,6 +45,12 @@ namespace APC.Visuals
             if (original == null || original.shader == null || original.shader.name != LitShaderName) return original;
             if (copies.TryGetValue(original, out var copy)) return copy;
             copy = new Material(original) { name = original.name + " (Toon)", shader = toonMaterial.shader };
+            // Lit엔 없는 값이라 M_Toon에서 가져온다
+            copy.SetFloat(ShadowSaturationId, toonMaterial.GetFloat(ShadowSaturationId));
+            copy.SetFloat(ShadowBrightnessId, toonMaterial.GetFloat(ShadowBrightnessId));
+            copy.SetColor(ShadowCoolColorId, toonMaterial.GetColor(ShadowCoolColorId));
+            copy.SetColor(ShadowWarmColorId, toonMaterial.GetColor(ShadowWarmColorId));
+            copy.SetFloat(ShadowSoftnessId, toonMaterial.GetFloat(ShadowSoftnessId));
             copies[original] = copy;
             return copy;
         }
