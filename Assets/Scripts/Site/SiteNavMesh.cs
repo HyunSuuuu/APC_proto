@@ -17,9 +17,15 @@ namespace APC.Site
     {
         NavMeshSurface surface;
         Tween pending;
+        readonly System.Diagnostics.Stopwatch buildWatch = new();
 
-        /// <summary>마지막으로 구운 횟수 (테스트용).</summary>
-        public int BuildCount { get; private set; }
+        // 성능 측정용 (PerformanceHUD가 읽는다): 굽기 1회 시간 · 최대 · 횟수 — A* 전환 비교 기준 (2026-11-23)
+        public static float LastBuildMs { get; private set; }
+        public static float MaxBuildMs { get; private set; }
+        public static int BuildCount { get; private set; }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStats() => LastBuildMs = MaxBuildMs = BuildCount = 0;
 
         void Start()
         {
@@ -42,8 +48,13 @@ namespace APC.Site
         void Build()
         {
             pending = null;
+            buildWatch.Restart();
             surface.BuildNavMesh();
+            buildWatch.Stop();
+            LastBuildMs = (float)buildWatch.Elapsed.TotalMilliseconds;
+            MaxBuildMs = Mathf.Max(MaxBuildMs, LastBuildMs);
             BuildCount++;
+            Debug.Log($"[SiteNavMesh] 굽기 {LastBuildMs:F2} ms (#{BuildCount})");
         }
     }
 }

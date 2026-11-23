@@ -1,6 +1,8 @@
 using System.Text;
 using TMPro;
 using Unity.Profiling;
+using APC.Site;
+using APC.Staff;
 using APC.Visuals;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -59,6 +61,8 @@ namespace APC.Debugging
         int runGcCount0;
         int runScanCount0;
         double runScanMs0;
+        int runPaths0;
+        int runNoPath0;
         readonly StringBuilder sb = new(512);
 
         bool IsOpen => panel != null && panel.activeSelf;
@@ -120,6 +124,8 @@ namespace APC.Debugging
             runGcCount0 = System.GC.CollectionCount(0);
             runScanCount0 = WallCutout.ScanCount;
             runScanMs0 = WallCutout.TotalScanMs;
+            runPaths0 = StaffWorker.PathRequests;
+            runNoPath0 = StaffWorker.NoPathCount;
         }
 
         void ResetInterval()
@@ -163,6 +169,7 @@ namespace APC.Debugging
             sb.AppendLine($"Frame Time: {frameTimeMs:F2} ms (max {maxFrameMs:F2})");
             sb.AppendLine();
             sb.AppendLine($"Cutout Scan: {WallCutout.LastScanMs:F2} ms (max {WallCutout.MaxScanMs:F2}) / Walls {WallCutout.SwappedCount:N0}");
+            sb.AppendLine($"NavMesh Build: {SiteNavMesh.LastBuildMs:F2} ms (max {SiteNavMesh.MaxBuildMs:F2}) x {SiteNavMesh.BuildCount:N0}");
             sb.AppendLine(gcAllocRecorder.Valid
                 ? $"GC Alloc: {sumGcAlloc / elapsedTime / 1024f:F1} KB/s (frame max {maxGcAlloc / 1024f:F1} KB)"
                 : "GC Alloc: N/A (dev build only)");
@@ -174,6 +181,7 @@ namespace APC.Debugging
             sb.AppendLine(scans > 0
                 ? $"Scan: {(WallCutout.TotalScanMs - runScanMs0) / scans:F2} ms x {scans:N0}"
                 : "Scan: 0");
+            sb.AppendLine($"Paths: {(StaffWorker.PathRequests - runPaths0) / runTime:F1}/s, NoPath +{StaffWorker.NoPathCount - runNoPath0:N0} ({(StaffService.Instance != null ? StaffService.Instance.Workers.Count : 0)} staff)");
             sb.AppendLine(gcAllocRecorder.Valid
                 ? $"GC: {runGcAlloc / runTime / 1024f:F1} KB/s, +{System.GC.CollectionCount(0) - runGcCount0:N0} GC"
                 : $"GC: +{System.GC.CollectionCount(0) - runGcCount0:N0} GC");

@@ -825,7 +825,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### SiteNavMesh
 [Site/SiteNavMesh.cs](../Scripts/Site/SiteNavMesh.cs)
 - **역할**: 부지 네비메시 (M6 알바 대비). Site 루트의 `NavMeshSurface`가 **자식 충돌체 = 열린 모듈 바닥**에만 굽는다. 잠긴 칸엔 바닥이 없으니 알바도 열린 칸 안에서만 다닌다.
-- **동작**: 시작 시 한 번, `OnUnlocked` · `OnMoved`(모듈 재배치)마다 팝 연출(`facilityPopDuration`)이 끝난 뒤 다시 굽는다 (묶음 해금이어도 한 번).
+- **동작**: 시작 시 한 번, `OnUnlocked` · `OnMoved`(모듈 재배치)마다 팝 연출(`facilityPopDuration`)이 끝난 뒤 다시 굽는다 (묶음 해금이어도 한 번). `surface.BuildNavMesh()` = 부지 전체 동기 굽기. 굽기 시간을 재서 정적 `LastBuildMs` · `MaxBuildMs` · `BuildCount`에 남기고 콘솔에 찍는다 (2026-11-23, `PerformanceHUD`가 읽음).
 - **주의**: 초록 Ground는 `NavMeshModifier.ignoreFromBuild`로 제외. 선반은 `BoxCollider` + `NavMeshObstacle`(carve)로 알바가 돌아가고, `NavMeshModifier`(ignoreFromBuild)로 바닥에 구워지지 않는다. 트럭은 장애물로 두지 않는다 (주차 칸이 부지 밖).
 
 ### 4.9 UI
@@ -1035,7 +1035,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### PerformanceHUD
 [Debugging/PerformanceHUD.cs](../Scripts/Debugging/PerformanceHUD.cs)
 - **역할**: 성능 측정 패널 (2026-11-20, 사용자 제공 코드). 지금은 `TycoonTest.unity`에만 있음 (`TycoonTestBuilder`가 `PerformanceHUD` 캔버스 · 정렬 1000으로 만듦).
-- **동작**: 왼쪽 아래 DEBUG 오른쪽 [PERF] 버튼 · F2로 열고 닫음 (처음 열림, `startOpen`). 열려 있을 때만 0.5초마다 FPS · 프레임 시간, CPU 메인 · 렌더 · GPU 시간(`ProfilerRecorder`), 정점 · 삼각형 · 드로우콜 · 배치 · SetPass, Unity 할당 · 예약 · 관리 힙 · 기기 RAM을 글자로. 2026-11-20 추가: 구간 안 가장 긴 프레임(`max`), 벽 찾기 시간(마지막 · 최대) · 바꾼 벽 수(`WallCutout` 정적 값), GC 할당 KB/s · 프레임 최대(`GC Allocated In Frame`). **누적 평균 `[Avg n s]`**: 패널을 연 때부터(닫았다 열면 처음부터) FPS · 프레임 평균 · 최대 · 33ms 넘은 프레임 수(끊김, 20ms는 실기기 평균 근처라 올림) · 벽 찾기 평균 × 횟수 · GC KB/s · 늘어난 GC 횟수.
+- **동작**: 왼쪽 아래 DEBUG 오른쪽 [PERF] 버튼 · F2로 열고 닫음 (처음 열림, `startOpen`). 열려 있을 때만 0.5초마다 FPS · 프레임 시간, CPU 메인 · 렌더 · GPU 시간(`ProfilerRecorder`), 정점 · 삼각형 · 드로우콜 · 배치 · SetPass, Unity 할당 · 예약 · 관리 힙 · 기기 RAM을 글자로. 2026-11-20 추가: 구간 안 가장 긴 프레임(`max`), 벽 찾기 시간(마지막 · 최대) · 바꾼 벽 수(`WallCutout` 정적 값), GC 할당 KB/s · 프레임 최대(`GC Allocated In Frame`). **누적 평균 `[Avg n s]`**: 패널을 연 때부터(닫았다 열면 처음부터) FPS · 프레임 평균 · 최대 · 33ms 넘은 프레임 수(끊김, 20ms는 실기기 평균 근처라 올림) · 벽 찾기 평균 × 횟수 · GC KB/s · 늘어난 GC 횟수. 2026-11-23 추가: `NavMesh Build` 마지막 · 최대 ms · 횟수(`SiteNavMesh`), 누적 `Paths` 초당 길 요청 · 길 없음 수 · 알바 수(`StaffWorker.PathRequests` · `NoPathCount`).
 - **주의**: Awake에서 `Application.targetFrameRate = 120`(인스펙터 `targetFPS`). CPU 렌더 · GPU 시간은 Frame Timing Stats가 꺼져 있거나 에디터에서는 N/A일 수 있음. GC 할당은 Development 빌드에서만 값이 있음(일반 빌드 N/A), 에디터 값은 에디터 할당까지 섞여 큼. 패널 380 × 580 → 480 × 880 (글자 줄 늘어서, 씬은 위쪽 왼쪽 모서리 유지 — 씬 패널 위치는 빌더와 다름).
 
 #### TycoonTest
