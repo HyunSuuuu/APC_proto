@@ -4,7 +4,7 @@ namespace APC.Site
 {
     /// <summary>
     /// 모듈 바닥 타일 데이터 (M14-2). 모듈을 tileSize(2m) 칸으로 나눠 칸마다 타일 모델(`Art/Model/Prop` fbx)과 회전(90° 단위)을 둔다.
-    /// 칠하기 · 다시 깔기는 에디터 인스펙터(ModuleFloorEditor)가 하고, 깔린 타일은 자식 `FloorArt` 아래 저장된다 (실행 중엔 아무것도 안 함).
+    /// 칠하기 · 다시 깔기는 에디터 인스펙터(ModuleFloorEditor)가 하고, 깔린 타일은 자식 `FloorArt` 아래 저장된다 (실행 중엔 타일 그림자만 끈다).
     /// 걷는 면 · 네비메시는 그대로 모듈 `Floor` 충돌체가 맡는다 (타일이 있으면 Floor 렌더러만 끈다).
     /// </summary>
     [DisallowMultipleComponent, RequireComponent(typeof(SiteModule))]
@@ -17,6 +17,14 @@ namespace APC.Site
         [SerializeField, Tooltip("칸마다 회전 (0~3 × 90°)")] int[] turns = new int[0];
 
         public float TileSize => tileSize;
+
+        // 평평한 타일 그림자는 안 보이는데 캐스케이드마다 다시 그려져 비싸다 (2026-11-24 프로파일: 타일 2000개)
+        void Awake()
+        {
+            var art = transform.Find(ArtName);
+            if (art == null) return;
+            foreach (var r in art.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
 
         /// <summary>타일 칸 수 (x = 가로, y = 세로 = 로컬 z).</summary>
         public Vector2Int GridSize
