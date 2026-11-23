@@ -580,13 +580,14 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Logistics/InboundTruck.cs](../Scripts/Logistics/InboundTruck.cs)
 - **역할**: 입고 트럭 1대. 실은 품목 목록과 남은 수량 표시만 가진다. 움직임은 `InboundBay`가 한다.
 - **모델** (M16-4): `Load` 때 `CompanyDefinition.GetTruckModel(트럭 단계)`(색 × Small · Middle · Big)로 `modelRoot`(`Model`) 자식을 갈아 끼운다 — 크기 `modelScale` 0.85, 재질 `modelMaterial`(M_Prop), 뒷면(로컬 −z 끝)을 `backZ` −2.2에 맞춤(모델 길이가 달라도 주차 · `cargoExit` 그대로). 황금 트럭은 `goldModels[단계]`로 바꾸고 금색 칠하기는 안 함(빛 · 반짝임만, 금 모델이 없을 때만 칠함). 크기 1일 때(생성 직후) 불러야 뒷면 계산이 맞다.
+- **풀** (2026-11-23): `TruckPool`에서 꺼내 쓴다. `ResetForPool()` = 실은 화물 · `Reserved` · `Company` · 황금(PropertyBlock 지움, 빛 · 반짝임 오브젝트는 Destroy) 지우기. 모델은 다음 `Load`가 바꾼다.
 - **동작**: `Load(company, items)`, `TakeCargo()`(뒷문 `cargoExit` 위치에 화물을 만들고 Origin = Truck. `SharedStorage.ReturnsOpen`이면 `returnChance`(10%) 확률로 반품 상자). 하차 알바 예약: `Reserved`(집으러 오는 수), `Available`(= 남은 화물 − 예약), `Reserve(n)` · `Unreserve(n)`. `CountOf(item)` = 남은 그 품목 수 (상차 주문 색 후보).
 
 #### InboundBay
 [Logistics/InboundBay.cs](../Scripts/Logistics/InboundBay.cs)
 - **회차** (2026-11-20): `PartService.OnShift`(상차 파트 시작)에 정차한 트럭은 상자가 남아도 떠난다 (교대 신호는 트럭을 받은 뒤부터만 봄).
 - **역할**: 하차 베이 1곳. 하차 주차장 모듈 안에 있다. [3.4](#34-입고-트럭-한-대)의 주차 · 출발을 코루틴으로 실행한다. 트럭 도착 · 색은 `InboundQueue`가 정한다 (M13-9).
-- **황금 트럭** (M13-16): 금은 `TruckPickupZone`이 쏟는다. 이 베이는 트럭이 빌 때까지 기다렸다가 보낸다.
+- **황금 트럭** (M13-16): 금은 `TruckPickupZone`이 쏟는다. 이 베이는 트럭이 빌 때까지 기다렸다가 보낸다. 떠난 트럭은 `TruckPool.Release` (2026-11-23).
 - **동작**: `InboundQueue.Request(this)` → `Receive(truck)`로 받을 때까지 대기. 꺼지면(`OnDisable`) 기다리는 목록에서 빠진다. `Storage` = 이 칸의 상자 두는 공간 (`Awake`에서 `GetComponentInParent<SharedStorage>()`, M13-2).
 - **연결**: `InboundQueue.Instance`, `parkPoint`(주차 위치 · 방향), `spawnPoint`(나타나고 사라지는 곳). `truckPrefab` 필드는 이제 안 씀 (`InboundQueue`가 생성).
 - **주의**: 트럭은 **베이 기준 로컬 좌표**로 움직인다 (`parkPoint` · `spawnPoint`는 베이 바로 아래 자식이어야 함). 확장 모듈은 크기 0에서 커지는 중(`FacilityPop`)에 첫 트럭이 나오므로, 월드 좌표를 쓰면 엉뚱한 곳에서 들어온다 (2026-11-12 수정). `OutboundBay`도 같다.
@@ -595,7 +596,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Logistics/InboundQueue.cs](../Scripts/Logistics/InboundQueue.cs)
 - **역할**: 하차 트럭 도착 · 차량 대기열 (GDD 7.1, M13-9). 하차장에 넘기는 것은 `PartService.InboundOpen`일 때만 — 아니면 `Request`가 기다리는 목록에 넣고 `Update`가 열릴 때 줄 맨 앞부터 `Dispatch` (2026-11-19). SiteGrid 오브젝트에 붙는다 (`SiteBuilder.BakeGrid`).
 - **동작**: 도착 루프 = 줄이 `InboundQueueSize` 미만이고 선반 있는 입고 색이 있을 때 트럭 생성 → 기다리는 베이에 바로 넘기거나 줄 끝에 팝 → `InboundArrivalInterval` 대기. `Request(bay)` = 줄 맨 앞을 넘기고 나머지를 `SlotPosition(i)`로 당김 (0.6초). 시작 때 대기 자리 표시(반투명 판 `TruckWaitSlot_n`) 3개 — 재질은 에셋 `markerMaterial`(`Art/Materials/M_TruckWaitSlot`, URP Unlit 반투명).
-- **회차** (2026-11-20): `PartService.OnShift`(상차 파트 시작)에 줄의 트럭을 모두 돌려보냄(줄 뒤쪽으로 빠지며 작아진 뒤 Destroy). 하차장에 정차한 트럭은 남는다. 튜토리얼 구간엔 첫 트럭(상자 `TutorialBoxes`개, 황금 없음)만 하차장에 넘긴다(`CanDock`).
+- **풀** (2026-11-23): 트럭은 `TruckPool.Get`으로 꺼내고 회차 · 하차 후 `TruckPool.Release`로 돌려준다(Destroy 안 함). 시작 때 `Prewarm(InboundQueueSize + 2)` `임시`(풀 최대 16에서 잘림).
+- **회차** (2026-11-20): `PartService.OnShift`(상차 파트 시작)에 줄의 트럭을 모두 돌려보냄(줄 뒤쪽으로 빠지며 작아진 뒤 풀로 반환). 하차장에 정차한 트럭은 남는다. 튜토리얼 구간엔 첫 트럭(상자 `TutorialBoxes`개, 황금 없음)만 하차장에 넘긴다(`CanDock`).
 - **주의**: 실행 코드에서 `Shader.Find`로 재질을 만들지 않는다 — 빌드에서 셰이더가 빠져 null 예외 → 도착 코루틴이 멈춰 **트럭이 안 나오고** 판이 분홍이 됐다 (2026-11-18 빌드 버그).
 - **연결**: `truckPrefab`(`InboundTruck.prefab`), `headPosition`(0, 0, −21 = 서쪽 도로 하차 1 옆) · `lineDirection`(+z) · `spacing` 7 · `truckYaw` 180 `임시`, `LogisticsConfig.InboundArrivalInterval` · `InboundQueueSize`.
 - **주의**: 대기 자리 표시는 기본 큐브 + URP Unlit 재질을 실행 중 만든다 (에셋이 오면 프리팹으로). 줄 자리는 월드 좌표라 부지 · 배경이 바뀌면 같이 고친다.
@@ -611,7 +613,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Logistics/OutboundBay.cs](../Scripts/Logistics/OutboundBay.cs)
 - **하루 끝 회차** (2026-11-20): `PartService.OnDayEnding`에 정차한 트럭은 덜 실었어도 떠나고, 실은 만큼 `orders.Complete` 보상을 현금 존 대신 `Wallet.AddToPiggy`로 (그날 정산에 잡힘). 오는 중이면 도착하자마자 빈 채로 떠남.
 - **역할**: 상차 베이 1곳. 상차 주차장 모듈 안에 있다. [3.6](#36-주문-한-건)의 트럭 부분을 코루틴으로 반복한다.
-- **동작**: 칸이 비고 `PartService.OutboundOpen`(사무실 전 또는 상차 파트, 2026-11-19)이면 `OrderService.CreateForTruck()`으로 새 주문 → 트럭 생성 · 후진 주차 → `MarkDocked` → 주문이 다 차면 마지막 상자가 들어갈 때까지 기다림 → **출발하는 순간** `Complete` → 돈(줄마다 실은 수 × 색 단가)을 `cashZone`에 쌓음 → 출발 → `OutboundRespawnDelay` 뒤 다음 트럭.
+- **동작**: 칸이 비고 `PartService.OutboundOpen`(사무실 전 또는 상차 파트, 2026-11-19)이면 `OrderService.CreateForTruck()`으로 새 주문 → 트럭 생성 · 후진 주차 → `MarkDocked` → 주문이 다 차면 마지막 상자가 들어갈 때까지 기다림 → **출발하는 순간** `Complete` → 돈(줄마다 실은 수 × 색 단가)을 `cashZone`에 쌓음 → 출발 → `OutboundRespawnDelay` 뒤 다음 트럭. 트럭은 `TruckPool.Get` · `Release`(시작 때 `Prewarm(2)` `임시`, 2026-11-23).
 - **연결**: `OrderService.Instance`, `truckPrefab`(OutboundTruck), `parkPoint`, `spawnPoint`, `cashZone`. 하차 베이(`InboundBay`)와 구조가 같다. 정적 `All`(켜진 상차 칸) · `Arriving`(주문 받은 트럭이 오는 중) — `WorkCheck`용 (M17-3). `InboundBay.All`도 같다.
 
 #### WorkCheck
@@ -624,6 +626,14 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Logistics/OutboundTruck.cs](../Scripts/Logistics/OutboundTruck.cs)
 - **역할**: 출고 트럭 1대. 주문 1건을 맡고 위에 **주문 게이지**를 띄운다 (GDD 12.2): 색마다 한 줄 `색 이름 실은/필요 ■■□` (■ 실음 · □ 남음, 그 색 글자, 다 실은 줄은 초록).
 - **동작**: `Assign(order)`, `Receive(cargo)` — 주문에 기록하고 상자는 뒷문(`cargoEntry`)으로 날아 들어가 풀로 돌아간다.
+- **풀** (2026-11-23): `TruckPool`에서 꺼내 쓴다. 주문 구독은 `AddTo(this)` 대신 필드로 들고 `Assign` · `ResetForPool` · `OnDestroy`에서 푼다(재사용 때 이전 주문 구독이 남지 않게).
+
+#### TruckPool
+[Logistics/TruckPool.cs](../Scripts/Logistics/TruckPool.cs)
+- **역할**: 하차 · 상차 트럭 풀 (2026-11-23). 트럭 `Instantiate` 32ms · `Destroy` 56ms 끊김(TMP `Awake` · `OnDestroy`)을 없앤다. `IPooledTruck`(`ResetForPool`)을 구현한 트럭만.
+- **동작**: 씬에 두지 않는다 — 처음 쓸 때 `TruckPool` 오브젝트가 지금 씬에 생기고, 씬과 함께 사라진다. 프리팹마다 `ObjectPool`(최대 16 `임시`). `Get(prefab, parent)` = 부모 아래 로컬 0 · 크기 1로 켬. `Release(truck)` = `DOKill` → `ResetForPool` → 끄고 풀 아래로. `Prewarm(prefab, n)` = n대(최대 16)까지 미리 만듦. 풀에서 꺼내지 않은 트럭을 돌려주면 경고 후 Destroy.
+- **연결**: `InboundQueue`(생성 · 회차), `InboundBay`(하차 후), `OutboundBay`(생성 · 출발 후).
+- **주의**: 같은 트럭 객체가 다시 오므로 트럭을 객체로 기억하는 코드는 비워 줘야 한다 — `TruckPickupZone.dumpingFrom`은 쏟기가 끝나면 null (안 그러면 다음 황금 트럭이 `DumpDelay` 없이 쏟음). 모델 교체(`InboundTruck.SetModel`)는 여전히 매번 Instantiate.
 
 #### TruckLoadZone
 [Logistics/TruckLoadZone.cs](../Scripts/Logistics/TruckLoadZone.cs)

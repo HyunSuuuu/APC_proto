@@ -51,7 +51,7 @@ namespace APC.Logistics
                 DOTween.Sequence().SetLink(truck.gameObject)
                     .Append(t.DOMove(t.position + lineDirection.normalized * spacing * 3f, 0.8f).SetEase(Ease.InCubic))
                     .Join(t.DOScale(0f, 0.8f).SetEase(Ease.InBack))
-                    .OnComplete(() => Destroy(truck.gameObject));
+                    .OnComplete(() => TruckPool.Release(truck));
             }
             line.Clear();
         }
@@ -66,6 +66,7 @@ namespace APC.Logistics
             // 상차 파트가 되면 줄에 선 하차 트럭은 바로 돌아간다 (2026-11-20). 하차장에 정차한 트럭은 남음
             if (Economy.PartService.Instance != null) Economy.PartService.Instance.OnShift.Subscribe(_ => SendAwayLine()).AddTo(this);
             var config = GameManager.Instance.Database.Logistics;
+            if (truckPrefab != null) TruckPool.Prewarm(truckPrefab, config.InboundQueueSize + 2); // 임시: 트럭 TMP Awake 비용을 시작 때 (풀 최대 16에서 잘림)
             for (var i = 0; i < config.InboundQueueSize; i++) CreateMarker(i);
 
             var candidates = new List<CompanyDefinition>();
@@ -84,7 +85,7 @@ namespace APC.Logistics
                 });
 
                 var company = StockBalancer.PickInboundCompany(candidates);
-                var truck = Instantiate(truckPrefab, transform);
+                var truck = TruckPool.Get(truckPrefab, transform);
                 var tutorialTruck = arrived++ == 0 && !Site.StartSequence.OfficeBuilt; // 튜토리얼 트럭: 상자 TutorialBoxes개, 황금 없음
                 var load = StockBalancer.ComposeInboundLoad(company);
                 truck.Load(company, tutorialTruck ? System.Linq.Enumerable.Take(load, Economy.PartService.TutorialBoxes) : load);

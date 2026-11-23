@@ -97,6 +97,7 @@ namespace APC.Logistics
                     absorbReadyTime = Time.time + config.DumpFlyDuration + 0.2f; // 마지막 덩이가 착지한 뒤
                 }
             }
+            else dumpingFrom = null; // 트럭은 풀에서 다시 오므로 같은 객체가 다음 황금 트럭일 수 있다 → 매번 DumpDelay부터
             // 다 쌓인 뒤에만 회수 (2026-11-19 — 알바가 앞에 서 있으면 금이 보이기도 전에 바로 돈이 됐다)
             if (absorbing || gold.Count == 0 || dumping || Time.time < absorbReadyTime) return;
             foreach (var who in Interactor.All)

@@ -89,7 +89,7 @@ namespace APC.Logistics
                     .Append(t.DOLocalMove(spawnPoint.localPosition, config.TruckLeaveDuration).SetEase(Ease.InCubic))
                     .Append(t.DOScale(0f, AppearDuration).SetEase(Ease.InBack))
                     .SetLink(truck.gameObject)
-                    .OnComplete(() => Destroy(truck.gameObject))
+                    .OnComplete(() => TruckPool.Release(truck))
                     .WaitForCompletion();
             }
         }
