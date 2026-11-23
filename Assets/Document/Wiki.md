@@ -58,6 +58,7 @@
 | `BrokeCash` | 정산 저금통 깨기 연출 R&D (DOTween · 2D 스켈레톤 비교용, 별도 씬 `BrokeCashScene`). 아직 게임 흐름에 연결 안 됨 |
 | `Site` | 부지 격자와 모듈 해금 |
 | `UI` | 팝업, 월드 글자 정렬, HUD 초기화 (`UiBootstrap`) |
+| `Offline` | 오프라인 수익 — 종료 상태 저장 · 복귀 정산 (GDD 9.7, 방식 1 · 2) |
 | `Debugging` | 치트 메뉴 (에디터 · 개발 빌드 전용) |
 | `Editor` | 씬 · 프리팹 · 데이터 자동 생성 메뉴 (빌드에 포함 안 됨) |
 
@@ -742,6 +743,26 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 사무실 투명 저금통 (사무실 모듈 안). `Wallet.Piggy`에 따라 지폐 층이 **3단계**(`piggyStepCount`)로 차오르고 — 가득 기준을 넘어도 돈은 계속 모이고 모양만 멈춤 —, 돈이 들어오면 통이 튄다. 정산 때 비워진다. 위 글자 = 저금통 금액.
 - **동작**: `layers`(아래부터 `FillPivot/Layer1~3`, 층마다 `Papper_Money` 30개)가 있으면 단계만큼 층을 켜고 새 층은 팝 (M14-1). 없으면 옛 방식 — `fill`(피벗 바닥)의 y 크기. 유리통 위에 `Piggy_Bank` 모델(`PiggyTop`).
 
+### 4.7c Offline — 오프라인 수익 (2026-11-23)
+
+#### OfflineRewardService
+[Offline/OfflineRewardService.cs](../Scripts/Offline/OfflineRewardService.cs)
+- **역할**: 오프라인 수익 (GDD 9.7). 종료 상태를 저장하고, 돌아오면 `알바 몫 − 월급`을 보유 재화에 바로 넣는다 (`Wallet.Add`).
+- **동작**: 씬에 두지 않는다 — `RuntimeInitializeOnLoadMethod(AfterSceneLoad)`에서 GameManager가 있으면 스스로 생긴다. `OnApplicationPause(true)` · `OnApplicationQuit` → `SaveSnapshot`(현재 알바 명단으로 하루 수익 · 하루 월급 + 종료 시각 + 모드, PlayerPrefs `APC.Offline.Snapshot` JSON). `Start` · `OnApplicationPause(false)` → `ClaimAsync`(스냅샷의 모드 시계로 지금 시각 → `OfflineFormula` → 스냅샷 삭제 → 지급 → `OnGranted`). 모드는 PlayerPrefs `APC.Offline.Mode`에 기억.
+- **연결**: `EconomyConfig` '오프라인 수익'(`offlineMaxHours` 5 · `offlineMinSeconds` 60 · `offlineIncomePerStat` 10 · `offlineTimeUrl`), `StaffRules.GetWage`, `StaffService.Workers`. `OnGranted`는 복귀 팝업이 구독할 자리 (팝업은 아직 없음, 로그 `[Offline] 정산 …`).
+- **주의**: 스냅샷은 지급 **전에** 지워 두 번 받지 않는다. 2번은 서버 시각이 없으면 종료 상태를 저장하지 않고, 복귀 때 못 받으면 스냅샷을 남겨 다음 복귀 때 다시 시도(그사이 다시 종료하면 덮어씀). Windows 빌드는 `runInBackground`라 포커스를 잃어도 Pause가 오지 않는다 — PC에선 종료 → 재실행 경로와 디버그로 테스트. 에디터는 Play 정지 = Quit라 다음 Play에서 정산된다.
+
+#### OfflineFormula
+[Offline/OfflineFormula.cs](../Scripts/Offline/OfflineFormula.cs)
+- **역할**: `OfflineMode`(Local · ServerTime) · `OfflineSnapshot` · `OfflineResult` · 공식. Unity 의존 없음 — 3번(서버 계산)을 만들 때 서버에 그대로 복사한다.
+- **동작**: 경과 = MAX(0, 지금 − 종료)(시계를 되돌려도 음수 아님), 인정 = MIN(경과, 상한), 일수 = 인정 ÷ 하루(파트 길이 × 2), 번 돈 = 내림(하루 수익 × 일수), 월급 = 올림(하루 월급 × 일수), 지급 = MAX(0, 번 돈 − 월급). 전부 double · long.
+
+#### OfflineClocks
+[Offline/OfflineClocks.cs](../Scripts/Offline/OfflineClocks.cs)
+- **역할**: `IOfflineClock` — `DeviceClock`(1번, 기기 시계) · `HttpDateClock`(2번, 임시 서버 시계).
+- **동작**: `HttpDateClock`은 `offlineTimeUrl`에 HEAD 요청(5초 제한) → `Date` 헤더 + 응답 시간 절반. 받은 시각을 `realtimeSinceStartup`에 묶어 `TryGetNow`(종료 저장용, 네트워크 없음)를 만든다 — 실행 중 기기 시계를 바꿔도 틀어지지 않음.
+- **주의**: 정밀도 ±1초. 뒤끝 `GetServerTime` · Firebase로 바꿀 때 이 클래스만 교체한다.
+
 ### 4.8 Site — 부지 모듈
 
 전체 그림은 [3.5](#35-부지-해금)와 TechStack 5.7 참고.
@@ -890,15 +911,25 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [UI/SettlementPopup.cs](../Scripts/UI/SettlementPopup.cs)
 - **역할**: 일일 정산 = 영수증 출력기 (2파트 끝, 게임 멈춤, UI 샘플 `BillScene` 방식 2026-11-20). 스프라이트 = `Resources/Receipt`(배출구 `_1`(9-slice 왼 110 · 오른 40, 몸체와 같은 열) · 몸체 `_2`(9-slice 왼 110 · 아래 60 · 오른 40 · 위 130 — 늘려도 그려진 LED 구간 · 모서리는 그대로, 2026-11-20) · LED `_4` · 도장 `_6` · 아이콘 `_7` `_8` `_9` `_10` `_13`) + LED 번짐 `Resources/LedGlow`(원형 흰 그라디언트 128px, `_5`는 사각으로 번져 안 씀). 출력기 = 배출구 · 몸체(덮개 `_0`은 사용자가 뺌, 위치 · 크기는 사용자가 씬에서 조정), 영수증 마스크 아래 끝 = 배출구 틈. [확인]은 출력기 자식 맨 뒤(맨 위에 그려짐).
 - **말림** (2026-11-20, UI 샘플과 같음): 종이 = `ReceiptPaperGraphic`(톱니 · 도트 질감 메시, 루트 = 말린 부분 `Part.Curl`, 첫 자식 `PaperFlat` = 평평한 부분) + `ReceiptCurl`(위 90 구간, 반지름 28, 원근 588, `towardViewer` 끔 = 화면 안쪽으로 넘어감). 글씨 · 아이콘엔 `ReceiptCurlVertex`가 실행 때 붙는다. 각도 = `curlMaxDegrees`(190) × smoothstep(나온 길이 / `curlRampDistance` 560) + 줄마다 펄럭임(`feedFlutterDegrees` 18, 0.6초 감쇠 사인) + 뜯을 때 `tearCurlDegrees` 20. 위 84는 빈 여백(글씨가 접히지 않게).
-- **동작**: `Open` → 배경 `dim` 검정 0.7 페이드 + 출력기(`printer`)가 아래에서 OutBack으로 올라옴 → 출력 중(떨림 루프 + LED 주황, 번짐 `ledGlow`(40px)가 1 → 2.2배로 퍼지며 0.85 → 0으로 사라짐 0.7초 반복 = UI 샘플 ping, 글자 `PRINTING`) → `rows`(머리 `APC 물류센터 공식 정산표` · `[일일 물류 정산서]` · `DAY N` → 상차 수익 · 알바 시급 · 출고(트럭 · 상자) · 반품 처리 → 순수익 `NET PROFIT`(도장 칸 포함) → 알바 안내 → 뜯기 안내, 익일 예보 없음) 차례로: 종이(`paper`, 위 끝 기준)가 그 줄 아래 + 18까지 밀려 나옴(0.34초 OutQuint) → 줄 페이드 + 값 0.75 → 1.45 → 1 튐 → 순수익 줄이면 `정산 완료` 쾅(2.4 → 0.92 → 1.06 → 1). 끝나면 LED 초록 + 번짐 1.6배 · 알파 0.35 고정 · `DONE` · [확인] 튀어나옴. 출력 중 배경을 누르면 `sequence.Complete` = 끝까지 건너뛰기. [확인] → 종이가 살짝 들렸다 위로 날아가며 사라짐 → 출력기 내려감 · 배경 밝아짐 → `ClosePopup` → `PartService.Confirm()`. 알바 안내 줄(미지급 · 퇴사)은 내용이 있을 때만.
+- **동작**: `Open` → 배경 `dim` 검정 0.7 페이드 + 출력기(`printer`)가 아래에서 OutBack으로 올라옴 → 출력 중(떨림 루프 + LED 주황, 번짐 `ledGlow`(40px)가 1 → 2.2배로 퍼지며 0.85 → 0으로 사라짐 0.7초 반복 = UI 샘플 ping, 글자 `PRINTING`) → `rows`(머리 `APC 물류센터 공식 정산표` · `[일일 물류 정산서]` · `DAY N` → 상차 수익 · 알바 시급 · 출고(트럭 · 상자) · 반품 처리 → 순수익 `NET PROFIT`(도장 칸 포함) → 알바 안내 → 뜯기 안내, 익일 예보 없음) 차례로: 종이(`paper`, 위 끝 기준)가 그 줄 아래 + 18까지 밀려 나옴(0.34초 OutQuint) → 줄 페이드 + 값 0.75 → 1.45 → 1 튐 → 순수익 줄이면 `정산 완료` 쾅(2.4 → 0.92 → 1.06 → 1). 끝나면 LED 초록 + 번짐 1.6배 · 알파 0.35 고정 · `DONE` · [확인] 튀어나옴. 출력 중 배경을 누르면 `sequence.Complete` = 끝까지 건너뛰기. 마지막 줄 뒤 `stubMargin`(40)만큼 더 밀어낸 뒤 `FinishPrinting`에서 `ReceiptTear.ShowPerforation(SlotY())`로 절취선 표시. [확인] → `ReceiptTear.CreateSequence`(절취선 뜯기, 단계마다 `ShakeScreen(stepShake 5)`, 끊길 때 `snapShake` 16 + 출력기 아래로 툭) → 출력기 내려감 · 배경 밝아짐 → `ClosePopup` → `PartService.Confirm()`. 알바 안내 줄(미지급 · 퇴사)은 내용이 있을 때만.
 - **시간 보너스 줄** (M17-3, 2026-11-20): 씬 영수증 `Paper/Bonus`(반품 처리 줄 복제, 아이콘 `Receipt_13`, 줄 간격 62 — 아래 줄 · 종이 높이 844 → 906), `rows` 6번째 · `bonusValue` = `+N`(그날 `SettlementResult.TimeBonus`, 0이어도 표시).
 - **[확인] 버튼** (M17-2, 2026-11-20): 열 때부터 보임. 출력 중 [확인] · 배경 탭 = `SkipPrinting`(시퀀스 `Complete` → 바로 다 나온 상태, 넘어가지 않음). 출력이 끝나면 `shakeInterval`(1초)마다 `DOPunchRotation`(`shakeDegrees` 12) 반복 + 글자 `확인 (N)`, `autoConfirmSeconds`(5, `임시`, 비시간 `unscaledDeltaTime`) 뒤 자동 `Confirm`. 닫을 때 `ResetConfirmButton`으로 글자 · 회전 복원.
-- **주의**: 루트는 항상 켜 두고 `body`만 켜고 끈다 (계약 팝업과 같은 구조).
+- **어디를 눌러도 [확인]** (2026-11-23): `dim.onClick` · 종이 `ReceiptPaperGraphic.Clicked` · `IPointerClickHandler`(처리기 없는 출력기 이미지 · 글씨 클릭이 올라옴) 모두 `Confirm`. 출력 중이면 건너뛰기만.
+- **주의**: 루트는 항상 켜 두고 `body`만 켜고 끈다 (계약 팝업과 같은 구조). `Awake`가 실행 때 바꾸는 것: `ReceiptTear`가 없으면 종이에 붙임, 마스크 `PaperViewport` 폭 600 → `viewportMinWidth` 1600(기운 종이가 옆으로 잘리지 않게), Dim을 사방 `shakePadding` 80 넓힘(화면 흔들림 때 가장자리가 안 보이게).
+
+#### ReceiptTear
+[UI/ReceiptTear.cs](../Scripts/UI/ReceiptTear.cs)
+- **역할**: 정산 영수증 절취선 뜯기 (2026-11-23, 기획서 [ReceiptTear_기획.md](ReceiptTear_기획.md), HTML 샘플을 위아래 뒤집어 적용). 종이 루트(`ReceiptCurl`과 같은 오브젝트).
+- **동작**: 상태 `Hidden`(출력 중) → `Ready`(절취선 = 배출구 틈 + `stubHeight` 26, 0.15초 나타남) → `Anticipate`(0.12초, 왼쪽 아래 모서리 들림) → `Tear`(0.48초, `tearU` 8단계 계단형, 절취 지점을 축으로 몸통 전체가 시계 방향으로 0 → 12° 회전, 붙은 오른쪽은 절취선 위 `bendHeight` 140 구간에서 묶임) → `Fly`(0.42초, +10° 돌며 위로 1150 InCubic, 58%부터 투명, 주름 펴짐) + 남은 조각은 0.12초 뒤 0.26초 동안 배출구로 내려감. `Deform(p, stub)` = 말림 다음에 거치는 변형.
+- **깨짐 방지**: 각도 상한 `남은 오른쪽 × sinθ ≤ maxBendDrop(0.5) × bendHeight`, 주름은 음영 위주(변위 1.5 이하), 뜯기 · 날아가기는 같은 함수. 가드 = 매 프레임 거친 격자(17×12)로 면적 비율(야코비안) 최솟값을 재서 `minJacobian` 0.3 미만이면 변형 세기를 이분 탐색으로 줄임(`guardAmount`, 인스펙터에서 보임). 기본값 최솟값 0.48.
+- **연결**: `SettlementPopup`이 `ShowPerforation` · `CreateSequence(slotY, onStep, onSnap)` · `ResetTear`를 부름. `ReceiptCurl.LateUpdate`가 `ConsumeDirty`(가드 계산)를 부르고 값이 바뀌면 모든 그래픽을 다시 그림.
+- **주의**: 씬에는 아직 안 붙어 있음 → 실행 때 `SettlementPopup.Awake`가 붙이므로 값 조정은 Play 중에만 남지 않는다 (에디터에서 `Paper`에 붙이면 저장됨).
 
 #### ReceiptCurl · ReceiptCurlVertex · ReceiptPaperGraphic
 [UI/ReceiptCurl.cs](../Scripts/UI/ReceiptCurl.cs) · [UI/ReceiptCurlVertex.cs](../Scripts/UI/ReceiptCurlVertex.cs) · [UI/ReceiptPaperGraphic.cs](../Scripts/UI/ReceiptPaperGraphic.cs)
 - **역할**: 일일 정산 영수증 윗부분 말림 (UI 샘플 `SettlementReceipt`에서 그대로 가져옴, 네임스페이스만 `APC.UI`, 2026-11-20). `ReceiptCurl` = 종이 루트에 붙는 변형기(굽힘선 위 `curlLength` 구간을 반지름 `curlRadius`로 꺾고 남은 길이는 날개로 뻗음, 원근 · 광원 음영). `ReceiptCurlVertex` = 자식 Graphic(Image는 `ModifyMesh`, TMP는 `TEXT_CHANGED` 뒤 정점)을 같은 함수로 휨, 면이 기울면 글씨가 흐려짐. `ReceiptPaperGraphic` = 톱니 절단면 · 도트 질감 종이를 가로 띠로 잘게 나눈 메시로 그림(뒷면 색 따로).
 - **연결**: `SettlementPopup.Update`가 `ReceiptCurl.degrees`를 정한다. `ReceiptCurl.Awake`가 자식 Graphic에 `ReceiptCurlVertex`를 붙인다 (실행 중 자식을 더하면 `RegisterChildren`).
+- **절취선 (2026-11-23)**: `ReceiptTear`가 있으면 정점은 말림 → 뜯기 순서로 변형. `ReceiptPaperGraphic`의 `PaperFlat`은 절취선이 보이면 `EmitTornFlat` = 몸통 · 남는 조각 2벌 격자(절취선 줄 정점 중복, 가로 `perforationPitch` 12 간격, 절취선 위 `bendHeight` 구간은 세로 10 간격) + 양옆 V 노치 + 점선(안 뜯긴 곳) + 톱니 단면 · 테두리(뜯긴 곳).
 - **주의**: 뒤로 넘어가는 말림이라 그리는 순서 = 루트(말린 부분) → 첫 자식 `PaperFlat`(평평한 부분) → 글씨. 말리는 구간에 글씨를 두지 않는다 (위 84 여백).
 
 #### FacilityPanel
@@ -1059,7 +1090,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### DebugMenu
 [Debugging/DebugMenu.cs](../Scripts/Debugging/DebugMenu.cs)
 - **역할**: 치트 메뉴 (IMGUI). 에디터와 Development 빌드에서만 동작한다. **왼쪽 아래** `DEBUG` 버튼 또는 F1.
-- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / **현금 존**: `Zone +200`(첫 현금 존에 쌓기) · `Collect n`(모든 현금 존 돈을 반경 무시하고 플레이어가 줍기 — 다발 · 달러 아이콘 연출 그대로, `CashZone.CollectBy`) / 레벨업 · XP +10 · **Lv.5**(목표 레벨) / 배속 ×1 · ×2 · ×4 / 일시정지 / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick / Returns 생성, **Costume 100%** 토글(켜면 생성 · 고용 탭 새 후보가 모두 코스튬, `StaffRules.ForceCostume`, Play마다 꺼짐), 알바별 `이름 spd cap 상태 들고있는수/최대`. 튜토리얼 중이면 `Tutorial n → next`(단계 건너뛰기) · `Tutorial off`. **Part** 절: 남은 시간(보너스 중이면 `bonus`) · `End Part` · `Time bonus`(할 일이 없을 때처럼 남은 시간 → 보너스, M17-3).
+- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / **현금 존**: `Zone +200`(첫 현금 존에 쌓기) · `Collect n`(모든 현금 존 돈을 반경 무시하고 플레이어가 줍기 — 다발 · 달러 아이콘 연출 그대로, `CashZone.CollectBy`) / 레벨업 · XP +10 · **Lv.5**(목표 레벨) / 배속 ×1 · ×2 · ×4 / 일시정지 / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick / Returns 생성, **Costume 100%** 토글(켜면 생성 · 고용 탭 새 후보가 모두 코스튬, `StaffRules.ForceCostume`, Play마다 꺼짐), 알바별 `이름 spd cap 상태 들고있는수/최대`. 튜토리얼 중이면 `Tutorial n → next`(단계 건너뛰기) · `Tutorial off`. **Part** 절: 남은 시간(보너스 중이면 `bonus`) · `End Part` · `Time bonus`(할 일이 없을 때처럼 남은 시간 → 보너스, M17-3). **Offline** 절 (GDD 9.7): 모드 · 서버 시각 유무 · 저장 여부 · 상태 · 마지막 결과 표시, `1.Local` · `2.ServerTime`(다음 종료에 쓸 모드), `+10m` · `+1h` · `+6h`(N분 전에 종료한 것처럼 정산 · 지급), `Compare 1h`(1 · 2번 계산 로그만), `Fetch server time`, `Save exit` · `Claim`.
 - **주의**: IMGUI는 EventSystem에 안 잡히므로 `ContainsScreenPoint`로 `UiHitTest`에 영역을 알려 준다. 새 치트는 `DrawContent`에 추가한다. 패널은 스크롤 뷰 — 마우스 · 터치 드래그(버튼 위에서도) · 휠로 내린다. 조이스틱 차단 영역은 패널 영역 전체.
 
 ### 4.11 Editor — 에디터 도구

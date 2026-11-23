@@ -50,7 +50,7 @@ namespace APC.UI
 
         public override void ModifyMesh(VertexHelper vh)
         {
-            if (!IsActive() || tmp != null || curl == null || !curl.IsCurling || vh.currentVertCount == 0) return;
+            if (!IsActive() || tmp != null || !Deforming || vh.currentVertCount == 0) return;
             if (!TryGetMatrices(out Matrix4x4 toPaper, out Matrix4x4 fromPaper)) return;
 
             UIVertex v = default;
@@ -76,7 +76,7 @@ namespace APC.UI
 
         private void ApplyToTmp()
         {
-            if (!isActiveAndEnabled || curl == null || !curl.IsCurling) return;
+            if (!isActiveAndEnabled || !Deforming) return;
             TMP_TextInfo info = tmp.textInfo;
             if (info == null || info.characterCount == 0) return;
             if (!TryGetMatrices(out Matrix4x4 toPaper, out Matrix4x4 fromPaper)) return;
@@ -114,19 +114,33 @@ namespace APC.UI
             return !float.IsNaN(f) && !float.IsInfinity(f);
         }
 
+        /// <summary>말림 또는 절취선 뜯기가 동작 중인지.</summary>
+        private bool Deforming => curl != null && (curl.IsCurling || curl.TearDeforming);
+
         private bool DeformVertex(ref Vector3 pos, ref Color32 c, Matrix4x4 toPaper, Matrix4x4 fromPaper)
         {
             Vector3 pp = toPaper.MultiplyPoint3x4(pos);
-            if (!curl.InZone(pp.y)) return false;
+            bool inCurl = curl.IsCurling && curl.InZone(pp.y);
+            ReceiptTear tear = curl.TearDeforming ? curl.Tear : null;
+            if (!inCurl && tear == null) return false;
 
-            Vector3 d = curl.Deform(pp, out float facing, out float shade);
+            float facing = 1f, shade = 1f, alpha = 1f;
+            Vector3 d = pp;
+            if (inCurl) d = curl.Deform(pp, out facing, out shade);
+            // 말림 다음에 뜯기 (남는 조각 여부는 변형 전 높이로)
+            if (tear != null)
+            {
+                d = tear.Deform(d, tear.IsStubY(pp.y), out float tearShade, out alpha);
+                shade *= tearShade;
+            }
             pos = fromPaper.MultiplyPoint3x4(d);
 
-            c.r = (byte)(c.r * shade);
-            c.g = (byte)(c.g * shade);
-            c.b = (byte)(c.b * shade);
+            c.r = (byte)Mathf.Min(255f, c.r * shade);
+            c.g = (byte)Mathf.Min(255f, c.g * shade);
+            c.b = (byte)Mathf.Min(255f, c.b * shade);
+            c.a = (byte)(c.a * alpha);
             // 글씨는 면이 ~65° 이상 기울면 사라짐 → 뒤로 넘어온 종이 뒷면과 겹쳐 비치지 않게
-            if (fadeOnTilt) c.a = (byte)(c.a * Mathf.Clamp01((facing - 0.42f) * 4f));
+            if (fadeOnTilt && inCurl) c.a = (byte)(c.a * Mathf.Clamp01((facing - 0.42f) * 4f));
             return true;
         }
     }

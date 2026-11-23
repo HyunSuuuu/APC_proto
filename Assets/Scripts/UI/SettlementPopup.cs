@@ -6,6 +6,7 @@ using DG.Tweening;
 using R3;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace APC.UI
@@ -16,11 +17,13 @@ namespace APC.UI
     /// 머리(`[일일 물류 정산서]` · DAY N) → 상차 수익 · 알바 시급 · 출고(트럭 · 상자) · 반품 처리 → 순수익 + `정산 완료` 도장 쾅. 출력 중 화면을 누르면 끝까지 건너뛴다.
     /// 출력기 = 배출구 · 몸체를 틈 없이 쌓고, 영수증은 그 위 마스크 안에서 배출구 틈부터 올라온다 (2026-11-20).
     /// 영수증 윗부분은 나온 길이만큼 화면 안쪽(뒤)으로 말려 넘어간다 (ReceiptCurl, UI 샘플과 같음). 줄이 나올 때마다 살짝 펄럭이고, 뜯을 때 더 말린다.
-    /// [확인] → 영수증이 위로 뜯겨 날아가고 출력기가 내려간 뒤 PartService.Confirm (저금통 → 지갑, 다음 1파트).
+    /// 출력이 끝나면 조금 더 밀려 나오고 배출구 바로 위에 절취선이 나타난다 (ReceiptTear, 2026-11-23).
+    /// [확인] = 화면 어디를 눌러도 (배경 · 종이 · 출력기) → 절취선을 따라 왼쪽부터 '드-드-드-득' 뜯기며(단계마다 화면 흔들림, 끊길 때 크게)
+    /// 위로 날아가고, 남은 조각은 배출구로 들어가고, 출력기가 내려간 뒤 PartService.Confirm (저금통 → 지갑, 다음 1파트).
     /// [확인]은 처음부터 보이고, 출력 중에 누르면 바로 완료(넘어가진 않음). 출력이 끝나면 흔들리며 `확인 (5)` 카운트다운 → 0이면 자동 [확인] (M17-2, 2026-11-20).
     /// 이 오브젝트는 항상 켜 두고 자식 body만 켜고 끈다.
     /// </summary>
-    public sealed class SettlementPopup : MonoBehaviour
+    public sealed class SettlementPopup : MonoBehaviour, IPointerClickHandler
     {
         [SerializeField] GameObject body;
         [SerializeField, Tooltip("배경 어둡게 + 출력 중 누르면 건너뛰기")] Button dim;
@@ -65,7 +68,18 @@ namespace APC.UI
         [SerializeField, Tooltip("줄이 나올 때 펄럭임 (도)")] float feedFlutterDegrees = 18f;
         [SerializeField, Tooltip("뜯을 때 더 말리는 각도")] float tearCurlDegrees = 20f;
 
+        [Header("절취선 뜯기 (2026-11-23)")]
+        [SerializeField, Tooltip("영수증 루트의 뜯기 변형기 (비우면 실행 때 붙임)")] ReceiptTear tear;
+        [SerializeField, Tooltip("출력이 끝난 뒤 더 밀어내는 길이 — 절취선이 글씨 아래 여백에 오게 `임시`")] float stubMargin = 40f;
+        [SerializeField, Tooltip("뜯기 단계마다 화면 흔들림 세기 `임시`")] float stepShake = 5f;
+        [SerializeField, Tooltip("마지막으로 끊길 때 화면 흔들림 세기 `임시`")] float snapShake = 16f;
+        [SerializeField, Tooltip("끊길 때 출력기가 아래로 튕기는 거리 `임시`")] float snapPrinterKick = 10f;
+        [SerializeField, Tooltip("영수증 마스크 최소 폭 — 기울어진 종이가 옆으로 잘리지 않게")] float viewportMinWidth = 1600f;
+        [SerializeField, Tooltip("흔들 때 가장자리가 드러나지 않게 배경을 넓히는 여백")] float shakePadding = 80f;
+
         Sequence sequence;
+        Tween screenShake;
+        RectTransform bodyRect;
         Tween ledLoop;
         Tween shakeLoop;
         Tween flutterTween;
@@ -88,11 +102,23 @@ namespace APC.UI
             confirmButton.onClick.AddListener(Confirm);
             confirmLabel = confirmButton.GetComponentInChildren<TMP_Text>(true);
             confirmText = confirmLabel != null ? confirmLabel.text : "";
-            dim.onClick.AddListener(SkipPrinting);
+            // 어디를 눌러도 [확인] (출력 중이면 건너뛰기): 배경 · 종이 그래픽 · 그 밖은 OnPointerClick
+            dim.onClick.AddListener(Confirm);
+            foreach (var graphic in paper.GetComponentsInChildren<ReceiptPaperGraphic>(true)) graphic.Clicked += Confirm;
             printerHome = printer.anchoredPosition;
             paperHome = paper.anchoredPosition;
+
+            if (tear == null && !paper.TryGetComponent(out tear)) tear = paper.gameObject.AddComponent<ReceiptTear>();
+            if (paper.parent is RectTransform viewport && viewport.sizeDelta.x < viewportMinWidth)
+                viewport.sizeDelta = new Vector2(viewportMinWidth, viewport.sizeDelta.y);
+            bodyRect = (RectTransform)body.transform;
+            dim.image.rectTransform.offsetMin = -Vector2.one * shakePadding;
+            dim.image.rectTransform.offsetMax = Vector2.one * shakePadding;
             body.SetActive(false);
         }
+
+        /// <summary>처리기가 없는 그래픽(출력기 · 글씨 등)을 누르면 여기로 올라온다.</summary>
+        public void OnPointerClick(PointerEventData eventData) => Confirm();
 
         void Update()
         {
@@ -133,6 +159,9 @@ namespace APC.UI
             staffLabel.text = StaffText(result.WagePlan);
 
             sequence?.Kill();
+            screenShake?.Kill();
+            bodyRect.anchoredPosition = Vector2.zero;
+            tear.ResetTear();
             tearCurl = 0f;
             foreach (var row in rows) row.alpha = 0f;
             Fade(dim.image, 0f);
@@ -174,7 +203,10 @@ namespace APC.UI
                 }
                 if (row.transform == stamp.parent) sequence.InsertCallback(t + feedDuration, SlamStamp);
             }
-            sequence.AppendInterval(0.35f).OnComplete(FinishPrinting);
+            // 마지막 줄 뒤 여백을 조금 더 밀어내 절취선이 글씨 아래에 오게 (건너뛰기 = Complete로 끝 값까지)
+            sequence.Append(DOVirtual.Float(emerged, emerged + stubMargin, 0.22f, SetEmerged).SetEase(Ease.OutQuad))
+                .AppendInterval(0.2f)
+                .OnComplete(FinishPrinting);
         }
 
         /// <summary>그 줄의 값 글자 (번 돈 · 시급 · 합계), 없으면 null.</summary>
@@ -224,6 +256,7 @@ namespace APC.UI
         {
             printing = false;
             SetPrinting(false);
+            tear.ShowPerforation(SlotY());
             foreach (var row in rows) row.alpha = row.transform == staffLabel.transform && staffLabel.text.Length == 0 ? 0f : 1f;
 
             // 넘어갈 수 있다는 표시: 1초마다 좌우로 흔들림 + `확인 (5)` 카운트다운 → 0이면 자동 [확인] (M17-2)
@@ -314,7 +347,34 @@ namespace APC.UI
 
         static void Fade(Graphic graphic, float alpha) => graphic.color = new Color(graphic.color.r, graphic.color.g, graphic.color.b, alpha);
 
-        /// <summary>[확인]: 영수증이 위로 뜯겨 날아가고, 출력기가 내려가고, 배경이 밝아진 뒤 다음 파트.</summary>
+        /// <summary>배출구 틈(영수증 마스크 아래 끝)의 높이, 종이 로컬 y.</summary>
+        float SlotY()
+        {
+            var viewport = (RectTransform)paper.parent;
+            var world = viewport.TransformPoint(new Vector3(0f, viewport.rect.yMin, 0f));
+            return paper.InverseTransformPoint(world).y;
+        }
+
+        /// <summary>화면(팝업 Body 전체) 흔들림. 앞의 흔들림은 끊고 새로.</summary>
+        void ShakeScreen(float strength, float duration)
+        {
+            screenShake?.Kill();
+            bodyRect.anchoredPosition = Vector2.zero;
+            screenShake = bodyRect.DOShakeAnchorPos(duration, strength, 30, 90f, false, true)
+                .SetUpdate(true)
+                .SetLink(gameObject)
+                .OnKill(() => bodyRect.anchoredPosition = Vector2.zero);
+        }
+
+        void OnTearStep(int step) => ShakeScreen(stepShake, 0.1f);
+
+        void OnTearSnap()
+        {
+            ShakeScreen(snapShake, 0.28f);
+            printer.DOPunchAnchorPos(Vector2.down * snapPrinterKick, 0.25f, 8, 0.6f).SetUpdate(true).SetLink(gameObject);
+        }
+
+        /// <summary>[확인]: 영수증이 절취선을 따라 뜯겨 위로 날아가고, 출력기가 내려가고, 배경이 밝아진 뒤 다음 파트.</summary>
         void Confirm()
         {
             if (!open) return;
@@ -329,16 +389,11 @@ namespace APC.UI
             ledLoop?.Kill();
             shakeLoop?.Kill();
 
-            var top = paper.anchoredPosition;
             flutterTween?.Kill();
             sequence?.Kill();
             sequence = DOTween.Sequence().SetUpdate(true).SetLink(gameObject)
                 .Insert(0f, DOVirtual.Float(0f, tearCurlDegrees, 0.6f, v => tearCurl = v).SetEase(Ease.OutQuad))
-                .Append(paper.DOAnchorPos(top + Vector2.up * 20f, 0.15f).SetEase(Ease.InSine))
-                .Join(paper.DOLocalRotate(new Vector3(0f, 0f, 2.2f), 0.15f))
-                .Append(paper.DOAnchorPos(top + Vector2.up * 1100f, 0.45f).SetEase(Ease.InCubic))
-                .Join(paper.DOLocalRotate(new Vector3(0f, 0f, -10f), 0.45f))
-                .Join(paperGroup.DOFade(0f, 0.45f))
+                .Insert(0f, tear.CreateSequence(SlotY(), OnTearStep, OnTearSnap))
                 .Append(printer.DOAnchorPos(printerHome + Vector2.down * 700f, 0.35f).SetEase(Ease.InBack))
                 .Join(dim.image.DOFade(0f, 0.35f))
                 .OnComplete(() =>

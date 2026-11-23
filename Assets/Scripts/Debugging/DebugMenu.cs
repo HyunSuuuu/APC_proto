@@ -151,11 +151,48 @@ namespace APC.Debugging
             }
 
             DrawPart();
+            DrawOffline();
             DrawStaff();
             DrawSite(gm);
         }
 
-        /// <summary>현금 존 테스트: 첫 현금 존에 돈 쌓기 / 모든 현금 존의 돈을 플레이어가 줍기 (걸어가지 않고 연출 · 저금통 확인).</summary>
+        static readonly int[] OfflineMinutes = { 10, 60, 360 };
+
+        /// <summary>오프라인 수익 (GDD 9.7): 다음 종료에 쓸 모드 · N분 경과 시뮬(지급) · 1 · 2번 비교(로그만).</summary>
+        void DrawOffline()
+        {
+            var offline = APC.Offline.OfflineRewardService.Instance;
+            if (offline == null) return;
+            Header("Offline");
+            GUILayout.Label($"Mode {(int)offline.Mode + 1}.{offline.Mode}   ServerTime {(offline.HasServerTime ? "ok" : "none")}   Saved {(offline.HasPendingSnapshot ? "yes" : "no")}", labelStyle);
+            GUILayout.Label(offline.Status, labelStyle);
+            if (offline.LastResult is { } last) GUILayout.Label(last.ToString(), labelStyle);
+            GUILayout.BeginHorizontal();
+            foreach (APC.Offline.OfflineMode m in System.Enum.GetValues(typeof(APC.Offline.OfflineMode)))
+            {
+                var label = $"{(int)m + 1}.{m}";
+                if (GUILayout.Button(offline.Mode == m ? $"[{label}]" : label, buttonStyle)) offline.Mode = m;
+            }
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            foreach (var minutes in OfflineMinutes)
+            {
+                if (GUILayout.Button($"+{FormatMinutes(minutes)}", buttonStyle)) offline.DebugSimulate(minutes);
+            }
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Compare 1h", buttonStyle)) _ = offline.DebugCompareAsync(60);
+            if (GUILayout.Button("Fetch server time", buttonStyle)) _ = offline.RefreshServerTimeAsync();
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Save exit", buttonStyle)) offline.SaveSnapshot();
+            if (GUILayout.Button("Claim", buttonStyle)) _ = offline.ClaimAsync();
+            GUILayout.EndHorizontal();
+        }
+
+        static string FormatMinutes(int minutes) => minutes >= 60 ? $"{minutes / 60}h" : $"{minutes}m";
+
+        /// <summary>현금 존 테스트:첫 현금 존에 돈 쌓기 / 모든 현금 존의 돈을 플레이어가 줍기 (걸어가지 않고 연출 · 저금통 확인).</summary>
         void DrawCashZones()
         {
             var zones = FindObjectsByType<APC.Logistics.CashZone>(FindObjectsSortMode.None);
