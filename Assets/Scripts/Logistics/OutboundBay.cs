@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using APC.Core;
-using APC.Visuals;
 using APC.Orders;
 using DG.Tweening;
 using R3;
@@ -79,7 +78,6 @@ namespace APC.Logistics
                 var t = truck.transform;
                 t.SetLocalPositionAndRotation(spawnPoint.localPosition, parkPoint.localRotation);
                 t.localScale = Vector3.zero;
-                if (truck.TryGetComponent<WallCutoutTarget>(out var cutout)) cutout.enabled = true; // 주차장 지붕 구멍 (떠나면 지워짐)
                 yield return DOTween.Sequence()
                     .Append(t.DOScale(1f, AppearDuration).SetEase(Ease.OutBack))
                     .Append(t.DOLocalMove(parkPoint.localPosition, config.OutboundReverseDuration).SetEase(Ease.OutCubic))

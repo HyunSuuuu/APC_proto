@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using APC.Core;
-using APC.Visuals;
 using DG.Tweening;
 using R3;
 using UnityEngine;
@@ -74,7 +73,6 @@ namespace APC.Logistics
                 t.SetParent(transform, false);
                 t.SetLocalPositionAndRotation(spawnPoint.localPosition, parkPoint.localRotation);
                 t.localScale = Vector3.zero;
-                if (truck.TryGetComponent<WallCutoutTarget>(out var cutout)) cutout.enabled = true; // 주차장 지붕 구멍: 이 칸에 들어온 트럭만 (대기 줄은 아님), 떠나면 지워짐
                 yield return DOTween.Sequence()
                     .Append(t.DOScale(1f, AppearDuration).SetEase(Ease.OutBack))
                     .Append(t.DOLocalMove(parkPoint.localPosition, config.TruckReverseDuration).SetEase(Ease.OutCubic))
