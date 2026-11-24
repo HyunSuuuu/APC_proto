@@ -31,3 +31,21 @@ MonoBehaviour:
   repackInputCapacity: 6
   repackOutputCapacity: 6
   repackDuration: 2
+  normalTruckCapacity: 0a0000000f00000014000000
+  normalTruckModels:
+  - {fileID: 919132149155446097, guid: 28d5ef6b4c9f6004db3f3708e6c0ec41, type: 3}
+  - {fileID: 919132149155446097, guid: 387312effc2a5544ba63cd9eb59f0673, type: 3}
+  - {fileID: 919132149155446097, guid: 8b7e0b649afdb1a42bfeae7bebca42d5, type: 3}
+  largeTruckChance: 0.1
+  scanStartDelay: 0.25
+  playerScanDuration: 0.75
+  staffScanDuration: 2
+  staffScanMinBoxes: 6
+  scanRevealInterval: 0.05
+  unsortedBoxModel: {fileID: 919132149155446097, guid: b3b374d766ad5214481470ff555f3d56, type: 3}
+  unsortedBoxScale: 1.667
+  scanFont: {fileID: 11400000, guid: 3424636d70da88e499df43646bf3ac75, type: 2}
+  scanRingSprite: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
+  scanBubbleSprite: {fileID: 5977680567927273324, guid: c8c55f01f5a95054483fdff4769fabbf, type: 3}
+  scanBubbleText: "\uC2A4\uCE94 \uC911"
+  scanIndicatorHeight: 3.2
