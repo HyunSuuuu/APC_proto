@@ -12,21 +12,35 @@ namespace APC.Logistics
     /// 출고 트럭 1대 (GDD 7.6). 주문 1건을 맡고, 위에 주문 카드(품목별 실은 수 / 필요 수)를 띄운다.
     /// 이동은 OutboundBay가 한다.
     /// </summary>
-    public sealed class OutboundTruck : MonoBehaviour
+    public sealed class OutboundTruck : MonoBehaviour, IPooledTruck
     {
         [SerializeField, Tooltip("상자가 들어가는 위치 (뒷문)")] Transform cargoEntry;
         [SerializeField] TMP_Text orderLabel;
 
         readonly StringBuilder text = new();
+        System.IDisposable orderSubscription; // 풀에서 다시 쓰므로 AddTo(this) 대신 직접 푼다
 
         public Order Order { get; private set; }
 
         public void Assign(Order order)
         {
+            orderSubscription?.Dispose();
             Order = order;
-            order.Changed.Subscribe(_ => Refresh()).AddTo(this);
+            orderSubscription = order.Changed.Subscribe(_ => Refresh());
             Refresh();
         }
+
+        /// <summary>TruckPool에 돌려줄 때: 주문 구독 · 카드를 지운다.</summary>
+        public void ResetForPool()
+        {
+            orderSubscription?.Dispose();
+            orderSubscription = null;
+            Order = null;
+            orderLabel.transform.DOKill(true);
+            orderLabel.text = string.Empty;
+        }
+
+        void OnDestroy() => orderSubscription?.Dispose();
 
         /// <summary>상자 1개를 싣는다: 주문에 기록하고, 상자는 뒷문으로 날아 들어가 풀로 돌아간다.</summary>
         public void Receive(Cargo cargo)

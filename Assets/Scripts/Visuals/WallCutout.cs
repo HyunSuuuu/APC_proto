@@ -8,7 +8,7 @@ using UnityEngine;
 namespace APC.Visuals
 {
     /// <summary>
-    /// 벽 컷아웃. 이 오브젝트(플레이어)와 WallCutoutTarget(주차한 트럭 등, 2026-11-20)을 가리는 벽에 원형 구멍을 뚫는다 — 최대 8개.
+    /// 벽 컷아웃. 이 오브젝트(플레이어)를 가리는 벽에 원형 구멍을 뚫는다. 셰이더는 최대 8개 배열을 받지만 지금은 [0] 플레이어만 쓴다 (트럭 대상 2026-11-23 삭제).
     /// 플레이어에 붙인다. 매 프레임 위치 · 반지름을 전역 셰이더 배열로 넘기고 (Assets/Shaders/WallCutout.hlsl),
     /// Play 중에만 이름이 structurePrefixes로 시작하는 렌더러(또는 그 부모)와 extraWalls 아래 렌더러의 재질을
     /// "원래 재질 사본 + APC/WallCutout 셰이더"로 바꾼다 — 색 · 텍스처는 원래 재질 그대로.
@@ -34,7 +34,7 @@ namespace APC.Visuals
             "ConstructionFence",                                               // 잠긴 칸 울타리
         };
         [SerializeField, Tooltip("이름과 상관없이 구멍을 뚫을 벽. 아래 렌더러 전부가 바뀐다")] Transform[] extraWalls;
-        [SerializeField, Min(0f), Tooltip("플레이어 구멍 반지름 (m). 다른 대상은 WallCutoutTarget마다")] float radius = 1.5f;
+        [SerializeField, Min(0f), Tooltip("플레이어 구멍 반지름 (m)")] float radius = 1.5f;
         [SerializeField, Min(0f), Tooltip("가장자리 디더 폭 (m)")] float softness = 0.4f;
         [SerializeField, Tooltip("구멍 중심 높이 (발밑에서 m)")] float height = 1f;
         [SerializeField, Min(0f), Tooltip("플레이어보다 이만큼(m) 카메라 쪽에 있는 벽부터 뚫는다")] float depthBias = 0.3f;
@@ -75,18 +75,11 @@ namespace APC.Visuals
 
         void LateUpdate()
         {
-            // [0] = 플레이어, 나머지 = WallCutoutTarget (주차한 트럭 등, 넘치면 앞에서부터)
+            // [0] = 플레이어만 (트럭 대상은 2026-11-23 삭제, 셰이더 배열은 그대로)
             var center = transform.position + Vector3.up * height;
             centers[0] = new Vector4(center.x, center.y, center.z, radius);
-            var count = 1;
-            foreach (var target in WallCutoutTarget.All)
-            {
-                if (count >= MaxTargets) break;
-                var p = target.Center;
-                centers[count++] = new Vector4(p.x, p.y, p.z, target.Radius);
-            }
             Shader.SetGlobalVectorArray(CentersId, centers);
-            Shader.SetGlobalFloat(CountId, count);
+            Shader.SetGlobalFloat(CountId, 1);
             Shader.SetGlobalVector(ParamsId, new Vector4(0f, softness, depthBias, 0f));
 
             // 예전엔 0.5초마다 훑었다 — 실기기 TycoonTest에서 1회 12.7ms · GC 절반이라 바꿈 (2026-11-20)

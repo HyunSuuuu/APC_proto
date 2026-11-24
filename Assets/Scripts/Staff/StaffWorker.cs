@@ -115,7 +115,21 @@ namespace APC.Staff
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() => AllWorkers.Clear();
+        static void ResetStatics()
+        {
+            AllWorkers.Clear();
+            PathRequests = NoPathCount = 0;
+        }
+
+        // 성능 측정용 (PerformanceHUD가 읽는다): 길 요청 수 · 길 없음 수 — A* 전환 비교 기준 (2026-11-23)
+        public static int PathRequests { get; private set; }
+        public static int NoPathCount { get; private set; }
+
+        bool SetPath(Vector3 point)
+        {
+            PathRequests++;
+            return agent.SetDestination(point);
+        }
 
         void Awake()
         {
@@ -246,12 +260,12 @@ namespace APC.Staff
             switch (State)
             {
                 case Phase.Moving when (agent.destination - stand).sqrMagnitude > 1f:
-                    agent.SetDestination(stand);
+                    SetPath(stand);
                     break;
                 case Phase.Working when (transform.position - stand).sqrMagnitude > 1f:
                     interactor.Target = null;
                     State = Phase.Moving;
-                    agent.SetDestination(stand);
+                    SetPath(stand);
                     break;
             }
         }
@@ -481,7 +495,7 @@ namespace APC.Staff
             gauge.TryClaim(this);
             SetStand(best, ChooseStand(best));
             dropping = false;
-            agent.SetDestination(OccupiedPosition);
+            SetPath(OccupiedPosition);
             State = Phase.Moving;
             return true;
         }
@@ -499,7 +513,7 @@ namespace APC.Staff
                 pickBudget = PickBudget(sortZone.Storage); // 출발할 때 스캔된 상자만 (GDD 7.2a)
             if (!drop) Reserve();
 
-            agent.SetDestination(OccupiedPosition);
+            SetPath(OccupiedPosition);
             State = Phase.Moving;
         }
 
@@ -636,7 +650,7 @@ namespace APC.Staff
         {
             ReleaseAll();
             // 막 생성된 프레임 등 에이전트가 아직 네비메시에 없으면 길을 못 잡는다 → 그 자리에서 기다렸다가 다음 판단 때 다시
-            if (!agent.isOnNavMesh || !TryChooseWaitPoint(out var point) || !agent.SetDestination(point))
+            if (!agent.isOnNavMesh || !TryChooseWaitPoint(out var point) || !SetPath(point))
             {
                 Hold();
                 return;
@@ -727,6 +741,7 @@ namespace APC.Staff
             if (agent.pathStatus == NavMeshPathStatus.PathInvalid)
             {
                 var target = TargetZone;
+                NoPathCount++;
                 Debug.LogWarning($"[StaffWorker] {name}: '{(leaving ? "출구" : target != null ? target.name : "대기 위치")}'까지 길이 없습니다.", this);
                 Hold();
                 return false;
@@ -809,7 +824,7 @@ namespace APC.Staff
             ReleaseAll();
             leaving = true;
             var spawn = StaffSpawnPoint.Current;
-            agent.SetDestination(spawn != null ? spawn.transform.position : transform.position);
+            SetPath(spawn != null ? spawn.transform.position : transform.position);
             State = Phase.Moving;
         }
 

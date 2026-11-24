@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using APC.Core;
-using APC.Visuals;
 using APC.Orders;
 using DG.Tweening;
 using R3;
@@ -60,6 +59,7 @@ namespace APC.Logistics
         {
             var gm = GameManager.Instance;
             var config = gm.Database.Logistics;
+            if (truckPrefab != null) TruckPool.Prewarm(truckPrefab, 2); // 임시: 트럭 TMP Awake 비용을 시작 때
             if (Economy.PartService.Instance != null) Economy.PartService.Instance.OnDayEnding.Subscribe(_ => SendAway()).AddTo(this);
 
             while (true)
@@ -72,14 +72,13 @@ namespace APC.Logistics
                 sentAway = paid = false; // 이번 상차 파트 트럭 (그 전 하루 끝 신호는 무시)
 
                 // 로컬 좌표로 움직인다 (확장 모듈이 커지는 중에 나와도 제자리로, InboundBay와 같음)
-                var truck = Instantiate(truckPrefab, transform);
+                var truck = TruckPool.Get(truckPrefab, transform);
                 truck.Assign(order);
                 current = order;
 
                 var t = truck.transform;
                 t.SetLocalPositionAndRotation(spawnPoint.localPosition, parkPoint.localRotation);
                 t.localScale = Vector3.zero;
-                if (truck.TryGetComponent<WallCutoutTarget>(out var cutout)) cutout.enabled = true; // 주차장 지붕 구멍 (떠나면 지워짐)
                 yield return DOTween.Sequence()
                     .Append(t.DOScale(1f, AppearDuration).SetEase(Ease.OutBack))
                     .Append(t.DOLocalMove(parkPoint.localPosition, config.OutboundReverseDuration).SetEase(Ease.OutCubic))
@@ -104,7 +103,7 @@ namespace APC.Logistics
                     .Append(t.DOLocalMove(spawnPoint.localPosition, config.OutboundLeaveDuration).SetEase(Ease.InCubic))
                     .Append(t.DOScale(0f, AppearDuration).SetEase(Ease.InBack))
                     .SetLink(truck.gameObject)
-                    .OnComplete(() => Destroy(truck.gameObject));
+                    .OnComplete(() => TruckPool.Release(truck));
                 yield return new WaitForSeconds(config.OutboundRespawnDelay);
             }
         }

@@ -133,6 +133,7 @@ Shader "APC/WallCutout"
             #pragma shader_feature_local_fragment _SPECULARHIGHLIGHTS_OFF
             #pragma shader_feature_local_fragment _ENVIRONMENTREFLECTIONS_OFF
             #pragma shader_feature_local_fragment _SPECULAR_SETUP
+            #pragma shader_feature_local_fragment _WALL_GRADIENT // 부지 벽 안쪽 면 세로 그라데이션 (M_Wall)
 
             // -------------------------------------
             // Universal Pipeline keywords

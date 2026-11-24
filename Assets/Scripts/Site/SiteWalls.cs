@@ -21,6 +21,11 @@ namespace APC.Site
         [SerializeField, Tooltip("앞 꼭짓점 기둥 (pillar_s)")] GameObject lowPillar;
         [SerializeField, Tooltip("뒤 꼭짓점 기둥 (pillar_L)")] GameObject highPillar;
         [SerializeField, Tooltip("조각 재질 (M_Prop). 비우면 fbx 재질")] Material material;
+        [SerializeField, Tooltip("벽 조각(wall_s · wall_l)만 쓰는 재질 (M_Wall, APC/WallCutout + _WALL_GRADIENT). 비우면 material")] Material wallMaterial;
+        [SerializeField, Tooltip("벽 안쪽 면 아래 색")] Color gradientBottom = new(234 / 255f, 198 / 255f, 154 / 255f);
+        [SerializeField, Tooltip("벽 안쪽 면 위 색 (위쪽 갈색 띠는 항상 원래 색)")] Color gradientTop = new(242 / 255f, 235 / 255f, 204 / 255f);
+        [SerializeField, Min(0f), Tooltip("이 높이(m, 조각 바닥부터) 아래는 전부 아래 색")] float gradientStart = 0f;
+        [SerializeField, Min(0f), Tooltip("이 높이(m) 위는 전부 위 색, Start ~ End 사이는 높이에 비례해 섞음 (벽 면은 3.6955m까지)")] float gradientEnd = 3.4f;
         [SerializeField, Min(0.1f), Tooltip("벽 조각 길이 (m)")] float pieceLength = 1f;
         [SerializeField, Tooltip("사무실 바깥 벽 창문 (window_outside, 폭 2m = 조각 2개). 비우면 창문 없음")] GameObject windowPrefab;
         [SerializeField, Tooltip("사무실 벽 한 변에서 창문이 시작하는 조각 번호 (0부터, 창문은 그 조각과 다음 조각 자리)")] int[] windowStarts = { 2, 6 };
@@ -34,6 +39,10 @@ namespace APC.Site
         }
 
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        static readonly int GradientBottomId = Shader.PropertyToID("_WallGradientBottom");
+        static readonly int GradientTopId = Shader.PropertyToID("_WallGradientTop");
+        static readonly int GradientStartId = Shader.PropertyToID("_WallGradientStart");
+        static readonly int GradientEndId = Shader.PropertyToID("_WallGradientEnd");
 
         Transform root;
         readonly Dictionary<Renderer, Fade> fades = new();
@@ -46,8 +55,22 @@ namespace APC.Site
         {
             var grid = SiteGrid.Instance;
             if (grid == null || lowWall == null || highWall == null) return;
+            ApplyGradient();
             Build();
             grid.OnUnlocked.Subscribe(_ => Build()).AddTo(this);
+        }
+
+        void OnValidate() => ApplyGradient(); // 인스펙터에서 바꾸면 Play 중에도 바로 반영
+
+        /// <summary>안쪽 면 그라데이션 값을 전역 셰이더 값으로 (WallCutout.hlsl _WALL_GRADIENT).</summary>
+        void ApplyGradient()
+        {
+            // SetGlobalColor는 Material.SetColor와 달리 sRGB → 선형 변환을 안 한다 — 안 바꾸면 색이 밝고 흐리게 나옴 (2026-11-24 측정)
+            var linear = QualitySettings.activeColorSpace == ColorSpace.Linear;
+            Shader.SetGlobalColor(GradientBottomId, linear ? gradientBottom.linear : gradientBottom);
+            Shader.SetGlobalColor(GradientTopId, linear ? gradientTop.linear : gradientTop);
+            Shader.SetGlobalFloat(GradientStartId, gradientStart);
+            Shader.SetGlobalFloat(GradientEndId, gradientEnd);
         }
 
         void Build()
@@ -94,7 +117,7 @@ namespace APC.Site
                             continue;
                         }
                         var position = middle + along * ((i + 0.5f) * pieceLength - cellSize * 0.5f);
-                        Place(prefab, position, yaw);
+                        Place(prefab, position, yaw, wallMaterial != null ? wallMaterial : material);
                     }
 
                     foreach (var end in new[] { middle - along * (cellSize * 0.5f), middle + along * (cellSize * 0.5f) })
@@ -123,15 +146,17 @@ namespace APC.Site
             return isLot && Vector3.Dot(module.transform.rotation * Vector3.left, outward) > 0.7f;
         }
 
-        void Place(GameObject prefab, Vector3 position, Quaternion yaw)
+        void Place(GameObject prefab, Vector3 position, Quaternion yaw) => Place(prefab, position, yaw, material);
+
+        void Place(GameObject prefab, Vector3 position, Quaternion yaw, Material pieceMaterial)
         {
             var piece = Instantiate(prefab, position, yaw * prefab.transform.rotation, root);
             foreach (var r in piece.GetComponentsInChildren<Renderer>())
             {
-                if (material != null)
+                if (pieceMaterial != null)
                 {
                     var shared = new Material[r.sharedMaterials.Length];
-                    for (var i = 0; i < shared.Length; i++) shared[i] = material;
+                    for (var i = 0; i < shared.Length; i++) shared[i] = pieceMaterial;
                     r.sharedMaterials = shared;
                 }
                 fades[r] = new Fade { original = r.sharedMaterials };

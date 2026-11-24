@@ -8,7 +8,7 @@ using UnityEngine;
 namespace APC.Logistics
 {
     /// <summary>입고 트럭 1대 (GDD 7.1). 실은 화물 목록과 남은 수량 표시만 가진다. 이동은 InboundBay가 한다.</summary>
-    public sealed class InboundTruck : MonoBehaviour
+    public sealed class InboundTruck : MonoBehaviour, IPooledTruck
     {
         [SerializeField, Tooltip("화물이 튀어나오는 위치 (픽업 존 쪽 옆면)")] Transform cargoExit;
         [SerializeField] TMP_Text countLabel;
@@ -52,12 +52,34 @@ namespace APC.Logistics
 
         void OnDestroy() => remaining.Dispose();
 
+        /// <summary>TruckPool에 돌려줄 때: 실은 화물 · 예약 · 황금 상태를 지운다 (모델은 다음 Load가 바꾼다).</summary>
+        public void ResetForPool()
+        {
+            load.Clear();
+            remaining.Value = 0;
+            Reserved = 0;
+            Company = null;
+            Golden = false;
+            foreach (var r in goldenRenderers)
+            {
+                if (r != null) r.SetPropertyBlock(null);
+            }
+            goldenRenderers.Clear();
+            // shortcut: 황금 빛 · 반짝임은 드물어서 풀링하지 않고 지운다 — 황금 확률이 오르면 켜고 끄기로
+            if (goldenLight != null) Destroy(goldenLight.gameObject);
+            if (goldenSparkle != null) Destroy(goldenSparkle);
+            goldenLight = null;
+            goldenSparkle = null;
+            countLabel.transform.DOKill(true);
+        }
+
         /// <summary>황금 트럭 (GDD 6.4): 실은 것은 모두 금덩이. 사람이 꺼내지 않고 TruckPickupZone이 존 바닥에 쏟는다.</summary>
         public bool Golden { get; private set; }
 
         readonly List<Renderer> goldenRenderers = new();
         MaterialPropertyBlock goldenBlock;
         Light goldenLight;
+        GameObject goldenSparkle;
 
         /// <summary>황금 트럭으로 만든다: 몸체 금색(깜빡임) · 위에 점광원 · 반짝임 파티클. 값은 GoldenTruckConfig (도착할 때 읽음, 색 · 빛 세기는 매 프레임).</summary>
         public void MakeGolden()
@@ -111,7 +133,7 @@ namespace APC.Logistics
 
         void CreateSparkle(GoldenTruckConfig config)
         {
-            var go = new GameObject("GoldenSparkle");
+            var go = goldenSparkle = new GameObject("GoldenSparkle");
             go.transform.SetParent(transform, false);
             go.transform.localPosition = config.SparkleCenter;
             var ps = go.AddComponent<ParticleSystem>();

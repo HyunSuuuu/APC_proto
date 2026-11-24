@@ -21,7 +21,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: M_Char_uniformT_cloth
-  m_Shader: {fileID: -6465566751694194690, guid: 554a425f1b284c94389383ca07047148, type: 3}
+  m_Shader: {fileID: 4800000, guid: 79c2bc5ac3f7af84c9df8dcb42fab9c3, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -33,6 +33,7 @@ Material:
   stringTagMap: {}
   disabledShaderPasses:
   - MOTIONVECTORS
+  - OutlineOuter
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
@@ -115,15 +116,21 @@ Material:
     - _GlossyReflections: 0
     - _Metallic: 0
     - _OcclusionStrength: 1
+    - _OuterWidth: 1
+    - _OutlineWidth: 2
     - _Parallax: 0.005
     - _QueueControl: 0
     - _QueueOffset: 0
     - _ReceiveShadows: 1
+    - _ShadowBrightness: 0.5
+    - _ShadowSaturation: 1
+    - _ShadowSoftness: 0.142
     - _Smoothness: 0.1
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
+    - _StencilGroup: 1
     - _Surface: 0
     - _WorkflowMode: 1
     - _XRMotionVectorsPass: 1
@@ -132,6 +139,10 @@ Material:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _OuterColor: {r: 0, g: 0, b: 0, a: 1}
+    - _OutlineColor: {r: 0, g: 0, b: 0, a: 1}
+    - _ShadowCoolColor: {r: 0.8490566, g: 0.6785069, b: 0.5326629, a: 1}
+    - _ShadowWarmColor: {r: 0.8490566, g: 0.6785069, b: 0.5326629, a: 1}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

@@ -133,7 +133,9 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 
 - 밸런스 수치는 모두 ScriptableObject로 뺀다 (GDD `임시` 값 = 조정 대상).
 - 테이블: 회사·품목, 레벨·해금, 비용, 주문 생성 규칙, 확장 칸, 알바 스탯 생성 규칙, 플레이어, 조작·카메라.
-- 진입점은 `Assets/Data/GameDatabase.asset` 하나. 새 테이블은 여기에 연결한다.
+- 진입점은 `Assets/Data/GameDatabase.asset` 하나. 새 테이블은 여기에 연결한다. (예외: 측정용 `NavGridConfig` · `NavBenchmarkConfig`는 메뉴가 에셋 경로로 읽음, 2026-11-24)
+- **어셈블리 정의는 `APC.Navigation` 하나** (`Assets/Scripts/Navigation/`, 2026-11-24): 길찾기 코어를 게임 코드와 떼어 알파로 옮기기 위함. 이 폴더 코드는 `APC.*` 게임 코드를 참조하지 않는다 (UnityEngine만). 나머지는 그대로 Assembly-CSharp. 테스트 프레임워크 대신 `NavSelfTest.Run()` 자기 검사.
+- 성능 측정은 **Deep Profile을 끄고** 한다 (켜면 C# 코드만 약 100배 느려짐). 메뉴 `APC > Test > Nav Benchmark`는 알아서 끄고 되돌린다.
 
 ### 5.5 입력
 
@@ -203,8 +205,10 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 
 - 추가 렌더 패스는 렌더러 에셋(Render Objects 피처) 대신 코드로 넣는다 — `Visuals/OutlinePasses`처럼 `beginCameraRendering`에서 `EnqueuePass`. 같은 LightMode를 피처로도 넣으면 두 번 그려진다.
 - 캐릭터 · 구조물 셰이더 교체는 Play 중 재질 사본으로 한다 (`CharacterToon` · `WallCutout`). 실행 코드에서 `Shader.Find`를 쓰지 않고 재질 참조로 셰이더를 빌드에 넣는다.
-- 외곽선 스텐실 그룹: 일반 1~126(16의 배수 피함), 관찰 255. 새 외곽선 재질을 만들면 `APC/Art/Validate Outline Materials`를 실행한다.
+- 외곽선 스텐실 그룹: 일반 1~126(16의 배수 피함), 관찰 255. 새 외곽선 재질(`APC/OutlineStencil` · `APC/Toon`)을 만들면 `APC/Art/Validate Outline Materials`를 실행한다 (관찰 그룹만 `OutlineOuter` 켬).
+- 캐릭터 툰은 손으로 쓴 HLSL `APC/Toon`(2026-11-24, Shader Graph에서 옮김 — 변형 17,492 → 9). 외곽선 3패스가 같은 셰이더에 있어 외곽선 슬롯을 따로 붙이지 않는다. 툰 그래프를 다시 만들지 않는다.
 - 렌더러: Mobile = Forward, PC = Forward+ (Deferred 아님).
+- 전역 셰이더 색(`Shader.SetGlobalColor`)은 `color.linear`로 넘긴다 (Linear 색 공간). `Material.SetColor`와 달리 sRGB → 선형 변환을 안 해 색이 밝고 흐려진다 (`SiteWalls.ApplyGradient`, 2026-11-24).
 - 흰 배경 이미지를 배경 따기 없이 겹칠 땐 곱하기 스프라이트 셰이더 `APC/SpriteMultiply`(`Shaders/SpriteMultiply.shader`, 재질 `M_SpriteMultiply`, `Blend DstColor Zero`)를 쓴다 — 흰색은 빠지고 회색 · 선만 남는다. **밝은 배경 위에서만** 의도대로 보이고, 뒤에 그린 것은 이미지 색만큼 어두워진다 (BrokeCash 유리 저금통, 2026-11-20). 예외: BrokeCash R&D의 `BrokeCashArt.SpriteMaterial`은 `Shader.Find("Sprites/Default")`(항상 포함되는 기본 셰이더).
 
 ### 5.8 문서

@@ -57,6 +57,7 @@
 | `Economy` | 파트 타이머 · 파트 종료 정산 · 사무실 투명 저금통 |
 | `BrokeCash` | 정산 저금통 깨기 연출 R&D (DOTween · 2D 스켈레톤 비교용, 별도 씬 `BrokeCashScene`). 아직 게임 흐름에 연결 안 됨 |
 | `Site` | 부지 격자와 모듈 해금 |
+| `Navigation` | 방 단위 2층 A* 길찾기 코어 (2026-11-24, 측정용 · 알파 후보). 어셈블리 `APC.Navigation` — 게임 코드를 참조하지 않는다 |
 | `UI` | 팝업, 월드 글자 정렬, HUD 초기화 (`UiBootstrap`) |
 | `Offline` | 오프라인 수익 — 종료 상태 저장 · 복귀 정산 (GDD 9.7, 방식 1 · 2) |
 | `Debugging` | 치트 메뉴 (에디터 · 개발 빌드 전용) |
@@ -334,6 +335,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | [CashFlyConfig](../Scripts/Data/CashFlyConfig.cs) | `CashFlyConfig` | 주운 현금 → HUD 저금통 **달러 아이콘 연출**: 비행 시간, **속도 그래프**(`moveCurve`, 시간 0~1 → 경로 진행 0~1, 기울기 = 속도, 1을 넘기면 지나쳤다 돌아옴), 포물선 높이, **출발 랜덤 반경**(`startRadius`, HUD px — 플레이어 화면 위치 둘레 원 안 무작위 지점에서 출발, 0 = 중앙), 기본 크기, **크기 그래프**(`scaleCurve`, 시간 → 배율), 도착 때 저금통 아이콘 튐. Build Site가 `CashFlyEffect`에 직접 연결 (없으면 만듦, 비면 `OrDefault`) |
 | [GoldenTruckConfig](../Scripts/Data/GoldenTruckConfig.cs) | `GoldenTruckConfig` | **황금 트럭** (GDD 6.4, 2026-11-18 `LogisticsConfig`에서 옮김): 확률 · 금 값 배율, 몸체 색(`solidColor` = `_BaseMap`을 흰색으로 덮어 단색) · 깜빡임, 점광원, 반짝임 파티클(`M_GoldSparkle`), 쏟기(지연 · 간격 · 튐 · 쌓는 모양 · 떠남 지연), 흡수(반경 · 간격 · 비행 · 회전 · 크기 그래프). `GameDatabase.GoldenTruck` (비면 `OrDefault`). 값은 매번 읽으므로 Play 중 조절 가능 |
 | [StampConfig](../Scripts/Data/StampConfig.cs) | `StampConfig` | 계약 PC **도장 연출**: 누르기 배율 · 시간, 카드 위 머무는 시간, 복귀 시간 · 이징, 자국 · 필터, 흔들림 · 사유 시간, 계약 후 팝업 닫힘 지연. **`GameDatabase`가 아니라** Build Site가 `Stamp` · `StampCard` · `ContractPopup`에 직접 연결 (없으면 만들고, 연결이 비면 기본값 `OrDefault`) |
+| [NavGridConfig](../Scripts/Data/NavGridConfig.cs) | `NavGridConfig` | A* 격자 (2026-11-24): 칸 0.5m · 장애물 키우기 0.5 · 타일 2m · 장애물 높이 띠 0.3~2.0 · 붙이기 반경 2m · 프레임당 길찾기 20. **GameDatabase에 아직 안 넣음** (측정 도구만 씀) |
+| [NavBenchmarkConfig](../Scripts/Data/NavBenchmarkConfig.cs) | `NavBenchmarkConfig` | 길찾기 비교 측정: 알바 수 · 예열 · 측정 · 반복, 보정(실제 알바 직무별 수 · 뽑는 간격 0.1초), 길 쌍 수 · 길이 비율 한도, 레일 크기 · 개수, Profiler 기록. 메뉴가 에셋 경로로 읽음 |
 | [DataTypes](../Scripts/Data/DataTypes.cs) | — | 공용 구조체 `IntRange`(`Roll()`로 무작위), `WeightedInt` |
 
 #### SiteLayout (자세히)
@@ -584,13 +587,14 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Logistics/InboundTruck.cs](../Scripts/Logistics/InboundTruck.cs)
 - **역할**: 입고 트럭 1대. 실은 품목 목록과 남은 수량 표시만 가진다. 움직임은 `InboundBay`가 한다.
 - **모델** (M16-4): `Load` 때 `CompanyDefinition.GetTruckModel(트럭 단계)`(색 × Small · Middle · Big)로 `modelRoot`(`Model`) 자식을 갈아 끼운다 — 크기 `modelScale` 0.85, 재질 `modelMaterial`(M_Prop), 뒷면(로컬 −z 끝)을 `backZ` −2.2에 맞춤(모델 길이가 달라도 주차 · `cargoExit` 그대로). 황금 트럭은 `goldModels[단계]`로 바꾸고 금색 칠하기는 안 함(빛 · 반짝임만, 금 모델이 없을 때만 칠함). 크기 1일 때(생성 직후) 불러야 뒷면 계산이 맞다.
+- **풀** (2026-11-23): `TruckPool`에서 꺼내 쓴다. `ResetForPool()` = 실은 화물 · `Reserved` · `Company` · 황금(PropertyBlock 지움, 빛 · 반짝임 오브젝트는 Destroy) 지우기. 모델은 다음 `Load`가 바꾼다.
 - **동작**: `Load(company, items)`, `TakeCargo()`(뒷문 `cargoExit` 위치에 화물을 만들고 Origin = Truck. `SharedStorage.ReturnsOpen`이면 `returnChance`(10%) 확률로 반품 상자). 하차 알바 예약: `Reserved`(집으러 오는 수), `Available`(= 남은 화물 − 예약), `Reserve(n)` · `Unreserve(n)`. `CountOf(item)` = 남은 그 품목 수 (상차 주문 색 후보).
 
 #### InboundBay
 [Logistics/InboundBay.cs](../Scripts/Logistics/InboundBay.cs)
 - **회차** (2026-11-20): `PartService.OnShift`(상차 파트 시작)에 정차한 트럭은 상자가 남아도 떠난다 (교대 신호는 트럭을 받은 뒤부터만 봄).
 - **역할**: 하차 베이 1곳. 하차 주차장 모듈 안에 있다. [3.4](#34-입고-트럭-한-대)의 주차 · 출발을 코루틴으로 실행한다. 트럭 도착 · 색은 `InboundQueue`가 정한다 (M13-9).
-- **황금 트럭** (M13-16): 금은 `TruckPickupZone`이 쏟는다. 이 베이는 트럭이 빌 때까지 기다렸다가 보낸다.
+- **황금 트럭** (M13-16): 금은 `TruckPickupZone`이 쏟는다. 이 베이는 트럭이 빌 때까지 기다렸다가 보낸다. 떠난 트럭은 `TruckPool.Release` (2026-11-23).
 - **동작**: `InboundQueue.Request(this)` → `Receive(truck)`로 받을 때까지 대기. 꺼지면(`OnDisable`) 기다리는 목록에서 빠진다. `Storage` = 이 칸의 상자 두는 공간 (`Awake`에서 `GetComponentInParent<SharedStorage>()`, M13-2).
 - **연결**: `InboundQueue.Instance`, `parkPoint`(주차 위치 · 방향), `spawnPoint`(나타나고 사라지는 곳). `truckPrefab` 필드는 이제 안 씀 (`InboundQueue`가 생성).
 - **주의**: 트럭은 **베이 기준 로컬 좌표**로 움직인다 (`parkPoint` · `spawnPoint`는 베이 바로 아래 자식이어야 함). 확장 모듈은 크기 0에서 커지는 중(`FacilityPop`)에 첫 트럭이 나오므로, 월드 좌표를 쓰면 엉뚱한 곳에서 들어온다 (2026-11-12 수정). `OutboundBay`도 같다.
@@ -599,7 +603,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Logistics/InboundQueue.cs](../Scripts/Logistics/InboundQueue.cs)
 - **역할**: 하차 트럭 도착 · 차량 대기열 (GDD 7.1, M13-9). 하차장에 넘기는 것은 `PartService.InboundOpen`일 때만 — 아니면 `Request`가 기다리는 목록에 넣고 `Update`가 열릴 때 줄 맨 앞부터 `Dispatch` (2026-11-19). SiteGrid 오브젝트에 붙는다 (`SiteBuilder.BakeGrid`).
 - **동작**: 도착 루프 = 줄이 `InboundQueueSize` 미만이고 선반 있는 입고 색이 있을 때 트럭 생성 → 기다리는 베이에 바로 넘기거나 줄 끝에 팝 → `InboundArrivalInterval` 대기. `Request(bay)` = 줄 맨 앞을 넘기고 나머지를 `SlotPosition(i)`로 당김 (0.6초). 시작 때 대기 자리 표시(반투명 판 `TruckWaitSlot_n`) 3개 — 재질은 에셋 `markerMaterial`(`Art/Materials/M_TruckWaitSlot`, URP Unlit 반투명).
-- **회차** (2026-11-20): `PartService.OnShift`(상차 파트 시작)에 줄의 트럭을 모두 돌려보냄(줄 뒤쪽으로 빠지며 작아진 뒤 Destroy). 하차장에 정차한 트럭은 남는다. 튜토리얼 구간엔 첫 트럭(상자 `TutorialBoxes`개, 황금 없음)만 하차장에 넘긴다(`CanDock`).
+- **풀** (2026-11-23): 트럭은 `TruckPool.Get`으로 꺼내고 회차 · 하차 후 `TruckPool.Release`로 돌려준다(Destroy 안 함). 시작 때 `Prewarm(InboundQueueSize + 2)` `임시`(풀 최대 16에서 잘림).
+- **회차** (2026-11-20): `PartService.OnShift`(상차 파트 시작)에 줄의 트럭을 모두 돌려보냄(줄 뒤쪽으로 빠지며 작아진 뒤 풀로 반환). 하차장에 정차한 트럭은 남는다. 튜토리얼 구간엔 첫 트럭(상자 `TutorialBoxes`개, 황금 없음)만 하차장에 넘긴다(`CanDock`).
 - **주의**: 실행 코드에서 `Shader.Find`로 재질을 만들지 않는다 — 빌드에서 셰이더가 빠져 null 예외 → 도착 코루틴이 멈춰 **트럭이 안 나오고** 판이 분홍이 됐다 (2026-11-18 빌드 버그).
 - **연결**: `truckPrefab`(`InboundTruck.prefab`), `headPosition`(0, 0, −21 = 서쪽 도로 하차 1 옆) · `lineDirection`(+z) · `spacing` 7 · `truckYaw` 180 `임시`, `LogisticsConfig.InboundArrivalInterval` · `InboundQueueSize`.
 - **주의**: 대기 자리 표시는 기본 큐브 + URP Unlit 재질을 실행 중 만든다 (에셋이 오면 프리팹으로). 줄 자리는 월드 좌표라 부지 · 배경이 바뀌면 같이 고친다.
@@ -615,7 +620,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Logistics/OutboundBay.cs](../Scripts/Logistics/OutboundBay.cs)
 - **하루 끝 회차** (2026-11-20): `PartService.OnDayEnding`에 정차한 트럭은 덜 실었어도 떠나고, 실은 만큼 `orders.Complete` 보상을 현금 존 대신 `Wallet.AddToPiggy`로 (그날 정산에 잡힘). 오는 중이면 도착하자마자 빈 채로 떠남.
 - **역할**: 상차 베이 1곳. 상차 주차장 모듈 안에 있다. [3.6](#36-주문-한-건)의 트럭 부분을 코루틴으로 반복한다.
-- **동작**: 칸이 비고 `PartService.OutboundOpen`(사무실 전 또는 상차 파트, 2026-11-19)이면 `OrderService.CreateForTruck()`으로 새 주문 → 트럭 생성 · 후진 주차 → `MarkDocked` → 주문이 다 차면 마지막 상자가 들어갈 때까지 기다림 → **출발하는 순간** `Complete` → 돈(줄마다 실은 수 × 색 단가)을 `cashZone`에 쌓음 → 출발 → `OutboundRespawnDelay` 뒤 다음 트럭.
+- **동작**: 칸이 비고 `PartService.OutboundOpen`(사무실 전 또는 상차 파트, 2026-11-19)이면 `OrderService.CreateForTruck()`으로 새 주문 → 트럭 생성 · 후진 주차 → `MarkDocked` → 주문이 다 차면 마지막 상자가 들어갈 때까지 기다림 → **출발하는 순간** `Complete` → 돈(줄마다 실은 수 × 색 단가)을 `cashZone`에 쌓음 → 출발 → `OutboundRespawnDelay` 뒤 다음 트럭. 트럭은 `TruckPool.Get` · `Release`(시작 때 `Prewarm(2)` `임시`, 2026-11-23).
 - **연결**: `OrderService.Instance`, `truckPrefab`(OutboundTruck), `parkPoint`, `spawnPoint`, `cashZone`. 하차 베이(`InboundBay`)와 구조가 같다. 정적 `All`(켜진 상차 칸) · `Arriving`(주문 받은 트럭이 오는 중) — `WorkCheck`용 (M17-3). `InboundBay.All`도 같다.
 
 #### WorkCheck
@@ -628,6 +633,14 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Logistics/OutboundTruck.cs](../Scripts/Logistics/OutboundTruck.cs)
 - **역할**: 출고 트럭 1대. 주문 1건을 맡고 위에 **주문 게이지**를 띄운다 (GDD 12.2): 색마다 한 줄 `색 이름 실은/필요 ■■□` (■ 실음 · □ 남음, 그 색 글자, 다 실은 줄은 초록).
 - **동작**: `Assign(order)`, `Receive(cargo)` — 주문에 기록하고 상자는 뒷문(`cargoEntry`)으로 날아 들어가 풀로 돌아간다.
+- **풀** (2026-11-23): `TruckPool`에서 꺼내 쓴다. 주문 구독은 `AddTo(this)` 대신 필드로 들고 `Assign` · `ResetForPool` · `OnDestroy`에서 푼다(재사용 때 이전 주문 구독이 남지 않게).
+
+#### TruckPool
+[Logistics/TruckPool.cs](../Scripts/Logistics/TruckPool.cs)
+- **역할**: 하차 · 상차 트럭 풀 (2026-11-23). 트럭 `Instantiate` 32ms · `Destroy` 56ms 끊김(TMP `Awake` · `OnDestroy`)을 없앤다. `IPooledTruck`(`ResetForPool`)을 구현한 트럭만.
+- **동작**: 씬에 두지 않는다 — 처음 쓸 때 `TruckPool` 오브젝트가 지금 씬에 생기고, 씬과 함께 사라진다. 프리팹마다 `ObjectPool`(최대 16 `임시`). `Get(prefab, parent)` = 부모 아래 로컬 0 · 크기 1로 켬. `Release(truck)` = `DOKill` → `ResetForPool` → 끄고 풀 아래로. `Prewarm(prefab, n)` = n대(최대 16)까지 미리 만듦. 풀에서 꺼내지 않은 트럭을 돌려주면 경고 후 Destroy.
+- **연결**: `InboundQueue`(생성 · 회차), `InboundBay`(하차 후), `OutboundBay`(생성 · 출발 후).
+- **주의**: 같은 트럭 객체가 다시 오므로 트럭을 객체로 기억하는 코드는 비워 줘야 한다 — `TruckPickupZone.dumpingFrom`은 쏟기가 끝나면 null (안 그러면 다음 황금 트럭이 `DumpDelay` 없이 쏟음). 모델 교체(`InboundTruck.SetModel`)는 여전히 매번 Instantiate.
 
 #### TruckLoadZone
 [Logistics/TruckLoadZone.cs](../Scripts/Logistics/TruckLoadZone.cs)
@@ -790,7 +803,9 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Site/SiteWalls.cs](../Scripts/Site/SiteWalls.cs)
 - **역할**: 부지 바깥 벽 (M14-2). 열린 칸과 안 열린 칸 · 부지 밖 사이 변에만 1m 조각(`wall_s` 앞 · `wall_l` 뒤)을 이어 세우고 꼭짓점에 기둥(`pillar_s` · `pillar_L`). 앞 / 뒤 = 변 바깥 방향이 카메라 쪽이면 앞(낮은 벽).
 - **동작**: `Start`와 `SiteGrid.OnUnlocked`마다 `Walls` 자식을 지우고 다시 세운다 → 해금되면 칸 사이 벽이 사라지고 새 테두리에 생긴다. 하차 · 상차장 모듈(`InboundBay` · `OutboundBay`)의 주차장 쪽(모듈 로컬 −x) 변은 비운다.
-- **연결**: Build Site `AddWalls`가 `SiteGrid` 오브젝트에 붙이고 Prop fbx · `M_Prop`을 연결한다.
+- **연결**: Build Site `AddWalls`가 `SiteGrid` 오브젝트에 붙이고 Prop fbx · `M_Prop` · `M_Wall`을 연결한다.
+- **안쪽 면 그라데이션** (2026-11-23): 벽 조각만 `wallMaterial`(`M_Wall` = `APC/WallCutout` + `_WALL_GRADIENT`), 기둥 · 창문은 `material`. `Start` · `OnValidate`(인스펙터 수정 즉시, Play 중 포함)에서 `gradientBottom`(234, 198, 154) · `gradientTop`(242, 235, 204) · `gradientStart`(0m) · `gradientEnd`(3.4m)를 전역 `_WallGradientBottom` · `_WallGradientTop` · `_WallGradientStart` · `_WallGradientEnd`로 넘김 → 셰이더가 메시 로컬 +y 면(부지 안쪽)의 albedo를 Start 아래는 아래 색, End 위는 위 색, 사이는 높이에 비례해 섞음 (2026-11-24). 바깥 면 · 위 갈색 띠(3.6955m~, 셰이더 `WALL_BAND_BOTTOM`)는 원래 색.
+- **주의**: 색은 `.linear`로 바꿔 넘긴다 — `Shader.SetGlobalColor`는 `Material.SetColor`와 달리 sRGB → 선형 변환을 안 해서, 그냥 넘기면 밝고 흐리게 나온다 (2026-11-24 측정으로 확인). 화면 색은 조명을 받아 바뀐다: 해가 비치는 북쪽 벽은 넣은 색과 거의 같고(파랑만 약 8 낮음), 동쪽 벽처럼 해 반대쪽은 어둡다.
 - **창문** (2026-11-19): 사무실 모듈(`ContractPC`가 있는 모듈) 칸의 바깥 벽은 한 변마다 `windowStarts`(2, 6)번째 조각부터 2칸 자리에 `windowPrefab`(`window_outside`, 폭 2m)을 놓는다. 씬 SiteWalls에 MCP로 연결.
 - **반투명** (2026-11-19, 값은 `WallFadeConfig`): 대상 = 벽 조각 + `WallFadeTarget` 렌더러(하차 · 상차 모듈 `Parking`). `CheckInterval`마다 카메라 → 플레이어 확인 높이(`CheckHeights`) 선이 경계(`HorizontalMargin` · `VerticalMargin` 넓힘, 플레이어 `IgnoreNear` 안은 무시)를 지나면 가림. 알파는 매 프레임 목표(`FadedAlpha` / 1)로 `FadeOut` · `FadeInDuration`에 맞춰 움직이고, 1 미만이 되면 재질을 `FadeMaterial`(`M_PropFade`)로 바꿔 MaterialPropertyBlock `_BaseColor` 알파로 칠함, 1이 되면 원래 재질 · 블록 되돌림. 설정이 없거나 꺼지면 모두 되돌림.
 - **주의**: 충돌체 없음 (걷는 범위는 `IsWalkable` · 네비메시). 재배치는 열린 칸이 안 바뀌어 다시 세우지 않는다. 허물어지는 연출은 아직. 반투명 대상은 모두 `M_Prop` 재질 기준(재질이 다른 오브젝트에 붙이면 반투명일 때 `M_PropFade` 모습이 됨).
@@ -808,7 +823,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### ModuleFloor
 [Site/ModuleFloor.cs](../Scripts/Site/ModuleFloor.cs)
-- **역할**: 모듈 바닥 타일 데이터 (M14-2): 2m 칸마다 타일 fbx + 회전. 모듈 루트에 붙는다. 실행 중엔 아무것도 안 함.
+- **역할**: 모듈 바닥 타일 데이터 (M14-2): 2m 칸마다 타일 fbx + 회전. 모듈 루트에 붙는다. 실행 중엔 `Awake`에서 `FloorArt` 타일 그림자(Cast Shadows)만 끈다 — 평평해서 안 보이는데 그림자 패스 드로우만 수천 개라서 (2026-11-24).
 - **연결**: 칠하기 · 깔기는 에디터 `ModuleFloorEditor`(인스펙터 팔레트 + 칸 격자) → 자식 `FloorArt`에 저장. 사용법은 TechStack `Add Module Floor`.
   - 재배치(M12-2, GDD 4.4): `ApplyArrangement(모듈 → 칸)` — 보관 · 반품 · 빈 공간 모듈의 자리 맞바꿈이라 열린 칸은 그대로. 모듈 **통째로** 옮기므로 선반 · 상자 · 작업 지점이 같이 간다. 옮긴 모듈은 팝 연출, `OnMoved`(네비메시 · 알바 · 발판이 구독).
 - **주의**: 타일을 Static(정적 배칭)으로 두지 않는다 — 재배치로 모듈이 움직여도 타일이 제자리에 남는다.
@@ -849,8 +864,40 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### SiteNavMesh
 [Site/SiteNavMesh.cs](../Scripts/Site/SiteNavMesh.cs)
 - **역할**: 부지 네비메시 (M6 알바 대비). Site 루트의 `NavMeshSurface`가 **자식 충돌체 = 열린 모듈 바닥**에만 굽는다. 잠긴 칸엔 바닥이 없으니 알바도 열린 칸 안에서만 다닌다.
-- **동작**: 시작 시 한 번, `OnUnlocked` · `OnMoved`(모듈 재배치)마다 팝 연출(`facilityPopDuration`)이 끝난 뒤 다시 굽는다 (묶음 해금이어도 한 번).
+- **동작**: 시작 시 한 번, `OnUnlocked` · `OnMoved`(모듈 재배치)마다 팝 연출(`facilityPopDuration`)이 끝난 뒤 다시 굽는다 (묶음 해금이어도 한 번). `surface.BuildNavMesh()` = 부지 전체 동기 굽기. 굽기 시간을 재서 정적 `LastBuildMs` · `MaxBuildMs` · `BuildCount`에 남기고 콘솔에 찍는다 (2026-11-23, `PerformanceHUD`가 읽음).
 - **주의**: 초록 Ground는 `NavMeshModifier.ignoreFromBuild`로 제외. 선반은 `BoxCollider` + `NavMeshObstacle`(carve)로 알바가 돌아가고, `NavMeshModifier`(ignoreFromBuild)로 바닥에 구워지지 않는다. 트럭은 장애물로 두지 않는다 (주차 칸이 부지 밖).
+
+#### SiteNavGrid
+[Site/SiteNavGrid.cs](../Scripts/Site/SiteNavGrid.cs)
+- **역할**: 게임 → A* 코어 어댑터 (2026-11-24, 측정용 · 알파 후보). `SiteGrid` 열린 칸 = 방, Site 아래 충돌체 = 장애물(`INavObstacleSource`).
+- **동작**: 만들 때 열린 칸 범위로 격자를 잡고 전체 굽기(`BuildMs`). 방 (rx, rz) = (열 − 최소 열, 최대 행 − 행). `Collect` = `OverlapBox`(높이 띠, 트리거 제외) → 위가 수직인 BoxCollider는 회전 상자, 나머지는 경계 상자.
+- **주의**: 게임에는 아직 안 붙임(알바는 NavMesh). 격자 범위는 만들 때 열린 칸 기준 — 범위 밖 해금은 다시 만들어야 한다.
+
+### 4.8b Navigation — 방 단위 2층 A* (2026-11-24)
+어셈블리 `APC.Navigation` (`Assets/Scripts/Navigation/`). 게임 코드를 모르고 장애물은 `NavBox` 목록으로만 받는다 — 알파로 그대로 옮길 단위. 설계 [docs/superpowers/specs/2026-11-24-astar-nav-benchmark-design.md](../../docs/superpowers/specs/2026-11-24-astar-nav-benchmark-design.md).
+
+#### NavGrid · NavBox · INavObstacleSource
+- **역할**: 0.5m 격자(방 = 20 × 20칸, 타일 = 4 × 4칸), 방 열림 표시, 칠하기(`Rasterize` — 키운 상자가 칸 중심을 덮으면 막힘, 바뀐 칸 수 · 테두리 변경 여부), 가까운 칸 붙이기, 시야 검사(꼭짓점을 지나면 양옆 칸도 검사). `NavBox` = XZ 회전 상자.
+
+#### GridAStar · IntMinHeap
+- **역할**: 사각형 범위 A* (8방향, 곧은 10 · 대각선 14, 모서리 자르기 금지). 방 안 길 · 한 장 격자 비교용. 버퍼 재사용(호출마다 할당 없음).
+
+#### RoomGates
+- **역할**: 방 변마다 이어진 열린 구간의 가운데에 문 한 쌍, 문마다 방 안 다익스트라 지도(거리 · 문 쪽 방향). 노드 = 방 × MaxGatesPerRoom + 문.
+- **주의**: `RebuildRoom`은 공유 변 문이 바뀐 이웃도 다시 만들고 **모든 방의 건너편 문 번호를 다시 잇는다** (이웃 문 번호가 바뀌면 두 칸 떨어진 방도 틀어짐 — 2026-11-24 자기 검사로 잡음).
+
+#### RoomPathfinder
+- **역할**: 같은 방이면 방 안 A*, 아니면 문 그래프 A* + 문 지도를 따라 칸 길 → 보이는 가장 먼 칸으로 건너뛰는 직선 펴기 → 웨이포인트. `FindPathFlat` = 한 장 격자(비교용). 마커 `Nav.Path`.
+- **주의**: 문이 변 가운데 하나라 대각선 길은 한 장 격자보다 길 수 있음 (TycoonTest 1000쌍 평균 1.05 · 최대 1.41배).
+
+#### NavWorld
+- **역할**: 격자 + 문 + 길찾기 + 다시 굽기 범위. `RebuildAll` · `RebuildRoom`(그 방 칸만 칠함 — 키운 장애물이 이웃에 걸치면 이웃도 따로) · `RebuildTiles`(걸친 2m 타일만, 테두리가 바뀌면 방별처럼) · `SetRoomOpen`(해금). `ChangedRooms` · `LastMapsBuilt`. 마커 `Nav.Bake`.
+
+#### NavCrowd
+- **역할**: 알바 이동 — 모든 알바를 한 `Tick`에서, 웨이포인트를 일정 속도로, 회피 · 가속 없음. `PathTouchesRooms` = 다시 구운 방을 지나는 알바만 다시 길찾기. 마커 `Nav.Move`.
+
+#### NavMarkers · NavSelfTest
+- **역할**: Profiler 마커 이름. 자기 검사(테스트 프레임워크 대신) `NavSelfTest.Run()` → "OK 32" — MCP `execute_code`로 실행.
 
 ### 4.9 UI
 
@@ -1023,29 +1070,26 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### WallCutout
 [Visuals/WallCutout.cs](../Scripts/Visuals/WallCutout.cs)
-- **역할**: 플레이어와 `WallCutoutTarget`(주차한 트럭 등)을 가리는 구조물 · 배경에 원형 구멍 (셰이더 `APC/WallCutout`, `Shaders/WallCutout.shader` · `.hlsl`, 재질 `M_WallCutout`). Game 씬 · ShaderTestScene의 Player에 붙음.
-- **동작**: 매 프레임 구멍 대상 배열 `_WallCutoutCenters`(최대 8 = `MaxTargets` = hlsl `WALL_CUTOUT_MAX`, [0] = 플레이어 발 + `height` · `radius`, 나머지 = `WallCutoutTarget.All` 순서, 넘치면 뺌) · `_WallCutoutCount` · 디더 폭 · `depthBias`를 전역 셰이더 값으로 (2026-11-20 배열로 바뀜). 픽셀마다 대상 수만큼 반복해 가장 많이 버리는 값을 씀. 부지가 바뀔 때만(켜질 때 · `SiteGrid.OnUnlocked` · `OnMoved` · 레벨 변경 = 공사 울타리, 2026-11-20 — 전에는 0.5초마다) 그 프레임 LateUpdate에서 씬 렌더러를 한 번 훑어, 이름이 `structurePrefixes`(wall_ · pillar_ · window_ · parking · tree_ 등)로 시작하는 렌더러(또는 부모)와 `extraWalls` 아래 렌더러의 URP Lit 재질을 사본 + 컷아웃 셰이더로 바꿈. 지워진 옛 벽 조각은 그때 목록에서 뺌. 끄면 되돌림.
+- **역할**: 플레이어를 가리는 구조물 · 배경에 원형 구멍 (셰이더 `APC/WallCutout`, `Shaders/WallCutout.shader` · `.hlsl`, 재질 `M_WallCutout`). Game 씬 · ShaderTestScene의 Player에 붙음. 같은 셰이더의 `_WALL_GRADIENT` 키워드(forward 패스만, `M_Wall`)는 `SiteWalls` 안쪽 면 그라데이션 — URP `LitPassFragment` 복사본이라 URP를 올리면 맞춰 볼 것. `M_Wall`은 Lit이 아니라 이 스크립트가 사본을 만들지 않고 그대로 씀.
+- **동작**: 매 프레임 구멍 대상 배열 `_WallCutoutCenters`(최대 8 = `MaxTargets` = hlsl `WALL_CUTOUT_MAX`, [0] = 플레이어 발 + `height` · `radius`만 씀 — 트럭 대상 `WallCutoutTarget`은 2026-11-23 삭제) · `_WallCutoutCount`(= 1) · 디더 폭 · `depthBias`를 전역 셰이더 값으로 (2026-11-20 배열로 바뀜). 픽셀마다 대상 수만큼 반복해 가장 많이 버리는 값을 씀. 부지가 바뀔 때만(켜질 때 · `SiteGrid.OnUnlocked` · `OnMoved` · 레벨 변경 = 공사 울타리, 2026-11-20 — 전에는 0.5초마다) 그 프레임 LateUpdate에서 씬 렌더러를 한 번 훑어, 이름이 `structurePrefixes`(wall_ · pillar_ · window_ · parking · tree_ 등)로 시작하는 렌더러(또는 부모)와 `extraWalls` 아래 렌더러의 URP Lit 재질을 사본 + 컷아웃 셰이더로 바꿈. 지워진 옛 벽 조각은 그때 목록에서 뺌. 끄면 되돌림.
 - **주의**: `SiteWalls` 반투명(`WallFadeConfig.enabled`)과 같이 켜면 같은 재질을 둘이 바꿔 충돌 — 하나만 켠다. 해금 · 레벨업 신호 없이 구조물을 새로 만드는 코드를 추가하면 그 벽에는 구멍이 안 난다 → 그 코드에서도 신호를 내거나 여기 구독을 더한다.
 - **해금 → 사무실 타일 구매 · 직접 배치로 바뀔 때 (예정, 2026-11-20 사용자)**: ① 권장 — 배치 순간 기존 `SiteGrid` 이벤트를 낸다(새 칸 `OnUnlocked`, 옮김 `OnMoved`). `SiteWalls` · `SiteUnlocker`도 같은 이벤트를 구독하므로 WallCutout은 고칠 것 없음. ② 새 이벤트(예: `OnTilePlaced`)를 만들면 `WallCutout.Start`에 `grid.OnTilePlaced.Subscribe(_ => dirty = true).AddTo(this);` 한 줄 추가(+ `SiteWalls` · `SiteUnlocker`에도). 신호는 배치 연출이 끝나 구조물이 **다 생긴 뒤** 낸다 — 벽 찾기는 신호가 온 프레임 끝에 한 번만 돈다. 드래그 미리보기(고스트)는 훑지 않아 구멍이 안 남(의도). 훑는 시간 · 바꾼 렌더러 수를 정적 `LastScanMs` · `MaxScanMs` · `ScanCount` · `TotalScanMs` · `SwappedCount`로 남김 → `PerformanceHUD`가 표시. 예전 0.5초 방식은 실기기 비교(1회 12.7ms, GC의 절반) 뒤 지움.
 
-#### WallCutoutTarget
-[Visuals/WallCutoutTarget.cs](../Scripts/Visuals/WallCutoutTarget.cs)
-- **역할**: 벽 컷아웃 대상 표시 (2026-11-20). 켜져 있는 동안 이 오브젝트를 가리는 구조물(주차장 지붕 등)에 `radius` 구멍, 중심 = 로컬 `offset`. 스스로 `All`에 등록 → `WallCutout`이 읽는다.
-- **연결**: `InboundTruck` · `OutboundTruck` 프리팹 루트 (MCP, 반지름 3.2 · 중심 (0, 1.2, 0.66) = 트럭 모델 경계 중심 `임시`). 프리팹에서는 **꺼져 있고**, `InboundBay` · `OutboundBay`가 트럭을 자기 주차 칸 생성 지점에 세울 때 켠다 → 후진 · 주차 · 출발하는 동안만 구멍, 대기 줄 트럭은 대상 아님. 떠나면 트럭이 지워지며 빠진다. 플레이어 포함 8개가 넘으면 뒤 대상은 빠짐.
-
 #### CharacterToon
 [Visuals/CharacterToon.cs](../Scripts/Visuals/CharacterToon.cs)
-- **역할**: 캐릭터 툰 + 검정 외곽선. 켜지면 자식 `SkinnedMeshRenderer`(꺼진 코스튬 포함)의 URP Lit 재질을 "원래 재질 사본 + `M_Toon`(Shader Graphs/APC_Toon) 셰이더"로 바꾸고 마지막에 `M_Outline` 슬롯을 붙인다. 끄면 되돌림. 들고 있는 상자(MeshRenderer)는 건드리지 않음.
+- **역할**: 캐릭터 툰 + 검정 외곽선. 켜지면 자식 `SkinnedMeshRenderer`(꺼진 코스튬 포함)의 URP Lit 재질을 "원래 재질 사본 + `M_Toon`(`APC/Toon`, `Shaders/Toon/APC_Toon.shader`) 셰이더"로 바꾼다. 외곽선은 같은 셰이더의 Outline 3패스라 슬롯을 붙이지 않는다(2026-11-24부터. 전엔 마지막 슬롯에 `M_Outline`을 붙여 마지막 서브메시에만 선이 생겼고, 지금은 서브메시마다 생김). Lit에 없는 값(그림자 · 외곽선)은 `M_Toon`에서 복사, 사본은 `OutlineOuter` 끔. `outline` 체크를 끄면 외곽선 패스도 끔. 끄면 되돌림. 들고 있는 상자(MeshRenderer)는 건드리지 않음.
 - **연결**: 씬 `Player` · `StaffWorker` 프리팹 루트 (MCP).
+- **주의**: 2026-11-24 Shader Graph → HLSL(같은 화면, 픽셀 차이 0). 그래프처럼 라이트 색 · 그림자 받기 · 안개 · `_BaseMap` 타일링은 안 쓰고 SSAO는 곱한다. 패스 = ForwardToon · ShadowCaster · DepthOnly · DepthNormals · OutlineMask · OutlineHull · OutlineOuter, 인스턴싱 변형 없음(스킨 메시 전용). 스텐실 규칙을 바꾸면 `APC_OutlineStencil.shader`와 함께 고친다(함수는 `Shaders/Outline/APC_Outline.hlsl` 공용). APC_Toon은 그림자색 = 채도(원색, `_ShadowSaturation` 0~3, 기본 1) × 명도(`_ShadowBrightness` 0~1, 기본 0.5) × 색조(`_BaseMap` A채널로 `_ShadowWarmColor`(검정) ↔ `_ShadowCoolColor`(흰색) 섞음, 둘 다 기본 흰색), 밝은 쪽 = 원색으로 따로 만든 뒤 빛 경계로 섞는다. 경계는 `smoothstep(0.5 ± _ShadowSoftness, N·L)`(0.001~0.5, 기본 0.1)로 그라데이션. 이 네 값은 Lit 재질에 없어서 사본을 만들 때 `M_Toon` 값을 복사한다. 사본은 켜질 때 만드므로 Play 중에 M_Toon 값을 바꾸면 컴포넌트를 껐다 켜야 반영된다.
 
 #### ObserveOutline · ObserveOutlinePicker
 [Visuals/ObserveOutline.cs](../Scripts/Visuals/ObserveOutline.cs) · [Visuals/ObserveOutlinePicker.cs](../Scripts/Visuals/ObserveOutlinePicker.cs)
 - **역할**: 알바를 탭하면 외곽선을 흰색(`M_Outline_Observed`)으로 (한 번에 한 명, 다시 탭 · 빈 곳 탭 = 해제). Picker는 Play 시작 때 스스로 생김(DontDestroyOnLoad), 렌더러 범위로 고름(콜라이더 없음), 드래그 · UI 탭 무시.
+- **동작**: 외곽선 슬롯(`APC/OutlineStencil`)은 `M_Outline_Observed`로, 툰 재질(`_StencilGroup` 있음)은 관찰 사본(그룹 255 · 색 · 바깥 테두리를 `M_Outline_Observed` 값으로, `OutlineOuter` 켬)으로 바꾼다. 사본은 해제 때 지움 (2026-11-24).
 - **연결**: `ObserveOutline`은 `StaffWorker` 프리팹 루트.
 
 #### OutlinePasses
 [Visuals/OutlinePasses.cs](../Scripts/Visuals/OutlinePasses.cs)
-- **역할**: 외곽선 셰이더(`APC/OutlineStencil`)의 LightMode 패스 3개(Mask · Hull · Outer)를 카메라마다 넣는다 — 렌더러 에셋 수정 없음. Play 중에만(편집 화면엔 외곽선 없음).
+- **역할**: 외곽선 셰이더(`APC/OutlineStencil` · `APC/Toon`)의 LightMode 패스 3개(Mask · Hull · Outer)를 카메라마다 넣는다 — 렌더러 에셋 수정 없음. Play 중에만(편집 화면엔 외곽선 없음).
 - **주의**: 렌더러 에셋에 같은 LightMode Render Objects 피처를 넣으면 두 번 그려진다. 에디터 `OutlineValidator`가 확인.
 
 #### TileGlow
@@ -1103,7 +1147,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### PerformanceHUD
 [Debugging/PerformanceHUD.cs](../Scripts/Debugging/PerformanceHUD.cs)
 - **역할**: 성능 측정 패널 (2026-11-20, 사용자 제공 코드). 지금은 `TycoonTest.unity`에만 있음 (`TycoonTestBuilder`가 `PerformanceHUD` 캔버스 · 정렬 1000으로 만듦).
-- **동작**: 왼쪽 아래 DEBUG 오른쪽 [PERF] 버튼 · F2로 열고 닫음 (처음 열림, `startOpen`). 열려 있을 때만 0.5초마다 FPS · 프레임 시간, CPU 메인 · 렌더 · GPU 시간(`ProfilerRecorder`), 정점 · 삼각형 · 드로우콜 · 배치 · SetPass, Unity 할당 · 예약 · 관리 힙 · 기기 RAM을 글자로. 2026-11-20 추가: 구간 안 가장 긴 프레임(`max`), 벽 찾기 시간(마지막 · 최대) · 바꾼 벽 수(`WallCutout` 정적 값), GC 할당 KB/s · 프레임 최대(`GC Allocated In Frame`). **누적 평균 `[Avg n s]`**: 패널을 연 때부터(닫았다 열면 처음부터) FPS · 프레임 평균 · 최대 · 33ms 넘은 프레임 수(끊김, 20ms는 실기기 평균 근처라 올림) · 벽 찾기 평균 × 횟수 · GC KB/s · 늘어난 GC 횟수.
+- **동작**: 왼쪽 아래 DEBUG 오른쪽 [PERF] 버튼 · F2로 열고 닫음 (처음 열림, `startOpen`). 열려 있을 때만 0.5초마다 FPS · 프레임 시간, CPU 메인 · 렌더 · GPU 시간(`ProfilerRecorder`), 정점 · 삼각형 · 드로우콜 · 배치 · SetPass, Unity 할당 · 예약 · 관리 힙 · 기기 RAM을 글자로. 2026-11-20 추가: 구간 안 가장 긴 프레임(`max`), 벽 찾기 시간(마지막 · 최대) · 바꾼 벽 수(`WallCutout` 정적 값), GC 할당 KB/s · 프레임 최대(`GC Allocated In Frame`). **누적 평균 `[Avg n s]`**: 패널을 연 때부터(닫았다 열면 처음부터) FPS · 프레임 평균 · 최대 · 33ms 넘은 프레임 수(끊김, 20ms는 실기기 평균 근처라 올림) · 벽 찾기 평균 × 횟수 · GC KB/s · 늘어난 GC 횟수. 2026-11-23 추가: `NavMesh Build` 마지막 · 최대 ms · 횟수(`SiteNavMesh`), 누적 `Paths` 초당 길 요청 · 길 없음 수 · 알바 수(`StaffWorker.PathRequests` · `NoPathCount`).
 - **주의**: Awake에서 `Application.targetFrameRate = 120`(인스펙터 `targetFPS`). CPU 렌더 · GPU 시간은 Frame Timing Stats가 꺼져 있거나 에디터에서는 N/A일 수 있음. GC 할당은 Development 빌드에서만 값이 있음(일반 빌드 N/A), 에디터 값은 에디터 할당까지 섞여 큼. 패널 380 × 580 → 480 × 880 (글자 줄 늘어서, 씬은 위쪽 왼쪽 모서리 유지 — 씬 패널 위치는 빌더와 다름).
 
 #### TycoonTest
@@ -1111,6 +1155,12 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 타이쿤 시험 씬 `Scenes/TycoonTest.unity` 전용 (2026-11-20). Game 씬에는 두지 않는다. `Site/Logistics`에 붙음.
 - **동작**: Start에 `PartService.AlwaysOpen` 켬 → `targetLevel`(5, 회사 4곳 전부)까지 레벨업 → 지갑에 `startCash`(100,000) → 네비메시가 생기면 직무별 수(인스펙터, 기본 0)만큼 `StaffService.Spawn`을 `spawnInterval`(0.1초) 간격으로 (고용금 · 최대 인원 무시). **바뀜 (2026-11-20)**: 자동 78명 → 기본 0명, 알바는 고용 탭이나 DEBUG Staff 버튼으로 직접 (최적화 시험용).
 - **연결**: 씬 · 데이터는 `TycoonTestBuilder`가 만든다.
+
+#### NavBenchmark (+ NavBenchmarkEvents · NavBenchAgents · NavBenchRecorder · NavBenchReport)
+[Debugging/NavBenchmark.cs](../Scripts/Debugging/NavBenchmark.cs)
+- **역할**: NavMesh vs 방 단위 A* 비교 측정 (2026-11-24). 씬에 두지 않고 메뉴가 Play 중에 붙인다.
+- **동작**: 0 보정(실제 알바 100명을 0.1초 간격으로 뽑아 초당 길 요청 수 → 측정 알바 길 요청 간격, 끝나면 끔) → 1 기준 · NavMesh 100명 · A* 100명 × 반복(같은 캡슐 · 속도 · 시드) → 2 길 1개(1000쌍 + 자기 검사) → 3 해금(방 닫았다 열기) · 4 레일(6×1m 상자 1 · 10개, A* 타일별 · 방별 · 전체 / NavMesh carving · 전체 굽기, 예열 1회 + 중앙값). `ProfilerRecorder`로 `PlayerLoop` · `AI 메인` · `Nav.*` 등을 모아 `Logs/NavBench/<시각>/result.md` + 첫 반복 Profiler 기록(.raw).
+- **주의**: Deep Profile이 켜져 있으면 C#만 약 100배 느려져 비교가 무의미 — 메뉴가 측정 동안 끈다. 한 프레임에 실제 알바 100명을 뽑자 에디터가 GPU 장치 오류로 꺼진 적 있음(그래서 간격). 실제 알바는 지우지 않고 끈다(들고 있던 화물 풀 보호).
 
 ### 4.11 Editor — 에디터 도구
 
@@ -1123,6 +1173,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | `APC > Setup > Run M0 Setup` | [ProjectBootstrap](../Scripts/Editor/ProjectBootstrap.cs) | 폴더, 가로 화면 설정, 데이터 에셋(GDD 수치), Game 씬. **이미 있는 에셋 · 씬은 건드리지 않고** 빈 참조만 채운다 |
 | `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground(네비메시 제외) · NavMeshSurface · Logistics(Warehouse · ContractService · OrderService · StaffService) → 시작 모듈 인스턴스 + SiteUnlocker → HUD(레벨 · 현금 · 레벨업 배너 + 색종이 · (옛 주문서 큐는 지움) · 계약 PC 팝업(고용 · 배치 · 업그레이드 · 모듈 탭) · 정산 팝업 · 현금 아이콘 층 `CashFly`, 자식은 꺼진 채 저장 + `UiBootstrap`) → 플레이어 위치 + CashCollector → 씬 저장 |
 | `APC > Test > Build Tycoon 8x8 (TycoonTest 씬 덮어쓰기)` | [TycoonTestBuilder](../Scripts/Editor/TycoonTestBuilder.cs) | 타이쿤 시험 (2026-11-20). 데이터 복사본 `Assets/Data/Tycoon/*_Tycoon`(GameDatabase · SiteLayout · LogisticsConfig · LevelTable · ControlsConfig — 없을 때만 복사, 원본 안 바꿈)에 8 × 8 배치(1열 하차장 8 · 회전 0, 8열 상차장 8 · 회전 180, 가운데 = 사무실 (1,2) + 보관 A~D 대각선 섞기 47칸, 하나만 id `StoreD`), 주차 칸 배경, 트럭 간격 2초 · 줄 30, 최대 알바 999, 카메라 최대 거리 120 → `Game.unity`를 `TycoonTest.unity`로 복사 → GameManager 데이터 교체, `StartSequence` · `TutorialGuide` 제거, 모듈 64개 배치, 대기 줄(부지 아래, 남쪽으로) · 바닥(줄 끝까지) · 플레이어 자리, `TycoonTest` · 성능 패널(`PerformanceHUD`) 추가 → 저장 |
+| `APC > Test > Nav Benchmark (A* vs NavMesh)` | [NavBenchmarkMenu](../Scripts/Editor/NavBenchmarkMenu.cs) | TycoonTest 씬에서 Play를 시작하고 `NavBenchmark`를 붙임 (2026-11-24, 씬 파일 안 고침). Deep Profile이 켜져 있으면 측정 동안 끄고 Play가 끝나면 다시 켬. 약 7분, 콘솔 `[NavBench] 끝` |
 | `APC > Setup > Apply M6 Staff (프리팹 덮어쓰기)` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 · 선반 · 알바 프리팹(`StaffWorker.prefab`)을 덮어쓰고 Build Site. config(SiteLayout · 레벨 표)는 건드리지 않는다 |
 | `APC > Module > New Module...` | [ModuleFactory](../Scripts/Editor/ModuleFactory.cs) (`ModuleCreatorWindow`) | 빈 n × m 모듈 틀을 `Assets/Prefabs/Modules/Module_이름.prefab`으로 만든다 |
 | `APC > Art > Build Test Module` | [ArtModuleBuilder](../Scripts/Editor/ArtModuleBuilder.cs) | 아트 시험용 빈 모듈 `Assets/Prefabs/Modules/Test/Module_ArtTest.prefab`: 바닥 `floor1_basic.fbx` 10 × 10장(1장 = 1m, 메시 실제 크기를 재서 맞춤) + 공용 재질 `M_Prop`(`Color_Pallet.png`). 바닥 충돌체는 그대로 두고 큐브 렌더러만 끔. 게임 배치(SiteLayout)에는 안 들어감 |
