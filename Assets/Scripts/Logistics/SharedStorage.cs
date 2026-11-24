@@ -24,6 +24,9 @@ namespace APC.Logistics
 
         /// <summary>재포장 테이블 쓰레기 출력: 재포장만 넣는다. 쓰레기를 주고(Origin = Trash) 쓰레기장(`TrashDropZone`)에 버린다.</summary>
         Trash = 5,
+
+        /// <summary>스캔 모듈 팔레트 (2026-11-24): 하차 칸 공간에서 온 미분류 상자를 받고, 여기서 스캔해 색이 정해진 상자를 선반 · 반품 팔레트로 준다.</summary>
+        Scan = 6,
     }
 
     /// <summary>
@@ -31,7 +34,7 @@ namespace APC.Logistics
     /// 존은 따로 있다 — 내려놓기 존(트럭 쪽) / 집기 존(선반 쪽).
     /// 반품 구역의 롤테이너 · 재포장 출구도 같은 더미를 쓴다 (`kind`).
     /// </summary>
-    public sealed class SharedStorage : MonoBehaviour
+    public sealed class SharedStorage : MonoBehaviour, IBeltStart, IBeltEnd
     {
         [SerializeField] StorageKind kind = StorageKind.Pallet;
         [SerializeField] Transform pileRoot;
@@ -91,7 +94,7 @@ namespace APC.Logistics
             var n = 0;
             foreach (var cargo in pile.Items)
             {
-                if (cargo.Item == item && cargo.State == CargoState.Normal) n++; // 반품은 재고가 아니다
+                if (cargo.Item == item && cargo.State == CargoState.Normal && !cargo.Unsorted) n++; // 반품 · 미분류는 그 색 재고가 아니다
             }
             return n;
         }
@@ -105,6 +108,7 @@ namespace APC.Logistics
                 StorageKind.Repacked => config.RepackOutputCapacity,
                 StorageKind.RepackInput => config.RepackInputCapacity,
                 StorageKind.Trash => config.TrashOutputCapacity,
+                StorageKind.Scan => config.ScanPalletCapacity,
                 _ => config.SharedStorageCapacity,
             };
             count.Subscribe(n => countLabel.text = $"{n}/{capacity}").AddTo(this);
@@ -123,6 +127,7 @@ namespace APC.Logistics
             return kind switch
             {
                 StorageKind.Pallet => cargo.Origin == CargoOrigin.Truck && cargo.Home == this,
+                StorageKind.Scan => cargo.Unsorted && cargo.Origin == CargoOrigin.Unscanned,
                 StorageKind.Returns => cargo.State == CargoState.Return && cargo.Origin == CargoOrigin.Storage,
                 StorageKind.RepackInput => cargo.State == CargoState.Return && cargo.Origin == CargoOrigin.ReturnPallet,
                 _ => false,
@@ -151,6 +156,56 @@ namespace APC.Logistics
             return false;
         }
 
+        /// <summary>벨트 End: 받는 종류이고, 이 더미로 벨트에서 오는 수를 빼도 자리가 남음.</summary>
+        public bool Wants(Cargo cargo)
+            => CanAccept(cargo) && capacity - pile.Count - ConveyorBelt.CountOnBelts(b => ReferenceEquals(b.End, this), _ => true) > 0;
+
+        public bool CanTakeFromBelt(Cargo cargo) => CanAccept(cargo);
+
+        /// <summary>
+        /// 벨트 Start (GDD 7.10): 사람이 집는 것과 같은 조건(FindForShelves — 선반 · 반품 여유)인 화물 중 End가 원하는 것을 최근 것부터.
+        /// 하차 칸 공간 → 선반 · 반품 팔레트, 반품 팔레트 → 재포장 입력, 쓰레기 출력 → 쓰레기장, 재포장 팔레트 → 선반.
+        /// </summary>
+        public Cargo TakeForBelt(IBeltEnd end)
+        {
+            for (var i = pile.Count - 1; i >= 0; i--)
+            {
+                var candidate = pile.Items[i];
+                if (!CanGive(candidate) || !ConveyorBelt.Settled(candidate)) continue;
+                var before = candidate.Origin;
+                candidate.Origin = OriginOnTake(candidate); // End는 출처로 받을지 정한다
+                var wanted = end.Wants(candidate);
+                candidate.Origin = before;
+                if (!wanted) continue;
+                var cargo = pile.RemoveAt(i);
+                cargo.Origin = OriginOnTake(cargo);
+                count.Value = pile.Count;
+                return cargo;
+            }
+            return null;
+        }
+
+        public void ReceiveFromBelt(Cargo cargo) => Store(cargo);
+
+        /// <summary>벨트 철거 · 회차: 이 더미 출처로 되돌려 쌓는다 (넘침 허용). 하차 칸 공간은 트럭 화물로, 반품 팔레트는 공간에서 온 것으로.</summary>
+        public void ReturnFromBelt(Cargo cargo)
+        {
+            switch (kind)
+            {
+                case StorageKind.Pallet:
+                    cargo.Origin = CargoOrigin.Truck;
+                    cargo.Home = this;
+                    break;
+                case StorageKind.Returns:
+                    cargo.Origin = CargoOrigin.Storage;
+                    break;
+                case StorageKind.RepackInput:
+                    cargo.Origin = CargoOrigin.ReturnPallet;
+                    break;
+            }
+            Store(cargo);
+        }
+
         public void Store(Cargo cargo)
         {
             pile.Add(cargo);
@@ -167,10 +222,13 @@ namespace APC.Logistics
             if (i < 0) return null;
 
             var cargo = pile.RemoveAt(i);
-            cargo.Origin = cargo.State == CargoState.Trash ? CargoOrigin.Trash : kind == StorageKind.Returns ? CargoOrigin.ReturnPallet : CargoOrigin.Storage;
+            cargo.Origin = OriginOnTake(cargo);
             count.Value = pile.Count;
             return cargo;
         }
+
+        CargoOrigin OriginOnTake(Cargo cargo) => cargo.Unsorted ? CargoOrigin.Unscanned
+            : cargo.State == CargoState.Trash ? CargoOrigin.Trash : kind == StorageKind.Returns ? CargoOrigin.ReturnPallet : CargoOrigin.Storage;
 
         /// <summary>TakeForShelves로 꺼낼 화물이 있는가 (꺼내지 않음, 분류 알바용).</summary>
         public bool HasCargoForShelves() => FindForShelves() >= 0;
@@ -199,21 +257,7 @@ namespace APC.Logistics
         {
             for (var i = pile.Count - 1; i >= 0; i--)
             {
-                var candidate = pile.Items[i];
-                if (candidate.Unsorted) continue; // 미분류는 아무도 못 집는다 (GDD 7.2a)
-                var ok = candidate.State switch
-                {
-                    CargoState.Normal => ShelfAllowance(candidate.Item) > 0,
-                    CargoState.Return => kind switch
-                    {
-                        StorageKind.Pallet => Allowance(StorageKind.Returns, CargoOrigin.Storage) > 0,
-                        StorageKind.Returns => Allowance(StorageKind.RepackInput, CargoOrigin.ReturnPallet) > 0,
-                        _ => false, // 재포장 입력은 다시 주지 않는다
-                    },
-                    CargoState.Trash => kind == StorageKind.Trash, // 쓰레기 출력 → 쓰레기장 (M13-11)
-                    _ => false,
-                };
-                if (ok) return i;
+                if (CanGive(pile.Items[i])) return i;
             }
             return -1;
         }
@@ -273,7 +317,7 @@ namespace APC.Logistics
             var room = warehouse.GetShelfFreeSpace(item) - Warehouse.CountCarried(item, CargoOrigin.Storage) - Warehouse.CountCarried(item, CargoOrigin.Shelf);
             foreach (var storage in Registered)
             {
-                if (storage.kind == StorageKind.Pallet) room -= storage.CountOf(item);
+                if (storage.kind == StorageKind.Scan) room -= storage.CountOf(item); // 스캔 팔레트에 그 색으로 스캔돼 기다리는 상자
             }
             return room;
         }
@@ -336,6 +380,46 @@ namespace APC.Logistics
             return last;
         }
 
+        /// <summary>
+        /// 이 화물을 지금 내줘도 되는가. 하차 칸 공간 = 미분류 상자만, 스캔 팔레트에 자리가 있을 때 (스캔은 스캔 모듈에서만, 2026-11-24).
+        /// 그 밖 = 스캔된 상자만 (선반 · 반품 팔레트 · 재포장 입력 여유, 쓰레기는 쓰레기 출력에서만).
+        /// </summary>
+        bool CanGive(Cargo candidate) => kind == StorageKind.Pallet
+            ? candidate.Unsorted && ScanAllowance() > 0
+            : !candidate.Unsorted && candidate.State switch
+        {
+            CargoState.Normal => ShelfAllowance(candidate.Item) > 0,
+            CargoState.Return => kind switch
+            {
+                StorageKind.Pallet => Allowance(StorageKind.Returns, CargoOrigin.Storage) > 0,
+                StorageKind.Returns => Allowance(StorageKind.RepackInput, CargoOrigin.ReturnPallet) > 0,
+                _ => false, // 재포장 입력은 다시 주지 않는다
+            },
+            CargoState.Trash => kind == StorageKind.Trash, // 쓰레기 출력 → 쓰레기장 (M13-11)
+            _ => false,
+        };
+
+        /// <summary>스캔 팔레트에 더 보낼 수 있는 미분류 상자 수 = 스캔 팔레트 빈자리 합 − 들고 가는 · 벨트 위 미분류.</summary>
+        public static int ScanAllowance()
+        {
+            var free = 0;
+            foreach (var storage in Registered)
+            {
+                if (storage.kind == StorageKind.Scan) free += storage.capacity - storage.pile.Count;
+            }
+            if (free <= 0) return 0;
+            free -= ConveyorBelt.CountOnBelts(_ => true, c => c.Unsorted);
+            foreach (var who in APC.Interaction.Interactor.All)
+            {
+                if (who.Stack == null) continue;
+                foreach (var cargo in who.Stack.Items)
+                {
+                    if (cargo.Unsorted) free--;
+                }
+            }
+            return free;
+        }
+
         /// <summary>그 종류 더미에 더 보낼 수 있는 찌그러진 상자 수 = 빈자리 합 − 이미 꺼내 들고 가는(그 출처) 찌그러진 상자.</summary>
         static int Allowance(StorageKind target, CargoOrigin origin)
         {
@@ -345,6 +429,7 @@ namespace APC.Logistics
                 if (storage.kind == target) free += storage.capacity - storage.pile.Count;
             }
             if (free <= 0) return 0;
+            free -= ConveyorBelt.CountOnBelts(_ => true, c => c.State == CargoState.Return && c.Origin == origin); // 벨트로 가는 중 (GDD 7.10)
             foreach (var who in APC.Interaction.Interactor.All)
             {
                 if (who.Stack == null) continue;

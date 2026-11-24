@@ -397,8 +397,9 @@ namespace APC.Staff
 
         bool IsRoleZone(CargoZone candidate) => Role switch
         {
-            StaffRole.Unload => candidate is TruckPickupZone,
-            StaffRole.Sort => candidate is StorageZone storage && storage.Storage.Kind is StorageKind.Pallet or StorageKind.Repacked, // 반품 팔레트 · 재포장 입력 · 쓰레기는 반품 알바 (GDD 7.7)
+            // 하차 알바 = 트럭 → 하차 칸 공간 + 공간의 미분류 → 스캔 팔레트 (+ 스캔), 보관 알바 = 스캔 팔레트 → 선반 (2026-11-24)
+            StaffRole.Unload => candidate is TruckPickupZone || (candidate is StorageZone unload && unload.Storage.Kind == StorageKind.Pallet),
+            StaffRole.Sort => candidate is StorageZone storage && storage.Storage.Kind is StorageKind.Scan or StorageKind.Repacked, // 반품 팔레트 · 재포장 입력 · 쓰레기는 반품 알바 (GDD 7.7)
             StaffRole.Pick => candidate is ShelfZone,
             StaffRole.Forklift => candidate is TruckPickupZone || (candidate is ShelfZone rack && Warehouse.IsLarge(rack.Shelf.Item)), // D 트럭 → 랙 → 상차 (M11-8)
             StaffRole.Returns => candidate is StorageZone returns && focus switch
@@ -509,7 +510,7 @@ namespace APC.Staff
             zone = target;
             SetStand(target, ChooseStand(target));
             dropping = drop;
-            if (!drop && Role == StaffRole.Sort && target is StorageZone sortZone && sortZone.Storage.Kind == StorageKind.Pallet)
+            if (!drop && Role == StaffRole.Sort && target is StorageZone sortZone && sortZone.Storage.Kind == StorageKind.Scan)
                 pickBudget = PickBudget(sortZone.Storage); // 출발할 때 스캔된 상자만 (GDD 7.2a)
             if (!drop) Reserve();
 

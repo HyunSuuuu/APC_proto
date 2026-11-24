@@ -7,9 +7,9 @@ namespace APC.Data
     public sealed class EconomyConfig : ScriptableObject
     {
         [Header("시작")]
-        [SerializeField, Min(0), Tooltip("시작 보유 재화 (GDD 9.1)")] int startingCash = 50;
-        [SerializeField, Tooltip("시작 순서 발판 비용 [건물, 하차 1, A보관, 상차 1, 사무실] (GDD 9.6 임시). 앞 넷 합 = 시작 보유 재화")]
-        int[] startBuildCosts = { 20, 10, 10, 10, 100 };
+        [SerializeField, Min(0), Tooltip("시작 보유 재화 (GDD 9.1)")] int startingCash = 60;
+        [SerializeField, Tooltip("시작 순서 발판 비용 [건물, 하차 1, 스캔 구역, A보관, 상차 1, 사무실] (GDD 9.6 임시). 앞 다섯 합 = 시작 보유 재화")]
+        int[] startBuildCosts = { 20, 10, 10, 10, 10, 100 };
 
         [Header("구매 패드")]
         [SerializeField, Min(0.1f), Tooltip("금액과 관계없이 전액이 들어가는 시간 (초)")] float padFillDuration = 1.5f;

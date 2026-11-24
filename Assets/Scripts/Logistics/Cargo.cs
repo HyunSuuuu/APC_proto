@@ -38,6 +38,9 @@ namespace APC.Logistics
 
         /// <summary>쓰레기 출력에서 꺼낸 쓰레기 → 쓰레기장만 받는다. 작업 고정으로 상자와 섞이지 않는다 (GDD 5.3 · 7.9).</summary>
         Trash,
+
+        /// <summary>하차 칸 공간에서 꺼낸 미분류 상자 → 스캔 모듈 팔레트만 받는다 (2026-11-24, 스캔은 스캔 모듈에서만).</summary>
+        Unscanned,
     }
 
     /// <summary>
@@ -76,6 +79,9 @@ namespace APC.Logistics
 
         /// <summary>트럭에서 꺼낸 화물이 가야 할 하차 칸 공간 (하차 칸마다 따로, GDD 7.2). 그 밖에는 null.</summary>
         public SharedStorage Home { get; set; }
+
+        /// <summary>더미 · 선반에 착지하는 게임 시각 (CargoPile.Add). 벨트는 착지 후 잠깐 지난 상자만 가져간다 (GDD 7.10).</summary>
+        public float LandedAt { get; set; }
         public Transform Visual => visual;
 
         /// <summary>
@@ -156,6 +162,7 @@ namespace APC.Logistics
             State = CargoState.Normal;
             Origin = CargoOrigin.None;
             Home = null;
+            LandedAt = 0f;
             Repacked = false;
             Unsorted = false;
             revealTween?.Kill();

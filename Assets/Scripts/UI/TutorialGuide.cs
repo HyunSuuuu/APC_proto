@@ -186,6 +186,7 @@ namespace APC.UI
                     Done = () => Built("In1") || Find<ExpansionPad>(p => p.PlacementId == "In1") != null,
                 },
                 StartPadStep("발판에 돈을 넣어 하차 구역을 지으세요", "In1"),
+                StartPadStep("스캔 구역을 지으세요", "Scan"),
                 StartPadStep("보관 구역 A를 지으세요", "StoreA1"),
                 StartPadStep("상차 구역을 지으세요", "Out1"),
                 new()
@@ -200,9 +201,16 @@ namespace APC.UI
                 },
                 new()
                 {
-                    // 단계 5-1 (GDD 13 · 7.2a): 하차 칸 공간에 내려놓고 둘레 존에 서서 스캔
-                    Message = "팔레트에 내려놓고 팔레트 앞에 서서 스캔하세요",
-                    Target = () => Find<StorageZone>(z => z.Storage != null && z.Storage.Kind == StorageKind.Pallet),
+                    // 단계 5-1 (GDD 13 · 7.2a): 하차 칸 공간에 내려놓기 → 미분류 상자를 스캔 모듈 팔레트로 (2026-11-24)
+                    Message = "팔레트에 내려놓고, 다시 집어 스캔 팔레트로 옮기세요",
+                    Target = () => Find<StorageZone>(z => z.Storage != null && z.Storage.Kind == StorageKind.Scan),
+                    Done = () => ScanPalletHasBoxes() || StorageZone.ScanCount > 0,
+                },
+                new()
+                {
+                    // 단계 5-2: 스캔 팔레트 앞에 서서 스캔
+                    Message = "스캔 팔레트 앞에 서서 스캔하세요",
+                    Target = () => Find<StorageZone>(z => z.Storage != null && z.Storage.Kind == StorageKind.Scan),
                     Done = () => StorageZone.ScanCount > 0,
                 },
                 new()
@@ -298,6 +306,15 @@ namespace APC.UI
         }
 
         static bool Built(string id) => SiteGrid.Instance == null || SiteGrid.Instance.IsUnlocked(id);
+
+        static bool ScanPalletHasBoxes()
+        {
+            foreach (var storage in SharedStorage.All)
+            {
+                if (storage.Kind == StorageKind.Scan && storage.UnsortedCount > 0) return true;
+            }
+            return false;
+        }
 
         static Transform Find<T>(Predicate<T> match) where T : Component
         {
