@@ -25,7 +25,7 @@ RenderSettings:
   m_AmbientGroundColor: {r: 0.047, g: 0.043, b: 0.035, a: 1}
   m_AmbientIntensity: 1
   m_AmbientMode: 0
-  m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
+  m_SubtractiveShadowColor: {r: 0.58632964, g: 0.6742377, b: 0.6792453, a: 1}
   m_SkyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
   m_HaloStrength: 0.5
   m_FlareStrength: 1
@@ -1802,6 +1802,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::APC.Debugging.DebugMenu
   openOnStart: 0
   toggleKey: 94
+  releaseBuild: 1
 --- !u!4 &106071047
 Transform:
   m_ObjectHideFlags: 0
@@ -3986,7 +3987,7 @@ Light:
   serializedVersion: 12
   m_Type: 1
   m_Color: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
-  m_Intensity: 1
+  m_Intensity: 1.5
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -17787,7 +17788,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.Visuals.CharacterToon
   toonMaterial: {fileID: 2100000, guid: b14117f3834305e4dbdcaa1605365475, type: 2}
-  outlineMaterial: {fileID: 2100000, guid: 4d61963479b072145b8d720ca1662ca5, type: 2}
+  outline: 1
 --- !u!114 &1153428273
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -17820,7 +17821,6 @@ MonoBehaviour:
   softness: 0.4
   height: 1
   depthBias: 0.3
-  scanInterval: 0.5
 --- !u!1 &1153428291
 GameObject:
   m_ObjectHideFlags: 0
@@ -33658,6 +33658,10 @@ PrefabInstance:
     - target: {fileID: 38694196108725396, guid: 8e547ddb107c7634991b1d8e5a618413, type: 3}
       propertyPath: m_TextStyleHashCode
       value: -1183493901
+      objectReference: {fileID: 0}
+    - target: {fileID: 715960626043289603, guid: 8e547ddb107c7634991b1d8e5a618413, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -1.74
       objectReference: {fileID: 0}
     - target: {fileID: 2786848555522953270, guid: 8e547ddb107c7634991b1d8e5a618413, type: 3}
       propertyPath: m_TextStyleHashCode
