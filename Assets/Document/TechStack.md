@@ -133,7 +133,9 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 
 - 밸런스 수치는 모두 ScriptableObject로 뺀다 (GDD `임시` 값 = 조정 대상).
 - 테이블: 회사·품목, 레벨·해금, 비용, 주문 생성 규칙, 확장 칸, 알바 스탯 생성 규칙, 플레이어, 조작·카메라.
-- 진입점은 `Assets/Data/GameDatabase.asset` 하나. 새 테이블은 여기에 연결한다.
+- 진입점은 `Assets/Data/GameDatabase.asset` 하나. 새 테이블은 여기에 연결한다. (예외: 측정용 `NavGridConfig` · `NavBenchmarkConfig`는 메뉴가 에셋 경로로 읽음, 2026-11-24)
+- **어셈블리 정의는 `APC.Navigation` 하나** (`Assets/Scripts/Navigation/`, 2026-11-24): 길찾기 코어를 게임 코드와 떼어 알파로 옮기기 위함. 이 폴더 코드는 `APC.*` 게임 코드를 참조하지 않는다 (UnityEngine만). 나머지는 그대로 Assembly-CSharp. 테스트 프레임워크 대신 `NavSelfTest.Run()` 자기 검사.
+- 성능 측정은 **Deep Profile을 끄고** 한다 (켜면 C# 코드만 약 100배 느려짐). 메뉴 `APC > Test > Nav Benchmark`는 알아서 끄고 되돌린다.
 
 ### 5.5 입력
 

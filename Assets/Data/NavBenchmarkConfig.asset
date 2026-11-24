@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c1a6dc166299634a9de883c23628786, type: 3}
+  m_Name: NavBenchmarkConfig
+  m_EditorClassIdentifier: Assembly-CSharp::APC.Data.NavBenchmarkConfig
+  grid: {fileID: 11400000, guid: 28197f59dd6680f45a168ebe95e750d6, type: 2}
+  staffWorkerPrefab: {fileID: 8398413423114849953, guid: 3326e6edafabe91469a0a79bc5436462, type: 3}
+  agentCount: 100
+  warmupSeconds: 5
+  measureSeconds: 20
+  repeats: 3
+  calibrate: 1
+  calibrateSeconds: 60
+  calibrateRoles: 1a000000260000001a0000000a000000
+  defaultRepathInterval: 4
+  pathQueries: 1000
+  lengthRatioLimit: 1.4
+  railSize: {x: 6, y: 1, z: 1}
+  railBurst: 10
+  railTries: 20
+  eventWindowFrames: 30
+  seed: 1234
+  recordProfilerLog: 1

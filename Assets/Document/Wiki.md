@@ -55,6 +55,7 @@
 | `Orders` | 주문 데이터 · 주문 큐 · 수요 계산 · 교착 방지 가중치 |
 | `Economy` | 파트 타이머 · 파트 종료 정산 · 사무실 투명 저금통 |
 | `Site` | 부지 격자와 모듈 해금 |
+| `Navigation` | 방 단위 2층 A* 길찾기 코어 (2026-11-24, 측정용 · 알파 후보). 어셈블리 `APC.Navigation` — 게임 코드를 참조하지 않는다 |
 | `UI` | 팝업, 월드 글자 정렬, HUD 초기화 (`UiBootstrap`) |
 | `Debugging` | 치트 메뉴 (에디터 · 개발 빌드 전용) |
 | `Editor` | 씬 · 프리팹 · 데이터 자동 생성 메뉴 (빌드에 포함 안 됨) |
@@ -330,6 +331,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | [CashFlyConfig](../Scripts/Data/CashFlyConfig.cs) | `CashFlyConfig` | 주운 현금 → HUD 저금통 **달러 아이콘 연출**: 비행 시간, **속도 그래프**(`moveCurve`, 시간 0~1 → 경로 진행 0~1, 기울기 = 속도, 1을 넘기면 지나쳤다 돌아옴), 포물선 높이, **출발 랜덤 반경**(`startRadius`, HUD px — 플레이어 화면 위치 둘레 원 안 무작위 지점에서 출발, 0 = 중앙), 기본 크기, **크기 그래프**(`scaleCurve`, 시간 → 배율), 도착 때 저금통 아이콘 튐. Build Site가 `CashFlyEffect`에 직접 연결 (없으면 만듦, 비면 `OrDefault`) |
 | [GoldenTruckConfig](../Scripts/Data/GoldenTruckConfig.cs) | `GoldenTruckConfig` | **황금 트럭** (GDD 6.4, 2026-11-18 `LogisticsConfig`에서 옮김): 확률 · 금 값 배율, 몸체 색(`solidColor` = `_BaseMap`을 흰색으로 덮어 단색) · 깜빡임, 점광원, 반짝임 파티클(`M_GoldSparkle`), 쏟기(지연 · 간격 · 튐 · 쌓는 모양 · 떠남 지연), 흡수(반경 · 간격 · 비행 · 회전 · 크기 그래프). `GameDatabase.GoldenTruck` (비면 `OrDefault`). 값은 매번 읽으므로 Play 중 조절 가능 |
 | [StampConfig](../Scripts/Data/StampConfig.cs) | `StampConfig` | 계약 PC **도장 연출**: 누르기 배율 · 시간, 카드 위 머무는 시간, 복귀 시간 · 이징, 자국 · 필터, 흔들림 · 사유 시간, 계약 후 팝업 닫힘 지연. **`GameDatabase`가 아니라** Build Site가 `Stamp` · `StampCard` · `ContractPopup`에 직접 연결 (없으면 만들고, 연결이 비면 기본값 `OrDefault`) |
+| [NavGridConfig](../Scripts/Data/NavGridConfig.cs) | `NavGridConfig` | A* 격자 (2026-11-24): 칸 0.5m · 장애물 키우기 0.5 · 타일 2m · 장애물 높이 띠 0.3~2.0 · 붙이기 반경 2m · 프레임당 길찾기 20. **GameDatabase에 아직 안 넣음** (측정 도구만 씀) |
+| [NavBenchmarkConfig](../Scripts/Data/NavBenchmarkConfig.cs) | `NavBenchmarkConfig` | 길찾기 비교 측정: 알바 수 · 예열 · 측정 · 반복, 보정(실제 알바 직무별 수 · 뽑는 간격 0.1초), 길 쌍 수 · 길이 비율 한도, 레일 크기 · 개수, Profiler 기록. 메뉴가 에셋 경로로 읽음 |
 | [DataTypes](../Scripts/Data/DataTypes.cs) | — | 공용 구조체 `IntRange`(`Roll()`로 무작위), `WeightedInt` |
 
 #### SiteLayout (자세히)
@@ -839,6 +842,38 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **동작**: 시작 시 한 번, `OnUnlocked` · `OnMoved`(모듈 재배치)마다 팝 연출(`facilityPopDuration`)이 끝난 뒤 다시 굽는다 (묶음 해금이어도 한 번). `surface.BuildNavMesh()` = 부지 전체 동기 굽기. 굽기 시간을 재서 정적 `LastBuildMs` · `MaxBuildMs` · `BuildCount`에 남기고 콘솔에 찍는다 (2026-11-23, `PerformanceHUD`가 읽음).
 - **주의**: 초록 Ground는 `NavMeshModifier.ignoreFromBuild`로 제외. 선반은 `BoxCollider` + `NavMeshObstacle`(carve)로 알바가 돌아가고, `NavMeshModifier`(ignoreFromBuild)로 바닥에 구워지지 않는다. 트럭은 장애물로 두지 않는다 (주차 칸이 부지 밖).
 
+#### SiteNavGrid
+[Site/SiteNavGrid.cs](../Scripts/Site/SiteNavGrid.cs)
+- **역할**: 게임 → A* 코어 어댑터 (2026-11-24, 측정용 · 알파 후보). `SiteGrid` 열린 칸 = 방, Site 아래 충돌체 = 장애물(`INavObstacleSource`).
+- **동작**: 만들 때 열린 칸 범위로 격자를 잡고 전체 굽기(`BuildMs`). 방 (rx, rz) = (열 − 최소 열, 최대 행 − 행). `Collect` = `OverlapBox`(높이 띠, 트리거 제외) → 위가 수직인 BoxCollider는 회전 상자, 나머지는 경계 상자.
+- **주의**: 게임에는 아직 안 붙임(알바는 NavMesh). 격자 범위는 만들 때 열린 칸 기준 — 범위 밖 해금은 다시 만들어야 한다.
+
+### 4.8b Navigation — 방 단위 2층 A* (2026-11-24)
+어셈블리 `APC.Navigation` (`Assets/Scripts/Navigation/`). 게임 코드를 모르고 장애물은 `NavBox` 목록으로만 받는다 — 알파로 그대로 옮길 단위. 설계 [docs/superpowers/specs/2026-11-24-astar-nav-benchmark-design.md](../../docs/superpowers/specs/2026-11-24-astar-nav-benchmark-design.md).
+
+#### NavGrid · NavBox · INavObstacleSource
+- **역할**: 0.5m 격자(방 = 20 × 20칸, 타일 = 4 × 4칸), 방 열림 표시, 칠하기(`Rasterize` — 키운 상자가 칸 중심을 덮으면 막힘, 바뀐 칸 수 · 테두리 변경 여부), 가까운 칸 붙이기, 시야 검사(꼭짓점을 지나면 양옆 칸도 검사). `NavBox` = XZ 회전 상자.
+
+#### GridAStar · IntMinHeap
+- **역할**: 사각형 범위 A* (8방향, 곧은 10 · 대각선 14, 모서리 자르기 금지). 방 안 길 · 한 장 격자 비교용. 버퍼 재사용(호출마다 할당 없음).
+
+#### RoomGates
+- **역할**: 방 변마다 이어진 열린 구간의 가운데에 문 한 쌍, 문마다 방 안 다익스트라 지도(거리 · 문 쪽 방향). 노드 = 방 × MaxGatesPerRoom + 문.
+- **주의**: `RebuildRoom`은 공유 변 문이 바뀐 이웃도 다시 만들고 **모든 방의 건너편 문 번호를 다시 잇는다** (이웃 문 번호가 바뀌면 두 칸 떨어진 방도 틀어짐 — 2026-11-24 자기 검사로 잡음).
+
+#### RoomPathfinder
+- **역할**: 같은 방이면 방 안 A*, 아니면 문 그래프 A* + 문 지도를 따라 칸 길 → 보이는 가장 먼 칸으로 건너뛰는 직선 펴기 → 웨이포인트. `FindPathFlat` = 한 장 격자(비교용). 마커 `Nav.Path`.
+- **주의**: 문이 변 가운데 하나라 대각선 길은 한 장 격자보다 길 수 있음 (TycoonTest 1000쌍 평균 1.05 · 최대 1.41배).
+
+#### NavWorld
+- **역할**: 격자 + 문 + 길찾기 + 다시 굽기 범위. `RebuildAll` · `RebuildRoom`(그 방 칸만 칠함 — 키운 장애물이 이웃에 걸치면 이웃도 따로) · `RebuildTiles`(걸친 2m 타일만, 테두리가 바뀌면 방별처럼) · `SetRoomOpen`(해금). `ChangedRooms` · `LastMapsBuilt`. 마커 `Nav.Bake`.
+
+#### NavCrowd
+- **역할**: 알바 이동 — 모든 알바를 한 `Tick`에서, 웨이포인트를 일정 속도로, 회피 · 가속 없음. `PathTouchesRooms` = 다시 구운 방을 지나는 알바만 다시 길찾기. 마커 `Nav.Move`.
+
+#### NavMarkers · NavSelfTest
+- **역할**: Profiler 마커 이름. 자기 검사(테스트 프레임워크 대신) `NavSelfTest.Run()` → "OK 32" — MCP `execute_code`로 실행.
+
 ### 4.9 UI
 
 #### UiBootstrap
@@ -1051,6 +1086,12 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **동작**: Start에 `PartService.AlwaysOpen` 켬 → `targetLevel`(5, 회사 4곳 전부)까지 레벨업 → 지갑에 `startCash`(100,000) → 네비메시가 생기면 직무별 수(인스펙터, 기본 0)만큼 `StaffService.Spawn`을 `spawnInterval`(0.1초) 간격으로 (고용금 · 최대 인원 무시). **바뀜 (2026-11-20)**: 자동 78명 → 기본 0명, 알바는 고용 탭이나 DEBUG Staff 버튼으로 직접 (최적화 시험용).
 - **연결**: 씬 · 데이터는 `TycoonTestBuilder`가 만든다.
 
+#### NavBenchmark (+ NavBenchmarkEvents · NavBenchAgents · NavBenchRecorder · NavBenchReport)
+[Debugging/NavBenchmark.cs](../Scripts/Debugging/NavBenchmark.cs)
+- **역할**: NavMesh vs 방 단위 A* 비교 측정 (2026-11-24). 씬에 두지 않고 메뉴가 Play 중에 붙인다.
+- **동작**: 0 보정(실제 알바 100명을 0.1초 간격으로 뽑아 초당 길 요청 수 → 측정 알바 길 요청 간격, 끝나면 끔) → 1 기준 · NavMesh 100명 · A* 100명 × 반복(같은 캡슐 · 속도 · 시드) → 2 길 1개(1000쌍 + 자기 검사) → 3 해금(방 닫았다 열기) · 4 레일(6×1m 상자 1 · 10개, A* 타일별 · 방별 · 전체 / NavMesh carving · 전체 굽기, 예열 1회 + 중앙값). `ProfilerRecorder`로 `PlayerLoop` · `AI 메인` · `Nav.*` 등을 모아 `Logs/NavBench/<시각>/result.md` + 첫 반복 Profiler 기록(.raw).
+- **주의**: Deep Profile이 켜져 있으면 C#만 약 100배 느려져 비교가 무의미 — 메뉴가 측정 동안 끈다. 한 프레임에 실제 알바 100명을 뽑자 에디터가 GPU 장치 오류로 꺼진 적 있음(그래서 간격). 실제 알바는 지우지 않고 끈다(들고 있던 화물 풀 보호).
+
 ### 4.11 Editor — 에디터 도구
 
 `Assets/Scripts/Editor/`는 빌드에 포함되지 않는다. 씬 · 프리팹 · 데이터를 **코드로 만들어** 같은 결과를 언제든 다시 얻을 수 있게 한다.
@@ -1061,6 +1102,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | `APC > Setup > Run M0 Setup` | [ProjectBootstrap](../Scripts/Editor/ProjectBootstrap.cs) | 폴더, 가로 화면 설정, 데이터 에셋(GDD 수치), Game 씬. **이미 있는 에셋 · 씬은 건드리지 않고** 빈 참조만 채운다 |
 | `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground(네비메시 제외) · NavMeshSurface · Logistics(Warehouse · ContractService · OrderService · StaffService) → 시작 모듈 인스턴스 + SiteUnlocker → HUD(레벨 · 현금 · 레벨업 배너 + 색종이 · (옛 주문서 큐는 지움) · 계약 PC 팝업(고용 · 배치 · 업그레이드 · 모듈 탭) · 정산 팝업 · 현금 아이콘 층 `CashFly`, 자식은 꺼진 채 저장 + `UiBootstrap`) → 플레이어 위치 + CashCollector → 씬 저장 |
 | `APC > Test > Build Tycoon 8x8 (TycoonTest 씬 덮어쓰기)` | [TycoonTestBuilder](../Scripts/Editor/TycoonTestBuilder.cs) | 타이쿤 시험 (2026-11-20). 데이터 복사본 `Assets/Data/Tycoon/*_Tycoon`(GameDatabase · SiteLayout · LogisticsConfig · LevelTable · ControlsConfig — 없을 때만 복사, 원본 안 바꿈)에 8 × 8 배치(1열 하차장 8 · 회전 0, 8열 상차장 8 · 회전 180, 가운데 = 사무실 (1,2) + 보관 A~D 대각선 섞기 47칸, 하나만 id `StoreD`), 주차 칸 배경, 트럭 간격 2초 · 줄 30, 최대 알바 999, 카메라 최대 거리 120 → `Game.unity`를 `TycoonTest.unity`로 복사 → GameManager 데이터 교체, `StartSequence` · `TutorialGuide` 제거, 모듈 64개 배치, 대기 줄(부지 아래, 남쪽으로) · 바닥(줄 끝까지) · 플레이어 자리, `TycoonTest` · 성능 패널(`PerformanceHUD`) 추가 → 저장 |
+| `APC > Test > Nav Benchmark (A* vs NavMesh)` | [NavBenchmarkMenu](../Scripts/Editor/NavBenchmarkMenu.cs) | TycoonTest 씬에서 Play를 시작하고 `NavBenchmark`를 붙임 (2026-11-24, 씬 파일 안 고침). Deep Profile이 켜져 있으면 측정 동안 끄고 Play가 끝나면 다시 켬. 약 7분, 콘솔 `[NavBench] 끝` |
 | `APC > Setup > Apply M6 Staff (프리팹 덮어쓰기)` | [StandardModules](../Scripts/Editor/StandardModules.cs) | 기본 모듈 · 선반 · 알바 프리팹(`StaffWorker.prefab`)을 덮어쓰고 Build Site. config(SiteLayout · 레벨 표)는 건드리지 않는다 |
 | `APC > Module > New Module...` | [ModuleFactory](../Scripts/Editor/ModuleFactory.cs) (`ModuleCreatorWindow`) | 빈 n × m 모듈 틀을 `Assets/Prefabs/Modules/Module_이름.prefab`으로 만든다 |
 | `APC > Art > Build Test Module` | [ArtModuleBuilder](../Scripts/Editor/ArtModuleBuilder.cs) | 아트 시험용 빈 모듈 `Assets/Prefabs/Modules/Test/Module_ArtTest.prefab`: 바닥 `floor1_basic.fbx` 10 × 10장(1장 = 1m, 메시 실제 크기를 재서 맞춤) + 공용 재질 `M_Prop`(`Color_Pallet.png`). 바닥 충돌체는 그대로 두고 큐브 렌더러만 끔. 게임 배치(SiteLayout)에는 안 들어감 |
