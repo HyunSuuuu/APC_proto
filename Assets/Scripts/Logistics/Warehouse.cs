@@ -199,10 +199,10 @@ namespace APC.Logistics
             return orders != null && GetStock(item) == 0 && orders.GetDemand(item) > 0;
         }
 
-        /// <summary>플레이어 · 알바가 지금 들고 있는 화물 중 조건에 맞는 수.</summary>
+        /// <summary>플레이어 · 알바가 지금 들고 있는 화물 + 벨트 위 화물(GDD 7.10) 중 조건에 맞는 수.</summary>
         public static int CountCarried(ItemDefinition item, CargoOrigin origin)
         {
-            var total = 0;
+            var total = ConveyorBelt.CountOnBelts(_ => true, c => c.Item == item && c.Origin == origin);
             foreach (var who in Interactor.All)
             {
                 if (who.Stack == null) continue;

@@ -33,6 +33,16 @@ namespace APC.UI
             GameManager.Instance.Level.LeveledUp.Subscribe(Enqueue).AddTo(this);
         }
 
+        /// <summary>떠 있는 배너 · 기다리는 배너를 바로 끈다. 연출은 게임 시간이라 시간이 멈추는 화면(벨트 설치)에서 멈춘 채 남지 않게.</summary>
+        public void Dismiss()
+        {
+            pending.Clear();
+            playing?.Kill();
+            playing = null;
+            group.alpha = 0f;
+            panel.gameObject.SetActive(false);
+        }
+
         void Enqueue(int level)
         {
             pending.Enqueue(level);

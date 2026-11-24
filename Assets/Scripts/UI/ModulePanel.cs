@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using APC.Core;
+using APC.Logistics;
 using APC.Site;
 using DG.Tweening;
 using TMPro;
@@ -13,6 +14,7 @@ namespace APC.UI
     /// 빈 공간에 놓으면 이동, 보관 · 반품에 놓으면 서로 교체, 그 밖(고정 모듈 · 잠긴 칸 · 바깥)은 실패(흔들림 + 사유).
     /// 바꾼 내용은 미니맵에만 쌓아 두고 **팝업을 닫을 때 한꺼번에** SiteGrid에 적용한다 (ContractPopup이 Begin · Apply를 부름).
     /// [되돌리기] = 팝업을 열었을 때 배치로.
+    /// 옮기는 모듈(맞바꾸는 상대 포함)에 걸친 컨베이어 벨트는 옮길 때 안내하고, 적용할 때 철거 · 전액 환불 (GDD 7.10, M18-4).
     /// </summary>
     public sealed class ModulePanel : MonoBehaviour
     {
@@ -65,6 +67,11 @@ namespace APC.UI
             {
                 if (pair.Value != null) arrangement[pair.Value] = pair.Key;
             }
+            foreach (var belt in BeltsOnMoved()) // 옮기기 전에: 위 물건은 Start로(모듈과 같이 옮겨짐), 전액 환불
+            {
+                GameManager.Instance.Wallet.Add(belt.Cost);
+                belt.Dismantle();
+            }
             grid.ApplyArrangement(arrangement);
         }
 
@@ -91,6 +98,8 @@ namespace APC.UI
                 staged[target.Cell] = moving; // 빈 공간이면 이동, 보관 · 반품이면 교체 (둘 다 자리 맞바꿈)
                 staged[source.Cell] = other;
                 Render();
+                var belts = BeltsOnMoved().Count;
+                if (belts > 0) ShowReason($"연결된 벨트 {belts}개가 철거됩니다 (전액 환불)", 2.5f);
                 cells[target.Cell].Rect.DOKill(true);
                 cells[target.Cell].Rect.DOPunchScale(Vector3.one * 0.12f, 0.25f, 6, 0.5f).SetUpdate(true).SetLink(gameObject);
             }
@@ -109,11 +118,34 @@ namespace APC.UI
             source.Rect.DOKill(true);
             source.Rect.DOShakeAnchorPos(0.4f, new Vector2(18f, 0f), 20, 0f).SetUpdate(true).SetLink(gameObject);
 
+            ShowReason(reason, 1.5f);
+        }
+
+        void ShowReason(string text, float hold)
+        {
             reasonTween?.Kill();
-            reasonLabel.text = reason;
+            reasonLabel.text = text;
             reasonLabel.alpha = 1f;
             reasonLabel.gameObject.SetActive(true);
-            reasonTween = reasonLabel.DOFade(0f, 0.4f).SetDelay(1.5f).SetUpdate(true).SetLink(gameObject);
+            reasonTween = reasonLabel.DOFade(0f, 0.4f).SetDelay(hold).SetUpdate(true).SetLink(gameObject);
+        }
+
+        /// <summary>지금 미니맵 배치대로 옮기면 자리가 바뀌는 모듈에 걸친 벨트 (Start · End가 있거나 경로가 지나감).</summary>
+        List<ConveyorBelt> BeltsOnMoved()
+        {
+            var result = new List<ConveyorBelt>();
+            var grid = SiteGrid.Instance;
+            if (grid == null || ConveyorBelt.All.Count == 0) return result;
+            var moved = new List<SiteModule>();
+            foreach (var pair in staged)
+            {
+                if (pair.Value != null && grid.WorldToCell(pair.Value.transform.position) != pair.Key) moved.Add(pair.Value);
+            }
+            foreach (var belt in ConveyorBelt.All)
+            {
+                if (moved.Exists(belt.Touches)) result.Add(belt);
+            }
+            return result;
         }
 
         void EnsureCells()
