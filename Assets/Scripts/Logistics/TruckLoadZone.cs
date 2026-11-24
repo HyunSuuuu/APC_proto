@@ -7,7 +7,7 @@ namespace APC.Logistics
     /// 출고 트럭 뒷문 앞 상차 존 (GDD 7.6). 선반에서 꺼낸 화물 중 **정차한 트럭 주문에 남은 품목만**, 남은 수량만큼 받는다.
     /// 받기만 하고 주지는 않는다.
     /// </summary>
-    public sealed class TruckLoadZone : CargoZone
+    public sealed class TruckLoadZone : CargoZone, IBeltEnd
     {
         [SerializeField] OutboundBay bay;
 
@@ -30,5 +30,15 @@ namespace APC.Logistics
             => Warehouse.Instance.DirectLoad(item) || Warehouse.Instance.GetShelfFreeSpace(item) <= 0;
 
         protected override void Receive(Cargo cargo, Interactor who) => bay.DockedTruck.Receive(cargo);
+
+        /// <summary>벨트 End (GDD 7.10): 선반에서 꺼낸 상자, 정차 트럭 주문에 남은 수 − 이 존으로 벨트에서 오는 수 > 0.</summary>
+        public bool Wants(Cargo cargo)
+            => CanTakeFromBelt(cargo)
+               && bay.DockedTruck.Order.GetRemaining(cargo.Item) - ConveyorBelt.CountOnBelts(b => ReferenceEquals(b.End, this), c => c.Item == cargo.Item) > 0;
+
+        public bool CanTakeFromBelt(Cargo cargo)
+            => bay.DockedTruck != null && cargo.Origin == CargoOrigin.Shelf && cargo.State == CargoState.Normal && bay.DockedTruck.Order.GetRemaining(cargo.Item) > 0;
+
+        public void ReceiveFromBelt(Cargo cargo) => bay.DockedTruck.Receive(cargo);
     }
 }

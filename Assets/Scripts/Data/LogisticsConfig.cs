@@ -27,6 +27,12 @@ namespace APC.Data
         [Header("연출")]
         [SerializeField, Min(0.05f), Tooltip("시설 생성 팝 (초)")] float facilityPopDuration = 0.4f;
 
+        [Header("컨베이어 벨트 (GDD 7.10)")]
+        [SerializeField, Min(0.5f), Tooltip("벨트 격자 한 칸 (m) = 화물 간격. 바닥 타일 2m")] float beltCellSize = 2f;
+        [SerializeField, Min(0.1f), Tooltip("초당 움직이는 칸 수 (GDD 7.10 임시 1)")] float beltCellsPerSecond = 1f;
+        [SerializeField, Min(0.02f), Tooltip("벨트 판 두께 = 화물이 올라가는 높이 (m)")] float beltHeight = 0.15f;
+        [SerializeField, Tooltip("벨트 판 재질 (임시 회색, 빌드에 들어가게 에셋 참조)")] Material beltMaterial;
+
         [Header("반품 (GDD 7.7, 반품 구역)")]
         [SerializeField, Range(0f, 1f), Tooltip("반품 구역을 지은 뒤 하차 상자 1개가 찌그러진 상자일 확률 (0.01 = 1%, GDD 7.7 임시)")] float returnChance = 0.01f;
         [SerializeField, Min(1), Tooltip("반품 팔레트 용량 (GDD 7.7 임시)")] int returnBinCapacity = 12;
@@ -37,6 +43,10 @@ namespace APC.Data
         [SerializeField, Min(1), Tooltip("재포장 상자 팔레트(테이블 맞은편) 용량. 가득 차면 재포장 불가")] int repackOutputCapacity = 6;
         [SerializeField, Min(0.05f), Tooltip("찌그러진 상자 1개 재포장 게이지 (초, GDD 7.7 임시)")] float repackDuration = 2f;
 
+        public float BeltCellSize => beltCellSize;
+        public float BeltCellsPerSecond => beltCellsPerSecond;
+        public float BeltHeight => beltHeight;
+        public Material BeltMaterial => beltMaterial;
         public float ReturnChance => returnChance;
         public int ReturnBinCapacity => returnBinCapacity;
         public float RepackSuccessChance => repackSuccessChance;

@@ -12,7 +12,7 @@ namespace APC.Logistics
     /// 이 하차 칸 공간이 차면 (공간 수 + 이 칸 트럭에서 꺼내 든 수 + 알바 예약 = 용량) 플레이어도 알바도 못 꺼낸다 (GDD 7.2).
     /// 황금 트럭(GDD 6.4)이면 금을 이 존 바닥에 쏟아 쌓고(하차 칸 공간 칸 안 차지), 누구든 들어오면 하나씩 흡수해 저금통에 더한다.
     /// </summary>
-    public sealed class TruckPickupZone : CargoZone
+    public sealed class TruckPickupZone : CargoZone, IBeltStart
     {
         [SerializeField] InboundBay bay;
         CargoPile gold;
@@ -70,6 +70,17 @@ namespace APC.Logistics
             cargo = truck.TakeCargo();
             if (cargo != null) cargo.Home = bay.Storage;
             return cargo != null;
+        }
+
+        /// <summary>벨트 Start (GDD 7.10): End가 이 칸 공간일 때만, 예약 안 된 트럭 상자를 공간 자리만큼. D 가구 · 금은 안 올림.</summary>
+        public Cargo TakeForBelt(IBeltEnd end)
+        {
+            var truck = bay.DockedTruck;
+            if (!ReferenceEquals(end, bay.Storage) || truck == null || truck.Golden || truck.Available <= 0 || Room <= 0) return null;
+            if (truck.Company != null && Warehouse.IsLarge(truck.Company.Items[0])) return null;
+            var cargo = truck.TakeCargo();
+            if (cargo != null) cargo.Home = bay.Storage;
+            return cargo;
         }
 
         static GoldenTruckConfig Golden => GameManager.Instance.Database.GoldenTruck;
@@ -154,10 +165,17 @@ namespace APC.Logistics
             absorbing = false;
         }
 
-        /// <summary>트럭에서 꺼내 그 공간으로 들고 가는 중인 화물 수 (플레이어 · 알바).</summary>
+        /// <summary>트럭에서 꺼내 그 공간으로 들고 가는 중인 화물 수 (플레이어 · 알바 · 벨트 위, GDD 7.10).</summary>
         static int CountHeadingTo(SharedStorage storage)
         {
             var n = 0;
+            foreach (var belt in ConveyorBelt.All)
+            {
+                foreach (var cargo in belt.Cargos)
+                {
+                    if (cargo.Origin == CargoOrigin.Truck && cargo.Home == storage) n++;
+                }
+            }
             foreach (var who in Interactor.All)
             {
                 if (who.Stack == null) continue;

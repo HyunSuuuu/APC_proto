@@ -534,6 +534,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **동작**: `Setup(item, capacity)`(`BaseCapacity` = 1단계 용량 기억), `SetCapacity(value)`(선반 단계, 수량 글자 갱신, M16-3), `Store`, `TakeOne`(마지막에 넣은 상자), `HasSpace` · `FreeSpace`. 한 단 = 가로 `boxesPerSide` × 세로 `boxRows`(0이면 정사각형). `Shelf.prefab` = 모델 `Shelf` 1.2배 2개 등 맞대기(2.15 × 1.6m, 3 × 2칸, 첫 단 0.29 · 단 높이 0.59, M14-3), `PalletRack.prefab` = 2 × 2. 둘레에 `ShelfZone` 하나 (선반 3.6 × 3.2).
 - **연결**: `Warehouse.BuildShelf`가 `Shelf.prefab`으로 만든다.
 
+- **벨트** (M18-2, GDD 7.10): `IBeltStart` · `IBeltEnd`. 같은 모듈 · 같은 품목 선반들(`Group`) 단위 — End는 닿은 선반 먼저, 차면 같은 구역 다른 선반(CargoPile 점프), Start는 상차 존으로만 · 상차 시간 · 수요 있을 때. D(팔레트 랙)는 벨트 안 씀.
+
 #### ShelfZone
 [Logistics/ShelfZone.cs](../Scripts/Logistics/ShelfZone.cs)
 - **역할**: 선반 둘레 존 (선반 3.6 × 3.2m · 팔레트 랙 3.2m). **내려놓기 먼저** — 같은 품목, Origin = Storage, Normal 상태 화물을 받고 Origin을 Shelf로 바꾼다 (재포장 상자면 `Warehouse.NotifyRepackedShelved`). 내려놓을 것이 없으면 `OrderService.GetDemand(품목) > 0`일 때만 1개씩 꺼낸다 (GDD 8.4). `Shelf` 프로퍼티로 붙은 선반을 읽고, `HasCargoFor`(알바 판단용)를 구현한다.
@@ -563,6 +565,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### Warehouse
 [Logistics/Warehouse.cs](../Scripts/Logistics/Warehouse.cs)
 - **역할**: 창고 전체의 선반 목록과 재고 집계. 씬에 하나 (`Site/Logistics`).
+- **벨트** (M18-2, GDD 7.10): `CountCarried`(손에 든 수)가 벨트 위 화물도 센다 → 선반 여유 · 상차 수요 계산이 벨트를 포함.
 - **선반 단계** (M16-3, GDD 7.3): 보관 모듈(`SiteModule`)마다 단계 1~3 (`GetShelfStage`), `RaiseShelfStage(module)` = 그 모듈 선반 전부 `SetCapacity(StageCapacity(기본, 단계))` + 살짝 튀기(`DOPunchScale`). `StageCapacity` = 기본 × (1 + 0.5 × (단계 − 1)) → 선반 6 · 9 · 12, 랙 4 · 6 · 8. `ShelfModules()` · `FirstShelfOf(module)`은 설비 탭용. **크기 0에서 키우는 `FacilityPop`은 쓰지 않는다** — 팝업으로 멈춘 동안 0에 머물러 그때 들어온 상자가 크기 0으로 붙는다 (`CargoPile.Add`는 `SetParent(root, true)`).
 - **지게차 규칙** (M11-8): static `IsLarge(item)`(`GameDatabase.GetCompanyOf().IsLarge`), `CanHandle(who, item)` = 지게차 알바(`Interactor.Forklift`)는 D만 · 나머지(플레이어 포함)는 D 말고만. `LargeRoom(item)` = 랙 빈자리 − 트럭에서 꺼내 든 D (예외면 상차 수요까지), `DirectLoad(item)` = 랙 재고 0 + 상차 D 수요 > 0 → 트럭 → 상차 직행.
 - **동작**:
@@ -605,7 +608,16 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 주차한 트럭 뒷문 앞의 집기 존. `bay.DockedTruck`에서 화물을 꺼낸다. 트럭이 없거나 이동 중이면 아무것도 안 준다. `Bay` 프로퍼티로 베이를 노출한다 (알바가 예약할 트럭을 찾음). `HasCargoFor`(알바 판단용)는 트럭의 `Available > 0`이고 `Room > 0`일 때만 참이다.
 - **지게차** (M11-8): D 트럭은 지게차 알바만 꺼낸다 (`LargeRoom > 0`, `Home` 없음 — 하차 칸 공간 안 거침). 일반 트럭은 지게차가 못 꺼낸다.
 - **동작** (M13-2, GDD 7.2): `Room` = 이 칸 공간 용량 − 공간 수 − 이 칸 트럭에서 꺼내 든 수(플레이어 · 알바, `Cargo.Home`) − 트럭 예약. 0이면 플레이어도 알바도 못 꺼낸다 → 공간이 넘치지 않는다. 플레이어가 막히면 트럭 위에 '공간 가득' (`CargoZone.Notice`, 1.5초마다 최대 1번). 꺼낸 화물에 `Home = bay.Storage`를 넣는다.
+- **벨트 Start** (M18-1): `IBeltStart`. `Room`의 '들고 가는 수'(`CountHeadingTo`)에 벨트 위 화물도 넣음 → 사람 · 알바 · 벨트가 같이 꺼내도 공간이 넘치지 않음.
 - **금** (M13-16, GDD 6.4, 2026-11-18 바뀜: 하차 칸 공간 → 이 존): 황금 트럭이면 `Update`에서 0.08초마다 금을 이 존 바닥 `CargoPile`(`GoldenTruckConfig.PileLayout`)에 쏟는다 — 공간 칸 안 차지, 꺼내 들 수 없음. **쏟는 중 · 마지막 덩이 착지 전(`absorbReadyTime`)엔 흡수 안 함** (2026-11-19). 그 뒤 `Interactor.All` 중 반경(`cashPickupRadius` + `AbsorbRadiusBonus`) 안의 누구든 하나씩 흡수(`AbsorbGold`) → 날아가 `CashFlyEffect` → `Wallet.AddToPiggy(다발 × ValueMultiplier)`. 쏟기 · 흡수 값은 `GoldenTruckConfig`.
+
+#### ConveyorBelt
+[Logistics/ConveyorBelt.cs](../Scripts/Logistics/ConveyorBelt.cs)
+- **역할**: 컨베이어 벨트 1개 (GDD 7.10, M18-1 · 2). 꺾임 점 경로를 따라 Start → End로 화물을 옮긴다. 인터페이스도 이 파일: `IBeltStart.TakeForBelt(end)`(End가 원하는 것만 꺼냄), `IBeltEnd.Wants`(종류 + 벨트로 오는 수를 뺀 자리 — Start가 꺼내기 전에 물음) · `CanTakeFromBelt`(지금 자리) · `ReceiveFromBelt`.
+- **동작**: `Create(start, end, path)`가 GameObject + 구간마다 회색 판(`LogisticsConfig.beltMaterial` `M_Belt`, 충돌체 없음). `Update`: 맨 앞이 끝에 닿고 End가 받으면 넘김 → 뒤 화물은 앞과 `beltCellSize`(2m) 간격, 초당 `beltCellsPerSecond`칸. 올리기는 한 프레임에 한 번 `FeedAll` — 첫 칸이 빈 벨트를 **오래 못 받은 순**으로 Start에 물어봄(같은 Start 벨트끼리 번갈아). End가 `TruckLoadZone`인데 상차 시간이 끝나면(`!PartService.OutboundOpen`) 벨트 위 상자를 Start 선반으로 되돌림. 게임 시간 기준(멈추면 멈춤).
+- **연결 7구간**: `TruckPickupZone` → `SharedStorage`(하차 칸 공간, 같은 칸만), `SharedStorage`(공간 · 반품 팔레트 · 쓰레기 출력 · 재포장 팔레트, `CanGive` = 사람이 집는 조건과 같음) → `Shelf` · `SharedStorage`(반품 팔레트 · 재포장 입력) · `TrashDropZone`, `Shelf` → `TruckLoadZone`. D 가구 · 금 · 팔레트 랙 제외.
+- **'찼다' 계산**: `CountOnBelts(벨트 조건, 화물 조건)`. `Warehouse.CountCarried`(손 + 벨트)와 `SharedStorage.Allowance`가 벨트 위 화물을 세므로 선반 여유 · 반품 여유 · 상차 수요 · 하차 칸 `Room`이 모두 벨트를 포함한다.
+- **주의**: Start · End가 사라지면 멈추기만 함 (철거는 M18-4). 시험 = 디버그 `Belt test`(첫 하차 칸 → 공간, 중심끼리 가로 → 세로) 또는 `Create` 직접. 경로 끝은 아직 오브젝트 중심 — 한 변에 붙이기는 M18-3 설치에서
 
 #### OutboundBay
 [Logistics/OutboundBay.cs](../Scripts/Logistics/OutboundBay.cs)

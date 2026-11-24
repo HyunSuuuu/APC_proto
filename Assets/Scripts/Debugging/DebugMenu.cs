@@ -233,9 +233,25 @@ namespace APC.Debugging
             if (start != null && start.Running && GUILayout.Button("Skip start", buttonStyle)) start.Skip();
             // 임시: 고저차 모듈 사이 벽에 비비면 칸 밖으로 빠지는 문제(2026-11-19) — 가장 가까운 열린 칸 가운데로
             if (GUILayout.Button("Return to site", buttonStyle)) ReturnToSite(grid);
+            if (GUILayout.Button("Belt test", buttonStyle)) AddTestBelt(); // M18-1: 설치 UI(M18-3) 전 시험용
             GUI.enabled = next != null;
             if (GUILayout.Button(next != null ? $"Unlock {next} (Lv.{nextLevel})" : "All unlocked", buttonStyle)) grid.Unlock(next);
             GUI.enabled = true;
+        }
+
+        /// <summary>시험 벨트: 첫 하차 칸 트럭 존 → 그 칸 상자 두는 공간, 두 중심을 가로 → 세로로 잇는 ㄱ자 (대각선 없음, GDD 7.10).</summary>
+        static void AddTestBelt()
+        {
+            foreach (var zone in FindObjectsByType<APC.Logistics.TruckPickupZone>(FindObjectsSortMode.None))
+            {
+                var storage = zone.Bay != null ? zone.Bay.Storage : null;
+                if (storage == null) continue;
+                var a = zone.transform.position;
+                var b = storage.transform.position;
+                a.y = b.y = 0f;
+                APC.Logistics.ConveyorBelt.Create(zone, storage, new[] { a, new Vector3(b.x, 0f, a.z), b });
+                return;
+            }
         }
 
         /// <summary>플레이어를 가장 가까운 열린 칸 가운데로 순간이동 (CharacterController는 잠깐 꺼야 위치가 안 되돌아감).</summary>
