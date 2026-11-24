@@ -37,6 +37,7 @@ namespace APC.Logistics
         {
             StorageKind.Trash => CargoOrigin.Trash,
             StorageKind.Returns => CargoOrigin.ReturnPallet,
+            StorageKind.Pallet => CargoOrigin.Unscanned, // 하차 칸 공간 = 미분류만 줌 (SharedStorage.OriginOnTake와 같게 — 다르면 작업 고정에 걸려 1개만 집힘)
             _ => CargoOrigin.Storage,
         };
 
