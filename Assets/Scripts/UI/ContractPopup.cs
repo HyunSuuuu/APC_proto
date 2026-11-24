@@ -8,7 +8,7 @@ namespace APC.UI
 {
     /// <summary>
     /// 사무실 책상 팝업 (GDD 4.3, 4.4, 5.1, 11.1, 11.3, 12.3). 두 책상이 같이 쓰고 연 책상에 따라 탭이 다르다:
-    /// A책상 = `고용 | 배치 | 스탯`(스탯 = 옛 업그레이드 탭), B책상 = `설비 | 트럭 | 모듈` (Open(deskB), 2026-11-18). 열려 있는 동안 게임이 멈춘다.
+    /// A책상 = `고용 | 배치 | 스탯`(스탯 = 옛 업그레이드 탭), B책상 = `설비 | 트럭 | 모듈 | 벨트` (Open(deskB), 2026-11-18 · 벨트 2026-11-24). 열려 있는 동안 게임이 멈춘다.
     /// 모양은 클립보드 (UI 샘플 ClipboardScene 방식, 2026-11-19): 나무 판 위 종이 더미, 오른쪽 인덱스 탭(선택 탭은 앞 종이 위로),
     /// 탭을 바꾸면 종이가 흔들리고(셔플) 새 페이지가 아래에서 떠오르며 제목이 튄다.
     /// 모듈 탭(ModulePanel)의 재배치는 닫을 때 부지에 적용한다.
@@ -30,11 +30,14 @@ namespace APC.UI
         [SerializeField] Button moduleTab;
         [SerializeField, Tooltip("B책상 `설비` (선반 단계, M16-3)")] Button facilityTab;
         [SerializeField, Tooltip("B책상 `트럭` (트럭 단계, M16-4)")] Button truckTab;
+        [SerializeField, Tooltip("B책상 `벨트` (컨베이어 벨트 설치, GDD 7.10)")] Button beltTab;
         [SerializeField] GameObject hirePage;
         [SerializeField] GameObject rosterPage;
         [SerializeField] GameObject upgradePage;
         [SerializeField] GameObject facilityPage;
         [SerializeField] GameObject truckPage;
+        [SerializeField] GameObject beltPage;
+        [SerializeField, Tooltip("벨트 탭 [설치] → 팝업 닫고 설치 상태 (BeltPlacer)")] Button beltInstallButton;
         [SerializeField, Tooltip("모듈 재배치 미니맵 (GDD 4.4). 열 때 Begin, 닫을 때 Apply")] ModulePanel modulePage;
         [SerializeField, Tooltip("도장 + 안내 글자 (고용 탭에서만 보임)")] GameObject stampArea;
 
@@ -48,7 +51,7 @@ namespace APC.UI
         [SerializeField] TMP_Text sheetDesc;
 
         // 순서 = Tab
-        static readonly string[] Titles = { "알바 고용", "알바 명부", "스탯 강화", "모듈 배치", "설비 강화", "트럭 강화" };
+        static readonly string[] Titles = { "알바 고용", "알바 명부", "스탯 강화", "모듈 배치", "설비 강화", "트럭 강화", "벨트 설치" };
         static readonly string[] Descs =
         {
             "도장을 끌어 이력서 카드에 찍으면 고용됩니다.",
@@ -57,6 +60,7 @@ namespace APC.UI
             "보관 · 반품 칸을 끌어 자리를 바꿉니다. 닫으면 적용됩니다.",
             "보관 모듈 선반 단계를 올립니다.",
             "하차 트럭 단계를 올립니다.",
+            "물건을 옮길 곳을 벨트로 잇습니다. 칸당 ₩{0}, 철거하면 절반을 돌려받습니다.",
         };
 
         Sequence transition;
@@ -84,8 +88,13 @@ namespace APC.UI
         {
             Instance = this;
             closeButton.onClick.AddListener(Close);
-            tabs = new[] { hireTab, rosterTab, upgradeTab, moduleTab, facilityTab, truckTab };
-            pages = new[] { hirePage, rosterPage, upgradePage, modulePage.gameObject, facilityPage, truckPage };
+            tabs = new[] { hireTab, rosterTab, upgradeTab, moduleTab, facilityTab, truckTab, beltTab };
+            pages = new[] { hirePage, rosterPage, upgradePage, modulePage.gameObject, facilityPage, truckPage, beltPage };
+            beltInstallButton.onClick.AddListener(() =>
+            {
+                Close();
+                if (BeltPlacer.Instance != null) BeltPlacer.Instance.Begin();
+            });
             tabColors = new Color[tabs.Length];
             for (var i = 0; i < tabs.Length; i++)
             {
@@ -93,21 +102,23 @@ namespace APC.UI
                 tabs[i].onClick.AddListener(() => SelectTab(index, false));
                 tabColors[i] = tabs[i].image.color;
             }
-            tabY = new[] { Rect(hireTab).anchoredPosition.y, Rect(rosterTab).anchoredPosition.y, Rect(upgradeTab).anchoredPosition.y };
+            var y0 = Rect(hireTab).anchoredPosition.y;
+            var step = Rect(rosterTab).anchoredPosition.y - y0;
+            tabY = new[] { y0, y0 + step, y0 + step * 2f, y0 + step * 3f }; // 4번째 = B책상 `벨트`
             tabX = Rect(hireTab).anchoredPosition.x;
             body.SetActive(false);
         }
 
         static RectTransform Rect(Component c) => (RectTransform)c.transform;
 
-        /// <param name="deskB">true = B책상 (`설비 | 트럭 | 모듈`), false = A책상 (`고용 | 배치 | 스탯`).</param>
+        /// <param name="deskB">true = B책상 (`설비 | 트럭 | 모듈 | 벨트`), false = A책상 (`고용 | 배치 | 스탯`).</param>
         public void Open(bool deskB)
         {
             if (IsOpen) return;
             IsOpen = true;
             body.SetActive(true);
             modulePage.Begin();
-            var shown = deskB ? new[] { facilityTab, truckTab, moduleTab } : new[] { hireTab, rosterTab, upgradeTab };
+            var shown = deskB ? new[] { facilityTab, truckTab, moduleTab, beltTab } : new[] { hireTab, rosterTab, upgradeTab };
             foreach (var tab in tabs) tab.gameObject.SetActive(System.Array.IndexOf(shown, tab) >= 0);
             for (var i = 0; i < shown.Length; i++) Rect(shown[i]).anchoredPosition = new Vector2(tabX, tabY[i]);
             current = -1;
@@ -143,7 +154,7 @@ namespace APC.UI
                 });
         }
 
-        enum Tab { Hire, Roster, Upgrade, Module, Facility, Truck }
+        enum Tab { Hire, Roster, Upgrade, Module, Facility, Truck, Belt }
 
         void SelectTab(Tab tab, bool instant)
         {
@@ -162,7 +173,7 @@ namespace APC.UI
             }
             stampArea.SetActive(tab == Tab.Hire);
             sheetTitle.text = Titles[index];
-            sheetDesc.text = Descs[index];
+            sheetDesc.text = string.Format(Descs[index], GameManager.Instance.Database.Logistics.BeltCellCost);
 
             // 새 페이지: 아래 16에서 떠오르며 나타남
             var page = Rect(pages[index].transform);

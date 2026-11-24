@@ -166,7 +166,7 @@ namespace APC.Logistics
             for (var i = pile.Count - 1; i >= 0; i--)
             {
                 var candidate = pile.Items[i];
-                if (!CanGive(candidate)) continue;
+                if (!CanGive(candidate) || !ConveyorBelt.Settled(candidate)) continue;
                 var before = candidate.Origin;
                 candidate.Origin = OriginOnTake(candidate); // End는 출처로 받을지 정한다
                 var wanted = end.Wants(candidate);

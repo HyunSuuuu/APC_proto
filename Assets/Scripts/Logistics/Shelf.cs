@@ -94,7 +94,7 @@ namespace APC.Logistics
         }
 
         // 벨트는 D 가구(팔레트 랙)를 다루지 않는다 (GDD 7.10)
-        bool BeltAllowed => Item != null && !Warehouse.IsLarge(Item);
+        public bool BeltAllowed => Item != null && !Warehouse.IsLarge(Item);
 
         /// <summary>벨트 End: 이 색 일반 상자(하차 칸 공간 · 재포장 팔레트에서), 구역 빈자리 − 이 구역으로 벨트에서 오는 수 > 0.</summary>
         public bool Wants(Cargo cargo)
@@ -122,7 +122,7 @@ namespace APC.Logistics
         {
             var orders = Orders.OrderService.Instance;
             if (!BeltAllowed || end is not TruckLoadZone || !Economy.PartService.OutboundOpen || orders == null || orders.GetDemand(Item) <= 0) return null;
-            var from = Group().Find(s => s.pile.Count > 0);
+            var from = Group().Find(s => s.pile.Count > 0 && ConveyorBelt.Settled(s.pile.Items[^1]));
             if (from == null) return null;
             var cargo = from.TakeOne();
             if (end.Wants(cargo)) return cargo;

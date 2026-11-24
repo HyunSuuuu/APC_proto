@@ -381,6 +381,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
   - **추적 모드**: 초점이 플레이어를 `SmoothDamp`로 따라가고, 카메라는 초점에서 `pitch` · `yaw` · 거리만큼 떨어진다.
   - **튜토리얼 강조** (M13-17): `Spotlight(point, zoom, duration)` = 초점을 대상으로 · 거리를 기본 × zoom으로 (unscaled, 멈춘 시간에도), 그동안 추적 안 함. `EndSpotlight()` = 추적 복귀 (`ReturnToFollow`도 unscaled).
   - **자유 모드**: 한 손가락 드래그로 이동(손가락 아래 바닥 지점이 따라오게), 두 손가락 핀치나 마우스 휠로 줌.
+  - **위에서 보기** (벨트 설치, M18-3): `BeginTopDown(area, duration)` = Pitch → 90° · Yaw → 0(격자가 화면과 나란히) · area가 다 보이는 거리로 (unscaled). 그동안 추적 안 함, 이동 · 줌은 `PanTopDown` · `ZoomTopDown`(바깥이 부름), `ScreenToGround`. `EndTopDown()` = 각도 되돌리며 추적 복귀.
   - 추적으로 돌아갈 때는 0.4초 동안 부드럽게 복귀한다.
 - **주의**: `[ExecuteAlways]` — Play 전에도 config대로 플레이어를 비춘다. 값이 같으면 Transform을 건드리지 않아 씬이 수정된 것으로 표시되지 않는다. 조이스틱 방향 변환용 `Yaw`를 `PlayerMover`에 제공한다.
 
@@ -614,10 +615,11 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### ConveyorBelt
 [Logistics/ConveyorBelt.cs](../Scripts/Logistics/ConveyorBelt.cs)
 - **역할**: 컨베이어 벨트 1개 (GDD 7.10, M18-1 · 2). 꺾임 점 경로를 따라 Start → End로 화물을 옮긴다. 인터페이스도 이 파일: `IBeltStart.TakeForBelt(end)`(End가 원하는 것만 꺼냄), `IBeltEnd.Wants`(종류 + 벨트로 오는 수를 뺀 자리 — Start가 꺼내기 전에 물음) · `CanTakeFromBelt`(지금 자리) · `ReceiveFromBelt`.
-- **동작**: `Create(start, end, path)`가 GameObject + 구간마다 회색 판(`LogisticsConfig.beltMaterial` `M_Belt`, 충돌체 없음). `Update`: 맨 앞이 끝에 닿고 End가 받으면 넘김 → 뒤 화물은 앞과 `beltCellSize`(2m) 간격, 초당 `beltCellsPerSecond`칸. 올리기는 한 프레임에 한 번 `FeedAll` — 첫 칸이 빈 벨트를 **오래 못 받은 순**으로 Start에 물어봄(같은 Start 벨트끼리 번갈아). End가 `TruckLoadZone`인데 상차 시간이 끝나면(`!PartService.OutboundOpen`) 벨트 위 상자를 Start 선반으로 되돌림. 게임 시간 기준(멈추면 멈춤).
+- **동작**: `Create(start, end, path)`가 GameObject + 구간마다 회색 판(`LogisticsConfig.beltMaterial` `M_Belt`, 충돌체 없음). `Update`: 맨 앞이 끝에 닿고 End가 받으면 넘김 → 뒤 화물은 앞과 `beltCellSize`(2m) 간격, 초당 `beltCellsPerSecond`칸. 올리기는 한 프레임에 한 번 `FeedAll` — 첫 칸이 빈 벨트를 **오래 못 받은 순**으로 Start에 물어봄(같은 Start 벨트끼리 번갈아). 꺼낸 상자는 벨트 첫 점까지 `CarryConfig` 비행 시간 · 높이로 `DOJump` — 점프 중(`DOTween.IsTweening`)엔 첫 칸을 차지한 채 안 움직임. Start(공용 더미 · 선반)는 `Settled(cargo)` = 착지(`Cargo.LandedAt`, `CargoPile.Add`가 기록) 후 `beltPickupDelay` 0.3초 지난 상자만 내줌 (쌓이자마자 빠지는 순간이동 방지, 2026-11-24). End가 `TruckLoadZone`인데 상차 시간이 끝나면(`!PartService.OutboundOpen`) 벨트 위 상자를 Start 선반으로 되돌림. 게임 시간 기준(멈추면 멈춤).
 - **연결 7구간**: `TruckPickupZone` → `SharedStorage`(하차 칸 공간, 같은 칸만), `SharedStorage`(공간 · 반품 팔레트 · 쓰레기 출력 · 재포장 팔레트, `CanGive` = 사람이 집는 조건과 같음) → `Shelf` · `SharedStorage`(반품 팔레트 · 재포장 입력) · `TrashDropZone`, `Shelf` → `TruckLoadZone`. D 가구 · 금 · 팔레트 랙 제외.
 - **'찼다' 계산**: `CountOnBelts(벨트 조건, 화물 조건)`. `Warehouse.CountCarried`(손 + 벨트)와 `SharedStorage.Allowance`가 벨트 위 화물을 세므로 선반 여유 · 반품 여유 · 상차 수요 · 하차 칸 `Room`이 모두 벨트를 포함한다.
-- **주의**: Start · End가 사라지면 멈추기만 함 (철거는 M18-4). 시험 = 디버그 `Belt test`(첫 하차 칸 → 공간, 중심끼리 가로 → 세로) 또는 `Create` 직접. 경로 끝은 아직 오브젝트 중심 — 한 변에 붙이기는 M18-3 설치에서
+- **설치용 함수** (M18-3): `CanConnect(start, end)` = 이을 수 있는 7구간(D 가구 선반 제외). `TileOf` · `TileCenter` = 2m 칸(중심 = 2의 배수, 모듈 10m 칸과 맞물림). `Footprint(a, b, out)` = 0.5m마다 표본 + 벨트 폭 양쪽 칸. `CellCount(path)` = 길이 ÷ 2m 올림(비용). 다른 벨트와는 겹쳐도 됨(칸 점유 없음).
+- **주의**: Start · End가 사라지면 멈추기만 함 (철거는 M18-4). 설치는 `BeltPlacer`. 디버그 `Belt test`(첫 하차 칸 → 공간, 중심끼리 가로 → 세로)는 배치 규칙을 안 따름
 
 #### OutboundBay
 [Logistics/OutboundBay.cs](../Scripts/Logistics/OutboundBay.cs)
@@ -865,7 +867,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### LevelUpBanner
 [UI/LevelUpBanner.cs](../Scripts/UI/LevelUpBanner.cs)
 - **역할**: 레벨업 연출 v1 — 화면 중앙 `LEVEL UP! Lv.N` + 해금 한 줄(`LevelTable.GetUnlockNote`) + 그 레벨에 합류하는 `새 트럭: 색`(`CompanyDefinition.UnlockLevel`)이 약 2초 떴다 사라지고, 플레이어 위 색종이 파티클(`LevelUpConfetti`)이 터진다.
-- **주의**: 게임을 멈추지 않고 입력도 막지 않는다 (CanvasGroup `blocksRaycasts = false`). 여러 레벨이 한꺼번에 오르면 차례로 보여준다.
+- **주의**: 게임을 멈추지 않고 입력도 막지 않는다 (CanvasGroup `blocksRaycasts = false`). 여러 레벨이 한꺼번에 오르면 차례로 보여준다. 연출은 게임 시간이라 시간이 멈추면 멈춘 채 남는다 → 멈추는 화면은 `Dismiss()`(대기열 · 연출 바로 끔)를 부른다 (벨트 설치 `BeltPlacer`).
 
 #### GuideArrow
 [UI/GuideArrow.cs](../Scripts/UI/GuideArrow.cs)
@@ -939,10 +941,22 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### ContractPopup
 [UI/ContractPopup.cs](../Scripts/UI/ContractPopup.cs)
-- **역할**: 사무실 책상 팝업 — 두 책상이 같이 쓴다. **A책상 `고용 | 배치 | 스탯`**(스탯 = `upgradeTab` · `UpgradePanel`), **B책상 `설비 | 트럭 | 모듈`** (GDD 4.3, M16-2 2026-11-18). 열려 있는 동안 게임이 멈춘다. 고용 탭(`HirePanel`)은 고용해도 열린 채다.
+- **역할**: 사무실 책상 팝업 — 두 책상이 같이 쓴다. **A책상 `고용 | 배치 | 스탯`**(스탯 = `upgradeTab` · `UpgradePanel`), **B책상 `설비 | 트럭 | 모듈 | 벨트`** (GDD 4.3, M16-2 2026-11-18, `벨트` M18-3). `벨트` 페이지 = [설치] 하나(`beltInstallButton` → 팝업 닫고 `BeltPlacer.Begin`), 설명에 칸당 비용(`string.Format`). 탭 자리 `tabY` 4개 = 고용 · 배치 간격으로 늘림. 열려 있는 동안 게임이 멈춘다. 고용 탭(`HirePanel`)은 고용해도 열린 채다.
 - **모양** (2026-11-19, UI 샘플 `ClipboardScene` 방식): `Panel` = 나무 판 + 위 가운데 `MetalClip`, 그 안 `PaperStack` = `PaperBack2` · `PaperBack1`(살짝 기움) · `TabsBehind` · `PaperFront`(페이지 6개 · `SheetTitle` · `SheetDesc` · 구분선) · `TabsFront`. 탭은 오른쪽 가장자리 인덱스 탭(왼쪽 12가 종이 밑, 탭마다 색 = 씬에 칠한 색). 둥근 모서리 = `UISprite` Sliced의 `pixelsPerUnitMultiplier`(판 0.15 · 종이 0.22 · 탭 0.5, 작을수록 둥긂). 스탯 · 트럭 페이지는 줄마다 테두리 칸 `RowNBox`. 씬에서 MCP로 만듦 (빌더 코드에 없음).
 - **동작**: `Open(deskB)` → `modulePage.Begin()`(지금 배치를 미니맵에) → 그 책상 탭 3개만 켜고 위에서부터 세 자리(`tabY` = 처음 고용 · 배치 · 스탯 자리, `Awake`에 저장)에 놓음 → 고용 / 설비 탭 → `GameManager.OpenPopup`. `SelectTab(Tab, instant)`이 페이지를 켜고 끄고 제목 · 설명을 바꾼다. 선택 탭은 `tabsFront`로 옮겨 앞으로 나오며 1.03배 · 밝게, 나머지는 `tabsBehind`에서 7 들어가 0.97배 · 어둡게(0.84). 탭을 바꾸면 새 페이지가 아래 16에서 떠오르며 페이드(`CanvasGroup`, 없으면 붙임), 앞 종이 셔플(들림 → 흔들림 → OutBack 착지) · 뒤 종이 흔들림, 제목 튐. 이미 선택된 탭을 누르면 탭만 튐. 설비 · 트럭 페이지는 지금 '준비 중' 글자만 (M16-3 · M16-4, 씬에서 MCP로 만듦 — `FacilityTab` · `TruckTab` = `ModuleTab` 복제). 도장 · 안내 글자 묶음(`stampArea`)은 고용 탭에서만 보인다. `Close` → `modulePage.Apply()`(모듈 재배치 적용) → 닫힘 연출이 끝나면 `ClosePopup`. 트윈은 `SetUpdate(true)`.
 - **주의**: 루트 오브젝트는 항상 켜 두고 자식 `body`만 켜고 끈다 (꺼져 있으면 `Instance`가 등록되지 않음). Build Site가 UI를 통째로 다시 만든다 — 빌더 코드에는 설비 · 트럭 탭이 없어서 다시 만들면 빠진다 (shortcut: Build Site 금지 중이라 빌더는 안 고침).
+
+#### BeltPlacer
+[UI/BeltPlacer.cs](../Scripts/UI/BeltPlacer.cs)
+- **역할**: 컨베이어 벨트 설치 상태 (GDD 7.10, M18-3). HUD `BeltPlacer` 오브젝트, 자식 `UI` = [저장] · [취소] · 비용 글자 · 위 안내 한 줄 (씬에서 MCP로 만듦).
+- **동작**: `Begin()` → `OpenPopup`(멈춤) · 열린 칸 2m 타일 · 시설 사각형(충돌체 — 바닥 · 사람 · 화물 빼고 — + 선반 모델) · 다른 벨트 칸을 모으고, 격자 메시(붉은 칸 = 시설 · 존 · 벨트가 걸친 칸)를 깔고 `CameraRig.BeginTopDown`. 입력: PC 마우스 이동 = 미리보기, 클릭 = 점, 12px 넘게 끌면 화면 이동, 휠 = 줌 / 터치 한 손가락 = 미리보기 · 떼면 점, 두 손가락 = 이동 · 줌. UI 위에서 시작한 입력은 무시.
+  - 첫 점 = Start 존(`AsStart`: 하차 트럭 존 · 보관 존(재포장 입력 빼고) · 선반 존) 중심. 이후 마지막 점에서 가로/세로(큰 쪽)로 2m 격자 값마다 늘리고 막히면 멈춤. End 후보 존(`AsEnd` + `CanConnect`) 위면 `TryConnect`: 가까운 변부터 꺾임 (P.x, 중심.z) / (중심.x, P.z) → 변 중점, 막혔으면 다른 변. 아직 꺾임 점이 없고 꺾임이 Start 존 안이면 두 존 변 사이 가운데에서 Z자. `TrimStart` = 첫 점을 첫 구간 방향 Start 변으로.
+  - `SegmentFree` = 표본마다 열린 칸 · 벨트 없는 칸 + 벨트 폭(1.2m) 사각형이 시설 · 다른 존과 안 겹침. Start · End 존 안 표본은 건너뜀.
+  - 그리기: 매 프레임 미리보기 메시(Start 파랑 · End 초록 · 경로 파랑/초록, 돈 모자라면 빨강) + 비용 글자(경로 끝 화면 위치 + `costOffset`). [저장] = `done` + 돈 충분 → `TrySpend` · `ConveyorBelt.Create` → 끝. [취소] · 저장 뒤 `Finish` = 메시 삭제 · `EndTopDown` · `ClosePopup`.
+- **연결**: `LogisticsConfig.beltCellCost` · `beltOverlayMaterial`(`M_BeltOverlay` = Sprites/Default, 정점 색). 색 · 끌기 기준 · 카메라 시간은 컴포넌트 값.
+- **겹침**: 다른 벨트와는 겹쳐도 됨. 자기 벨트는 `OverlapsSelf` — 새 구간의 꺾는 자리 1.45m 밖 표본이 이미 그린 구간과 벨트 폭(1.4m) 안이면 막힘 (되돌아가기 · 지그재그 · 가로지르기 불가).
+- **그 밖**: [선택 취소] `Undo` = End 확정 → 마지막 점 → Start 순. 들어올 때 `LevelUpBanner.Dismiss()`, `hideWhileActive`(카메라 버튼)를 숨겼다가 끝나면 원래 켜짐 상태로.
+- **주의**: 붉은 칸은 표시용(칸이 존 일부만 덮어도 붉음) — 판정은 사각형이라 붉은 칸 가장자리를 지날 수 있음. 보관 더미(`SharedStorage`)는 하차 칸에선 모듈 `Content`에 붙어 경계를 안 씀. 모듈 팝 연출 중(해금 직후)에 들어오면 시간이 멈춰 존 크기가 0인 채 남음.
 
 #### StampCard (추상)
 [UI/StampCard.cs](../Scripts/UI/StampCard.cs)

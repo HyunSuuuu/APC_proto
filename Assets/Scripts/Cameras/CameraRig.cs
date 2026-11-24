@@ -41,6 +41,9 @@ namespace APC.Cameras
         float distance;
         Tween returnTween;
         bool spotlight; // 튜토리얼 강조 중: 플레이어를 따라가지 않는다
+        bool topDown;   // 벨트 설치 상태 (GDD 7.10): 따라가지 않고 바깥(BeltPlacer)이 이동 · 줌
+        float topDownBlend; // 0 = config 각도, 1 = 위에서 수직
+        float topDownMaxDistance;
 
         public ReadOnlyReactiveProperty<CameraMode> Mode => mode;
 
@@ -86,7 +89,7 @@ namespace APC.Cameras
             {
                 HandleFreeInput();
             }
-            else if (returnTween == null && !spotlight)
+            else if (returnTween == null && !spotlight && !topDown)
             {
                 distance = config.DefaultDistance;
                 if (target != null) focus = Vector3.SmoothDamp(focus, target.position, ref focusVelocity, config.FollowDamping);
@@ -176,6 +179,63 @@ namespace APC.Cameras
             ReturnToFollow();
         }
 
+        /// <summary>
+        /// 벨트 설치 상태 (GDD 7.10): 위에서 수직으로 내려다보며(Yaw 0 = 격자가 화면과 나란히) area 전체가 보이게 줌아웃한다. 시간이 멈춰도 움직인다.
+        /// 이동 · 줌은 PanTopDown · ZoomTopDown, 끝나면 EndTopDown으로 플레이어에게 돌아온다.
+        /// </summary>
+        public void BeginTopDown(Bounds area, float duration)
+        {
+            returnTween?.Kill();
+            returnTween = null;
+            mode.Value = CameraMode.Follow;
+            topDown = true;
+            // 직교: 화면 반 높이 = OrthographicSize × 거리 / 기본 거리 → area가 들어가는 거리
+            var halfHeight = Mathf.Max(area.extents.z, area.extents.x / Mathf.Max(0.1f, cam.aspect)) * 1.1f;
+            var goal = config.Orthographic
+                ? config.DefaultDistance * halfHeight / config.OrthographicSize
+                : halfHeight / Mathf.Tan(config.FieldOfView * 0.5f * Mathf.Deg2Rad);
+            topDownMaxDistance = Mathf.Max(goal, config.MaxDistance) * 1.5f;
+            var startFocus = focus;
+            var startDistance = distance;
+            var startBlend = topDownBlend;
+            var center = new Vector3(area.center.x, 0f, area.center.z);
+            returnTween = DOVirtual.Float(0f, 1f, duration, t =>
+                {
+                    focus = Vector3.Lerp(startFocus, center, t);
+                    distance = Mathf.Lerp(startDistance, goal, t);
+                    topDownBlend = Mathf.Lerp(startBlend, 1f, t);
+                })
+                .SetEase(Ease.InOutCubic)
+                .SetUpdate(true)
+                .SetLink(gameObject)
+                .OnComplete(() => returnTween = null);
+        }
+
+        /// <summary>설치 상태: 화면의 from 아래 바닥 지점이 to로 따라오게 옮긴다.</summary>
+        public void PanTopDown(Vector2 from, Vector2 to)
+        {
+            if (topDown && TryGroundPoint(from, out var a) && TryGroundPoint(to, out var b)) focus += a - b;
+        }
+
+        /// <summary>설치 상태: 거리 × factor (1보다 작으면 확대).</summary>
+        public void ZoomTopDown(float factor)
+        {
+            if (topDown) distance = Mathf.Clamp(distance * factor, config.MinDistance, topDownMaxDistance);
+        }
+
+        public void EndTopDown()
+        {
+            if (!topDown) return;
+            topDown = false;
+            returnTween?.Kill();
+            var startBlend = topDownBlend;
+            DOVirtual.Float(startBlend, 0f, config.ReturnDuration, t => topDownBlend = t).SetUpdate(true).SetLink(gameObject);
+            ReturnToFollow();
+        }
+
+        /// <summary>화면 위치 → 바닥(y = 0) 지점.</summary>
+        public bool ScreenToGround(Vector2 screenPosition, out Vector3 point) => TryGroundPoint(screenPosition, out point);
+
         void HandleFreeInput()
         {
             var gm = GameManager.Instance;
@@ -245,7 +305,7 @@ namespace APC.Cameras
 
         void ApplyCamera()
         {
-            var rotation = Quaternion.Euler(config.Pitch, config.Yaw, 0f);
+            var rotation = Quaternion.Euler(Mathf.Lerp(config.Pitch, 90f, topDownBlend), Mathf.LerpAngle(config.Yaw, 0f, topDownBlend), 0f);
             var position = focus + Vector3.up * config.FocusHeight + rotation * new Vector3(0f, 0f, -distance);
             if (transform.position != position || transform.rotation != rotation)
                 transform.SetPositionAndRotation(position, rotation);

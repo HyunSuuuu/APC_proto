@@ -39,6 +39,7 @@ namespace APC.Logistics
             var visual = cargo.Visual;
             t.DOKill();
             t.SetParent(root, true);
+            cargo.LandedAt = Time.time + flyDuration;
             t.DOLocalJump(slotPosition(items.Count - 1), jumpPower, 1, flyDuration)
                 .OnComplete(() => visual.DOPunchScale(Vector3.one * config.LandPunch, config.LandPunchDuration, 6, 0.5f));
             t.DOLocalRotateQuaternion(Quaternion.identity, flyDuration);

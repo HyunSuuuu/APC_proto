@@ -42,6 +42,7 @@ namespace APC.Logistics
         float length;
 
         public IReadOnlyList<Cargo> Cargos => cargos;
+        public IReadOnlyList<Vector3> Points => points;
         public IBeltStart Start => start;
         public IBeltEnd End => end;
         float lastFeed; // 같은 Start의 벨트끼리 번갈아 올리기 (오래 못 받은 벨트 먼저)
@@ -64,6 +65,63 @@ namespace APC.Logistics
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() => Registered.Clear();
+
+        /// <summary>
+        /// 이을 수 있는 Start → End (GDD 7.10 연결 구간 7종). D 가구(큰 물건) 선반 · 금 · 팔레트 랙은 빠진다.
+        /// </summary>
+        public static bool CanConnect(IBeltStart start, IBeltEnd end) => start switch
+        {
+            TruckPickupZone pickup => ReferenceEquals(end, pickup.Bay.Storage),
+            SharedStorage { Kind: StorageKind.Pallet } => end is Shelf { BeltAllowed: true } or SharedStorage { Kind: StorageKind.Returns },
+            SharedStorage { Kind: StorageKind.Returns } => end is SharedStorage { Kind: StorageKind.RepackInput },
+            SharedStorage { Kind: StorageKind.Trash } => end is TrashDropZone,
+            SharedStorage { Kind: StorageKind.Repacked } => end is Shelf { BeltAllowed: true },
+            Shelf { BeltAllowed: true } => end is TruckLoadZone,
+            _ => false,
+        };
+
+        /// <summary>착지 후 beltPickupDelay가 지났는가 — 쌓이자마자 벨트로 빠져 순간이동처럼 보이지 않게 (GDD 7.10).</summary>
+        public static bool Settled(Cargo cargo) => Time.time >= cargo.LandedAt + GameManager.Instance.Database.Logistics.BeltPickupDelay;
+
+        /// <summary>월드 위치 → 2m 칸 (칸 중심 = 칸 크기의 배수, 모듈 10m 칸과 맞물림).</summary>
+        public static Vector2Int TileOf(Vector3 position)
+        {
+            var size = GameManager.Instance.Database.Logistics.BeltCellSize;
+            return new Vector2Int(Mathf.RoundToInt(position.x / size), Mathf.RoundToInt(position.z / size));
+        }
+
+        public static Vector3 TileCenter(Vector2Int tile)
+        {
+            var size = GameManager.Instance.Database.Logistics.BeltCellSize;
+            return new Vector3(tile.x * size, 0f, tile.y * size);
+        }
+
+        /// <summary>
+        /// a → b 구간이 덮는 칸들: 0.5m마다 벨트 폭 양쪽 가장자리 칸 (격자에서 벗어난 Start · End 연결 구간은 두 칸에 걸침).
+        /// 각 표본 위치와 칸을 out에 더한다.
+        /// </summary>
+        public static void Footprint(Vector3 a, Vector3 b, List<(Vector3 point, Vector2Int tile)> output)
+        {
+            var length = Vector3.Distance(a, b);
+            if (length <= 0f) return;
+            var dir = (b - a) / length;
+            var side = Vector3.Cross(Vector3.up, dir) * (GameManager.Instance.Database.Logistics.BeltCellSize * 0.3f);
+            var steps = Mathf.CeilToInt(length / 0.5f);
+            for (var i = 0; i <= steps; i++)
+            {
+                var p = a + dir * (length * i / steps);
+                output.Add((p, TileOf(p + side)));
+                output.Add((p, TileOf(p - side)));
+            }
+        }
+
+        /// <summary>경로 길이를 칸 수로 (비용 = 칸 수 × beltCellCost). 최소 1칸.</summary>
+        public static int CellCount(IReadOnlyList<Vector3> path)
+        {
+            var length = 0f;
+            for (var i = 1; i < path.Count; i++) length += Vector3.Distance(path[i - 1], path[i]);
+            return Mathf.Max(1, Mathf.CeilToInt(length / GameManager.Instance.Database.Logistics.BeltCellSize - 0.01f));
+        }
 
         /// <summary>벨트를 만든다. path = Start 쪽 끝부터 꺾임 점 · End 쪽 끝 (월드, 가로 · 세로로만 이어짐).</summary>
         public static ConveyorBelt Create(IBeltStart start, IBeltEnd end, IReadOnlyList<Vector3> path)
@@ -110,6 +168,11 @@ namespace APC.Logistics
             var limit = length;
             for (var i = 0; i < cargos.Count; i++)
             {
+                if (DOTween.IsTweening(cargos[i].transform)) // 올라가는 점프 중: 첫 칸을 차지한 채 기다림
+                {
+                    limit = distances[i] - spacing;
+                    continue;
+                }
                 var d = Mathf.Max(distances[i], Mathf.Min(distances[i] + speed * dt, limit));
                 distances[i] = d;
                 Place(cargos[i], d);
@@ -143,13 +206,26 @@ namespace APC.Logistics
                 cargo.transform.SetParent(belt.transform, true);
                 belt.cargos.Add(cargo);
                 belt.distances.Add(0f);
-                belt.Place(cargo, 0f);
+                // 꺼낸 자리 → 벨트 첫 점: 플레이어가 집을 때와 같은 포물선 (GDD 7.10)
+                var carry = GameManager.Instance.Database.Carry;
+                belt.Pose(0f, out var position, out var rotation);
+                cargo.transform.DOJump(position, carry.JumpPower, 1, carry.FlyDuration);
+                cargo.transform.DORotateQuaternion(rotation, carry.FlyDuration);
             }
         }
 
         void Place(Cargo cargo, float distance)
         {
+            Pose(distance, out var position, out var rotation);
+            cargo.transform.SetPositionAndRotation(position, rotation);
+        }
+
+        /// <summary>경로 위 거리 → 화물 위치 · 방향 (벨트 위 높이).</summary>
+        void Pose(float distance, out Vector3 position, out Quaternion rotation)
+        {
             var height = GameManager.Instance.Database.Logistics.BeltHeight;
+            position = points.Count > 0 ? points[0] : transform.position;
+            rotation = Quaternion.identity;
             for (var i = 1; i < points.Count; i++)
             {
                 var segment = Vector3.Distance(points[i - 1], points[i]);
@@ -159,7 +235,8 @@ namespace APC.Logistics
                     continue;
                 }
                 var dir = (points[i] - points[i - 1]).normalized;
-                cargo.transform.SetPositionAndRotation(points[i - 1] + dir * Mathf.Min(distance, segment) + Vector3.up * height, Quaternion.LookRotation(dir));
+                position = points[i - 1] + dir * Mathf.Min(distance, segment) + Vector3.up * height;
+                rotation = Quaternion.LookRotation(dir);
                 return;
             }
         }

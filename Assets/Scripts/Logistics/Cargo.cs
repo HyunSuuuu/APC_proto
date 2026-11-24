@@ -71,6 +71,9 @@ namespace APC.Logistics
 
         /// <summary>트럭에서 꺼낸 화물이 가야 할 하차 칸 공간 (하차 칸마다 따로, GDD 7.2). 그 밖에는 null.</summary>
         public SharedStorage Home { get; set; }
+
+        /// <summary>더미 · 선반에 착지하는 게임 시각 (CargoPile.Add). 벨트는 착지 후 잠깐 지난 상자만 가져간다 (GDD 7.10).</summary>
+        public float LandedAt { get; set; }
         public Transform Visual => visual;
 
         /// <summary>
@@ -128,6 +131,7 @@ namespace APC.Logistics
             State = CargoState.Normal;
             Origin = CargoOrigin.None;
             Home = null;
+            LandedAt = 0f;
             Repacked = false;
             ApplyLook();
         }

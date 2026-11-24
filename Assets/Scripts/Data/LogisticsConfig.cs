@@ -32,6 +32,9 @@ namespace APC.Data
         [SerializeField, Min(0.1f), Tooltip("초당 움직이는 칸 수 (GDD 7.10 임시 1)")] float beltCellsPerSecond = 1f;
         [SerializeField, Min(0.02f), Tooltip("벨트 판 두께 = 화물이 올라가는 높이 (m)")] float beltHeight = 0.15f;
         [SerializeField, Tooltip("벨트 판 재질 (임시 회색, 빌드에 들어가게 에셋 참조)")] Material beltMaterial;
+        [SerializeField, Min(0), Tooltip("벨트 2m 칸당 설치비 (GDD 7.10 임시 20)")] int beltCellCost = 20;
+        [SerializeField, Min(0f), Tooltip("더미 · 선반에 착지한 뒤 이만큼(초) 지나야 벨트가 가져감 — 쌓이는 모습이 보이게 (GDD 7.10 임시 0.3)")] float beltPickupDelay = 0.3f;
+        [SerializeField, Tooltip("설치 상태 격자 · 미리보기 재질 (정점 색 · 반투명, Sprites/Default)")] Material beltOverlayMaterial;
 
         [Header("반품 (GDD 7.7, 반품 구역)")]
         [SerializeField, Range(0f, 1f), Tooltip("반품 구역을 지은 뒤 하차 상자 1개가 찌그러진 상자일 확률 (0.01 = 1%, GDD 7.7 임시)")] float returnChance = 0.01f;
@@ -47,6 +50,9 @@ namespace APC.Data
         public float BeltCellsPerSecond => beltCellsPerSecond;
         public float BeltHeight => beltHeight;
         public Material BeltMaterial => beltMaterial;
+        public int BeltCellCost => beltCellCost;
+        public float BeltPickupDelay => beltPickupDelay;
+        public Material BeltOverlayMaterial => beltOverlayMaterial;
         public float ReturnChance => returnChance;
         public int ReturnBinCapacity => returnBinCapacity;
         public float RepackSuccessChance => repackSuccessChance;
