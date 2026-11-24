@@ -1042,18 +1042,19 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### CharacterToon
 [Visuals/CharacterToon.cs](../Scripts/Visuals/CharacterToon.cs)
-- **역할**: 캐릭터 툰 + 검정 외곽선. 켜지면 자식 `SkinnedMeshRenderer`(꺼진 코스튬 포함)의 URP Lit 재질을 "원래 재질 사본 + `M_Toon`(Shader Graphs/APC_Toon) 셰이더"로 바꾸고 마지막에 `M_Outline` 슬롯을 붙인다. 끄면 되돌림. 들고 있는 상자(MeshRenderer)는 건드리지 않음.
+- **역할**: 캐릭터 툰 + 검정 외곽선. 켜지면 자식 `SkinnedMeshRenderer`(꺼진 코스튬 포함)의 URP Lit 재질을 "원래 재질 사본 + `M_Toon`(`APC/Toon`, `Shaders/Toon/APC_Toon.shader`) 셰이더"로 바꾼다. 외곽선은 같은 셰이더의 Outline 3패스라 슬롯을 붙이지 않는다(2026-11-24부터. 전엔 마지막 슬롯에 `M_Outline`을 붙여 마지막 서브메시에만 선이 생겼고, 지금은 서브메시마다 생김). Lit에 없는 값(그림자 · 외곽선)은 `M_Toon`에서 복사, 사본은 `OutlineOuter` 끔. `outline` 체크를 끄면 외곽선 패스도 끔. 끄면 되돌림. 들고 있는 상자(MeshRenderer)는 건드리지 않음.
 - **연결**: 씬 `Player` · `StaffWorker` 프리팹 루트 (MCP).
-- **주의**: APC_Toon은 그림자색 = 채도(원색, `_ShadowSaturation` 0~3, 기본 1) × 명도(`_ShadowBrightness` 0~1, 기본 0.5) × 색조(`_BaseMap` A채널로 `_ShadowWarmColor`(검정) ↔ `_ShadowCoolColor`(흰색) 섞음, 둘 다 기본 흰색), 밝은 쪽 = 원색으로 따로 만든 뒤 빛 경계로 섞는다. 경계는 `smoothstep(0.5 ± _ShadowSoftness, N·L)`(0.001~0.5, 기본 0.1)로 그라데이션. 이 네 값은 Lit 재질에 없어서 사본을 만들 때 `M_Toon` 값을 복사한다. 사본은 켜질 때 만드므로 Play 중에 M_Toon 값을 바꾸면 컴포넌트를 껐다 켜야 반영된다.
+- **주의**: 2026-11-24 Shader Graph → HLSL(같은 화면, 픽셀 차이 0). 그래프처럼 라이트 색 · 그림자 받기 · 안개 · `_BaseMap` 타일링은 안 쓰고 SSAO는 곱한다. 패스 = ForwardToon · ShadowCaster · DepthOnly · DepthNormals · OutlineMask · OutlineHull · OutlineOuter, 인스턴싱 변형 없음(스킨 메시 전용). 스텐실 규칙을 바꾸면 `APC_OutlineStencil.shader`와 함께 고친다(함수는 `Shaders/Outline/APC_Outline.hlsl` 공용). APC_Toon은 그림자색 = 채도(원색, `_ShadowSaturation` 0~3, 기본 1) × 명도(`_ShadowBrightness` 0~1, 기본 0.5) × 색조(`_BaseMap` A채널로 `_ShadowWarmColor`(검정) ↔ `_ShadowCoolColor`(흰색) 섞음, 둘 다 기본 흰색), 밝은 쪽 = 원색으로 따로 만든 뒤 빛 경계로 섞는다. 경계는 `smoothstep(0.5 ± _ShadowSoftness, N·L)`(0.001~0.5, 기본 0.1)로 그라데이션. 이 네 값은 Lit 재질에 없어서 사본을 만들 때 `M_Toon` 값을 복사한다. 사본은 켜질 때 만드므로 Play 중에 M_Toon 값을 바꾸면 컴포넌트를 껐다 켜야 반영된다.
 
 #### ObserveOutline · ObserveOutlinePicker
 [Visuals/ObserveOutline.cs](../Scripts/Visuals/ObserveOutline.cs) · [Visuals/ObserveOutlinePicker.cs](../Scripts/Visuals/ObserveOutlinePicker.cs)
 - **역할**: 알바를 탭하면 외곽선을 흰색(`M_Outline_Observed`)으로 (한 번에 한 명, 다시 탭 · 빈 곳 탭 = 해제). Picker는 Play 시작 때 스스로 생김(DontDestroyOnLoad), 렌더러 범위로 고름(콜라이더 없음), 드래그 · UI 탭 무시.
+- **동작**: 외곽선 슬롯(`APC/OutlineStencil`)은 `M_Outline_Observed`로, 툰 재질(`_StencilGroup` 있음)은 관찰 사본(그룹 255 · 색 · 바깥 테두리를 `M_Outline_Observed` 값으로, `OutlineOuter` 켬)으로 바꾼다. 사본은 해제 때 지움 (2026-11-24).
 - **연결**: `ObserveOutline`은 `StaffWorker` 프리팹 루트.
 
 #### OutlinePasses
 [Visuals/OutlinePasses.cs](../Scripts/Visuals/OutlinePasses.cs)
-- **역할**: 외곽선 셰이더(`APC/OutlineStencil`)의 LightMode 패스 3개(Mask · Hull · Outer)를 카메라마다 넣는다 — 렌더러 에셋 수정 없음. Play 중에만(편집 화면엔 외곽선 없음).
+- **역할**: 외곽선 셰이더(`APC/OutlineStencil` · `APC/Toon`)의 LightMode 패스 3개(Mask · Hull · Outer)를 카메라마다 넣는다 — 렌더러 에셋 수정 없음. Play 중에만(편집 화면엔 외곽선 없음).
 - **주의**: 렌더러 에셋에 같은 LightMode Render Objects 피처를 넣으면 두 번 그려진다. 에디터 `OutlineValidator`가 확인.
 
 #### TileGlow

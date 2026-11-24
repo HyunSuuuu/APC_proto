@@ -5,6 +5,7 @@
 // 그룹 값 규칙: 일반 1~126, 16의 배수는 피한다 (지금 렌더러는 Forward · Forward+지만, Deferred로 바꾸면 URP가 바닥 픽셀에 16 · 32 · 64 비트를 남겨 겹친다),
 //              관찰 255 (128 비트 = 흰 헐 표시. 하위 7비트 127은 일반 그룹이 쓰지 않는다).
 // OutlineOuter 패스는 관찰 재질(그룹 255)에서만 켠다 (Material.SetShaderPassEnabled, 메뉴 APC/Art/Validate Outline Materials).
+// 함수는 APC_Outline.hlsl (APC/Toon과 공용). 외곽선 없는 재질(Lit 등) 뒤 슬롯에 붙일 때 쓴다.
 // 셰이더 이름에 "outline"을 유지한다 (VLB VertexLightBaker.IsOutline이 변환에서 제외).
 Shader "APC/OutlineStencil"
 {
@@ -32,48 +33,7 @@ Shader "APC/OutlineStencil"
             float _OuterWidth;
         CBUFFER_END
 
-        struct Attributes
-        {
-            float3 positionOS : POSITION;
-            float3 normalOS : NORMAL;
-            UNITY_VERTEX_INPUT_INSTANCE_ID
-        };
-
-        struct Varyings
-        {
-            float4 positionCS : SV_POSITION;
-            UNITY_VERTEX_OUTPUT_STEREO
-        };
-
-        Varyings MaskVert(Attributes input)
-        {
-            Varyings output;
-            UNITY_SETUP_INSTANCE_ID(input);
-            UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
-            output.positionCS = TransformObjectToHClip(input.positionOS);
-            return output;
-        }
-
-        // Width in pixels at 1080p, pushed sideways on screen only so the hull never pokes through the front surface.
-        Varyings HullVertWidth(Attributes input, float width)
-        {
-            Varyings output;
-            UNITY_SETUP_INSTANCE_ID(input);
-            UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
-            float3 positionVS = TransformWorldToView(TransformObjectToWorld(input.positionOS));
-            float3 normalVS = TransformWorldToViewDir(TransformObjectToWorldNormal(input.normalOS));
-            normalVS.z = 0;
-            float clipW = mul(UNITY_MATRIX_P, float4(positionVS, 1)).w;
-            positionVS.xy += SafeNormalize(normalVS).xy * width / 540.0 * clipW / abs(UNITY_MATRIX_P[1][1]);
-            output.positionCS = TransformWViewToHClip(positionVS);
-            return output;
-        }
-
-        Varyings HullVert(Attributes input) { return HullVertWidth(input, _OutlineWidth); }
-        Varyings OuterVert(Attributes input) { return HullVertWidth(input, _OutlineWidth + _OuterWidth); }
-
-        half4 Frag(Varyings input) : SV_Target { return half4(_OutlineColor.rgb, 1); }
-        half4 OuterFrag(Varyings input) : SV_Target { return half4(_OuterColor.rgb, 1); }
+        #include "APC_Outline.hlsl"
         ENDHLSL
 
         // Marks the visible pixels of every outlined body with its group.
@@ -88,8 +48,8 @@ Shader "APC/OutlineStencil"
             Stencil { Ref [_StencilGroup] Comp Always Pass Replace }
 
             HLSLPROGRAM
-            #pragma vertex MaskVert
-            #pragma fragment Frag
+            #pragma vertex OutlineMaskVert
+            #pragma fragment OutlineFrag
             ENDHLSL
         }
 
@@ -105,8 +65,8 @@ Shader "APC/OutlineStencil"
             Stencil { Ref [_StencilGroup] ReadMask 127 WriteMask 128 Comp NotEqual Pass Replace }
 
             HLSLPROGRAM
-            #pragma vertex HullVert
-            #pragma fragment Frag
+            #pragma vertex OutlineHullVert
+            #pragma fragment OutlineFrag
             ENDHLSL
         }
 
@@ -122,8 +82,8 @@ Shader "APC/OutlineStencil"
             Stencil { Ref 128 ReadMask 128 Comp NotEqual }
 
             HLSLPROGRAM
-            #pragma vertex OuterVert
-            #pragma fragment OuterFrag
+            #pragma vertex OutlineOuterVert
+            #pragma fragment OutlineOuterFrag
             ENDHLSL
         }
     }

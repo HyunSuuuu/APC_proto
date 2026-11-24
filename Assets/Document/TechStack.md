@@ -205,7 +205,8 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 
 - 추가 렌더 패스는 렌더러 에셋(Render Objects 피처) 대신 코드로 넣는다 — `Visuals/OutlinePasses`처럼 `beginCameraRendering`에서 `EnqueuePass`. 같은 LightMode를 피처로도 넣으면 두 번 그려진다.
 - 캐릭터 · 구조물 셰이더 교체는 Play 중 재질 사본으로 한다 (`CharacterToon` · `WallCutout`). 실행 코드에서 `Shader.Find`를 쓰지 않고 재질 참조로 셰이더를 빌드에 넣는다.
-- 외곽선 스텐실 그룹: 일반 1~126(16의 배수 피함), 관찰 255. 새 외곽선 재질을 만들면 `APC/Art/Validate Outline Materials`를 실행한다.
+- 외곽선 스텐실 그룹: 일반 1~126(16의 배수 피함), 관찰 255. 새 외곽선 재질(`APC/OutlineStencil` · `APC/Toon`)을 만들면 `APC/Art/Validate Outline Materials`를 실행한다 (관찰 그룹만 `OutlineOuter` 켬).
+- 캐릭터 툰은 손으로 쓴 HLSL `APC/Toon`(2026-11-24, Shader Graph에서 옮김 — 변형 17,492 → 9). 외곽선 3패스가 같은 셰이더에 있어 외곽선 슬롯을 따로 붙이지 않는다. 툰 그래프를 다시 만들지 않는다.
 - 렌더러: Mobile = Forward, PC = Forward+ (Deferred 아님).
 
 ### 5.8 문서
