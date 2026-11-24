@@ -5,7 +5,8 @@ using UnityEngine;
 namespace APC.UI
 {
     /// <summary>
-    /// 월드에 잠깐 떠올랐다 사라지는 알림 글자 ('공간 가득' 등, GDD 7.2 · 5.3). 원본 월드 글자(폰트 · 외곽선 · Billboard)를 복제해 쓴다.
+    /// 월드에 잠깐 떠올랐다 사라지는 알림 글자 ('공간 가득' 등, GDD 7.2 · 5.3). 원본 월드 글자(폰트 · 외곽선 · Billboard)를 복제해 쓰고,
+    /// 재질은 CarryConfig.NoticeMaterial(TMP Overlay)로 바꿔 건물에 가리지 않게 한다 (2026-11-20).
     /// </summary>
     public static class FloatingNotice
     {
@@ -15,6 +16,9 @@ namespace APC.UI
         {
             if (template == null) return;
             var label = Object.Instantiate(template, position, template.transform.rotation);
+            // 건물 · 지붕에 가리지 않게 Overlay 재질로 (아틀라스가 다르면 글자가 깨지니 같은 폰트일 때만)
+            var overlay = Core.GameManager.Instance != null ? Core.GameManager.Instance.Database.Carry.NoticeMaterial : null;
+            if (overlay != null && overlay.mainTexture == label.fontSharedMaterial.mainTexture) label.fontSharedMaterial = overlay;
             label.text = text;
             label.color = NoticeColor;
 
