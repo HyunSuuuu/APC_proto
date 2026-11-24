@@ -31,6 +31,7 @@ namespace APC.Logistics
         {
             var bay = pickup.Bay;
             if (bay.Storage != null && bay.Storage.HasCargoForShelves()) return true;
+            if (bay.Storage != null && bay.Storage.CanScan) return true; // 스캔하면 옮길 상자가 생김 (GDD 7.2a)
             var truck = bay.DockedTruck;
             if (truck == null || !truck.HasCargo) return pickup.Room > 0;
             if (truck.Golden) return true; // 금 쏟는 중 (잠깐)

@@ -37,6 +37,39 @@ namespace APC.Data
         [SerializeField, Min(1), Tooltip("재포장 상자 팔레트(테이블 맞은편) 용량. 가득 차면 재포장 불가")] int repackOutputCapacity = 6;
         [SerializeField, Min(0.05f), Tooltip("찌그러진 상자 1개 재포장 게이지 (초, GDD 7.7 임시)")] float repackDuration = 2f;
 
+        [Header("하차 스캔 (GDD 6.3 · 7.2a, M17-4)")]
+        [SerializeField, Min(1), Tooltip("일반 트럭 상자 수 [0] 1단계 · [1] 2단계 · [2] 3단계 (GDD 7.1)")] int[] normalTruckCapacity = { 10, 15, 20 };
+        [SerializeField, Tooltip("일반 트럭 모델 [0] Small · [1] Middle · [2] Big (Brown_*_Truck_Open, GDD 7.1)")] GameObject[] normalTruckModels = new GameObject[3];
+        [SerializeField, Range(0f, 1f), Tooltip("하차 트럭이 보라(D 가구) 트럭일 확률 — D보관을 지은 뒤만 (GDD 6.3 임시)")] float largeTruckChance = 0.1f;
+        [SerializeField, Min(0f), Tooltip("하차 칸 공간 둘레 존에 멈추고 스캔 게이지가 차기 시작하기까지 (초, GDD 7.2a 임시)")] float scanStartDelay = 0.25f;
+        [SerializeField, Min(0.05f), Tooltip("플레이어 스캔 게이지 (초, 상자 수 무관, GDD 7.2a 임시)")] float playerScanDuration = 0.75f;
+        [SerializeField, Min(0.05f), Tooltip("하차 알바 스캔 게이지 (초, 스탯 무관 고정, GDD 7.2a 임시)")] float staffScanDuration = 2f;
+        [SerializeField, Min(1), Tooltip("하차 알바가 스캔을 시작하는 미분류 상자 수 (GDD 7.2a 확정). 트럭이 비었거나 없으면 이보다 적어도 스캔 (18장 55 가정)")] int staffScanMinBoxes = 6;
+        [SerializeField, Min(0f), Tooltip("스캔 완료 때 상자마다 색 테이프가 붙는 연출 간격 (초, GDD 7.2a 임시)")] float scanRevealInterval = 0.05f;
+        [SerializeField, Tooltip("미분류 상자 모델 (무지 골판지, Prop/Box 임시)")] GameObject unsortedBoxModel;
+        [SerializeField, Min(0.1f), Tooltip("미분류 상자 모델 크기 배율")] float unsortedBoxScale = 1.667f;
+        [SerializeField, Tooltip("미분류 상자 윗면 '?' 표시 · 스캔 말풍선 글꼴 (한글)")] TMPro.TMP_FontAsset scanFont;
+        [SerializeField, Tooltip("스캔 원형 게이지 원 스프라이트 (UI/Skin/Knob)")] Sprite scanRingSprite;
+        [SerializeField, Tooltip("스캔 말풍선 배경 스프라이트")] Sprite scanBubbleSprite;
+        [SerializeField, Tooltip("스캔 말풍선 글자")] string scanBubbleText = "스캔 중";
+        [SerializeField, Min(0f), Tooltip("스캔 게이지 · 말풍선 높이 (캐릭터 발 기준 m)")] float scanIndicatorHeight = 2.8f;
+
+        public int GetNormalTruckCapacity(int truckStep) => normalTruckCapacity != null && normalTruckCapacity.Length > 0 ? normalTruckCapacity[Mathf.Clamp(truckStep, 0, normalTruckCapacity.Length - 1)] : 10;
+        public GameObject GetNormalTruckModel(int truckStep) => normalTruckModels != null && truckStep < normalTruckModels.Length ? normalTruckModels[truckStep] : null;
+        public float LargeTruckChance => largeTruckChance;
+        public float ScanStartDelay => scanStartDelay;
+        public float PlayerScanDuration => playerScanDuration;
+        public float StaffScanDuration => staffScanDuration;
+        public int StaffScanMinBoxes => staffScanMinBoxes;
+        public float ScanRevealInterval => scanRevealInterval;
+        public GameObject UnsortedBoxModel => unsortedBoxModel;
+        public float UnsortedBoxScale => unsortedBoxScale;
+        public TMPro.TMP_FontAsset ScanFont => scanFont;
+        public Sprite ScanRingSprite => scanRingSprite;
+        public Sprite ScanBubbleSprite => scanBubbleSprite;
+        public string ScanBubbleText => scanBubbleText;
+        public float ScanIndicatorHeight => scanIndicatorHeight;
+
         public float ReturnChance => returnChance;
         public int ReturnBinCapacity => returnBinCapacity;
         public float RepackSuccessChance => repackSuccessChance;

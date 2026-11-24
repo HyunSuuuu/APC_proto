@@ -68,26 +68,32 @@ namespace APC.Logistics
             var config = GameManager.Instance.Database.Logistics;
             for (var i = 0; i < config.InboundQueueSize; i++) CreateMarker(i);
 
-            var candidates = new List<CompanyDefinition>();
+            CompanyDefinition large = null;
+            var normalOpen = false;
             while (true)
             {
-                // 그 색 보관 구역(선반)이 없으면 그 색 트럭은 안 나온다 (GDD 6.3). 줄이 차면 자리가 날 때까지 멈춤
+                // 트럭 = 일반(보관 모듈 A~C가 하나라도 있을 때) · 보라(D보관을 지은 뒤, largeTruckChance) · 황금 (GDD 6.3, 2026-11-24 — 색 뽑기 · 3대 연속 삭제)
                 yield return new WaitUntil(() =>
                 {
                     if (truckPrefab == null || line.Count >= config.InboundQueueSize || !Site.StartSequence.TrucksOpen) return false; // 상차 1을 지어야 시작 (GDD 9.6)
-                    candidates.Clear();
-                    foreach (var c in ContractService.Instance.Contracted)
+                    large = null;
+                    normalOpen = false;
+                    foreach (var c in GameManager.Instance.Database.Companies)
                     {
-                        if (Warehouse.Instance.HasShelf(c.Items[0])) candidates.Add(c);
+                        if (!Warehouse.Instance.HasShelf(c.Items[0])) continue;
+                        if (!c.IsLarge) normalOpen = true;
+                        else if (System.Linq.Enumerable.Contains(ContractService.Instance.Contracted, c)) large = c;
                     }
-                    return candidates.Count > 0;
+                    return normalOpen || large != null;
                 });
 
-                var company = StockBalancer.PickInboundCompany(candidates);
                 var truck = Instantiate(truckPrefab, transform);
                 var tutorialTruck = arrived++ == 0 && !Site.StartSequence.OfficeBuilt; // 튜토리얼 트럭: 상자 TutorialBoxes개, 황금 없음
-                var load = StockBalancer.ComposeInboundLoad(company);
-                truck.Load(company, tutorialTruck ? System.Linq.Enumerable.Take(load, Economy.PartService.TutorialBoxes) : load);
+                var step = GameManager.Instance.Upgrades.TruckStep.CurrentValue;
+                if (large != null && (!normalOpen || (!tutorialTruck && Random.value < config.LargeTruckChance)))
+                    truck.Load(large, StockBalancer.ComposeInboundLoad(large));
+                else
+                    truck.LoadNormal(tutorialTruck ? Mathf.Min(Economy.PartService.TutorialBoxes, config.GetNormalTruckCapacity(step)) : config.GetNormalTruckCapacity(step));
                 if (!tutorialTruck && (ForceGoldenNext || Random.value < GameManager.Instance.Database.GoldenTruck.Chance)) truck.MakeGolden(); // 황금 트럭 (GDD 6.4)
                 ForceGoldenNext = false;
                 if (waiting.Count > 0 && CanDock)

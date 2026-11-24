@@ -60,6 +60,8 @@ namespace APC.Logistics
         MaterialPropertyBlock block;
         readonly Dictionary<GameObject, (GameObject instance, float height)> models = new(); // 모델 프리팹 → 이 화물에 만든 것 (풀에서 다시 씀)
         GameObject activeModel;
+        Tween revealTween;
+        TMPro.TextMeshPro unsortedMark; // 미분류 상자 윗면 '?' (GDD 7.2a 임시)
         float activeHeight;
 
         public ItemDefinition Item { get; private set; }
@@ -68,6 +70,9 @@ namespace APC.Logistics
         /// <summary>찌그러진 상자를 재포장한 상자 (같은 색 일반 화물, 겉모습도 일반). 선반에 들어가면 프로토타입 목표 (GDD 1.3).</summary>
         public bool Repacked { get; private set; }
         public CargoOrigin Origin { get; set; }
+
+        /// <summary>미분류 상자 (일반 트럭, GDD 7.2a). 색(Item) 없음 — 하차 칸 공간에서 스캔하면 Reveal로 색이 정해진다.</summary>
+        public bool Unsorted { get; private set; }
 
         /// <summary>트럭에서 꺼낸 화물이 가야 할 하차 칸 공간 (하차 칸마다 따로, GDD 7.2). 그 밖에는 null.</summary>
         public SharedStorage Home { get; set; }
@@ -101,6 +106,29 @@ namespace APC.Logistics
             ApplyLook();
         }
 
+        /// <summary>미분류 상자로 만든다 (일반 트럭에서 꺼낼 때, GDD 7.2a).</summary>
+        public void MarkUnsorted()
+        {
+            Unsorted = true;
+            ApplyLook();
+        }
+
+        /// <summary>스캔 결과 (GDD 7.2a): 색 · 상태는 바로 정하고, 겉모습은 delay초 뒤 팝 연출과 함께 바꾼다.</summary>
+        public void Reveal(ItemDefinition item, CargoState state, float delay)
+        {
+            Item = item;
+            State = state;
+            Unsorted = false;
+            revealTween?.Kill();
+            revealTween = DOVirtual.DelayedCall(delay, () =>
+            {
+                revealTween = null;
+                ApplyLook();
+                visual.DOKill(true);
+                visual.DOPunchScale(Vector3.one * 0.35f, 0.25f, 6, 0.5f);
+            }).SetLink(gameObject);
+        }
+
         /// <summary>재포장 (GDD 7.7): 같은 색(품목 그대로) 일반 상자가 된다.</summary>
         public void Repack()
         {
@@ -129,6 +157,9 @@ namespace APC.Logistics
             Origin = CargoOrigin.None;
             Home = null;
             Repacked = false;
+            Unsorted = false;
+            revealTween?.Kill();
+            revealTween = null;
             ApplyLook();
         }
 
@@ -142,12 +173,16 @@ namespace APC.Logistics
             var isGold = State == CargoState.Gold;
             if (goldModel != null) goldModel.SetActive(isGold);
 
+            var logistics = Core.GameManager.Instance.Database.Logistics;
+            var unsorted = Unsorted && !isGold;
             var prefab = isGold ? null
+                : unsorted ? logistics.UnsortedBoxModel
                 : State == CargoState.Trash ? trashModel
                 : Item == null ? null
                 : State == CargoState.Return ? Item.ReturnModel : Item.BoxModel;
-            var scale = State == CargoState.Trash ? Core.GameManager.Instance.Database.Carry.TrashModelScale : Item != null ? Item.ModelScale : 1f;
+            var scale = unsorted ? logistics.UnsortedBoxScale : State == CargoState.Trash ? Core.GameManager.Instance.Database.Carry.TrashModelScale : Item != null ? Item.ModelScale : 1f;
             ShowModel(prefab, scale);
+            ShowUnsortedMark(unsorted, logistics);
             if (activeModel != null || isGold)
             {
                 if (boxRenderer != null) boxRenderer.enabled = false;
@@ -160,6 +195,7 @@ namespace APC.Logistics
             tapeRenderer.enabled = State != CargoState.Trash;
             tapeRenderer.GetPropertyBlock(block);
             block.SetColor(BaseColorId, Item != null ? Item.TapeColor : Color.white);
+            if (unsorted) tapeRenderer.enabled = false; // 모델이 없을 때: 테이프 없는 상자
             tapeRenderer.SetPropertyBlock(block);
             visual.localScale = new Vector3(1f, HeightScale, 1f);
 
@@ -172,6 +208,33 @@ namespace APC.Logistics
             block.Clear();
             block.SetColor(BaseColorId, State == CargoState.Trash ? trashColor : returnBoxColor);
             boxRenderer.SetPropertyBlock(block);
+        }
+
+        /// <summary>미분류 상자 윗면 '?' 글자 (처음 쓸 때 만든다). 모델 높이 위에 눕혀 둔다.</summary>
+        void ShowUnsortedMark(bool show, LogisticsConfig logistics)
+        {
+            if (!show)
+            {
+                if (unsortedMark != null) unsortedMark.gameObject.SetActive(false);
+                return;
+            }
+            if (unsortedMark == null)
+            {
+                unsortedMark = new GameObject("UnsortedMark").AddComponent<TMPro.TextMeshPro>();
+                unsortedMark.transform.SetParent(visual, false);
+                if (logistics.ScanFont != null) unsortedMark.font = logistics.ScanFont;
+                unsortedMark.text = "?";
+                unsortedMark.fontSize = 4f;
+                unsortedMark.fontStyle = TMPro.FontStyles.Bold;
+                unsortedMark.alignment = TMPro.TextAlignmentOptions.Center;
+                unsortedMark.color = new Color(0.25f, 0.17f, 0.1f);
+                unsortedMark.rectTransform.sizeDelta = new Vector2(0.5f, 0.5f);
+                unsortedMark.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
+            }
+            var height = activeModel != null ? activeHeight : 0.5f * HeightScale;
+            unsortedMark.transform.localPosition = new Vector3(0f, height + 0.005f, 0f);
+            unsortedMark.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            unsortedMark.gameObject.SetActive(true);
         }
 
         /// <summary>그 모델만 켠다 (처음이면 Visual 아래에 만들고 크기 × scale, 바닥 중앙을 원점에 맞춤). null이면 모두 끔.</summary>

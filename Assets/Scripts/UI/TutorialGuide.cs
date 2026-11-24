@@ -200,7 +200,14 @@ namespace APC.UI
                 },
                 new()
                 {
-                    Message = $"상자 {PartService.TutorialBoxes}개를 모두 같은 색 선반에 올리세요", // 트럭 → 하차 칸 공간 → 선반 (GDD 7.2)
+                    // 단계 5-1 (GDD 13 · 7.2a): 하차 칸 공간에 내려놓고 둘레 존에 서서 스캔
+                    Message = "팔레트에 내려놓고 팔레트 앞에 서서 스캔하세요",
+                    Target = () => Find<StorageZone>(z => z.Storage != null && z.Storage.Kind == StorageKind.Pallet),
+                    Done = () => StorageZone.ScanCount > 0,
+                },
+                new()
+                {
+                    Message = $"스캔된 상자 {PartService.TutorialBoxes}개를 모두 같은 색 선반에 올리세요", // 트럭 → 하차 칸 공간 → 스캔 → 선반 (GDD 7.2 · 7.2a)
                     Target = () => Find<Shelf>(s => s.Item != null),
                     Done = () =>
                     {
