@@ -33,6 +33,7 @@ namespace APC.Data
         [SerializeField, Min(0.02f), Tooltip("벨트 판 두께 = 화물이 올라가는 높이 (m)")] float beltHeight = 0.15f;
         [SerializeField, Tooltip("벨트 판 재질 (임시 회색, 빌드에 들어가게 에셋 참조)")] Material beltMaterial;
         [SerializeField, Min(0), Tooltip("벨트 2m 칸당 설치비 (GDD 7.10 임시 20)")] int beltCellCost = 20;
+        [SerializeField, Range(0f, 1f), Tooltip("설치 상태에서 철거할 때 돌려받는 비율 (GDD 7.10 임시 50%). 모듈 재배치 철거는 항상 전액")] float beltRefundRate = 0.5f;
         [SerializeField, Min(0f), Tooltip("더미 · 선반에 착지한 뒤 이만큼(초) 지나야 벨트가 가져감 — 쌓이는 모습이 보이게 (GDD 7.10 임시 0.3)")] float beltPickupDelay = 0.3f;
         [SerializeField, Tooltip("설치 상태 격자 · 미리보기 재질 (정점 색 · 반투명, Sprites/Default)")] Material beltOverlayMaterial;
 
@@ -51,6 +52,7 @@ namespace APC.Data
         public float BeltHeight => beltHeight;
         public Material BeltMaterial => beltMaterial;
         public int BeltCellCost => beltCellCost;
+        public float BeltRefundRate => beltRefundRate;
         public float BeltPickupDelay => beltPickupDelay;
         public Material BeltOverlayMaterial => beltOverlayMaterial;
         public float ReturnChance => returnChance;

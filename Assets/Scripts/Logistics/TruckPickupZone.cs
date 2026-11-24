@@ -83,6 +83,12 @@ namespace APC.Logistics
             return cargo;
         }
 
+        /// <summary>
+        /// 벨트 철거: 화물은 이 하차 칸 공간(End)으로 (넘침 허용).
+        /// shortcut: 트럭이 있어도 트럭에 되싣지 않음 — 되싣는 함수가 없고 어차피 가던 곳. 트럭에 되돌려야 하면 InboundTruck에 되싣기 추가
+        /// </summary>
+        public void ReturnFromBelt(Cargo cargo) => bay.Storage.ReturnFromBelt(cargo);
+
         static GoldenTruckConfig Golden => GameManager.Instance.Database.GoldenTruck;
 
         // 쌓는 모양은 config 값을 그때그때 읽는다 (Play 중 조절)

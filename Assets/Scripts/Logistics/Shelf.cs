@@ -117,6 +117,13 @@ namespace APC.Logistics
             if (cargo.Repacked) Warehouse.Instance.NotifyRepackedShelved();
         }
 
+        /// <summary>벨트 철거 · 회차: 이 선반으로 되돌림 (넘침 허용, 출처 = 선반).</summary>
+        public void ReturnFromBelt(Cargo cargo)
+        {
+            cargo.Origin = CargoOrigin.Shelf;
+            Store(cargo);
+        }
+
         /// <summary>벨트 Start: 상차 존으로만, 상차 시간 · 주문 수요가 있을 때 구역 선반에서 하나 (닿은 선반 먼저).</summary>
         public Cargo TakeForBelt(IBeltEnd end)
         {

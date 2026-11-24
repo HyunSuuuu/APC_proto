@@ -29,6 +29,13 @@ namespace APC.UI
         [SerializeField] Button cancelButton;
         [SerializeField, Tooltip("선택 취소: 마지막 점 → … → Start 순으로 하나씩 되돌림")] Button undoButton;
         [SerializeField, Tooltip("설치 상태 동안 숨길 HUD (카메라 버튼)")] GameObject[] hideWhileActive;
+
+        [Header("철거 확인 (M18-4)")]
+        [SerializeField] GameObject removePanel;
+        [SerializeField] TMP_Text removeLabel;
+        [SerializeField] Button removeConfirmButton;
+        [SerializeField] Button removeCancelButton;
+        [SerializeField, Min(0.1f), Tooltip("누른 곳에서 벨트 경로까지 이 거리(m) 안이면 그 벨트를 고름")] float pickDistance = 1f;
         [SerializeField, Tooltip("미리보기 끝 옆 비용 숫자")] TMP_Text costLabel;
         [SerializeField, Tooltip("위쪽 안내 한 줄")] TMP_Text hintLabel;
         [SerializeField, Min(0.05f)] float cameraDuration = 0.5f;
@@ -75,6 +82,8 @@ namespace APC.UI
         IBeltEnd end;
         bool pathValid;
         bool done;
+        Vector3 lastGround;        // 마지막 포인터 바닥 위치 (누른 벨트 찾기)
+        ConveyorBelt selected;     // 철거 확인 중인 벨트
 
         Vector2 pressPosition;
         bool pressOverUi;
@@ -92,6 +101,9 @@ namespace APC.UI
             saveButton.onClick.AddListener(Save);
             cancelButton.onClick.AddListener(Finish);
             undoButton.onClick.AddListener(Undo);
+            removeConfirmButton.onClick.AddListener(ConfirmRemove);
+            removeCancelButton.onClick.AddListener(CloseRemove);
+            removePanel.SetActive(false);
             ui.SetActive(false);
         }
 
@@ -129,13 +141,14 @@ namespace APC.UI
 
             rig.BeginTopDown(area, cameraDuration);
             ui.SetActive(true);
-            Hint("벨트를 시작할 곳(하차 트럭 · 공간 · 선반 등)을 누르세요");
+            Hint("벨트를 시작할 곳(하차 트럭 · 공간 · 선반 등)을 누르세요 · 깔린 벨트를 누르면 철거");
         }
 
         void Finish()
         {
             if (!IsActive) return;
             IsActive = false;
+            CloseRemove();
             ui.SetActive(false);
             if (root != null) Destroy(root);
             if (material != null) Destroy(material);
@@ -150,7 +163,7 @@ namespace APC.UI
             if (!done) return;
             var cost = Cost;
             if (!GameManager.Instance.Wallet.TrySpend(cost)) return;
-            ConveyorBelt.Create(start, end, path);
+            ConveyorBelt.Create(start, end, path).Cost = cost;
             Finish();
         }
 
@@ -170,6 +183,11 @@ namespace APC.UI
         void Update()
         {
             if (!IsActive) return;
+            if (selected != null) // 철거 확인 창: 지도 입력 안 받음
+            {
+                Redraw();
+                return;
+            }
             ReadPointer(out var hover, out var click);
             if (hover.HasValue && rig.ScreenToGround(hover.Value, out var ground)) UpdatePreview(ground);
             if (click.HasValue && rig.ScreenToGround(click.Value, out var target))
@@ -248,7 +266,7 @@ namespace APC.UI
             }
             else if (points.Count > 1) points.RemoveAt(points.Count - 1);
             else if (start != null) ResetDrawing();
-            if (start == null) Hint("벨트를 시작할 곳(하차 트럭 · 공간 · 선반 등)을 누르세요");
+            if (start == null) Hint("벨트를 시작할 곳(하차 트럭 · 공간 · 선반 등)을 누르세요 · 깔린 벨트를 누르면 철거");
             path.Clear();
             path.AddRange(points);
             end = null;
@@ -263,7 +281,9 @@ namespace APC.UI
             {
                 if (hoverZone == null)
                 {
-                    Hint("여기서는 벨트를 시작할 수 없어요");
+                    var belt = BeltAt(lastGround);
+                    if (belt != null) SelectForRemoval(belt);
+                    else Hint("여기서는 벨트를 시작할 수 없어요");
                     return;
                 }
                 startZone = hoverZone;
@@ -282,8 +302,49 @@ namespace APC.UI
             points.Add(path[^1]);
         }
 
+        // ── 철거 (M18-4) ─────────────────────────────────────
+
+        /// <summary>누른 곳에서 pickDistance 안의 가장 가까운 벨트.</summary>
+        ConveyorBelt BeltAt(Vector3 ground)
+        {
+            ConveyorBelt best = null;
+            var bestDistance = pickDistance;
+            foreach (var belt in ConveyorBelt.All)
+            {
+                var distance = belt.DistanceTo(ground);
+                if (distance >= bestDistance) continue;
+                bestDistance = distance;
+                best = belt;
+            }
+            return best;
+        }
+
+        int Refund(ConveyorBelt belt) => Mathf.FloorToInt(belt.Cost * Config.BeltRefundRate);
+
+        void SelectForRemoval(ConveyorBelt belt)
+        {
+            selected = belt;
+            removeLabel.text = $"이 벨트를 철거할까요?\n₩{Refund(belt):N0} 돌려받음";
+            removePanel.SetActive(true);
+        }
+
+        void ConfirmRemove()
+        {
+            if (selected == null) return;
+            GameManager.Instance.Wallet.Add(Refund(selected));
+            selected.Dismantle(); // 위 물건은 Start로
+            CloseRemove();
+        }
+
+        void CloseRemove()
+        {
+            selected = null;
+            if (removePanel != null) removePanel.SetActive(false);
+        }
+
         void UpdatePreview(Vector3 ground)
         {
+            lastGround = ground;
             if (done) return;
             if (start == null)
             {
@@ -589,6 +650,11 @@ namespace APC.UI
             var color = !affordable ? noMoneyColor : end != null ? endColor : previewColor;
             var width = Config.BeltCellSize * 0.7f;
             for (var i = 1; i < path.Count; i++) AddSegment(path[i - 1], path[i], width, color);
+            if (selected != null)
+            {
+                var line = selected.Points;
+                for (var i = 1; i < line.Count; i++) AddSegment(line[i - 1], line[i], width, noMoneyColor);
+            }
             previewMesh.Clear();
             previewMesh.SetVertices(verts);
             previewMesh.SetColors(colors);

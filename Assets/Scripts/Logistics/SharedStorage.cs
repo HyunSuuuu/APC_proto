@@ -182,6 +182,25 @@ namespace APC.Logistics
 
         public void ReceiveFromBelt(Cargo cargo) => Store(cargo);
 
+        /// <summary>벨트 철거 · 회차: 이 더미 출처로 되돌려 쌓는다 (넘침 허용). 하차 칸 공간은 트럭 화물로, 반품 팔레트는 공간에서 온 것으로.</summary>
+        public void ReturnFromBelt(Cargo cargo)
+        {
+            switch (kind)
+            {
+                case StorageKind.Pallet:
+                    cargo.Origin = CargoOrigin.Truck;
+                    cargo.Home = this;
+                    break;
+                case StorageKind.Returns:
+                    cargo.Origin = CargoOrigin.Storage;
+                    break;
+                case StorageKind.RepackInput:
+                    cargo.Origin = CargoOrigin.ReturnPallet;
+                    break;
+            }
+            Store(cargo);
+        }
+
         public void Store(Cargo cargo)
         {
             pile.Add(cargo);

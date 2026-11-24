@@ -619,7 +619,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **연결 7구간**: `TruckPickupZone` → `SharedStorage`(하차 칸 공간, 같은 칸만), `SharedStorage`(공간 · 반품 팔레트 · 쓰레기 출력 · 재포장 팔레트, `CanGive` = 사람이 집는 조건과 같음) → `Shelf` · `SharedStorage`(반품 팔레트 · 재포장 입력) · `TrashDropZone`, `Shelf` → `TruckLoadZone`. D 가구 · 금 · 팔레트 랙 제외.
 - **'찼다' 계산**: `CountOnBelts(벨트 조건, 화물 조건)`. `Warehouse.CountCarried`(손 + 벨트)와 `SharedStorage.Allowance`가 벨트 위 화물을 세므로 선반 여유 · 반품 여유 · 상차 수요 · 하차 칸 `Room`이 모두 벨트를 포함한다.
 - **설치용 함수** (M18-3): `CanConnect(start, end)` = 이을 수 있는 7구간(D 가구 선반 제외). `TileOf` · `TileCenter` = 2m 칸(중심 = 2의 배수, 모듈 10m 칸과 맞물림). `Footprint(a, b, out)` = 0.5m마다 표본 + 벨트 폭 양쪽 칸. `CellCount(path)` = 길이 ÷ 2m 올림(비용). 다른 벨트와는 겹쳐도 됨(칸 점유 없음).
-- **주의**: Start · End가 사라지면 멈추기만 함 (철거는 M18-4). 설치는 `BeltPlacer`. 디버그 `Belt test`(첫 하차 칸 → 공간, 중심끼리 가로 → 세로)는 배치 규칙을 안 따름
+- **철거** (M18-4): `Dismantle()` = 위 화물을 `IBeltStart.ReturnFromBelt`로 Start에 되돌림(출처 복원 · 넘침 허용 — 공간 = 트럭 화물 · Home, 반품 팔레트 = 공간 출처, 선반 = 선반 출처, 하차 트럭 = 같은 칸 공간으로) → 바로 끄고 Destroy. 환불은 부르는 쪽(`Cost` × 50% / 100%). `Touches(module)` = Start · End가 그 모듈 안이거나 경로가 모듈 바닥을 지남(경계선 0.05m 빼고). `DistanceTo(p)` = 누른 벨트 찾기. 회차 반환(상차 시간 끝)도 `ReturnFromBelt`.
+- **주의**: Start · End가 사라지면 멈추기만 함. 설치 · 철거는 `BeltPlacer`, 재배치 철거는 `ModulePanel`. 디버그로 만들던 `Belt test`는 삭제 (M18-4)
 
 #### OutboundBay
 [Logistics/OutboundBay.cs](../Scripts/Logistics/OutboundBay.cs)
@@ -931,6 +932,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **동작**: `Begin()`(팝업 열 때) = `SiteGrid.ModuleAt`으로 칸마다 모듈을 찍어 `original` · `staged`에 둔다. `Drop(source, target)` = 대상이 빈 공간 · 보관 · 반품이면 `staged`에서 자리 맞바꿈(이동 · 교체), 고정 모듈 · 잠긴 칸 · 바깥이면 실패(칸 흔들림 + 사유 글자 1.5초). [되돌리기] = `staged` ← `original`. `Apply()`(팝업 닫을 때) = `SiteGrid.ApplyArrangement`.
   - 칸 색: 빈 공간 흰색, 고정 어두운 회색, 보관 = 그 회사 품목 띠 색(id `Store` + 회사 id), 반품 파랑, 잠긴 칸 반투명 회색 `잠김`. 부지 밖 칸은 숨김. 이름 = `SiteLayout.GetDisplayName`.
 - **연결**: `cellTemplate`(`ModuleCell`, 꺼진 채 · 위치 = (1,1) 칸) → 실행 때 24칸 생성(`cellStep` 210 × 160). Build Site의 `BuildModulePage`가 만든다.
+- **벨트** (M18-4, GDD 7.10): `BeltsOnMoved()` = 지금 미니맵대로면 자리가 바뀌는 모듈(맞바꾸는 상대 포함)에 `Touches`인 벨트. `Drop` 성공 때 있으면 `연결된 벨트 N개가 철거됩니다 (전액 환불)` 2.5초, `Apply`에서 옮기기 전에 전액 환불 + `Dismantle`(위 물건은 Start로 → 모듈과 같이 옮겨짐).
 - **주의**: 미니맵 변경은 닫기 전까지 부지에 적용되지 않는다 (탭을 바꿔도 유지).
 
 #### ModuleCell
@@ -956,6 +958,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **연결**: `LogisticsConfig.beltCellCost` · `beltOverlayMaterial`(`M_BeltOverlay` = Sprites/Default, 정점 색). 색 · 끌기 기준 · 카메라 시간은 컴포넌트 값.
 - **겹침**: 다른 벨트와는 겹쳐도 됨. 자기 벨트는 `OverlapsSelf` — 새 구간의 꺾는 자리 1.45m 밖 표본이 이미 그린 구간과 벨트 폭(1.4m) 안이면 막힘 (되돌아가기 · 지그재그 · 가로지르기 불가).
 - **그 밖**: [선택 취소] `Undo` = End 확정 → 마지막 점 → Start 순. 들어올 때 `LevelUpBanner.Dismiss()`, `hideWhileActive`(카메라 버튼)를 숨겼다가 끝나면 원래 켜짐 상태로.
+- **철거** (M18-4): Start 고르기 전에 누른 곳이 존이 아니면 `BeltAt`(경로까지 `pickDistance` 1m 안 가장 가까운 벨트) → 빨강 강조 + `RemoveConfirm` 창(`이 벨트를 철거할까요? ₩N 돌려받음`, [취소] [철거]). 창이 떠 있는 동안 지도 입력 안 받음. [철거] = `Cost × beltRefundRate` 환불 + `Dismantle`.
 - **주의**: 붉은 칸은 표시용(칸이 존 일부만 덮어도 붉음) — 판정은 사각형이라 붉은 칸 가장자리를 지날 수 있음. 보관 더미(`SharedStorage`)는 하차 칸에선 모듈 `Content`에 붙어 경계를 안 씀. 모듈 팝 연출 중(해금 직후)에 들어오면 시간이 멈춰 존 크기가 0인 채 남음.
 
 #### StampCard (추상)

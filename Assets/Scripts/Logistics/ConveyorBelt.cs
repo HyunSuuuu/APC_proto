@@ -9,6 +9,9 @@ namespace APC.Logistics
     public interface IBeltStart
     {
         Cargo TakeForBelt(IBeltEnd end);
+
+        /// <summary>철거 · 회차로 벨트 위 화물을 되돌려 받는다 — 가득 찼어도 넣는다 (넘침 허용, GDD 7.10). 출처(Origin)도 원래대로.</summary>
+        void ReturnFromBelt(Cargo cargo);
     }
 
     /// <summary>
@@ -43,6 +46,9 @@ namespace APC.Logistics
 
         public IReadOnlyList<Cargo> Cargos => cargos;
         public IReadOnlyList<Vector3> Points => points;
+
+        /// <summary>설치비 (철거 환불 기준: 설치 상태 철거 50%, 모듈 재배치 철거 100%, GDD 7.10).</summary>
+        public int Cost { get; set; }
         public IBeltStart Start => start;
         public IBeltEnd End => end;
         float lastFeed; // 같은 Start의 벨트끼리 번갈아 올리기 (오래 못 받은 벨트 먼저)
@@ -138,6 +144,60 @@ namespace APC.Logistics
             return belt;
         }
 
+        /// <summary>
+        /// 철거 (GDD 7.10): 벨트 위 화물을 모두 Start로 되돌리고(넘침 허용) 없앤다. 환불은 부르는 쪽 (설치 상태 50% · 모듈 재배치 100%).
+        /// </summary>
+        public void Dismantle()
+        {
+            foreach (var cargo in cargos)
+            {
+                cargo.transform.DOKill();
+                if ((start as Object) != null) start.ReturnFromBelt(cargo);
+                else cargo.Release();
+            }
+            cargos.Clear();
+            distances.Clear();
+            gameObject.SetActive(false); // 바로 목록에서 빠지게 (Destroy는 프레임 끝)
+            Destroy(gameObject);
+        }
+
+        /// <summary>
+        /// 모듈 재배치 때 같이 철거할 벨트인가 (GDD 7.10): Start · End가 그 모듈 안이거나, 경로가 그 모듈 바닥을 지나감.
+        /// </summary>
+        public bool Touches(Site.SiteModule module)
+        {
+            if (Owner(start) == module || Owner(end) == module) return true;
+            var half = (Vector2)module.Size * (module.CellSize * 0.5f) - Vector2.one * 0.05f; // 경계선 위는 안 침
+            var rect = Interaction.InteractionZone.FootprintRect(module.transform, half);
+            for (var i = 1; i < points.Count; i++)
+            {
+                var length = Vector3.Distance(points[i - 1], points[i]);
+                var steps = Mathf.Max(1, Mathf.CeilToInt(length / 0.5f));
+                for (var k = 0; k <= steps; k++)
+                {
+                    var p = Vector3.Lerp(points[i - 1], points[i], (float)k / steps);
+                    if (rect.Contains(new Vector2(p.x, p.z))) return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>점 p에서 이 벨트 경로까지 가장 가까운 거리 (설치 상태에서 누른 벨트 찾기).</summary>
+        public float DistanceTo(Vector3 p)
+        {
+            var best = float.MaxValue;
+            for (var i = 1; i < points.Count; i++)
+            {
+                var ab = points[i] - points[i - 1];
+                var t = ab.sqrMagnitude > 0f ? Mathf.Clamp01(Vector3.Dot(p - points[i - 1], ab) / ab.sqrMagnitude) : 0f;
+                var q = points[i - 1] + ab * t;
+                best = Mathf.Min(best, Vector2.Distance(new Vector2(p.x, p.z), new Vector2(q.x, q.z)));
+            }
+            return best;
+        }
+
+        static Site.SiteModule Owner(object part) => part is Component c && c != null ? c.GetComponentInParent<Site.SiteModule>() : null;
+
         void OnEnable() => Registered.Add(this);
 
         void OnDisable() => Registered.Remove(this);
@@ -147,9 +207,9 @@ namespace APC.Logistics
             var dt = Time.deltaTime;
             if (dt <= 0f || (start as Object) == null || (end as Object) == null) return;
             // 상차 시간이 끝나면(회차) 선반 → 상차 벨트 위 상자는 꺼낸 구역 선반으로 (GDD 7.10 · 7.6)
-            if (end is TruckLoadZone && !Economy.PartService.OutboundOpen && start is IBeltEnd back)
+            if (end is TruckLoadZone && !Economy.PartService.OutboundOpen)
             {
-                foreach (var c in cargos) back.ReceiveFromBelt(c);
+                foreach (var c in cargos) start.ReturnFromBelt(c);
                 cargos.Clear();
                 distances.Clear();
             }
