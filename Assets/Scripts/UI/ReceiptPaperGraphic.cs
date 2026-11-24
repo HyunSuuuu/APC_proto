@@ -103,6 +103,14 @@ namespace APC.UI
             bool hasCurl = curl != null && curl.curlLength > 0f;
             float bendY = hasCurl ? Mathf.Clamp(top - curl.curlLength, bottom, bodyTop) : bodyTop;
 
+            // ---- 절취선이 나타난 뒤 평평한 부분 = 몸통 + 남는 조각 (ReceiptTear, 2026-11-23) ----
+            ReceiptTear tear = curl != null ? curl.Tear : null;
+            if (part == Part.Flat && tear != null && tear.HasPerforation && tear.PerfY > bottom + tear.notchHeight + 2f && tear.PerfY < bendY - tear.notchHeight - 4f)
+            {
+                EmitTornFlat(vh, r, bendY, tear);
+                return;
+            }
+
             // ---- 이 파트가 담당하는 세로 구간 ----
             float from, to;
             bool teeth;
@@ -198,7 +206,161 @@ namespace APC.UI
             return Mathf.Clamp01(Mathf.Min(x - r.xMin, r.xMax - x) / edge);
         }
 
-        private void AddVertex(VertexHelper vh, Vector3 pos, float edgeFactor, Color shadow, Vector2 offset, bool isShadow)
+        // ------------------------------------------------------------------ 절취선 (ReceiptTear)
+
+        private readonly List<float> tearXs = new List<float>(64);
+        private readonly List<float> bodyYs = new List<float>(48);
+        private readonly List<float> stubYs = new List<float>(8);
+
+        /// <summary>
+        /// 평평한 부분을 절취선(perfY) 위 몸통과 아래 남는 조각으로 나눠 그린다. 절취선 줄 정점은 두 벌이라 실제로 떨어진다.
+        /// 절취선 근처는 구멍 간격으로 잘게 나눠 휘어도 매끄럽고, 양옆 V 노치 · 점선(안 뜯긴 곳) · 톱니 단면(뜯긴 곳)을 같은 메시에 그린다.
+        /// </summary>
+        private void EmitTornFlat(VertexHelper vh, Rect r, float bendY, ReceiptTear tear)
+        {
+            float perf = tear.PerfY;
+            float bottom = r.yMin;
+            float edge = r.width * edgeWidth;
+            float show = tear.PerforationAlpha;
+            float notch = tear.notchDepth * show;
+            float notchH = Mathf.Max(1f, tear.notchHeight);
+
+            // 가로: 구멍 간격 + 가장자리 그라데이션 경계
+            tearXs.Clear();
+            float pitch = Mathf.Max(4f, tear.perforationPitch);
+            int n = Mathf.Max(2, Mathf.RoundToInt(r.width / pitch));
+            for (int i = 0; i <= n; i++) tearXs.Add(r.xMin + r.width * i / n);
+            if (edge > 0.5f)
+            {
+                tearXs.Add(r.xMin + edge);
+                tearXs.Add(r.xMax - edge);
+            }
+            tearXs.Sort();
+            for (int i = tearXs.Count - 1; i > 0; i--)
+                if (tearXs[i] - tearXs[i - 1] < 0.5f) tearXs.RemoveAt(i);
+
+            // 세로 (위 → 아래): 위쪽은 성기게, 절취선 위 bendHeight 구간은 촘촘히, 노치 줄, 절취선
+            bodyYs.Clear();
+            float fineTop = Mathf.Min(bendY, perf + tear.bendHeight * 1.2f);
+            bodyYs.Add(bendY);
+            for (float y = bendY - 48f; y > fineTop + 4f; y -= 48f) bodyYs.Add(y);
+            if (fineTop < bendY) bodyYs.Add(fineTop);
+            for (float y = fineTop - 10f; y > perf + notchH + 2f; y -= 10f) bodyYs.Add(y);
+            bodyYs.Add(perf + notchH);
+            bodyYs.Add(perf);
+
+            stubYs.Clear();
+            stubYs.Add(perf);
+            if (perf - notchH > bottom + 1f) stubYs.Add(perf - notchH);
+            stubYs.Add(bottom);
+
+            float jag = tear.jagHeight;
+            // 남는 조각의 위 끝 톱니는 몸통과 반대 방향 (-jag)
+            EmitTearGrid(vh, r, edge, stubYs, perf, notch, -jag, tear, true);
+            EmitTearGrid(vh, r, edge, bodyYs, perf, notch, jag, tear, false);
+
+            // 뜯긴 단면 테두리 (몸통 아래 끝)
+            Color edgeCol = tear.tornEdgeColor;
+            for (int c = 0; c < tearXs.Count - 1; c++)
+            {
+                float u0 = (tearXs[c] - r.xMin) / r.width;
+                float u1 = (tearXs[c + 1] - r.xMin) / r.width;
+                float b0 = tear.TornBlend(u0), b1 = tear.TornBlend(u1);
+                if (b0 + b1 < 0.02f) continue;
+                Vector3 p0 = PerfPoint(r, c, perf, notch, jag, tear);
+                Vector3 p1 = PerfPoint(r, c + 1, perf, notch, jag, tear);
+                Vector3 up = new Vector3(0f, tear.tornEdgeWidth);
+                Color ca = edgeCol, cb = edgeCol;
+                ca.a *= b0;
+                cb.a *= b1;
+                AddQuad(vh, p0, p1, p1 + up, p0 + up, ca, cb, cb, ca, false);
+            }
+
+            // 점선 (아직 안 뜯긴 곳만, 남는 조각 쪽)
+            if (show > 0.01f)
+            {
+                Color dc = tear.dashColor;
+                dc.a *= show;
+                float half = tear.dashThickness * 0.5f;
+                float clipX = tear.TearU > 0f ? r.xMin + r.width * (tear.TearU + 0.02f) : float.MinValue;
+                float step = Mathf.Max(1f, tear.dashLength + tear.dashGap);
+                for (float x = r.xMin + notch + 3f; x < r.xMax - notch - 3f; x += step)
+                {
+                    float x0 = Mathf.Max(x, clipX);
+                    float x1 = Mathf.Min(x + tear.dashLength, r.xMax - notch - 3f);
+                    if (x1 - x0 < 0.5f) continue;
+                    AddQuad(vh,
+                        new Vector3(x0, perf - half), new Vector3(x1, perf - half),
+                        new Vector3(x1, perf + half), new Vector3(x0, perf + half),
+                        dc, dc, dc, dc, true);
+                }
+            }
+        }
+
+        /// <summary>절취선 줄의 c번째 정점 위치 (양끝 = 노치로 안쪽, 뜯긴 곳 = 톱니).</summary>
+        private Vector3 PerfPoint(Rect r, int c, float perf, float notch, float jag, ReceiptTear tear)
+        {
+            float x = tearXs[c];
+            int last = tearXs.Count - 1;
+            if (c == 0) return new Vector3(x + notch, perf);
+            if (c == last) return new Vector3(x - notch, perf);
+            float u = (x - r.xMin) / r.width;
+            float zig = (c % 2 == 0 ? 1f : -0.6f) * jag * tear.TornBlend(u);
+            return new Vector3(x, perf + zig);
+        }
+
+        private void EmitTearGrid(VertexHelper vh, Rect r, float edge, List<float> ys, float perf, float notch, float jag, ReceiptTear tear, bool stub)
+        {
+            int baseIndex = vh.currentVertCount;
+            int cols = tearXs.Count;
+            for (int row = 0; row < ys.Count; row++)
+            {
+                float y = ys[row];
+                bool perfRow = Mathf.Abs(y - perf) < 0.01f;
+                for (int c = 0; c < cols; c++)
+                {
+                    Vector3 p = perfRow ? PerfPoint(r, c, perf, notch, jag, tear) : new Vector3(tearXs[c], y);
+                    AddVertex(vh, p, EdgeFactor(tearXs[c], r, edge), default, Vector2.zero, false, stub);
+                }
+            }
+            for (int row = 0; row < ys.Count - 1; row++)
+            {
+                int a = baseIndex + row * cols;
+                int b = baseIndex + (row + 1) * cols;
+                for (int c = 0; c < cols - 1; c++)
+                {
+                    vh.AddTriangle(a + c, a + c + 1, b + c + 1);
+                    vh.AddTriangle(a + c, b + c + 1, b + c);
+                }
+            }
+        }
+
+        /// <summary>단색 사각형 (점선 · 단면 테두리). 종이와 같은 변형을 거친다.</summary>
+        private void AddQuad(VertexHelper vh, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Color ca, Color cb, Color cc, Color cd, bool stub)
+        {
+            int start = vh.currentVertCount;
+            AddRawVertex(vh, a, ca, stub);
+            AddRawVertex(vh, b, cb, stub);
+            AddRawVertex(vh, c, cc, stub);
+            AddRawVertex(vh, d, cd, stub);
+            vh.AddTriangle(start, start + 1, start + 2);
+            vh.AddTriangle(start, start + 2, start + 3);
+        }
+
+        private void AddRawVertex(VertexHelper vh, Vector3 pos, Color c, bool stub)
+        {
+            c.a *= color.a;
+            Vector3 p = pos;
+            ReceiptTear tear = curl != null && curl.TearDeforming ? curl.Tear : null;
+            if (tear != null)
+            {
+                p = tear.Deform(p, stub, out float shade, out float alpha);
+                c = new Color(c.r * shade, c.g * shade, c.b * shade, c.a * alpha);
+            }
+            vh.AddVert(toLocal.MultiplyPoint3x4(p), c, Vector2.zero); // uv 0 = 도트 없는 흰 픽셀
+        }
+
+        private void AddVertex(VertexHelper vh, Vector3 pos, float edgeFactor, Color shadow, Vector2 offset, bool isShadow, bool stub = false)
         {
             Color c = color * Color.Lerp(edgeTint, Color.white, edgeFactor);
             c.a = color.a;
@@ -218,6 +380,14 @@ namespace APC.UI
                 {
                     c = new Color(c.r * shade, c.g * shade, c.b * shade, c.a);
                 }
+            }
+
+            // 말림 다음에 절취선 뜯기 (남는 조각 여부는 호출한 쪽이 정함)
+            ReceiptTear tear = curl != null && curl.TearDeforming ? curl.Tear : null;
+            if (tear != null && !isShadow)
+            {
+                p = tear.Deform(p, stub, out float tearShade, out float tearAlpha);
+                c = new Color(Mathf.Min(1f, c.r * tearShade), Mathf.Min(1f, c.g * tearShade), Mathf.Min(1f, c.b * tearShade), c.a * tearAlpha);
             }
 
             if (isShadow)

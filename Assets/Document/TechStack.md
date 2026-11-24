@@ -209,6 +209,7 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 - 캐릭터 툰은 손으로 쓴 HLSL `APC/Toon`(2026-11-24, Shader Graph에서 옮김 — 변형 17,492 → 9). 외곽선 3패스가 같은 셰이더에 있어 외곽선 슬롯을 따로 붙이지 않는다. 툰 그래프를 다시 만들지 않는다.
 - 렌더러: Mobile = Forward, PC = Forward+ (Deferred 아님).
 - 전역 셰이더 색(`Shader.SetGlobalColor`)은 `color.linear`로 넘긴다 (Linear 색 공간). `Material.SetColor`와 달리 sRGB → 선형 변환을 안 해 색이 밝고 흐려진다 (`SiteWalls.ApplyGradient`, 2026-11-24).
+- 흰 배경 이미지를 배경 따기 없이 겹칠 땐 곱하기 스프라이트 셰이더 `APC/SpriteMultiply`(`Shaders/SpriteMultiply.shader`, 재질 `M_SpriteMultiply`, `Blend DstColor Zero`)를 쓴다 — 흰색은 빠지고 회색 · 선만 남는다. **밝은 배경 위에서만** 의도대로 보이고, 뒤에 그린 것은 이미지 색만큼 어두워진다 (BrokeCash 유리 저금통, 2026-11-20). 예외: BrokeCash R&D의 `BrokeCashArt.SpriteMaterial`은 `Shader.Find("Sprites/Default")`(항상 포함되는 기본 셰이더).
 
 ### 5.8 문서
 
@@ -220,5 +221,6 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 |---|---|
 | Cinemachine | 쿼터뷰 추적 + 부지 경계 제한(`CinemachineConfiner`)을 직접 구현하지 않아도 됨. 자유 이동 모드와 카메라 전환 구조 필요 |
 | UniTask | 프로토타입에서 제외. 본 개발에서 비동기 흐름(서버 통신, 에셋 로딩, `WhenAll`)이 많아지면 재검토 |
+| 2D Animation (`com.unity.2d.animation`) | 정산 저금통 깨기 R&D의 2D 스켈레톤 버전용 (뼈 · 메시 · 가중치 = Sprite Skin). 아직 설치 안 함 — DOTween 버전과 비교한 뒤 남길지 정한다 (2026-11-20) |
 | ObservableCollections.R3 | 주문 큐처럼 목록 변화를 UI에 바인딩할 때 |
 | `Assets/Packages/` 커밋 여부 | NuGet 복원 결과물. 오프라인·CI 안정성을 위해 커밋 권장 |
