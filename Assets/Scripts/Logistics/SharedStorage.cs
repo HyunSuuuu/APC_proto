@@ -186,7 +186,7 @@ namespace APC.Logistics
             for (var i = pile.Count - 1; i >= 0 && total < max; i--)
             {
                 var item = pile.Items[i].Item;
-                if (pile.Items[i].State != CargoState.Normal) continue;
+                if (pile.Items[i].State != CargoState.Normal || pile.Items[i].Unsorted) continue; // 미분류는 스캔해야 집는다 (GDD 7.2a)
                 plan.TryGetValue(item, out var taken);
                 if (ShelfAllowance(item) - taken <= 0) continue;
                 plan[item] = taken + 1;
@@ -200,6 +200,7 @@ namespace APC.Logistics
             for (var i = pile.Count - 1; i >= 0; i--)
             {
                 var candidate = pile.Items[i];
+                if (candidate.Unsorted) continue; // 미분류는 아무도 못 집는다 (GDD 7.2a)
                 var ok = candidate.State switch
                 {
                     CargoState.Normal => ShelfAllowance(candidate.Item) > 0,
@@ -215,6 +216,124 @@ namespace APC.Logistics
                 if (ok) return i;
             }
             return -1;
+        }
+
+        // ── 하차 스캔 (GDD 7.2a, M17-4) ─────────────────────────────
+
+        /// <summary>미분류 상자 수.</summary>
+        public int UnsortedCount
+        {
+            get
+            {
+                var n = 0;
+                foreach (var cargo in pile.Items)
+                {
+                    if (cargo.Unsorted) n++;
+                }
+                return n;
+            }
+        }
+
+        /// <summary>스캔해서 색을 정할 수 있는가: 미분류가 있고, 남은 빈자리가 있는 보관 색이 하나라도 있다.</summary>
+        public bool CanScan => UnsortedCount > 0 && AnyScanRoom();
+
+        /// <summary>스캔 결과로 나올 수 있는 색 = 지어진 보관 모듈 색 (A~C, D 가구 제외).</summary>
+        static void CollectScanColors(List<CompanyDefinition> into)
+        {
+            into.Clear();
+            var warehouse = Warehouse.Instance;
+            if (warehouse == null) return;
+            foreach (var company in GameManager.Instance.Database.Companies)
+            {
+                if (company == null || company.IsLarge || company.Items.Count == 0) continue;
+                if (warehouse.HasShelf(company.Items[0])) into.Add(company);
+            }
+        }
+
+        static readonly List<CompanyDefinition> ScanColors = new();
+
+        static bool AnyScanRoom()
+        {
+            CollectScanColors(ScanColors);
+            foreach (var company in ScanColors)
+            {
+                if (ScanRoom(company.Items[0]) > 0) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 그 색으로 더 스캔해 줄 수 있는 수 = 선반 빈자리 − 하차 칸 공간에 그 색으로 스캔돼 있는 상자 − 들고 가는 상자 (선반행 · 회차 되돌릴 상차용).
+        /// 보관 알바 예약은 공간에 있는 상자를 예약한 것이라 따로 빼지 않는다 (두 번 빠지지 않게).
+        /// </summary>
+        public static int ScanRoom(ItemDefinition item)
+        {
+            var warehouse = Warehouse.Instance;
+            if (warehouse == null) return 0;
+            var room = warehouse.GetShelfFreeSpace(item) - Warehouse.CountCarried(item, CargoOrigin.Storage) - Warehouse.CountCarried(item, CargoOrigin.Shelf);
+            foreach (var storage in Registered)
+            {
+                if (storage.kind == StorageKind.Pallet) room -= storage.CountOf(item);
+            }
+            return room;
+        }
+
+        /// <summary>
+        /// 스캔 완료 (GDD 7.2a): 지금 공간에 있는 미분류 상자 전부의 색을 정한다. 상자마다 반품 구역이 있으면 찌그러짐 판정 →
+        /// 아니면 남은 빈자리 ≥ 1인 지어진 보관 색 중에서 색 가중치(6.2)로. 남은 빈자리가 모두 0이면 나머지는 미분류로 남는다.
+        /// 겉모습은 상자마다 `scanRevealInterval` 간격으로 바뀐다. 정한 수를 돌려준다.
+        /// </summary>
+        public int RevealUnsorted()
+        {
+            var config = GameManager.Instance.Database.Logistics;
+            CollectScanColors(ScanColors);
+            var room = new Dictionary<CompanyDefinition, int>();
+            foreach (var company in ScanColors) room[company] = ScanRoom(company.Items[0]);
+            var returnsOpen = ReturnsOpen;
+            var revealed = 0;
+            foreach (var cargo in pile.Items)
+            {
+                if (!cargo.Unsorted) continue;
+                var total = 0f;
+                foreach (var company in ScanColors)
+                {
+                    if (room[company] > 0) total += company.Weight;
+                }
+                if (total <= 0f) break; // 넣을 선반이 없음 → 남은 상자는 미분류
+                var delay = revealed * config.ScanRevealInterval;
+                if (returnsOpen && Random.value < config.ReturnChance)
+                {
+                    // 찌그러진 상자: 색은 지어진 색 가중치로 (선반 빈자리와 무관 — 반품 팔레트로 간다)
+                    cargo.Reveal(PickColor(ScanColors, null).Items[0], CargoState.Return, delay);
+                    revealed++;
+                    continue;
+                }
+                var picked = PickColor(ScanColors, room);
+                room[picked]--;
+                cargo.Reveal(picked.Items[0], CargoState.Normal, delay);
+                revealed++;
+            }
+            return revealed;
+        }
+
+        /// <summary>색 가중치 비율로 무작위. room이 있으면 남은 빈자리 ≥ 1인 색만.</summary>
+        static CompanyDefinition PickColor(List<CompanyDefinition> colors, Dictionary<CompanyDefinition, int> room)
+        {
+            var total = 0f;
+            foreach (var company in colors)
+            {
+                if (room == null || room[company] > 0) total += company.Weight;
+            }
+            var roll = Random.value * total;
+            CompanyDefinition last = null;
+            foreach (var company in colors)
+            {
+                if (room != null && room[company] <= 0) continue;
+                last = company;
+                roll -= company.Weight;
+                if (roll < 0f) return company;
+            }
+            return last;
         }
 
         /// <summary>그 종류 더미에 더 보낼 수 있는 찌그러진 상자 수 = 빈자리 합 − 이미 꺼내 들고 가는(그 출처) 찌그러진 상자.</summary>

@@ -41,8 +41,8 @@ namespace APC.Logistics
         public override bool HasCargoFor(Interactor who)
         {
             var truck = bay.DockedTruck;
-            if (truck == null || truck.Golden || truck.Available <= 0 || truck.Company == null) return false;
-            var item = truck.Company.Items[0];
+            if (truck == null || truck.Golden || truck.Available <= 0) return false;
+            var item = truck.Company != null ? truck.Company.Items[0] : null; // 일반 트럭 = 미분류 (GDD 7.2a)
             if (!Warehouse.CanHandle(who, item)) return false; // D 트럭 = 지게차 알바만 (M11-8)
             return who.Forklift ? Warehouse.Instance.LargeRoom(item) > 0 : Room > 0;
         }

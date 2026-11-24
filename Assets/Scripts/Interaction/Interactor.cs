@@ -32,6 +32,12 @@ namespace APC.Interaction
         /// <summary>이번 프레임에 멈춰 있는가.</summary>
         public bool IsStill => stillTime > 0f;
 
+        /// <summary>존 안팎 상관없이 멈춰 있은 시간 (초). 하차 스캔 시작 대기 (GDD 7.2a).</summary>
+        public float StillTime => stillTime;
+
+        /// <summary>하차 칸 공간에서 스캔할 수 있는가 (GDD 7.2a). 플레이어 = true, 알바는 하차 알바가 스캔하러 갔을 때만 켠다.</summary>
+        public bool AllowScan { get; set; } = true;
+
         /// <summary>운반 존 상호작용 가능 상태 (존 안에서 readyDelay 이상 멈춰 있음).</summary>
         public bool IsReady => stillTime >= readyDelay;
 

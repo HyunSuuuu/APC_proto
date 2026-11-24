@@ -23,6 +23,7 @@ namespace APC.Logistics
         readonly List<ItemDefinition> load = new();
         readonly ReactiveProperty<int> remaining = new(0);
 
+        /// <summary>보라(D 가구) 트럭이면 그 색. 일반 트럭(미분류 상자, GDD 7.2a)이면 null.</summary>
         public CompanyDefinition Company { get; private set; }
         public bool HasCargo => load.Count > 0;
         public ReadOnlyReactiveProperty<int> Remaining => remaining;
@@ -177,6 +178,17 @@ namespace APC.Logistics
             SetModel(company.GetTruckModel(truckStep));
         }
 
+        /// <summary>일반 트럭 (GDD 6.3 · 7.2a): 색 없는 미분류 상자 count개, 모델 = Brown_* (LogisticsConfig).</summary>
+        public void LoadNormal(int count)
+        {
+            Company = null;
+            load.Clear();
+            for (var i = 0; i < count; i++) load.Add(null);
+            remaining.Value = load.Count;
+            truckStep = Core.GameManager.Instance.Upgrades.TruckStep.CurrentValue;
+            SetModel(Core.GameManager.Instance.Database.Logistics.GetNormalTruckModel(truckStep));
+        }
+
         /// <summary>
         /// 모델을 갈아 끼운다: 크기 `modelScale`, 뒷면(로컬 −z 끝)을 `backZ`에 맞춤 → 모델 길이가 달라도 주차 · 상자 위치는 그대로.
         /// 트럭이 크기 1일 때(생성 직후) 불러야 한다 — 줄 · 주차 연출로 크기 0이 되기 전.
@@ -221,9 +233,11 @@ namespace APC.Logistics
             countLabel.transform.DOPunchScale(Vector3.one * 0.25f, 0.2f, 6, 0.5f);
 
             // 반품 구역이 열린 뒤엔 일정 확률로 찌그러진 상자 (GDD 7.7). 품목(색)은 그대로 — 재포장하면 같은 색 일반 상자
-            var isReturn = !Golden && SharedStorage.ReturnsOpen && Random.value < Core.GameManager.Instance.Database.Logistics.ReturnChance;
+            // 일반 트럭 = 미분류 상자 — 찌그러짐은 스캔할 때 정한다 (GDD 7.2a)
+            var isReturn = !Golden && Company != null && SharedStorage.ReturnsOpen && Random.value < Core.GameManager.Instance.Database.Logistics.ReturnChance;
             var cargo = CargoPool.Instance.Spawn(item, Golden ? CargoState.Gold : isReturn ? CargoState.Return : CargoState.Normal, null, cargoExit.position);
             cargo.Origin = CargoOrigin.Truck;
+            if (Company == null && !Golden) cargo.MarkUnsorted();
             return cargo;
         }
     }

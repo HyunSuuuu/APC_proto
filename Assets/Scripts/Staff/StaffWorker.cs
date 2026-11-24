@@ -64,6 +64,8 @@ namespace APC.Staff
         bool hasWait;
         Vector3 waitPoint; // 대기 위치 (월드)
         bool dropping;
+        bool scanning; // 하차 알바가 하차 칸 공간을 스캔하러 감 · 스캔 중 (GDD 7.2a)
+        int pickBudget = -1; // 보관 알바: 이번에 집을 최대 수 = 출발할 때 스캔돼 있던 상자 (GDD 7.2a). -1 = 제한 없음
         bool parking;
         bool leaving;
         bool repathPending; // 모듈 재배치 알림을 받았고 팝 연출이 끝나기를 기다리는 중
@@ -135,6 +137,7 @@ namespace APC.Staff
             interactor = GetComponent<Interactor>();
             stack = GetComponent<CarryStack>();
             interactor.RestrictToTarget = true; // 목표 존에서만 상호작용
+            interactor.AllowScan = false; // 하차 알바가 스캔하러 갔을 때만 켠다 (GDD 7.2a)
             if (unpaidIcon != null)
             {
                 iconBaseY = unpaidIcon.transform.localPosition.y;
@@ -335,6 +338,7 @@ namespace APC.Staff
             }
 
             if (Role == StaffRole.Returns && ReturnsWork()) return;
+            if (Role == StaffRole.Unload && TryScan()) return;
 
             if (Find(drop: false, out var pickZone))
             {
@@ -432,6 +436,44 @@ namespace APC.Staff
             return true;
         }
 
+        /// <summary>
+        /// 하차 알바 스캔 (GDD 7.2a): 미분류가 `staffScanMinBoxes`개 이상(트럭이 비었거나 없으면 그보다 적어도)이고 아무도 스캔하지 않는
+        /// 가장 가까운 하차 칸 공간으로 간다. 한 칸 한 사람 — 다른 하차 알바가 스캔하러 가는 칸은 고르지 않는다.
+        /// </summary>
+        bool TryScan()
+        {
+            StorageZone best = null;
+            var bestDistance = float.MaxValue;
+            var from = transform.position;
+            foreach (var candidate in InteractionZone.Active)
+            {
+                if (candidate is not StorageZone storageZone || storageZone.Slots.Count == 0 || !IsSettled(storageZone)) continue;
+                if (!storageZone.StaffScanWanted || (storageZone.Scanner != null && storageZone.Scanner != interactor) || ScanTakenByOther(storageZone)) continue;
+                var distance = NearestSlotDistance(storageZone, from);
+                if (distance >= bestDistance) continue;
+                best = storageZone;
+                bestDistance = distance;
+            }
+            if (best == null) return false;
+            ReleaseAll();
+            zone = best;
+            SetStand(best, ChooseStand(best));
+            dropping = false;
+            scanning = true; // 화물 예약 없음
+            agent.SetDestination(OccupiedPosition);
+            State = Phase.Moving;
+            return true;
+        }
+
+        bool ScanTakenByOther(StorageZone target)
+        {
+            foreach (var other in AllWorkers)
+            {
+                if (other != this && other.scanning && other.zone == target) return true;
+            }
+            return false;
+        }
+
         /// <summary>재포장할 수 있고 아무도 맡지 않은 가장 가까운 테이블로 간다 (테이블만 1명 예약, 2026-11-19).</summary>
         bool TryGauge()
         {
@@ -467,10 +509,25 @@ namespace APC.Staff
             zone = target;
             SetStand(target, ChooseStand(target));
             dropping = drop;
+            if (!drop && Role == StaffRole.Sort && target is StorageZone sortZone && sortZone.Storage.Kind == StorageKind.Pallet)
+                pickBudget = PickBudget(sortZone.Storage); // 출발할 때 스캔된 상자만 (GDD 7.2a)
             if (!drop) Reserve();
 
             SetPath(OccupiedPosition);
             State = Phase.Moving;
+        }
+
+        /// <summary>보관 알바가 이번에 집을 최대 수: 지금 선반에 갈 스캔된 상자 + 찌그러진 상자 (적재 수까지).</summary>
+        int PickBudget(SharedStorage storage)
+        {
+            var room = stack.Capacity.CurrentValue - stack.Count.CurrentValue;
+            var total = 0;
+            foreach (var pair in storage.PlanForShelves(room)) total += pair.Value;
+            foreach (var cargo in storage.Items)
+            {
+                if (cargo.State == CargoState.Return && !cargo.Unsorted) total++;
+            }
+            return stack.Count.CurrentValue + Mathf.Min(room, total);
         }
 
         void SetStand(InteractionZone target, Vector3 world)
@@ -698,6 +755,7 @@ namespace APC.Staff
             if (gauge != null) return gauge.isActiveAndEnabled && gauge.HasWork;
             if (zone == null || !zone.isActiveAndEnabled) return false;
             if (dropping) return zone.CanReceiveAny(interactor);
+            if (scanning) return zone is StorageZone scanZone && scanZone.StaffScanWanted && (scanZone.Scanner == null || scanZone.Scanner == interactor);
 
             ReleaseReservation();
             var ok = IsRoleZone(zone) && HasWork(zone);
@@ -708,8 +766,9 @@ namespace APC.Staff
         void BeginWork()
         {
             ReleaseReservation(); // 도착하면 존이 실제 수요로 판단한다 (들고 있는 수가 예약을 대신함)
-            interactor.AllowDrop = dropping;
-            interactor.AllowPick = !dropping;
+            interactor.AllowDrop = dropping && !scanning;
+            interactor.AllowPick = !dropping && !scanning;
+            interactor.AllowScan = scanning;
             interactor.Target = TargetZone;
             lastZone = TargetZone;
             workTime = 0f;
@@ -727,6 +786,14 @@ namespace APC.Staff
                 if (!gauge.HasWork || stuckAtTable) FinishWork();
                 return;
             }
+            if (scanning) // 스캔: 게이지는 StorageZone이 채운다. 끝났거나 다른 사람이 스캔하면 다음 일
+            {
+                var scanZone = zone as StorageZone;
+                var stuckAtScan = workTime >= rules.InteractionDelay + StuckTimeout && interactor.CurrentZone != zone && !repathPending;
+                var mine = scanZone != null && scanZone.Scanner == interactor;
+                if (scanZone == null || stuckAtScan || (!mine && (!scanZone.StaffScanWanted || scanZone.Scanner != null))) FinishWork();
+                return;
+            }
             var count = stack.Count.CurrentValue;
             if (count != lastCount)
             {
@@ -738,7 +805,7 @@ namespace APC.Staff
                 idleTime += deltaTime;
             }
 
-            var done = dropping ? count == 0 : stack.IsFull;
+            var done = dropping ? count == 0 : stack.IsFull || (pickBudget >= 0 && count >= pickBudget);
             var stuck = workTime >= rules.InteractionDelay + StuckTimeout && interactor.CurrentZone != zone && !repathPending; // 재배치 팝 연출 중엔 존이 잠깐 안 잡힌다
             if (stuck) Debug.LogWarning($"[StaffWorker] {name}: 작업 지점 {OccupiedPosition}이 존 '{zone.name}' 밖에 있습니다.", zone);
             if (done || idleTime >= rules.WorkIdleTimeout || stuck) FinishWork();
@@ -787,7 +854,13 @@ namespace APC.Staff
             hasStand = false;
             hasWait = false;
             parking = false;
-            if (interactor != null) interactor.Target = null;
+            scanning = false;
+            pickBudget = -1;
+            if (interactor != null)
+            {
+                interactor.Target = null;
+                interactor.AllowScan = false;
+            }
         }
 
         /// <summary>
