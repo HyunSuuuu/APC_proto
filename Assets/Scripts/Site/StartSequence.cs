@@ -14,7 +14,7 @@ namespace APC.Site
     /// <summary>
     /// 시작 — 빈 땅에서 건물 세우기 (GDD 9.6). SiteGrid 오브젝트에 붙는다 (SiteGrid.Awake보다 먼저 돌아야 함).
     /// ① 씬에 놓인 시작 모듈(isStartArea)을 모두 꺼 두고(SiteGrid.Park), 13칸 둘레에 공사 울타리(입구 칸만 트임) · 플레이어는 입구 앞 도로변.
-    /// ② 발판을 하나씩: 건물 → 하차 1 → A보관 → 상차 1 → 사무실 (비용 EconomyConfig.StartBuildCost, XP 없음).
+    /// ② 발판을 하나씩: 건물 → 하차 1 → 스캔 구역 → A보관 → 상차 1 → 사무실 (비용 EconomyConfig.StartBuildCost, XP 없음).
     ///    건물을 사면 플레이어가 선 칸부터 거리 순서로 칸이 열리며 바닥 · 쓰레기장이 팝 (안 지은 모듈 칸은 빈 바닥 자리표시).
     /// ③ 상차 1을 지으면 하차 트럭 시작(TrucksOpen), 사무실을 지으면 끝(OfficeBuilt): 저금통 · 파트 시계 · 레벨 건설 타일.
     /// 그 전엔 주운 돈이 바로 지갑으로 (Wallet.DirectToCash). 디버그 [시작 건너뛰기] = Skip.
@@ -23,9 +23,9 @@ namespace APC.Site
     [DefaultExecutionOrder(-950)] // GameManager(-1000) 뒤, SiteGrid(0) 앞
     public sealed class StartSequence : MonoBehaviour
     {
-        static readonly string[] StepIds = { null, "In1", "StoreA1", "Out1", "Office" }; // null = 건물 (모듈 없음)
-        static readonly string[] StepTitles = { "건물", "하차 구역", "보관 구역 A", "상차 구역", "사무실" };
-        const int TruckStep = 3;
+        static readonly string[] StepIds = { null, "In1", "Scan", "StoreA1", "Out1", "Office" }; // null = 건물 (모듈 없음), Scan = 스캔 구역 (2026-11-24)
+        static readonly string[] StepTitles = { "건물", "하차 구역", "스캔 구역", "보관 구역 A", "상차 구역", "사무실" };
+        const int TruckStep = 4;
 
         [SerializeField, Tooltip("입구 바깥 칸 (x = 열, y = 행) — 플레이어 시작 · 울타리 트임")] Vector2Int entranceCell = new(0, 2);
         [SerializeField, Tooltip("입구 안쪽 칸 (건물 발판)")] Vector2Int doorCell = new(1, 2);

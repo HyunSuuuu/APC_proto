@@ -48,6 +48,7 @@ namespace APC.Data
         [SerializeField, Min(0.05f), Tooltip("찌그러진 상자 1개 재포장 게이지 (초, GDD 7.7 임시)")] float repackDuration = 2f;
 
         [Header("하차 스캔 (GDD 6.3 · 7.2a, M17-4)")]
+        [SerializeField, Min(1), Tooltip("스캔 모듈 팔레트 용량 (2026-11-24 — 스캔은 스캔 모듈에서만, 임시)")] int scanPalletCapacity = 10;
         [SerializeField, Min(1), Tooltip("일반 트럭 상자 수 [0] 1단계 · [1] 2단계 · [2] 3단계 (GDD 7.1)")] int[] normalTruckCapacity = { 10, 15, 20 };
         [SerializeField, Tooltip("일반 트럭 모델 [0] Small · [1] Middle · [2] Big (Brown_*_Truck_Open, GDD 7.1)")] GameObject[] normalTruckModels = new GameObject[3];
         [SerializeField, Range(0f, 1f), Tooltip("하차 트럭이 보라(D 가구) 트럭일 확률 — D보관을 지은 뒤만 (GDD 6.3 임시)")] float largeTruckChance = 0.1f;
@@ -79,6 +80,7 @@ namespace APC.Data
         public Sprite ScanBubbleSprite => scanBubbleSprite;
         public string ScanBubbleText => scanBubbleText;
         public float ScanIndicatorHeight => scanIndicatorHeight;
+        public int ScanPalletCapacity => scanPalletCapacity;
 
         public float BeltCellSize => beltCellSize;
         public float BeltCellsPerSecond => beltCellsPerSecond;

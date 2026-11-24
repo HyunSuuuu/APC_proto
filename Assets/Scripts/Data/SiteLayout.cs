@@ -152,8 +152,8 @@ namespace APC.Data
         [ContextMenu("배치 목록을 GDD 기본값으로 되돌리기 (모듈 참조는 Build Site가 채움)")]
         public void ResetModules() => modules = DefaultModules();
 
-        // Lv.1 빈 공간 8칸 (행, 열) — 처음부터 열림. id = Empty_R{행}C{열}
-        static readonly Vector2Int[] EmptyRowColumns = { new(1, 1), new(1, 2), new(2, 2), new(2, 3), new(3, 2), new(3, 4), new(4, 3), new(4, 4) };
+        // Lv.1 빈 공간 7칸 (행, 열) — 처음부터 열림. id = Empty_R{행}C{열}. (3,2)는 스캔 모듈 (2026-11-24)
+        static readonly Vector2Int[] EmptyRowColumns = { new(1, 1), new(1, 2), new(2, 2), new(2, 3), new(3, 4), new(4, 3), new(4, 4) };
 
         /// <summary>빈 공간 배치 id (기본 모듈 배정용).</summary>
         public static IEnumerable<string> EmptyCells
@@ -171,6 +171,7 @@ namespace APC.Data
                 new() { id = "Office", row = 2, column = 1, isStartArea = true, unlockLevel = 1, content = "사무실 (계약 PC · 저금통)" },
                 new() { id = "Trash", row = 1, column = 3, isStartArea = true, unlockLevel = 1, content = "쓰레기장 (기능 미정)" },
                 new() { id = "In1", row = 4, column = 2, isStartArea = true, unlockLevel = 1, content = "하차장 1 (팔레트, 트럭은 왼쪽에서)" },
+                new() { id = "Scan", row = 3, column = 2, isStartArea = true, unlockLevel = 1, content = "스캔 구역 (스캔 팔레트)" },
                 new() { id = "StoreA1", row = 3, column = 3, isStartArea = true, unlockLevel = 1, content = "A보관 (A사 선반)" },
                 new() { id = "Out1", row = 2, column = 4, isStartArea = true, unlockLevel = 1, content = "상차장 1 (트럭은 오른쪽에서)" },
                 // 해금 모듈 (레벨 · 비용 임시, GDD 4.2 표)

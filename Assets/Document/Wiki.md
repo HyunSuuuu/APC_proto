@@ -529,6 +529,13 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **연결**: 하차장 모듈마다 팔레트 하나, 반품 구역에 반품 팔레트 · 재포장 입력 · 쓰레기 출력 · 재포장 팔레트 하나씩. 각각 `StorageZone` 하나로 넣고 꺼낸다 (보관 알바 = Pallet · Repacked 존에서 집음, 반품 알바 = Returns · Trash 존에서 집음 — `StaffWorker.IsRoleZone`).
 - **주의**: 플레이어 · 분류 알바가 같은 `ShelfAllowance`를 쓴다. 예약된 수만큼은 플레이어도 덜 받는다.
 
+- **스캔 팔레트 · 벨트** (2026-11-24, `conveyor-scan`): 종류 `Scan = 6`(스캔 모듈 팔레트) — 하차 칸 공간(`Pallet`)은 미분류만 내주고(`ScanAllowance()` = 스캔 팔레트 빈자리 − 손 · 벨트 위 미분류, 출처 `CargoOrigin.Unscanned`), `Scan`은 미분류를 받아 스캔 뒤 색 상자를 선반 · 반품 팔레트로 준다. `ScanRoom`은 스캔 팔레트에 스캔돼 기다리는 수를 뺀다. 벨트 Start / End(`IBeltStart` · `IBeltEnd`): 연결은 `Pallet → Scan`뿐 (`ConveyorBelt.CanConnect`).
+
+#### ConveyorBelt · BeltPlacer
+[Logistics/ConveyorBelt.cs](../Scripts/Logistics/ConveyorBelt.cs) · [UI/BeltPlacer.cs](../Scripts/UI/BeltPlacer.cs)
+- **역할**: 컨베이어 벨트 (GDD 7.10, 2026-11-24 축소). 2m 격자 경로로 화물을 초당 1칸 옮김, End가 차면 줄지어 멈춤, 착지 0.3초 뒤 가져감, '찼다' 계산에 벨트 위 수 포함(`CountOnBelts`). `BeltPlacer` = B책상 `벨트` 탭 [설치] 화면(위에서 보기 · 격자 · 비용 · 저장/취소 · 철거 확인). 재배치 때 걸친 벨트 철거는 `ModulePanel`.
+- **연결**: 하차 칸 공간 → 스캔 모듈 팔레트 하나뿐. 씬 `HUD Canvas/BeltPlacer`, `ContractPopup` `beltTab` · `beltPage` · `beltInstallButton`.
+
 #### StorageZone
 [Logistics/StorageZone.cs](../Scripts/Logistics/StorageZone.cs)
 - **역할**: 팔레트 둘레 존 (4.2 × 3.8m). **트럭 화물 내려놓기 먼저**(`CanAccept`/`Store`), 내려놓을 것이 없으면 선반에 갈 화물을 집는다(`TakeForShelves`). `ShelfZone`과 같은 구조. `HasCargoFor`(분류 알바가 집기 전에 확인)를 구현한다.

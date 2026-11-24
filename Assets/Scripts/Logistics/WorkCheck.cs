@@ -97,7 +97,7 @@ namespace APC.Logistics
             var count = 0;
             foreach (var storage in SharedStorage.All)
             {
-                if (storage.Kind is StorageKind.Pallet or StorageKind.Repacked) count += storage.CountOf(item);
+                if (storage.Kind is StorageKind.Pallet or StorageKind.Scan or StorageKind.Repacked) count += storage.CountOf(item); // CountOf는 미분류를 빼고 셈
             }
             return count;
         }

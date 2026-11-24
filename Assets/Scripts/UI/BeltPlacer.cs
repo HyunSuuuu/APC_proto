@@ -141,7 +141,7 @@ namespace APC.UI
 
             rig.BeginTopDown(area, cameraDuration);
             ui.SetActive(true);
-            Hint("벨트를 시작할 곳(하차 트럭 · 공간 · 선반 등)을 누르세요 · 깔린 벨트를 누르면 철거");
+            Hint("하차 칸 공간(팔레트)을 누르세요 · 깔린 벨트를 누르면 철거");
         }
 
         void Finish()
@@ -262,11 +262,11 @@ namespace APC.UI
             if (done)
             {
                 done = false;
-                Hint("가로 · 세로로 늘여 꺾을 곳을 누르고, 보낼 곳을 누르세요");
+                Hint("가로 · 세로로 늘여 꺾을 곳을 누르고, 스캔 팔레트를 누르세요");
             }
             else if (points.Count > 1) points.RemoveAt(points.Count - 1);
             else if (start != null) ResetDrawing();
-            if (start == null) Hint("벨트를 시작할 곳(하차 트럭 · 공간 · 선반 등)을 누르세요 · 깔린 벨트를 누르면 철거");
+            if (start == null) Hint("하차 칸 공간(팔레트)을 누르세요 · 깔린 벨트를 누르면 철거");
             path.Clear();
             path.AddRange(points);
             end = null;

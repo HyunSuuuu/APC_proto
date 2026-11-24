@@ -61,13 +61,16 @@ namespace APC.Logistics
             cargo = null;
             if (HoldsPick(who)) return false; // 내려놓기 → 스캔 → 집기 (GDD 7.2a)
             cargo = CanCarryMoreTrash(who) ? storage.TakeForShelves() : null;
-            // 하차 칸 공간에 상자는 있는데 그 색 선반이 다 차서 하나도 못 집음 → '선반 가득' (플레이어만, GDD 7.3)
-            if (cargo == null && storage.Kind == StorageKind.Pallet && storage.Count.CurrentValue > 0)
-                Notice(who, storage.CountLabel, LabelPosition, "선반 가득");
+            // 상자는 있는데 하나도 못 집음 (플레이어만): 스캔 팔레트 = 그 색 선반이 다 참(GDD 7.3), 하차 칸 공간 = 스캔 팔레트가 다 참
+            if (cargo == null && storage.Count.CurrentValue > 0)
+            {
+                if (storage.Kind == StorageKind.Scan) Notice(who, storage.CountLabel, LabelPosition, "선반 가득");
+                else if (storage.Kind == StorageKind.Pallet) Notice(who, storage.CountLabel, LabelPosition, "스캔 팔레트 가득");
+            }
             return cargo != null;
         }
 
-        // ── 하차 스캔 (GDD 7.2a, M17-4) — 하차 칸 공간(Pallet)만 ─────────────
+        // ── 스캔 (GDD 7.2a, M17-4) — 스캔 모듈 팔레트(Scan)에서만 (2026-11-24, 옛 하차 칸 공간에서 옮김) ─────────────
 
         /// <summary>지금까지 끝낸 스캔 수 (모든 하차 칸, 튜토리얼 단계 5-1).</summary>
         public static int ScanCount { get; private set; }
@@ -85,21 +88,23 @@ namespace APC.Logistics
         /// <summary>스캔 게이지 0~1.</summary>
         public float ScanProgress => scanProgress;
 
-        bool IsPallet => storage != null && storage.Kind == StorageKind.Pallet;
+        bool IsPallet => storage != null && storage.Kind == StorageKind.Scan; // 스캔하는 팔레트 (이름은 옛 그대로)
 
-        /// <summary>하차 알바가 스캔하러 올 만한가: 스캔할 수 있고, 미분류가 `staffScanMinBoxes`개 이상이거나 이 칸 트럭이 비었거나 없다 (18장 55 가정).</summary>
+        /// <summary>
+        /// 하차 알바가 스캔하러 올 만한가: 스캔할 수 있고, 미분류가 `staffScanMinBoxes`개 이상이거나
+        /// 더 올 미분류가 없다(하차 칸 공간 · 손 · 벨트에 미분류 없음, 18장 55 가정).
+        /// </summary>
         public bool StaffScanWanted
         {
             get
             {
                 if (!IsPallet || !storage.CanScan) return false;
                 if (storage.UnsortedCount >= Core.GameManager.Instance.Database.Logistics.StaffScanMinBoxes) return true;
-                foreach (var bay in InboundBay.All)
+                foreach (var other in SharedStorage.All)
                 {
-                    if (bay.Storage != storage) continue;
-                    return bay.DockedTruck == null || !bay.DockedTruck.HasCargo;
+                    if (other.Kind == StorageKind.Pallet && other.UnsortedCount > 0) return false;
                 }
-                return true;
+                return ConveyorBelt.CountOnBelts(_ => true, c => c.Unsorted) == 0;
             }
         }
 

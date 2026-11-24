@@ -94,7 +94,7 @@ namespace APC.Logistics
             var n = 0;
             foreach (var cargo in pile.Items)
             {
-                if (cargo.Item == item && cargo.State == CargoState.Normal) n++; // 반품은 재고가 아니다
+                if (cargo.Item == item && cargo.State == CargoState.Normal && !cargo.Unsorted) n++; // 반품 · 미분류는 그 색 재고가 아니다
             }
             return n;
         }
@@ -108,6 +108,7 @@ namespace APC.Logistics
                 StorageKind.Repacked => config.RepackOutputCapacity,
                 StorageKind.RepackInput => config.RepackInputCapacity,
                 StorageKind.Trash => config.TrashOutputCapacity,
+                StorageKind.Scan => config.ScanPalletCapacity,
                 _ => config.SharedStorageCapacity,
             };
             count.Subscribe(n => countLabel.text = $"{n}/{capacity}").AddTo(this);
@@ -126,6 +127,7 @@ namespace APC.Logistics
             return kind switch
             {
                 StorageKind.Pallet => cargo.Origin == CargoOrigin.Truck && cargo.Home == this,
+                StorageKind.Scan => cargo.Unsorted && cargo.Origin == CargoOrigin.Unscanned,
                 StorageKind.Returns => cargo.State == CargoState.Return && cargo.Origin == CargoOrigin.Storage,
                 StorageKind.RepackInput => cargo.State == CargoState.Return && cargo.Origin == CargoOrigin.ReturnPallet,
                 _ => false,
@@ -225,7 +227,8 @@ namespace APC.Logistics
             return cargo;
         }
 
-        CargoOrigin OriginOnTake(Cargo cargo) => cargo.State == CargoState.Trash ? CargoOrigin.Trash : kind == StorageKind.Returns ? CargoOrigin.ReturnPallet : CargoOrigin.Storage;
+        CargoOrigin OriginOnTake(Cargo cargo) => cargo.Unsorted ? CargoOrigin.Unscanned
+            : cargo.State == CargoState.Trash ? CargoOrigin.Trash : kind == StorageKind.Returns ? CargoOrigin.ReturnPallet : CargoOrigin.Storage;
 
         /// <summary>TakeForShelves로 꺼낼 화물이 있는가 (꺼내지 않음, 분류 알바용).</summary>
         public bool HasCargoForShelves() => FindForShelves() >= 0;
@@ -314,7 +317,7 @@ namespace APC.Logistics
             var room = warehouse.GetShelfFreeSpace(item) - Warehouse.CountCarried(item, CargoOrigin.Storage) - Warehouse.CountCarried(item, CargoOrigin.Shelf);
             foreach (var storage in Registered)
             {
-                if (storage.kind == StorageKind.Pallet) room -= storage.CountOf(item);
+                if (storage.kind == StorageKind.Scan) room -= storage.CountOf(item); // 스캔 팔레트에 그 색으로 스캔돼 기다리는 상자
             }
             return room;
         }
@@ -377,8 +380,13 @@ namespace APC.Logistics
             return last;
         }
 
-        /// <summary>이 화물을 지금 내줘도 되는가 (선반 · 반품 팔레트 · 재포장 입력 여유, 쓰레기는 쓰레기 출력에서만). 미분류는 스캔해야 (GDD 7.2a).</summary>
-        bool CanGive(Cargo candidate) => !candidate.Unsorted && candidate.State switch
+        /// <summary>
+        /// 이 화물을 지금 내줘도 되는가. 하차 칸 공간 = 미분류 상자만, 스캔 팔레트에 자리가 있을 때 (스캔은 스캔 모듈에서만, 2026-11-24).
+        /// 그 밖 = 스캔된 상자만 (선반 · 반품 팔레트 · 재포장 입력 여유, 쓰레기는 쓰레기 출력에서만).
+        /// </summary>
+        bool CanGive(Cargo candidate) => kind == StorageKind.Pallet
+            ? candidate.Unsorted && ScanAllowance() > 0
+            : !candidate.Unsorted && candidate.State switch
         {
             CargoState.Normal => ShelfAllowance(candidate.Item) > 0,
             CargoState.Return => kind switch
@@ -390,6 +398,27 @@ namespace APC.Logistics
             CargoState.Trash => kind == StorageKind.Trash, // 쓰레기 출력 → 쓰레기장 (M13-11)
             _ => false,
         };
+
+        /// <summary>스캔 팔레트에 더 보낼 수 있는 미분류 상자 수 = 스캔 팔레트 빈자리 합 − 들고 가는 · 벨트 위 미분류.</summary>
+        public static int ScanAllowance()
+        {
+            var free = 0;
+            foreach (var storage in Registered)
+            {
+                if (storage.kind == StorageKind.Scan) free += storage.capacity - storage.pile.Count;
+            }
+            if (free <= 0) return 0;
+            free -= ConveyorBelt.CountOnBelts(_ => true, c => c.Unsorted);
+            foreach (var who in APC.Interaction.Interactor.All)
+            {
+                if (who.Stack == null) continue;
+                foreach (var cargo in who.Stack.Items)
+                {
+                    if (cargo.Unsorted) free--;
+                }
+            }
+            return free;
+        }
 
         /// <summary>그 종류 더미에 더 보낼 수 있는 찌그러진 상자 수 = 빈자리 합 − 이미 꺼내 들고 가는(그 출처) 찌그러진 상자.</summary>
         static int Allowance(StorageKind target, CargoOrigin origin)

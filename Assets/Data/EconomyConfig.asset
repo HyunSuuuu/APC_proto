@@ -12,11 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2feb9b6c430e29a4c945e6290203184b, type: 3}
   m_Name: EconomyConfig
   m_EditorClassIdentifier: Assembly-CSharp::APC.Data.EconomyConfig
-  startingCash: 50
+  startingCash: 60
+  startBuildCosts: 140000000a0000000a0000000a0000000a00000064000000
   padFillDuration: 1.5
   playerCarryUpgradeCosts: 64000000c80000005e010000
   playerSpeedUpgradeCosts: 64000000c80000005e010000
-  shelfCapacityUpgradeCosts: 5000000096000000fa0000007c01000026020000
+  shelfStageCosts: 960000002c010000
   storageCapacityUpgradeCosts: 960000002c010000
   cashPerBundle: 10
   cashMaxVisibleBundles: 40
@@ -27,4 +28,13 @@ MonoBehaviour:
   piggyStepCount: 3
   piggyFullMin: 300
   piggyFullRatio: 1.2
+  idleBonusDrainSeconds: 3
+  idleBonusSecondsPerUnit: 10
+  idleBonusPerUnit: 5
+  idleCheckInterval: 0.5
+  idleConfirmSeconds: 2
+  offlineMaxHours: 5
+  offlineMinSeconds: 60
+  offlineIncomePerStat: 10
+  offlineTimeUrl: https://www.google.com
   xpPurchase: 3

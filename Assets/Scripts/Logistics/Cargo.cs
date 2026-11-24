@@ -38,6 +38,9 @@ namespace APC.Logistics
 
         /// <summary>쓰레기 출력에서 꺼낸 쓰레기 → 쓰레기장만 받는다. 작업 고정으로 상자와 섞이지 않는다 (GDD 5.3 · 7.9).</summary>
         Trash,
+
+        /// <summary>하차 칸 공간에서 꺼낸 미분류 상자 → 스캔 모듈 팔레트만 받는다 (2026-11-24, 스캔은 스캔 모듈에서만).</summary>
+        Unscanned,
     }
 
     /// <summary>
