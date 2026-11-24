@@ -48,10 +48,12 @@ void WallCutoutClip(float4 positionCS)
 
 #if defined(WALL_CUTOUT_FORWARD)
 #if defined(_WALL_GRADIENT)
-// 부지 벽 안쪽 면 그라데이션. 값은 전역이며 SiteWalls.cs가 넣는다 (색은 SetGlobalColor라 선형으로 들어옴).
-half4 _WallGradientBottom;
-half4 _WallGradientTop;
-float _WallGradientHeight; // 조각 피벗(바닥)에서 잰 월드 높이(m) — 0에서 아래 색, 이 높이에서 위 색, 이보다 위는 원래 색
+// 부지 벽 안쪽 면 그라데이션. 값은 전역이며 SiteWalls.cs가 넣는다 (색은 SiteWalls가 선형으로 바꿔 넣음).
+half4 _WallGradientBottom;  // 바닥 쪽 색
+half4 _WallGradientTop;     // 위쪽 색
+float _WallGradientStart;   // 조각 피벗(바닥)에서 잰 월드 높이(m) — 이 아래는 전부 아래 색
+float _WallGradientEnd;     // 이 위는 전부 위 색. 사이는 높이에 비례 (참고 이미지가 직선 그라데이션)
+#define WALL_BAND_BOTTOM 3.6955 // wall_L · wall_S 위쪽 갈색 띠가 시작하는 높이(m, fbx 369.55cm). 그 위는 원래 색
 
 // LitPassFragment(URP LitForwardPass.hlsl) 복사본 + 안쪽 면 albedo 바꾸기. URP를 올리면 원본과 맞춰 볼 것.
 void WallGradientLitFragment(Varyings input, out half4 outColor
@@ -67,12 +69,11 @@ void WallGradientLitFragment(Varyings input, out half4 outColor
     InitializeStandardLitSurfaceData(input.uv, surfaceData);
 
     // wall_L · wall_S (Z-up fbx): 로컬 +y = 부지 안쪽을 보는 큰 면, 로컬 z = 높이. SiteWalls가 로컬 +z(회전 후)를 바깥으로 세운다
-    // 위쪽 갈색 띠(3.6955m~)는 그대로 두려고 _WallGradientHeight 아래만 칠한다
     float3 normalOS = TransformWorldToObjectDir(input.normalWS);
     float height = input.positionWS.y - UNITY_MATRIX_M._m13;
-    if (normalOS.y > 0.5 && height < _WallGradientHeight)
+    if (normalOS.y > 0.5 && height < WALL_BAND_BOTTOM)
     {
-        float t = saturate(height / max(_WallGradientHeight, 1e-3));
+        float t = saturate((height - _WallGradientStart) / max(_WallGradientEnd - _WallGradientStart, 1e-3));
         surfaceData.albedo = lerp(_WallGradientBottom.rgb, _WallGradientTop.rgb, t);
     }
 

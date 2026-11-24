@@ -12761,11 +12761,12 @@ MonoBehaviour:
   lowPillar: {fileID: 919132149155446097, guid: a8fae158bb9962747899fd22dd022ab7, type: 3}
   highPillar: {fileID: 919132149155446097, guid: 2942e54f59201ed479fcfdab77801e30, type: 3}
   material: {fileID: 2100000, guid: c5e9eb1737ca8ec4186905aeab7a8c0c, type: 2}
-  pieceLength: 1
   wallMaterial: {fileID: 2100000, guid: 0677853d41e54adf81545b0909b44e5e, type: 2}
-  gradientBottom: {r: 0.91764706, g: 0.38431373, b: 0.21176471, a: 1}
-  gradientTop: {r: 0.9019608, g: 0.8509804, b: 0.68235296, a: 1}
-  gradientHeight: 3.69
+  gradientBottom: {r: 0.91764706, g: 0.7764706, b: 0.6039216, a: 1}
+  gradientTop: {r: 0.9490196, g: 0.92156863, b: 0.8, a: 1}
+  gradientStart: 0
+  gradientEnd: 3.4
+  pieceLength: 1
   windowPrefab: {fileID: 919132149155446097, guid: 6fa418a9fec04094d94fcca7d251ca60, type: 3}
   windowStarts: 0200000006000000
 --- !u!114 &811996142
