@@ -44,6 +44,7 @@ namespace APC.UI
         [Range(0f, 1f)] public float grazingDarken = 0.45f;
 
         private RectTransform rect;
+        private ReceiptTear tear;
         private float appliedDegrees = -1f;
         private readonly List<Graphic> graphics = new List<Graphic>();
         private readonly List<ReceiptCurlVertex> effects = new List<ReceiptCurlVertex>();
@@ -55,6 +56,15 @@ namespace APC.UI
         public bool IsCurling => degrees > 0.05f && curlLength > 0.01f;
         public float TopY => Rect.rect.yMax;
         public float BendStartY => TopY - curlLength;
+        /// <summary>같은 오브젝트의 절취선 뜯기 (없으면 null). 정점은 말림 다음에 뜯기 변형을 거친다.</summary>
+        public ReceiptTear Tear => tear;
+        public bool TearDeforming => tear != null && tear.IsDeforming;
+
+        public void SetTear(ReceiptTear value)
+        {
+            tear = value;
+            appliedDegrees = -1f;
+        }
 
         private void Awake()
         {
@@ -91,14 +101,16 @@ namespace APC.UI
 
         private void LateUpdate()
         {
-            if (Mathf.Abs(appliedDegrees - degrees) < 0.02f) return;
+            // 뜯기 값이 바뀌었으면 (가드 계산 포함) 전부 다시 그림
+            bool tearChanged = tear != null && tear.ConsumeDirty();
+            if (!tearChanged && Mathf.Abs(appliedDegrees - degrees) < 0.02f) return;
             appliedDegrees = degrees;
 
             for (int i = 0; i < paperGraphics.Count; i++)
                 if (paperGraphics[i] != null) paperGraphics[i].SetVerticesDirty();
 
-            // 말림 구간 근처에 걸친 그래픽만 갱신 (아래쪽 행은 변형될 일이 없음)
-            float limit = BendStartY - 2f;
+            // 말림 구간 근처에 걸친 그래픽만 갱신 (아래쪽 행은 변형될 일이 없음). 뜯기 중이면 전부.
+            float limit = tearChanged ? float.MinValue : BendStartY - 2f;
             Matrix4x4 toPaper = Rect.worldToLocalMatrix;
             for (int i = 0; i < effects.Count; i++)
             {

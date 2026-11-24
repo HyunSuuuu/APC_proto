@@ -30,6 +30,7 @@
    - [Orders](#47-orders--주문)
    - [Site](#48-site--부지-모듈)
    - [UI](#49-ui)
+   - [BrokeCash](#49c-brokecash--정산-저금통-깨기-rd)
    - [Debugging](#410-debugging)
    - [Editor](#411-editor--에디터-도구)
 5. [자주 하는 작업](#5-자주-하는-작업)
@@ -54,8 +55,10 @@
 | `Contracts` | 회사 계약 |
 | `Orders` | 주문 데이터 · 주문 큐 · 수요 계산 · 교착 방지 가중치 |
 | `Economy` | 파트 타이머 · 파트 종료 정산 · 사무실 투명 저금통 |
+| `BrokeCash` | 정산 저금통 깨기 연출 R&D (DOTween · 2D 스켈레톤 비교용, 별도 씬 `BrokeCashScene`). 아직 게임 흐름에 연결 안 됨 |
 | `Site` | 부지 격자와 모듈 해금 |
 | `UI` | 팝업, 월드 글자 정렬, HUD 초기화 (`UiBootstrap`) |
+| `Offline` | 오프라인 수익 — 종료 상태 저장 · 복귀 정산 (GDD 9.7, 방식 1 · 2) |
 | `Debugging` | 치트 메뉴 (에디터 · 개발 빌드 전용) |
 | `Editor` | 씬 · 프리팹 · 데이터 자동 생성 메뉴 (빌드에 포함 안 됨) |
 
@@ -327,6 +330,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | [CarryConfig](../Scripts/Data/CarryConfig.cs) | `CarryConfig` | 상자 높이(0.5 = 색 상자 0.3 × 배율 1.667, M15-2), 쓰레기 모델 배율 2.5, **스택 휘어짐**(`leanCurve` · `curveLevels` · `tiltAlongCurve`, `LeanFactor(층)`), 비행 · 착지 연출, 스택 흔들림 스프링, MAX 표시, '넣을 수 없음' 그림, **알림 글자 재질** `noticeMaterial`(TMP Overlay) |
 | [LogisticsConfig](../Scripts/Data/LogisticsConfig.cs) | `LogisticsConfig` | 보관소 · 선반 용량, **반품**(반품 확률 · 반품 팔레트 12 · 재포장 입력 6 · 성공 70% · 쓰레기 출력 6 · 재포장 팔레트 6 · 재포장 2초 · 쓰레기 들기 12), 입고 · 출고 트럭 후진 · 출발 · 재등장 시간, 사무실 게이지, 팝 연출 시간 |
 | [SiteLayout](../Scripts/Data/SiteLayout.cs) | `SiteLayout` | 칸 크기, **모듈 배치 목록** (아래 설명) |
+| [BrokeCashConfig](../Scripts/Data/BrokeCashConfig.cs) | `BrokeCashConfig` | 정산 저금통 깨기 연출 (R&D, 2026-11-20): 번 돈 ÷ 기준 = 비율 → `maxRatio`(2)까지 `amountCurve`로 t → 조각 수(8~120) · 흘러내리는 시간 · 더미 반경 · 높이 · 출렁 각도 · 카메라 흔들림을 (최소, 최대) 보간, 저금통 안 돈 높이(비율 0~1), 돈 종류 단계(`billRatio` 0.3 · `bundleRatio` 1), 타이밍(내려옴 0.75 · 쩌적까지 0.35 · 깨짐까지 0.3), 금액 가중치(동전 1 · 지폐 3 · 다발 8). 값은 모두 `임시`. GameDatabase에 안 넣음 — BrokeCashScene의 `BrokeCashDirector`가 직접 참조 |
 | [CashFlyConfig](../Scripts/Data/CashFlyConfig.cs) | `CashFlyConfig` | 주운 현금 → HUD 저금통 **달러 아이콘 연출**: 비행 시간, **속도 그래프**(`moveCurve`, 시간 0~1 → 경로 진행 0~1, 기울기 = 속도, 1을 넘기면 지나쳤다 돌아옴), 포물선 높이, **출발 랜덤 반경**(`startRadius`, HUD px — 플레이어 화면 위치 둘레 원 안 무작위 지점에서 출발, 0 = 중앙), 기본 크기, **크기 그래프**(`scaleCurve`, 시간 → 배율), 도착 때 저금통 아이콘 튐. Build Site가 `CashFlyEffect`에 직접 연결 (없으면 만듦, 비면 `OrDefault`) |
 | [GoldenTruckConfig](../Scripts/Data/GoldenTruckConfig.cs) | `GoldenTruckConfig` | **황금 트럭** (GDD 6.4, 2026-11-18 `LogisticsConfig`에서 옮김): 확률 · 금 값 배율, 몸체 색(`solidColor` = `_BaseMap`을 흰색으로 덮어 단색) · 깜빡임, 점광원, 반짝임 파티클(`M_GoldSparkle`), 쏟기(지연 · 간격 · 튐 · 쌓는 모양 · 떠남 지연), 흡수(반경 · 간격 · 비행 · 회전 · 크기 그래프). `GameDatabase.GoldenTruck` (비면 `OrDefault`). 값은 매번 읽으므로 Play 중 조절 가능 |
 | [StampConfig](../Scripts/Data/StampConfig.cs) | `StampConfig` | 계약 PC **도장 연출**: 누르기 배율 · 시간, 카드 위 머무는 시간, 복귀 시간 · 이징, 자국 · 필터, 흔들림 · 사유 시간, 계약 후 팝업 닫힘 지연. **`GameDatabase`가 아니라** Build Site가 `Stamp` · `StampCard` · `ContractPopup`에 직접 연결 (없으면 만들고, 연결이 비면 기본값 `OrDefault`) |
@@ -740,6 +744,26 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 사무실 투명 저금통 (사무실 모듈 안). `Wallet.Piggy`에 따라 지폐 층이 **3단계**(`piggyStepCount`)로 차오르고 — 가득 기준을 넘어도 돈은 계속 모이고 모양만 멈춤 —, 돈이 들어오면 통이 튄다. 정산 때 비워진다. 위 글자 = 저금통 금액.
 - **동작**: `layers`(아래부터 `FillPivot/Layer1~3`, 층마다 `Papper_Money` 30개)가 있으면 단계만큼 층을 켜고 새 층은 팝 (M14-1). 없으면 옛 방식 — `fill`(피벗 바닥)의 y 크기. 유리통 위에 `Piggy_Bank` 모델(`PiggyTop`).
 
+### 4.7c Offline — 오프라인 수익 (2026-11-23)
+
+#### OfflineRewardService
+[Offline/OfflineRewardService.cs](../Scripts/Offline/OfflineRewardService.cs)
+- **역할**: 오프라인 수익 (GDD 9.7). 종료 상태를 저장하고, 돌아오면 `알바 몫 − 월급`을 보유 재화에 바로 넣는다 (`Wallet.Add`).
+- **동작**: 씬에 두지 않는다 — `RuntimeInitializeOnLoadMethod(AfterSceneLoad)`에서 GameManager가 있으면 스스로 생긴다. `OnApplicationPause(true)` · `OnApplicationQuit` → `SaveSnapshot`(현재 알바 명단으로 하루 수익 · 하루 월급 + 종료 시각 + 모드, PlayerPrefs `APC.Offline.Snapshot` JSON). `Start` · `OnApplicationPause(false)` → `ClaimAsync`(스냅샷의 모드 시계로 지금 시각 → `OfflineFormula` → 스냅샷 삭제 → 지급 → `OnGranted`). 모드는 PlayerPrefs `APC.Offline.Mode`에 기억.
+- **연결**: `EconomyConfig` '오프라인 수익'(`offlineMaxHours` 5 · `offlineMinSeconds` 60 · `offlineIncomePerStat` 10 · `offlineTimeUrl`), `StaffRules.GetWage`, `StaffService.Workers`. `OnGranted`는 복귀 팝업이 구독할 자리 (팝업은 아직 없음, 로그 `[Offline] 정산 …`).
+- **주의**: 스냅샷은 지급 **전에** 지워 두 번 받지 않는다. 2번은 서버 시각이 없으면 종료 상태를 저장하지 않고, 복귀 때 못 받으면 스냅샷을 남겨 다음 복귀 때 다시 시도(그사이 다시 종료하면 덮어씀). Windows 빌드는 `runInBackground`라 포커스를 잃어도 Pause가 오지 않는다 — PC에선 종료 → 재실행 경로와 디버그로 테스트. 에디터는 Play 정지 = Quit라 다음 Play에서 정산된다.
+
+#### OfflineFormula
+[Offline/OfflineFormula.cs](../Scripts/Offline/OfflineFormula.cs)
+- **역할**: `OfflineMode`(Local · ServerTime) · `OfflineSnapshot` · `OfflineResult` · 공식. Unity 의존 없음 — 3번(서버 계산)을 만들 때 서버에 그대로 복사한다.
+- **동작**: 경과 = MAX(0, 지금 − 종료)(시계를 되돌려도 음수 아님), 인정 = MIN(경과, 상한), 일수 = 인정 ÷ 하루(파트 길이 × 2), 번 돈 = 내림(하루 수익 × 일수), 월급 = 올림(하루 월급 × 일수), 지급 = MAX(0, 번 돈 − 월급). 전부 double · long.
+
+#### OfflineClocks
+[Offline/OfflineClocks.cs](../Scripts/Offline/OfflineClocks.cs)
+- **역할**: `IOfflineClock` — `DeviceClock`(1번, 기기 시계) · `HttpDateClock`(2번, 임시 서버 시계).
+- **동작**: `HttpDateClock`은 `offlineTimeUrl`에 HEAD 요청(5초 제한) → `Date` 헤더 + 응답 시간 절반. 받은 시각을 `realtimeSinceStartup`에 묶어 `TryGetNow`(종료 저장용, 네트워크 없음)를 만든다 — 실행 중 기기 시계를 바꿔도 틀어지지 않음.
+- **주의**: 정밀도 ±1초. 뒤끝 `GetServerTime` · Firebase로 바꿀 때 이 클래스만 교체한다.
+
 ### 4.8 Site — 부지 모듈
 
 전체 그림은 [3.5](#35-부지-해금)와 TechStack 5.7 참고.
@@ -888,15 +912,25 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [UI/SettlementPopup.cs](../Scripts/UI/SettlementPopup.cs)
 - **역할**: 일일 정산 = 영수증 출력기 (2파트 끝, 게임 멈춤, UI 샘플 `BillScene` 방식 2026-11-20). 스프라이트 = `Resources/Receipt`(배출구 `_1`(9-slice 왼 110 · 오른 40, 몸체와 같은 열) · 몸체 `_2`(9-slice 왼 110 · 아래 60 · 오른 40 · 위 130 — 늘려도 그려진 LED 구간 · 모서리는 그대로, 2026-11-20) · LED `_4` · 도장 `_6` · 아이콘 `_7` `_8` `_9` `_10` `_13`) + LED 번짐 `Resources/LedGlow`(원형 흰 그라디언트 128px, `_5`는 사각으로 번져 안 씀). 출력기 = 배출구 · 몸체(덮개 `_0`은 사용자가 뺌, 위치 · 크기는 사용자가 씬에서 조정), 영수증 마스크 아래 끝 = 배출구 틈. [확인]은 출력기 자식 맨 뒤(맨 위에 그려짐).
 - **말림** (2026-11-20, UI 샘플과 같음): 종이 = `ReceiptPaperGraphic`(톱니 · 도트 질감 메시, 루트 = 말린 부분 `Part.Curl`, 첫 자식 `PaperFlat` = 평평한 부분) + `ReceiptCurl`(위 90 구간, 반지름 28, 원근 588, `towardViewer` 끔 = 화면 안쪽으로 넘어감). 글씨 · 아이콘엔 `ReceiptCurlVertex`가 실행 때 붙는다. 각도 = `curlMaxDegrees`(190) × smoothstep(나온 길이 / `curlRampDistance` 560) + 줄마다 펄럭임(`feedFlutterDegrees` 18, 0.6초 감쇠 사인) + 뜯을 때 `tearCurlDegrees` 20. 위 84는 빈 여백(글씨가 접히지 않게).
-- **동작**: `Open` → 배경 `dim` 검정 0.7 페이드 + 출력기(`printer`)가 아래에서 OutBack으로 올라옴 → 출력 중(떨림 루프 + LED 주황, 번짐 `ledGlow`(40px)가 1 → 2.2배로 퍼지며 0.85 → 0으로 사라짐 0.7초 반복 = UI 샘플 ping, 글자 `PRINTING`) → `rows`(머리 `APC 물류센터 공식 정산표` · `[일일 물류 정산서]` · `DAY N` → 상차 수익 · 알바 시급 · 출고(트럭 · 상자) · 반품 처리 → 순수익 `NET PROFIT`(도장 칸 포함) → 알바 안내 → 뜯기 안내, 익일 예보 없음) 차례로: 종이(`paper`, 위 끝 기준)가 그 줄 아래 + 18까지 밀려 나옴(0.34초 OutQuint) → 줄 페이드 + 값 0.75 → 1.45 → 1 튐 → 순수익 줄이면 `정산 완료` 쾅(2.4 → 0.92 → 1.06 → 1). 끝나면 LED 초록 + 번짐 1.6배 · 알파 0.35 고정 · `DONE` · [확인] 튀어나옴. 출력 중 배경을 누르면 `sequence.Complete` = 끝까지 건너뛰기. [확인] → 종이가 살짝 들렸다 위로 날아가며 사라짐 → 출력기 내려감 · 배경 밝아짐 → `ClosePopup` → `PartService.Confirm()`. 알바 안내 줄(미지급 · 퇴사)은 내용이 있을 때만.
+- **동작**: `Open` → 배경 `dim` 검정 0.7 페이드 + 출력기(`printer`)가 아래에서 OutBack으로 올라옴 → 출력 중(떨림 루프 + LED 주황, 번짐 `ledGlow`(40px)가 1 → 2.2배로 퍼지며 0.85 → 0으로 사라짐 0.7초 반복 = UI 샘플 ping, 글자 `PRINTING`) → `rows`(머리 `APC 물류센터 공식 정산표` · `[일일 물류 정산서]` · `DAY N` → 상차 수익 · 알바 시급 · 출고(트럭 · 상자) · 반품 처리 → 순수익 `NET PROFIT`(도장 칸 포함) → 알바 안내 → 뜯기 안내, 익일 예보 없음) 차례로: 종이(`paper`, 위 끝 기준)가 그 줄 아래 + 18까지 밀려 나옴(0.34초 OutQuint) → 줄 페이드 + 값 0.75 → 1.45 → 1 튐 → 순수익 줄이면 `정산 완료` 쾅(2.4 → 0.92 → 1.06 → 1). 끝나면 LED 초록 + 번짐 1.6배 · 알파 0.35 고정 · `DONE` · [확인] 튀어나옴. 출력 중 배경을 누르면 `sequence.Complete` = 끝까지 건너뛰기. 마지막 줄 뒤 `stubMargin`(40)만큼 더 밀어낸 뒤 `FinishPrinting`에서 `ReceiptTear.ShowPerforation(SlotY())`로 절취선 표시. [확인] → `ReceiptTear.CreateSequence`(절취선 뜯기, 단계마다 `ShakeScreen(stepShake 5)`, 끊길 때 `snapShake` 16 + 출력기 아래로 툭) → 출력기 내려감 · 배경 밝아짐 → `ClosePopup` → `PartService.Confirm()`. 알바 안내 줄(미지급 · 퇴사)은 내용이 있을 때만.
 - **시간 보너스 줄** (M17-3, 2026-11-20): 씬 영수증 `Paper/Bonus`(반품 처리 줄 복제, 아이콘 `Receipt_13`, 줄 간격 62 — 아래 줄 · 종이 높이 844 → 906), `rows` 6번째 · `bonusValue` = `+N`(그날 `SettlementResult.TimeBonus`, 0이어도 표시).
 - **[확인] 버튼** (M17-2, 2026-11-20): 열 때부터 보임. 출력 중 [확인] · 배경 탭 = `SkipPrinting`(시퀀스 `Complete` → 바로 다 나온 상태, 넘어가지 않음). 출력이 끝나면 `shakeInterval`(1초)마다 `DOPunchRotation`(`shakeDegrees` 12) 반복 + 글자 `확인 (N)`, `autoConfirmSeconds`(5, `임시`, 비시간 `unscaledDeltaTime`) 뒤 자동 `Confirm`. 닫을 때 `ResetConfirmButton`으로 글자 · 회전 복원.
-- **주의**: 루트는 항상 켜 두고 `body`만 켜고 끈다 (계약 팝업과 같은 구조).
+- **어디를 눌러도 [확인]** (2026-11-23): `dim.onClick` · 종이 `ReceiptPaperGraphic.Clicked` · `IPointerClickHandler`(처리기 없는 출력기 이미지 · 글씨 클릭이 올라옴) 모두 `Confirm`. 출력 중이면 건너뛰기만.
+- **주의**: 루트는 항상 켜 두고 `body`만 켜고 끈다 (계약 팝업과 같은 구조). `Awake`가 실행 때 바꾸는 것: `ReceiptTear`가 없으면 종이에 붙임, 마스크 `PaperViewport` 폭 600 → `viewportMinWidth` 1600(기운 종이가 옆으로 잘리지 않게), Dim을 사방 `shakePadding` 80 넓힘(화면 흔들림 때 가장자리가 안 보이게).
+
+#### ReceiptTear
+[UI/ReceiptTear.cs](../Scripts/UI/ReceiptTear.cs)
+- **역할**: 정산 영수증 절취선 뜯기 (2026-11-23, 기획서 [ReceiptTear_기획.md](ReceiptTear_기획.md), HTML 샘플을 위아래 뒤집어 적용). 종이 루트(`ReceiptCurl`과 같은 오브젝트).
+- **동작**: 상태 `Hidden`(출력 중) → `Ready`(절취선 = 배출구 틈 + `stubHeight` 26, 0.15초 나타남) → `Anticipate`(0.12초, 왼쪽 아래 모서리 들림) → `Tear`(0.48초, `tearU` 8단계 계단형, 절취 지점을 축으로 몸통 전체가 시계 방향으로 0 → 12° 회전, 붙은 오른쪽은 절취선 위 `bendHeight` 140 구간에서 묶임) → `Fly`(0.42초, +10° 돌며 위로 1150 InCubic, 58%부터 투명, 주름 펴짐) + 남은 조각은 0.12초 뒤 0.26초 동안 배출구로 내려감. `Deform(p, stub)` = 말림 다음에 거치는 변형.
+- **깨짐 방지**: 각도 상한 `남은 오른쪽 × sinθ ≤ maxBendDrop(0.5) × bendHeight`, 주름은 음영 위주(변위 1.5 이하), 뜯기 · 날아가기는 같은 함수. 가드 = 매 프레임 거친 격자(17×12)로 면적 비율(야코비안) 최솟값을 재서 `minJacobian` 0.3 미만이면 변형 세기를 이분 탐색으로 줄임(`guardAmount`, 인스펙터에서 보임). 기본값 최솟값 0.48.
+- **연결**: `SettlementPopup`이 `ShowPerforation` · `CreateSequence(slotY, onStep, onSnap)` · `ResetTear`를 부름. `ReceiptCurl.LateUpdate`가 `ConsumeDirty`(가드 계산)를 부르고 값이 바뀌면 모든 그래픽을 다시 그림.
+- **주의**: 씬에는 아직 안 붙어 있음 → 실행 때 `SettlementPopup.Awake`가 붙이므로 값 조정은 Play 중에만 남지 않는다 (에디터에서 `Paper`에 붙이면 저장됨).
 
 #### ReceiptCurl · ReceiptCurlVertex · ReceiptPaperGraphic
 [UI/ReceiptCurl.cs](../Scripts/UI/ReceiptCurl.cs) · [UI/ReceiptCurlVertex.cs](../Scripts/UI/ReceiptCurlVertex.cs) · [UI/ReceiptPaperGraphic.cs](../Scripts/UI/ReceiptPaperGraphic.cs)
 - **역할**: 일일 정산 영수증 윗부분 말림 (UI 샘플 `SettlementReceipt`에서 그대로 가져옴, 네임스페이스만 `APC.UI`, 2026-11-20). `ReceiptCurl` = 종이 루트에 붙는 변형기(굽힘선 위 `curlLength` 구간을 반지름 `curlRadius`로 꺾고 남은 길이는 날개로 뻗음, 원근 · 광원 음영). `ReceiptCurlVertex` = 자식 Graphic(Image는 `ModifyMesh`, TMP는 `TEXT_CHANGED` 뒤 정점)을 같은 함수로 휨, 면이 기울면 글씨가 흐려짐. `ReceiptPaperGraphic` = 톱니 절단면 · 도트 질감 종이를 가로 띠로 잘게 나눈 메시로 그림(뒷면 색 따로).
 - **연결**: `SettlementPopup.Update`가 `ReceiptCurl.degrees`를 정한다. `ReceiptCurl.Awake`가 자식 Graphic에 `ReceiptCurlVertex`를 붙인다 (실행 중 자식을 더하면 `RegisterChildren`).
+- **절취선 (2026-11-23)**: `ReceiptTear`가 있으면 정점은 말림 → 뜯기 순서로 변형. `ReceiptPaperGraphic`의 `PaperFlat`은 절취선이 보이면 `EmitTornFlat` = 몸통 · 남는 조각 2벌 격자(절취선 줄 정점 중복, 가로 `perforationPitch` 12 간격, 절취선 위 `bendHeight` 구간은 세로 10 간격) + 양옆 V 노치 + 점선(안 뜯긴 곳) + 톱니 단면 · 테두리(뜯긴 곳).
 - **주의**: 뒤로 넘어가는 말림이라 그리는 순서 = 루트(말린 부분) → 첫 자식 `PaperFlat`(평평한 부분) → 글씨. 말리는 구간에 글씨를 두지 않는다 (위 84 여백).
 
 #### FacilityPanel
@@ -1025,12 +1059,46 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **동작**: `Start`에서 링(48조각) + 삼각형(+Z) 메시를 만들어 자식 `FacingIndicator`(발 + `height`)로 붙인다 — 캐릭터 회전을 그대로 따름. 그림자 없음. 반지름 · 두께 · 삼각형 크기는 인스펙터.
 - **연결**: 씬 `Player` 루트(씬 YAML 직접 추가), 재질 `Art/Materials/M_FacingIndicator`(URP 투명 Unlit, 흰색 알파 0.7). 재질이 비면 표시하지 않음.
 
+### 4.9c BrokeCash — 정산 저금통 깨기 (R&D)
+
+2026-11-20. 같은 연출을 **DOTween 버전**과 **2D 스켈레톤 버전**(다음 작업)으로 따로 만들어 비교한다. 씬 `Assets/Scenes/BrokeCashScene.unity` = DOTween 버전 (메뉴 `APC > Broke Cash > Build DOTween Scene`로 다시 만듦). 2D 직교 카메라 · 스프라이트, Game 씬 · 정산 팝업과는 아직 연결 안 함.
+흐름: 사슬에 매달린 유리 저금통이 내려와 출렁 → 쩌적(우측 하단 금이 한 번에) → 0.3초 뒤 깨짐 → 구멍에서 돈 조각이 흘러내려 바닥 더미 → 조각마다 `CashFlyEffect`로 좌측 하단 "정산할 돈"에 날아가 숫자 증가 → 영수증 안내. 0원이면 먼지 · 나방 · 단추 개그.
+
+#### BrokeCashPlan
+[BrokeCash/BrokeCashPlan.cs](../Scripts/BrokeCash/BrokeCashPlan.cs)
+- **역할**: 한 번의 연출 계획 (순수 계산, 공용). `Create(번 돈, 기준, config, 날아가는 때, seed)` → 비율 · t · 단계(1 동전 · 2 + 지폐 · 3 + 다발) · 조각마다 종류 · 금액 · 출발 시각 · 더미 자리 · 날아가는 시각. 같은 seed면 결과가 같다 (두 버전 비교용).
+- **동작**: 금액은 종류 가중치 비례로 나누고 나머지는 마지막 조각 → 합 = 번 돈. 시각은 깨지는 순간 기준. `FillAt(t, 구멍 높이)` = 깨진 뒤 남은 돈 높이.
+
+#### BrokeCashDirector
+[BrokeCash/BrokeCashDirector.cs](../Scripts/BrokeCash/BrokeCashDirector.cs)
+- **역할**: 연출 진행 (공용). `Play(번 돈, 기준, 모드, seed)` · `Skip()` · `Finished`.
+- **동작**: 몸체(`PiggyBody`)에 Prepare → Lower → (crackDelay) Crack + "쩌적!" → (breakDelay) Break + "와장창!" · 유리 조각 12 · 카메라 흔들림 → 조각마다 구멍에서 `DOJump`(+회전) → 착지(납작 + 튐, 아래일수록 앞) → `Fly` 시각에 숨기고 `CashFlyEffect.Fly` → 도착마다 `BrokeCashHud.Add`. 다 도착하면 Finish → 영수증 안내. 배경(벽 · 바닥 사각형)은 Awake에 코드로.
+- **주의**: 모든 트윈 `SetUpdate(true)`(정산 중 timeScale 0 대비) + `SetId(this)` — 건너뛰기 · 다시 재생은 `DOTween.Kill(this)` 한 번. 늦게 도착한 비행은 `playId`로 무시. 조각 120개라 Awake에서 `DOTween.SetTweensCapacity(1250, 312)`.
+
+#### PiggyBody · PiggyBodyTween
+[BrokeCash/PiggyBody.cs](../Scripts/BrokeCash/PiggyBody.cs) · [BrokeCash/PiggyBodyTween.cs](../Scripts/BrokeCash/PiggyBodyTween.cs)
+- **역할**: `PiggyBody`(추상, 공용) = 안에 든 돈(몸통 타원 `SpriteMask` 안 격자 스프라이트, `SetFill`로 높이만큼 보임) · 금(`PiggyCracks`) · `HolePosition` · `HoleFraction`. 움직임 `Lower` · `Crack` · `Break` · `SnapBroken`은 버전마다.
+- **PiggyBodyTween**: 오브젝트 = 사슬 고정점(화면 위 밖), 자식 `Body`(유리 이미지 한 장)를 통째로. 내려옴 `DOMoveY`(OutBack 1.6) · 출렁 = `DOLocalRotate` 왕복 Sequence(진폭 × −0.62씩 6번) · 쩌적/깨짐 = `Body.DOPunchPosition`.
+- **연결**: 이미지 `Art/Temp/BrokeCash/Piggy_Glass.png`(1024 × 572, 100 px = 1) + 재질 `M_SpriteMultiply`. 몸통 · 구멍 · 고정점 위치는 빌더가 이미지 픽셀 좌표로 잡음(몸통 (520, 305) 반지름 262 × 188, 구멍 (727, 430)).
+
+#### PiggyCracks
+[BrokeCash/PiggyCracks.cs](../Scripts/BrokeCash/PiggyCracks.cs)
+- **역할**: 우측 하단 금 · 구멍 (공용). 위치 = 금 시작점 = 돈이 나오는 곳. `Prepare(seed)` → 금 11줄(LineRenderer 흰 번짐 + 어두운 선, 대부분 몸통 안쪽으로) · 구멍 테두리 12각을 뽑고 숨김, `Crack(초)` = 한 번에 퍼짐 + 반짝임, `Break` = 구멍 테두리.
+- **주의**: 로컬 좌표라 부모(DOTween 이미지 · 스켈레톤 금 뼈)를 따라감.
+
+#### BrokeCashHud · BrokeCashArt · BrokeCashTester
+[BrokeCash/BrokeCashHud.cs](../Scripts/BrokeCash/BrokeCashHud.cs) · [BrokeCash/BrokeCashArt.cs](../Scripts/BrokeCash/BrokeCashArt.cs) · [BrokeCash/BrokeCashTester.cs](../Scripts/BrokeCash/BrokeCashTester.cs)
+- **BrokeCashHud**: 좌측 하단 "정산할 돈"(아이콘 = `CashFlyEffect` 목표) — `Add`(숫자 + 튐) · `Finish`(큰 튐 + 색) · `ShowEmpty`("…텅") · `ShowReceipt`(아래 가운데 안내).
+- **BrokeCashArt**: 동전 · 지폐 · 다발 · 원 · 유리 조각 · 단추 · 사각형 스프라이트를 코드로 그려 캐시 (아트 오면 교체).
+- **BrokeCashTester**: IMGUI 오른쪽 위 — 번 돈 예시(0 · 60 · 200 · 450 · 900) · 번 돈/기준 입력 · 날아가는 때(착지하자마자 / 다 쏟아진 뒤) · 다시 재생 · 같은 모양 다시 · 건너뛰기 · 배속(`DOTween.timeScale` 1 · 0.5 · 0.25). 시작하면 450 / 300.
+
 ### 4.10 Debugging
 
 #### DebugMenu
 [Debugging/DebugMenu.cs](../Scripts/Debugging/DebugMenu.cs)
 - **역할**: 치트 메뉴 (IMGUI). 에디터 · Development 빌드에서 동작하고, `releaseBuild`(기본 켬, 2026-11-20)면 일반 빌드에서도 동작한다 — 출시 전에 끈다. **왼쪽 아래** `DEBUG` 버튼 또는 F1.
 - **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / **현금 존**: `Zone +200`(첫 현금 존에 쌓기) · `Collect n`(모든 현금 존 돈을 반경 무시하고 플레이어가 줍기 — 다발 · 달러 아이콘 연출 그대로, `CashZone.CollectBy`) / 레벨업 · XP +10 · **Lv.5**(목표 레벨) / 배속 ×1 · ×2 · ×4 / 일시정지 / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick / Returns 생성, **Costume 100%** 토글(켜면 생성 · 고용 탭 새 후보가 모두 코스튬, `StaffRules.ForceCostume`, Play마다 꺼짐), 알바별 `이름 spd cap 상태 들고있는수/최대`. 튜토리얼 중이면 `Tutorial n → next`(단계 건너뛰기) · `Tutorial off`.- **주의**: IMGUI는 EventSystem에 안 잡히므로 `ContainsScreenPoint`로 `UiHitTest`에 영역을 알려 준다. 새 치트는 `DrawContent`에 추가한다. 패널은 스크롤 뷰 — 마우스 · 터치 드래그(버튼 위에서도) · 휠로 내린다. 조이스틱 차단 영역은 패널 영역 전체.
+- **주의**: IMGUI는 EventSystem에 안 잡히므로 `ContainsScreenPoint`로 `UiHitTest`에 영역을 알려 준다. 새 치트는 `DrawContent`에 추가한다. 패널은 스크롤 뷰 — 마우스 · 터치 드래그(버튼 위에서도) · 휠로 내린다. 조이스틱 차단 영역은 패널 영역 전체.
 
 #### PerformanceHUD
 [Debugging/PerformanceHUD.cs](../Scripts/Debugging/PerformanceHUD.cs)
@@ -1051,6 +1119,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | 메뉴 | 스크립트 | 하는 일 |
 |---|---|---|
 | `APC > Art > Background Layout` | [BackgroundLayoutWindow](../Scripts/Editor/BackgroundLayoutWindow.cs) | 배경 모듈 배치 격자 창 (2026-11-19). `SiteLayout.background`를 칸 클릭으로 고친다(놓기 · 돌리기 · 지우기, 부지 바깥 칸 수 조절), 씬 미리보기 `[BackgroundPreview]`(DontSave, Play · 창 닫기 때 지움) |
+| `APC > Broke Cash > Build DOTween Scene` | [BrokeCashBuilder](../Scripts/Editor/BrokeCashBuilder.cs) | 저금통 깨기 R&D 씬 `BrokeCashScene`을 **비우고 다시 만든다**: 저금통 이미지 import(Sprite · 100 px) · 재질 `M_SpriteMultiply` · `Data/BrokeCashConfig`(없을 때만) → 직교 카메라(크기 3.575) · `Piggy (DOTween)` · HUD(정산할 돈 · 영수증 안내 · `CashFly`) · `BrokeCash Director`(+ Tester · 월드 글자 3개) → 씬 저장 |
 | `APC > Setup > Run M0 Setup` | [ProjectBootstrap](../Scripts/Editor/ProjectBootstrap.cs) | 폴더, 가로 화면 설정, 데이터 에셋(GDD 수치), Game 씬. **이미 있는 에셋 · 씬은 건드리지 않고** 빈 참조만 채운다 |
 | `APC > Setup > Build Site` | [SiteBuilder](../Scripts/Editor/SiteBuilder.cs) | `Site` 오브젝트를 지우고 config대로 다시 만든다: 프리팹 확인 → 빈 모듈 참조 채우기 → Ground(네비메시 제외) · NavMeshSurface · Logistics(Warehouse · ContractService · OrderService · StaffService) → 시작 모듈 인스턴스 + SiteUnlocker → HUD(레벨 · 현금 · 레벨업 배너 + 색종이 · (옛 주문서 큐는 지움) · 계약 PC 팝업(고용 · 배치 · 업그레이드 · 모듈 탭) · 정산 팝업 · 현금 아이콘 층 `CashFly`, 자식은 꺼진 채 저장 + `UiBootstrap`) → 플레이어 위치 + CashCollector → 씬 저장 |
 | `APC > Test > Build Tycoon 8x8 (TycoonTest 씬 덮어쓰기)` | [TycoonTestBuilder](../Scripts/Editor/TycoonTestBuilder.cs) | 타이쿤 시험 (2026-11-20). 데이터 복사본 `Assets/Data/Tycoon/*_Tycoon`(GameDatabase · SiteLayout · LogisticsConfig · LevelTable · ControlsConfig — 없을 때만 복사, 원본 안 바꿈)에 8 × 8 배치(1열 하차장 8 · 회전 0, 8열 상차장 8 · 회전 180, 가운데 = 사무실 (1,2) + 보관 A~D 대각선 섞기 47칸, 하나만 id `StoreD`), 주차 칸 배경, 트럭 간격 2초 · 줄 30, 최대 알바 999, 카메라 최대 거리 120 → `Game.unity`를 `TycoonTest.unity`로 복사 → GameManager 데이터 교체, `StartSequence` · `TutorialGuide` 제거, 모듈 64개 배치, 대기 줄(부지 아래, 남쪽으로) · 바닥(줄 끝까지) · 플레이어 자리, `TycoonTest` · 성능 패널(`PerformanceHUD`) 추가 → 저장 |

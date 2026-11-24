@@ -40,6 +40,12 @@ namespace APC.Data
         [SerializeField, Min(0.1f), Tooltip("할 일이 남았는지 확인하는 간격 (초)")] float idleCheckInterval = 0.5f;
         [SerializeField, Min(0f), Tooltip("'할 일 없음'이 이만큼(초) 이어져야 보너스 시작 — 모듈 팝 · 트럭 교대 같은 잠깐의 빈틈 무시 `임시`")] float idleConfirmSeconds = 2f;
 
+        [Header("오프라인 수익 (GDD 9.7, 2026-11-23 — 알바 몫 − 월급, 보유 재화에 바로)")]
+        [SerializeField, Min(0f), Tooltip("최대로 쌓이는 오프라인 시간 (시간) `임시`")] float offlineMaxHours = 5f;
+        [SerializeField, Min(0f), Tooltip("이보다 짧게 꺼두면 지급하지 않는다 (초) `임시`")] float offlineMinSeconds = 60f;
+        [SerializeField, Min(0), Tooltip("알바 스탯 1포인트가 하루(1 · 2파트)에 버는 돈 — 오프라인 계산용 `임시`. 월급은 StaffRules.wagePerStat")] int offlineIncomePerStat = 10;
+        [SerializeField, Tooltip("2번 모드(서버 시간)가 시각을 받아올 주소. 응답의 Date 헤더를 쓴다 (임시 — 뒤끝 · Firebase로 교체)")] string offlineTimeUrl = "https://www.google.com";
+
         [Header("경험치 — 해금 · 업그레이드로만 얻는다 (GDD 10.1, 2026-11-14)")]
         [SerializeField, Min(0), Tooltip("모듈 해금 발판 · 업그레이드 1번")] int xpPurchase = 3;
 
@@ -66,5 +72,9 @@ namespace APC.Data
         public float IdleCheckInterval => idleCheckInterval;
         public float IdleConfirmSeconds => idleConfirmSeconds;
         public int XpPurchase => xpPurchase;
+        public float OfflineMaxHours => offlineMaxHours;
+        public float OfflineMinSeconds => offlineMinSeconds;
+        public int OfflineIncomePerStat => offlineIncomePerStat;
+        public string OfflineTimeUrl => offlineTimeUrl;
     }
 }
