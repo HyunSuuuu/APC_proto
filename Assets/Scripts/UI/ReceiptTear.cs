@@ -14,7 +14,9 @@ namespace APC.UI
     ///  - 뜯긴 몸통은 절취 지점을 축으로 통째로 돈다. 아직 붙은 오른쪽은 절취선 위 <see cref="bendHeight"/> 구간에서만 묶어 둔다.
     ///  - 각도 상한: 남은 오른쪽 길이 × sinθ ≤ <see cref="maxBendDrop"/> × bendHeight.
     ///  - 주름은 음영 위주, 변위는 몇 픽셀 이하. 뜯기 · 날아가기는 같은 함수(날아가기 = tearU 1 상태 + 이동 · 회전).
-    ///  - 접힘 방지 가드: 매 프레임 거친 격자로 야코비안 행렬식을 재서 <see cref="minJacobian"/> 아래면 변형 세기를 줄인다.
+    ///  - 접힘 방지 가드: 거친 격자로 야코비안 행렬식을 재서 <see cref="minJacobian"/> 아래면 변형 세기를 줄인다.
+    /// 성능 (2026-11-25): 가드는 단계별 진행도 표(절취선이 보인 뒤 기다리는 동안 채움)를 보간, 정점마다 같은 값은 상태가 바뀔 때 한 번만 계산,
+    /// 날아가기는 정점 대신 종이 루트를 회전 · 이동(<see cref="rigidFly"/>, 남는 조각만 되돌려 그림), 절취선은 페이드 없이 한 번에.
     /// 종이 루트(<see cref="ReceiptCurl"/>과 같은 오브젝트)에 붙인다. 없으면 SettlementPopup이 실행 때 붙인다.
     /// </summary>
     [RequireComponent(typeof(ReceiptCurl))]
@@ -41,7 +43,7 @@ namespace APC.UI
         [Tooltip("뜯긴 단면 톱니 높이")] public float jagHeight = 2f;
         public Color tornEdgeColor = new Color(0.78f, 0.75f, 0.69f, 1f);
         public float tornEdgeWidth = 2.2f;
-        [Tooltip("절취선이 나타나는 시간")] public float showDuration = 0.15f;
+        // 절취선은 한 번에 나타난다 (2026-11-25 성능: 페이드 동안 종이 격자를 매 프레임 다시 만들던 것 제거)
 
         [Header("타이밍 (초)")]
         public float anticipateDuration = 0.12f;
@@ -63,6 +65,8 @@ namespace APC.UI
         public float flyHeight = 1150f;
         public float flyDriftX = 24f;
         [Tooltip("날아가기 중 이 비율부터 투명해짐")] [Range(0f, 1f)] public float fadeStart = 0.58f;
+        [Tooltip("날아가기를 정점 변형 대신 종이 루트 RectTransform 이동 · 회전으로 (2026-11-25 성능). 끄면 예전처럼 정점 변형")]
+        public bool rigidFly = true;
 
         [Header("주름 · 음영")]
         [Tooltip("대각선 주름 음영 세기")] public float creaseShade = 0.11f;
@@ -81,9 +85,31 @@ namespace APC.UI
         float fly;
         float stubRetract;
         bool dirty = true;
-        Tween showTween;
         RectTransform rect;
         ReceiptCurl curl;
+
+        // ---- 변형 상수: 상태가 바뀔 때만 계산 (정점마다 Rect.rect · Asin · 각도를 다시 구하지 않게, 2026-11-25) ----
+        bool constantsValid;
+        Rect cRect;
+        float cWidth, cT, cBaseAngle, cFlyAngle, cStage, cRelax, cLift;
+        bool cFlying;
+        Vector2 cPivot;
+        float cTheta = float.NaN, cCos = 1f, cSin;
+
+        // ---- 통째 날아가기 (rigidFly) ----
+        bool rigidActive;
+        Vector3 homePos;
+        Quaternion homeRot;
+        Vector2 rigidPivot, rigidMove;
+        float rigidTheta;
+
+        // ---- 가드 표: 단계별 진행도 → 가드 값. [확인]을 기다리는 동안 몇 칸씩 채운다 (2026-11-25) ----
+        const int AnticipateSamples = 8, TearSamples = 32, FlySamples = 8;
+        const int PrewarmPerFrame = 1; // 칸 하나 ≈ 가드 한 번 (에디터 1ms 안팎). 48칸 ≈ 0.8초, [확인] 자동 넘김(5초) 안에 끝남
+        readonly float[][] guardTable = { new float[AnticipateSamples], new float[TearSamples], new float[FlySamples] };
+        readonly bool[][] guardFilled = { new bool[AnticipateSamples], new bool[TearSamples], new bool[FlySamples] };
+        Rect tableRect;
+        float tablePerfY = float.NaN;
 
         public Phase CurrentPhase => phase;
         public bool HasPerforation => phase != Phase.Hidden;
@@ -92,7 +118,23 @@ namespace APC.UI
         public float PerforationAlpha => perfAlpha;
         /// <summary>절취 진행률 0~1 (뜯기 전 0, 날아가기 1).</summary>
         public float TearU => phase == Phase.Fly ? 1f : phase == Phase.Tear ? tearU : 0f;
+        /// <summary>날아가기를 종이 루트 이동으로 처리 중 (몸통 정점은 그대로, 남는 조각만 되돌려 그림).</summary>
+        public bool RigidFlying => rigidActive;
+        /// <summary>날아가기 뒤쪽 투명도 (1 = 불투명).</summary>
+        public float FlyAlpha => phase == Phase.Fly && fly > fadeStart ? 1f - (fly - fadeStart) / Mathf.Max(0.0001f, 1f - fadeStart) : 1f;
         RectTransform Rect => rect != null ? rect : (rect = (RectTransform)transform);
+
+        void MarkDirty()
+        {
+            dirty = true;
+            constantsValid = false;
+        }
+
+        void OnValidate()
+        {
+            constantsValid = false;
+            tablePerfY = float.NaN; // 값을 바꾸면 가드 표를 다시 만든다
+        }
 
         void Awake()
         {
@@ -110,27 +152,27 @@ namespace APC.UI
         /// <summary>절취선을 없애고 변형을 처음 상태로 (출력 시작 때).</summary>
         public void ResetTear()
         {
-            showTween?.Kill();
+            if (rigidActive)
+            {
+                rigidActive = false;
+                Rect.localPosition = homePos;
+                Rect.localRotation = homeRot;
+            }
             phase = Phase.Hidden;
             perfAlpha = 0f;
             anticipate = tearU = fly = stubRetract = 0f;
             guardAmount = 1f;
-            dirty = true;
+            MarkDirty();
         }
 
-        /// <summary>출력이 끝난 뒤 절취선을 나타낸다. slotY = 배출구 틈 높이 (종이 로컬 y).</summary>
+        /// <summary>출력이 끝난 뒤 절취선을 나타낸다 (한 번에). slotY = 배출구 틈 높이 (종이 로컬 y).</summary>
         public void ShowPerforation(float slotY)
         {
             ResetTear();
             phase = Phase.Ready;
             perfY = slotY + stubHeight;
-            showTween = DOVirtual.Float(0f, 1f, showDuration, v =>
-                {
-                    perfAlpha = v;
-                    dirty = true;
-                })
-                .SetUpdate(true)
-                .SetLink(gameObject);
+            perfAlpha = 1f;
+            MarkDirty();
         }
 
         /// <summary>
@@ -140,7 +182,6 @@ namespace APC.UI
         public Sequence CreateSequence(float slotY, Action<int> onStep, Action onSnap)
         {
             if (!HasPerforation) ShowPerforation(slotY);
-            showTween?.Complete();
 
             var s = 1f / Mathf.Max(0.1f, speed);
             var tA = anticipateDuration * s;
@@ -154,7 +195,7 @@ namespace APC.UI
             {
                 phase = Phase.Anticipate;
                 anticipate = v;
-                dirty = true;
+                MarkDirty();
             }).SetEase(Ease.OutCubic));
             seq.Insert(tA, DOVirtual.Float(0f, 1f, tT, raw =>
             {
@@ -167,7 +208,7 @@ namespace APC.UI
                     lastStep = step;
                     onStep?.Invoke(step);
                 }
-                dirty = true;
+                MarkDirty();
             }).SetEase(Ease.Linear));
             seq.Insert(tA + tT, DOVirtual.Float(0f, 1f, tF, v =>
             {
@@ -179,23 +220,51 @@ namespace APC.UI
                     snapped = true;
                     onSnap?.Invoke();
                 }
-                dirty = true;
+                MarkDirty();
             }).SetEase(Ease.Linear));
             seq.Insert(tA + tT + stubDelay * s, DOVirtual.Float(0f, 1f, stubRetractDuration * s, v =>
             {
                 stubRetract = v;
-                dirty = true;
+                MarkDirty();
             }).SetEase(Ease.InOutCubic));
             return seq;
         }
 
-        /// <summary>ReceiptCurl.LateUpdate가 매 프레임 부른다. 값이 바뀌었으면 가드를 다시 풀고 true (= 전부 다시 그림).</summary>
+        /// <summary>
+        /// ReceiptCurl.LateUpdate가 매 프레임 부른다. 값이 바뀌었으면 가드(표 보간) · 변형 상수 · 통째 날아가기를 갱신하고 true (= 다시 그림).
+        /// 절취선만 보이고 기다리는 동안(Ready)은 가드 표를 몇 칸씩 미리 채운다.
+        /// </summary>
         public bool ConsumeDirty()
         {
+            if (phase == Phase.Ready) PrewarmGuard(PrewarmPerFrame);
             if (!dirty) return false;
             dirty = false;
-            guardAmount = IsDeforming ? SolveGuard() : 1f;
+            guardAmount = IsDeforming ? LookupGuard() : 1f;
+            UpdateConstants();
+            if (phase == Phase.Fly && rigidFly) ApplyRigidFly();
             return true;
+        }
+
+        /// <summary>날아가기 = 절취 지점(오른쪽 끝)을 축으로 회전 + 위로 이동. 정점 대신 종이 루트를 움직인다.</summary>
+        void ApplyRigidFly()
+        {
+            var rt = Rect;
+            if (!rigidActive)
+            {
+                rigidActive = true;
+                homePos = rt.localPosition;
+                homeRot = rt.localRotation;
+            }
+            rigidTheta = guardAmount * cBaseAngle + cFlyAngle;
+            rigidPivot = cPivot;
+            rigidMove = new Vector2(flyDriftX * fly, fly * fly * fly * flyHeight);
+
+            // 종이 로컬 변환 A(p) = pivot + R(-θ)(p - pivot) + move 를 부모 공간 위치 · 회전으로
+            Vector2 turned = Rotate(rigidPivot, -rigidTheta);
+            Vector3 offset = new Vector3(rigidPivot.x + rigidMove.x - turned.x, rigidPivot.y + rigidMove.y - turned.y, 0f);
+            offset = Vector3.Scale(offset, rt.localScale);
+            rt.localRotation = homeRot * Quaternion.Euler(0f, 0f, -rigidTheta * Mathf.Rad2Deg);
+            rt.localPosition = homePos + homeRot * offset;
         }
 
         // ------------------------------------------------------------------ 변형
@@ -222,36 +291,71 @@ namespace APC.UI
             if (stub)
             {
                 p.y -= stubRetract * (stubHeight + jagHeight + notchHeight + 4f);
+                // 종이 루트가 날아가는 중이면 남는 조각은 제자리에 있도록 루트 변환을 되돌린다
+                if (rigidActive)
+                {
+                    Vector2 back = rigidPivot + Rotate(new Vector2(p.x, p.y) - rigidPivot - rigidMove, rigidTheta);
+                    p.x = back.x;
+                    p.y = back.y;
+                }
                 return p;
             }
+            if (rigidActive) return p; // 몸통은 종이 루트와 함께 움직임 (투명도는 FlyAlpha로 따로)
             Vector2 q = BodyDeform(p, guardAmount, out shade, out alpha);
             return new Vector3(q.x, q.y, p.z);
         }
 
+        /// <summary>정점마다 같은 값을 미리 계산 (상태가 바뀐 뒤 처음 쓸 때 한 번).</summary>
+        void UpdateConstants()
+        {
+            cRect = Rect.rect;
+            cWidth = Mathf.Max(1f, cRect.width);
+            cT = TearU;
+            cFlying = phase == Phase.Fly;
+            cPivot = new Vector2(cRect.xMin + cWidth * cT, perfY);
+            cBaseAngle = TearAngle(cT, cWidth);
+            cFlyAngle = cFlying ? Ease3Out(fly) * flyExtraAngle * Mathf.Deg2Rad : 0f;
+            cStage = phase >= Phase.Tear ? 0.5f + 0.5f * Mathf.Min(1f, cT * 4f) : anticipate * 0.5f;
+            cRelax = cFlying ? Mathf.Exp(-fly * 4.5f) : 1f;
+            cLift = anticipateLift * anticipate * (1f - cT);
+            constantsValid = true;
+        }
+
         Vector2 BodyDeform(Vector2 p, float k, out float shade, out float alpha)
         {
+            if (!constantsValid) UpdateConstants();
             shade = 1f;
             alpha = 1f;
-            Rect r = Rect.rect;
-            float w = Mathf.Max(1f, r.width);
+            Rect r = cRect;
+            float w = cWidth;
             float u = (p.x - r.xMin) / w;
             float dy = p.y - perfY;
-            float t = TearU;
-            bool flying = phase == Phase.Fly;
+            float t = cT;
+            bool flying = cFlying;
 
             // 절취선 근처(아래)일수록 1 → bendHeight 위로는 0
             float h = 1f - Smooth(0f, bendHeight, dy);
 
             // 1) 예비동작: 왼쪽 아래 모서리가 위 · 왼쪽으로 살짝 들림 (뜯기가 진행되면 회전이 이어받음)
-            float uc = Mathf.Clamp01(u);
-            float lift = anticipateLift * anticipate * (1f - t) * k * Mathf.Pow(1f - uc, 1.8f) * Mathf.Exp(-Mathf.Max(0f, dy) / (bendHeight * 0.8f));
-            Vector2 q = p + new Vector2(-0.35f * lift, lift);
+            Vector2 q = p;
+            if (cLift > 0f)
+            {
+                float uc = Mathf.Clamp01(u);
+                float lift = cLift * k * Mathf.Pow(1f - uc, 1.8f) * Mathf.Exp(-Mathf.Max(0f, dy) / (bendHeight * 0.8f));
+                q += new Vector2(-0.35f * lift, lift);
+            }
 
             // 2) 절취 지점을 축으로 통째로 회전 (시계 방향 = 왼쪽이 들림)
-            Vector2 pivot = new Vector2(r.xMin + w * t, perfY);
-            float theta = k * TearAngle(t, w);
-            if (flying) theta += Ease3Out(fly) * flyExtraAngle * Mathf.Deg2Rad;
-            Vector2 rot = pivot + Rotate(q - pivot, -theta);
+            Vector2 pivot = cPivot;
+            float theta = k * cBaseAngle + cFlyAngle;
+            if (theta != cTheta)
+            {
+                cTheta = theta;
+                cCos = Mathf.Cos(-theta);
+                cSin = Mathf.Sin(-theta);
+            }
+            Vector2 d = q - pivot;
+            Vector2 rot = pivot + new Vector2(d.x * cCos - d.y * cSin, d.x * cSin + d.y * cCos);
 
             // 아직 붙은 오른쪽은 절취선 근처에서 원래 자리에 묶임
             float attached = flying ? 0f : Smooth(t, t + pinBlend, u);
@@ -270,8 +374,8 @@ namespace APC.UI
 
             // 4) 절취 지점에서 대각선으로 퍼지는 주름 (음영 위주, 날아가며 펴짐)
             // 예비동작 끝 0.5 → 뜯기 초반에 1까지 이어서 (단계가 바뀔 때 튀지 않게)
-            float stage = phase >= Phase.Tear ? 0.5f + 0.5f * Mathf.Min(1f, t * 4f) : anticipate * 0.5f;
-            float relax = flying ? Mathf.Exp(-fly * 4.5f) : 1f;
+            float stage = cStage;
+            float relax = cRelax;
             float torn = 1f - attached;
             float dxn = (p.x - pivot.x) / w;
             float dyn = Mathf.Max(0f, dy) / (w * 1.2f);
@@ -309,6 +413,80 @@ namespace APC.UI
         }
 
         // ------------------------------------------------------------------ 접힘 방지 가드
+
+        /// <summary>지금 단계 · 진행도의 가드 값 (표 두 칸 보간). 빈 칸은 그 자리에서 계산해 채운다.</summary>
+        float LookupGuard()
+        {
+            EnsureGuardTable();
+            int table;
+            float v;
+            switch (phase)
+            {
+                case Phase.Anticipate: table = 0; v = anticipate; break;
+                case Phase.Tear: table = 1; v = tearU; break;
+                case Phase.Fly: table = 2; v = fly; break;
+                default: return 1f;
+            }
+            int n = guardTable[table].Length;
+            float x = Mathf.Clamp01(v) * (n - 1);
+            int i0 = Mathf.Min(n - 2, Mathf.FloorToInt(x));
+            return Mathf.Lerp(GuardSample(table, i0), GuardSample(table, i0 + 1), x - i0);
+        }
+
+        /// <summary>[확인]을 기다리는 동안 빈 칸을 budget개까지 채운다 (뜯기 순서대로: 뜯기 → 예비동작 → 날아가기).</summary>
+        void PrewarmGuard(int budget)
+        {
+            EnsureGuardTable();
+            int[] order = { 1, 0, 2 };
+            foreach (int table in order)
+            {
+                bool[] filled = guardFilled[table];
+                for (int i = 0; i < filled.Length && budget > 0; i++)
+                {
+                    if (filled[i]) continue;
+                    GuardSample(table, i);
+                    budget--;
+                }
+                if (budget <= 0) return;
+            }
+        }
+
+        /// <summary>종이 크기나 절취선 높이가 바뀌었으면 표를 비운다.</summary>
+        void EnsureGuardTable()
+        {
+            Rect r = Rect.rect;
+            if (r == tableRect && Mathf.Approximately(perfY, tablePerfY)) return;
+            tableRect = r;
+            tablePerfY = perfY;
+            foreach (var filled in guardFilled) Array.Clear(filled, 0, filled.Length);
+        }
+
+        /// <summary>표의 한 칸. 비어 있으면 그 상태를 잠깐 만들어 SolveGuard로 풀고 원래 상태로 돌린다.</summary>
+        float GuardSample(int table, int index)
+        {
+            if (guardFilled[table][index]) return guardTable[table][index];
+
+            var savedPhase = phase;
+            float savedAnticipate = anticipate, savedTearU = tearU, savedFly = fly;
+            float v = index / (float)(guardTable[table].Length - 1);
+            switch (table)
+            {
+                case 0: phase = Phase.Anticipate; anticipate = v; tearU = 0f; fly = 0f; break;
+                case 1: phase = Phase.Tear; anticipate = 1f; tearU = v; fly = 0f; break;
+                default: phase = Phase.Fly; anticipate = 1f; tearU = 1f; fly = v; break;
+            }
+            constantsValid = false;
+            float g = SolveGuard();
+            phase = savedPhase;
+            anticipate = savedAnticipate;
+            tearU = savedTearU;
+            fly = savedFly;
+            constantsValid = false;
+
+            guardTable[table][index] = g;
+            guardFilled[table][index] = true;
+            return g;
+        }
 
         float SolveGuard()
         {
