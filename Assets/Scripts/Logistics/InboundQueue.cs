@@ -66,7 +66,9 @@ namespace APC.Logistics
             // 상차 파트가 되면 줄에 선 하차 트럭은 바로 돌아간다 (2026-11-20). 하차장에 정차한 트럭은 남음
             if (Economy.PartService.Instance != null) Economy.PartService.Instance.OnShift.Subscribe(_ => SendAwayLine()).AddTo(this);
             var config = GameManager.Instance.Database.Logistics;
-            if (truckPrefab != null) TruckPool.Prewarm(truckPrefab, config.InboundQueueSize + 2); // 임시: 트럭 TMP Awake 비용을 시작 때 (풀 최대 16에서 잘림)
+            // 동시에 나오는 최대 = 줄 합계 + 칸마다 1대(주차 또는 떠나는 중). 트럭 TMP Awake 비용을 시작 때 (풀 최대 64에서 잘림)
+            // shortcut: 시작 때 있는 칸만 센다 — 확장으로 칸이 늘면 그만큼은 도중에 만든다
+            if (truckPrefab != null) TruckPool.Prewarm(truckPrefab, config.InboundQueueSize + InboundBay.All.Count);
             for (var i = 0; i < config.InboundQueueSize; i++) CreateMarker(i);
 
             CompanyDefinition large = null;
@@ -88,7 +90,7 @@ namespace APC.Logistics
                     return normalOpen || large != null;
                 });
 
-                var truck = Instantiate(truckPrefab, transform);
+                var truck = TruckPool.Get(truckPrefab, transform); // 풀에서 (Instantiate면 회차 Release 때 "풀에서 꺼내지 않은 트럭" 경고 + Destroy)
                 var tutorialTruck = arrived++ == 0 && !Site.StartSequence.OfficeBuilt; // 튜토리얼 트럭: 상자 TutorialBoxes개, 황금 없음
                 var step = GameManager.Instance.Upgrades.TruckStep.CurrentValue;
                 if (large != null && (!normalOpen || (!tutorialTruck && Random.value < config.LargeTruckChance)))

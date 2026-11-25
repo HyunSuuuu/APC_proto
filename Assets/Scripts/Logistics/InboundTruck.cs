@@ -196,7 +196,25 @@ namespace APC.Logistics
         void SetModel(GameObject prefab)
         {
             if (prefab == null || modelRoot == null) return;
-            for (var i = modelRoot.childCount - 1; i >= 0; i--) Destroy(modelRoot.GetChild(i).gameObject);
+            // 풀 트럭: 한 번 만든 모델은 지우지 않고 켜고 끈다 (매 운행 Destroy · Instantiate가 GC · 끊김)
+            if (models.Count == 0)
+            {
+                for (var i = modelRoot.childCount - 1; i >= 0; i--) Destroy(modelRoot.GetChild(i).gameObject); // 프리팹에 들어 있던 기본 모델
+            }
+            if (activeModel != null) activeModel.SetActive(false);
+            if (!models.TryGetValue(prefab, out activeModel))
+            {
+                activeModel = CreateModel(prefab);
+                models[prefab] = activeModel;
+            }
+            activeModel.SetActive(true);
+        }
+
+        readonly Dictionary<GameObject, GameObject> models = new(); // 모델 프리팹 → 이 트럭에 만든 모델
+        GameObject activeModel;
+
+        GameObject CreateModel(GameObject prefab)
+        {
             var model = Instantiate(prefab, modelRoot);
             var t = model.transform;
             t.localRotation = prefab.transform.localRotation;
@@ -218,6 +236,7 @@ namespace APC.Logistics
             }
             foreach (var c in model.GetComponentsInChildren<Collider>()) Destroy(c);
             t.localPosition = new Vector3(0f, 0f, backZ - minZ);
+            return model;
         }
 
         /// <summary>화물 1개를 꺼내 옆면에 만든다. 받는 쪽(운반 스택)이 날려 보낸다.</summary>
