@@ -29,8 +29,8 @@ namespace APC.Logistics
 
         public Transform Anchor => anchor;
 
-        /// <summary>0번 = 맨 아래.</summary>
-        public IReadOnlyList<Cargo> Items => items;
+        /// <summary>0번 = 맨 아래. 읽기만 한다 (넣고 빼기는 TryAdd · TakeTopMatching) — 구체 타입은 존 판단마다 foreach 박싱을 없애려고 (알바 100명 GC, 2026-11-25).</summary>
+        public List<Cargo> Items => items;
 
         public ReadOnlyReactiveProperty<int> Count => count;
         public ReadOnlyReactiveProperty<int> Capacity => capacity;

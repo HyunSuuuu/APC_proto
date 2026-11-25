@@ -226,14 +226,43 @@ namespace APC.Debugging
             if (GUILayout.Button("Returns", buttonStyle)) staff.Spawn(StaffRole.Returns);
             if (GUILayout.Button("Forklift", buttonStyle)) staff.Spawn(StaffRole.Forklift);
             GUILayout.EndHorizontal();
+            // 스트레스 테스트: 고른 직무(여러 개)를 돌아가며 섞어 100명 한 번에 (고용금 · 최대 인원 무시, 2026-11-25)
+            GUILayout.BeginHorizontal();
+            var picked = 0;
+            for (var r = 0; r < StressRoles.Length; r++)
+            {
+                if (GUILayout.Button(stressPick[r] ? $"[{StressRoles[r]}]" : StressRoles[r].ToString(), buttonStyle)) stressPick[r] = !stressPick[r];
+                if (stressPick[r]) picked++;
+            }
+            GUILayout.EndHorizontal();
+            GUI.enabled = picked > 0;
+            if (GUILayout.Button($"Hire 100 mixed ({picked} roles)", buttonStyle))
+            {
+                for (int i = 0, r = 0; i < 100; r = (r + 1) % StressRoles.Length)
+                {
+                    if (!stressPick[r]) continue;
+                    staff.Spawn(StressRoles[r]);
+                    i++;
+                }
+            }
+            GUI.enabled = true;
             // 켜면 위 생성 · 고용 탭 새 후보가 모두 코스튬 (이미 뽑힌 후보는 [새로고침] 후)
             if (GUILayout.Button(StaffRules.ForceCostume ? "[Costume 100%]" : "Costume 100%", buttonStyle)) StaffRules.ForceCostume = !StaffRules.ForceCostume;
-            foreach (var worker in staff.Workers)
+            // 켜면 알바 길찾기 = 방 단위 A* (지금 알바 · 새 알바 모두), 끄면 NavMesh (2026-11-25)
+            if (GUILayout.Button(APC.Staff.StaffNav.UseAStar ? "[Path A*]" : "Path A*", buttonStyle)) APC.Staff.StaffNav.SetUseAStar(!APC.Staff.StaffNav.UseAStar);
+            // 100명이면 줄마다 문자열 → OnGUI GC가 측정을 흐린다: 앞 12명만
+            const int ListMax = 12;
+            for (var i = 0; i < staff.Workers.Count && i < ListMax; i++)
             {
+                var worker = staff.Workers[i];
                 var stats = worker.Stats;
                 GUILayout.Label($"{worker.name}  spd{stats.moveSpeed} cap{stats.carry}  {worker.State}  {worker.Stack.Count.CurrentValue}/{worker.Stack.Capacity.CurrentValue}", labelStyle);
             }
+            if (staff.Workers.Count > ListMax) GUILayout.Label($"... +{staff.Workers.Count - ListMax}", labelStyle);
         }
+
+        static readonly StaffRole[] StressRoles = { StaffRole.Unload, StaffRole.Sort, StaffRole.Pick, StaffRole.Returns, StaffRole.Forklift };
+        readonly bool[] stressPick = { true, true, true, false, false }; // 기본 = 하차 · 분류 · 피킹 (반품 · 지게차는 구역을 지어야 일함)
 
         /// <summary>파트 테스트: 남은 시간 · 출발 대수, 파트 즉시 종료 (정산 팝업).</summary>
         void DrawPart()

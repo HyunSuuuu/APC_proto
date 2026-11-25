@@ -19,6 +19,7 @@ namespace APC.Data
         [SerializeField] LogisticsConfig logistics;
         [SerializeField, Tooltip("황금 트럭 확률 · 값 · 연출. 비면 기본값")] GoldenTruckConfig goldenTruck;
         [SerializeField, Tooltip("벽 반투명 (플레이어를 가린 벽 · 주차장). 비면 안 함")] WallFadeConfig wallFade;
+        [SerializeField, Tooltip("알바 A* 길찾기 격자 (DEBUG `Path A*`일 때). 비면 기본값")] NavGridConfig navGrid;
 
         public IReadOnlyList<CompanyDefinition> Companies => companies;
         public LogisticsConfig Logistics => logistics;
@@ -27,6 +28,7 @@ namespace APC.Data
         public ControlsConfig Controls => controls;
         public CarryConfig Carry => carry;
         public WallFadeConfig WallFade => wallFade;
+        public NavGridConfig NavGrid => NavGridConfig.OrDefault(navGrid);
 
         /// <summary>품목이 속한 회사. 없으면 null.</summary>
         public CompanyDefinition GetCompanyOf(ItemDefinition item)

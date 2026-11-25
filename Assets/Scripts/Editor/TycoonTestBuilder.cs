@@ -11,7 +11,7 @@ namespace APC.EditorTools
 {
     /// <summary>
     /// 타이쿤 시험 (2026-11-20): Game 씬 · 데이터를 복사해 8 × 8 부지를 만든다. 원본 씬 · 에셋은 건드리지 않는다.
-    /// 왼쪽 열 = 하차장 8 (트럭은 서쪽), 오른쪽 열 = 상차장 8 (트럭은 동쪽), 가운데 6열 = 사무실 1 + 보관 A~D (대각선으로 섞음).
+    /// 왼쪽 열 = 하차장 8 (트럭은 서쪽), 오른쪽 열 = 상차장 8 (트럭은 동쪽), 2열 = 사무실 1 + 스캔 7, 3~7열 = 보관 A~D (대각선으로 섞음).
     /// 데이터 복사본(Assets/Data/Tycoon): 배치 · 트럭 간격 · 최대 알바 · 카메라 줌만 바꾼다. 알바 대량 생성은 씬의 TycoonTest.
     /// </summary>
     public static class TycoonTestBuilder
@@ -42,7 +42,7 @@ namespace APC.EditorTools
             Set(logistics, so =>
             {
                 so.FindProperty("inboundArrivalInterval").floatValue = 2f; // 하차장 8칸이 놀지 않게 (원본 20초)
-                so.FindProperty("inboundQueueSize").intValue = 30; // 하차 · 상차 동시라 알바가 쉬지 않게 줄을 길게
+                so.FindProperty("inboundQueueSize").intValue = 40; // 하차 칸 8 × 5대 — TycoonTest가 줄을 바로 채우고 빠지면 바로 보충 (InboundQueue.FillAtOnce)
             });
             Set(levels, so =>
             {
@@ -75,6 +75,7 @@ namespace APC.EditorTools
                 for (var c = 2; c < Size; c++)
                 {
                     if (r == 1 && c == 2) { list.Add(("Office", "Module_Office", r, c, 0)); continue; }
+                    if (c == 2) { list.Add(($"Scan{r}", "Module_Scan", r, c, 0)); continue; } // 하차장 옆 = 스캔 구역 (씬 SiteGrid id와 같아야 칸이 열림)
                     var company = "ABCD"[(r + c) % 4];
                     // 지게차 직무는 id "StoreD"가 열려야 고용 후보에 나온다 (StaffService.IsRoleOpen)
                     var id = company == 'D' && !storeDNamed ? "StoreD" : $"Store{company}_R{r}C{c}";
@@ -105,20 +106,28 @@ namespace APC.EditorTools
                 e.FindPropertyRelative("content").stringValue = p.id;
             }
 
-            // 배경 = 주차 칸 바닥만 (하차 서쪽 0열, 상차 동쪽 9열)
-            var parking = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Modules/Background/Module_BgParking_1.prefab");
-            var background = so.FindProperty("background");
-            background.arraySize = Size * 2;
+            // 배경 = 주차 칸 바닥 (하차 서쪽 0열, 상차 동쪽 9열) + 하차 칸 앞 도로(−1열, 나가는 트럭) + 하차 대기 줄 바닥(−2 ~ −4열, 잔디) (2026-11-25)
+            const string bg = "Assets/Prefabs/Modules/Background/";
+            var parking = AssetDatabase.LoadAssetAtPath<GameObject>(bg + "Module_BgParking_1.prefab");
+            var road = AssetDatabase.LoadAssetAtPath<GameObject>(bg + "Module_BgRoad_1.prefab");
+            var grass = AssetDatabase.LoadAssetAtPath<GameObject>(bg + "Module_BgGrass.prefab");
+            var tiles = new List<(GameObject prefab, int row, int column, int rotation)>();
             for (var r = 1; r <= Size; r++)
             {
-                for (var side = 0; side < 2; side++)
-                {
-                    var e = background.GetArrayElementAtIndex((r - 1) * 2 + side);
-                    e.FindPropertyRelative("prefab").objectReferenceValue = parking;
-                    e.FindPropertyRelative("row").intValue = r;
-                    e.FindPropertyRelative("column").intValue = side == 0 ? 0 : Size + 1;
-                    e.FindPropertyRelative("rotation").intValue = side == 0 ? 0 : 180;
-                }
+                tiles.Add((parking, r, 0, 0));
+                tiles.Add((parking, r, Size + 1, 180));
+                for (var c = -4; c <= -2; c++) tiles.Add((grass, r, c, 90));
+            }
+            for (var r = 0; r <= Size + 1; r++) tiles.Add((road, r, -1, 180)); // 세로 도로 — 위 · 아래 한 칸씩 더 (나가는 트럭이 끝에서 사라짐)
+            var background = so.FindProperty("background");
+            background.arraySize = tiles.Count;
+            for (var i = 0; i < tiles.Count; i++)
+            {
+                var e = background.GetArrayElementAtIndex(i);
+                e.FindPropertyRelative("prefab").objectReferenceValue = tiles[i].prefab;
+                e.FindPropertyRelative("row").intValue = tiles[i].row;
+                e.FindPropertyRelative("column").intValue = tiles[i].column;
+                e.FindPropertyRelative("rotation").intValue = tiles[i].rotation;
             }
         }
 
@@ -141,21 +150,11 @@ namespace APC.EditorTools
             grid.SetEntries(entries);
             EditorUtility.SetDirty(grid);
 
-            // 하차 대기 줄은 부지 아래 (원본 자리는 하차 주차 칸과 겹침)
-            var queue = grid.GetComponent<APC.Logistics.InboundQueue>();
+            // 하차 대기 줄은 하차 칸마다 칸 앞 (InboundBay.LineSlot) — 바닥은 배경 잔디 칸 (WriteLayout)
+            // 바닥 = 부지 + 위 · 아래 도로 칸 (Plane 1칸 = 10m)
             var size = layout.CellSize;
-            var head = new Vector3(-size, 0f, -(Size + 0.5f) * size);
-            var tail = 0f;
-            Set(queue, so =>
-            {
-                so.FindProperty("headPosition").vector3Value = head;
-                so.FindProperty("lineDirection").vector3Value = Vector3.back;
-                tail = head.z - so.FindProperty("spacing").floatValue * (database.Logistics.InboundQueueSize - 1);
-            });
-
-            // 바닥 = 부지 + 대기 줄 끝까지 (Plane 1칸 = 10m)
             var north = 2f * size;
-            var south = tail - size;
+            var south = -(Size + 1f) * size;
             var ground = GameObject.Find("Site/Ground");
             ground.transform.localPosition = new Vector3((Size + 1) * 0.5f * size, -0.05f, (north + south) * 0.5f);
             ground.transform.localScale = new Vector3((Size + 4) * size / 10f, 1f, (north - south) / 10f);

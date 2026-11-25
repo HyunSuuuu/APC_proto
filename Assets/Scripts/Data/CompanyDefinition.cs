@@ -26,7 +26,7 @@ namespace APC.Data
         public int UnlockLevel => unlockLevel;
         public int Weight => weight;
         public bool IsLarge => isLarge;
-        public IReadOnlyList<ItemDefinition> Items => items;
+        public List<ItemDefinition> Items => items; // 읽기만 한다 — 구체 타입은 GetCompanyOf foreach 박싱을 없애려고 (알바 판단마다, 2026-11-25)
         public int InboundTruckCapacity => inboundTruckCapacity;
 
         /// <summary>트럭 단계(0 · 1 · 2)의 모델. 없으면 null.</summary>
