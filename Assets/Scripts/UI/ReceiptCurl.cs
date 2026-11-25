@@ -50,6 +50,10 @@ namespace APC.UI
         private readonly List<ReceiptCurlVertex> effects = new List<ReceiptCurlVertex>();
         private readonly List<ReceiptPaperGraphic> paperGraphics = new List<ReceiptPaperGraphic>();
         private readonly Vector3[] corners = new Vector3[4];
+        // 통째 날아가기(ReceiptTear.rigidFly) 중: 자식 그래픽은 정점 대신 CanvasRenderer 알파로 흐리게
+        private readonly List<Graphic> alphaTargets = new List<Graphic>();
+        private bool wasRigid;
+        private float childAlpha = 1f;
 
         public RectTransform Rect => rect != null ? rect : (rect = (RectTransform)transform);
         public float Radians => degrees * Mathf.Deg2Rad;
@@ -103,6 +107,25 @@ namespace APC.UI
         {
             // 뜯기 값이 바뀌었으면 (가드 계산 포함) 전부 다시 그림
             bool tearChanged = tear != null && tear.ConsumeDirty();
+
+            // 통째 날아가기: 종이 루트가 움직이므로 몸통 정점은 그대로. 남는 조각이 든 평평한 종이(Flat)만 다시 그리고
+            // 나머지 그래픽은 CanvasRenderer 알파만 바꾼다 (Flat의 몸통 투명도는 ReceiptPaperGraphic이 정점 알파로).
+            bool rigid = tear != null && tear.RigidFlying;
+            if (rigid && !wasRigid) GetComponentsInChildren(true, alphaTargets); // 나중에 생긴 TMP 서브메시까지
+            SetChildAlpha(rigid ? tear.FlyAlpha : 1f);
+            if (rigid && wasRigid)
+            {
+                if (tearChanged)
+                    for (int i = 0; i < paperGraphics.Count; i++)
+                        if (IsStubHolder(paperGraphics[i])) paperGraphics[i].SetVerticesDirty();
+                return;
+            }
+            if (rigid != wasRigid)
+            {
+                wasRigid = rigid;
+                tearChanged = true; // 들어갈 때 · 나올 때 한 번은 전부 다시 그림 (뜯기 변형 ↔ 원래 모양)
+            }
+
             if (!tearChanged && Mathf.Abs(appliedDegrees - degrees) < 0.02f) return;
             appliedDegrees = degrees;
 
@@ -120,6 +143,22 @@ namespace APC.UI
                 float top = float.MinValue;
                 for (int k = 0; k < 4; k++) top = Mathf.Max(top, toPaper.MultiplyPoint3x4(corners[k]).y);
                 if (top > limit) fx.Refresh();
+            }
+        }
+
+        /// <summary>남는 조각을 그리는 평평한 종이 (절취선 아래 조각은 날아가지 않음).</summary>
+        private static bool IsStubHolder(Graphic g) => g is ReceiptPaperGraphic pg && pg.part == ReceiptPaperGraphic.Part.Flat;
+
+        /// <summary>평평한 종이를 뺀 모든 그래픽의 CanvasRenderer 알파 (메시를 다시 만들지 않음). 평평한 종이는 몸통만 정점 알파로.</summary>
+        private void SetChildAlpha(float alpha)
+        {
+            if (Mathf.Approximately(alpha, childAlpha)) return;
+            childAlpha = alpha;
+            var list = alphaTargets.Count > 0 ? alphaTargets : graphics;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var g = list[i];
+                if (g != null && !IsStubHolder(g)) g.canvasRenderer.SetAlpha(alpha);
             }
         }
 

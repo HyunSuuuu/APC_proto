@@ -50,6 +50,10 @@ namespace APC.UI
         public Color shadowColor = new Color(0.24f, 0.15f, 0.08f, 0.28f);
         public Vector2 shadowOffset = new Vector2(0f, -6f);
 
+        [Header("Tear Mesh")]
+        [Tooltip("절취선 위아래 격자의 가로 칸 = 구멍 간격 × 이 값. 절취선 줄(톱니 · 노치)만 구멍 간격 그대로 (2026-11-25 성능) `임시`")]
+        [Min(1)] public int tearGridStride = 3;
+
         public event Action Clicked;
 
         private static Texture2D dotTexture;
@@ -96,6 +100,10 @@ namespace APC.UI
             if (r.width <= 0f || r.height <= toothHeight) return;
 
             toLocal = space == rectTransform ? Matrix4x4.identity : rectTransform.worldToLocalMatrix * space.localToWorldMatrix;
+
+            // 통째 날아가기 중 평평한 종이의 몸통 투명도 (남는 조각은 그대로, 다른 그래픽은 ReceiptCurl이 CanvasRenderer 알파로)
+            ReceiptTear flyTear = curl != null ? curl.Tear : null;
+            bodyFade = flyTear != null && flyTear.RigidFlying && part == Part.Flat ? flyTear.FlyAlpha : 1f;
 
             float top = r.yMax;
             float bodyTop = top - toothHeight;
@@ -209,6 +217,8 @@ namespace APC.UI
         // ------------------------------------------------------------------ 절취선 (ReceiptTear)
 
         private readonly List<float> tearXs = new List<float>(64);
+        private readonly List<int> coarseCols = new List<int>(32); // tearXs 중 성긴 줄이 쓰는 칸 (양끝 · 가장자리 경계 포함)
+        private float bodyFade = 1f;
         private readonly List<float> bodyYs = new List<float>(48);
         private readonly List<float> stubYs = new List<float>(8);
 
@@ -238,6 +248,17 @@ namespace APC.UI
             tearXs.Sort();
             for (int i = tearXs.Count - 1; i > 0; i--)
                 if (tearXs[i] - tearXs[i - 1] < 0.5f) tearXs.RemoveAt(i);
+
+            // 성긴 줄: stride칸마다 + 양끝 + 가장자리 그라데이션 경계
+            coarseCols.Clear();
+            int stride = Mathf.Max(1, tearGridStride);
+            int lastCol = tearXs.Count - 1;
+            for (int i = 0; i <= lastCol; i++)
+            {
+                float x = tearXs[i];
+                bool edgeLine = edge > 0.5f && (Mathf.Abs(x - (r.xMin + edge)) < 0.5f || Mathf.Abs(x - (r.xMax - edge)) < 0.5f);
+                if (i == 0 || i == lastCol || edgeLine || i % stride == 0) coarseCols.Add(i);
+            }
 
             // 세로 (위 → 아래): 위쪽은 성기게, 절취선 위 bendHeight 구간은 촘촘히, 노치 줄, 절취선
             bodyYs.Clear();
@@ -309,29 +330,57 @@ namespace APC.UI
             return new Vector3(x, perf + zig);
         }
 
+        /// <summary>
+        /// ys 줄마다 정점을 놓고 이웃 줄끼리 잇는다. 절취선 줄(톱니 · 노치)만 tearXs 전부, 나머지 줄은 coarseCols만 쓴다 (2026-11-25 성능).
+        /// 촘촘한 줄 ↔ 성긴 줄 사이는 성긴 칸마다 부채꼴로 이어 틈이 없게 한다.
+        /// </summary>
         private void EmitTearGrid(VertexHelper vh, Rect r, float edge, List<float> ys, float perf, float notch, float jag, ReceiptTear tear, bool stub)
         {
-            int baseIndex = vh.currentVertCount;
-            int cols = tearXs.Count;
+            int prevBase = -1;
+            bool prevFine = false;
             for (int row = 0; row < ys.Count; row++)
             {
                 float y = ys[row];
                 bool perfRow = Mathf.Abs(y - perf) < 0.01f;
-                for (int c = 0; c < cols; c++)
+                int rowBase = vh.currentVertCount;
+                if (perfRow)
                 {
-                    Vector3 p = perfRow ? PerfPoint(r, c, perf, notch, jag, tear) : new Vector3(tearXs[c], y);
-                    AddVertex(vh, p, EdgeFactor(tearXs[c], r, edge), default, Vector2.zero, false, stub);
+                    for (int c = 0; c < tearXs.Count; c++)
+                        AddVertex(vh, PerfPoint(r, c, perf, notch, jag, tear), EdgeFactor(tearXs[c], r, edge), default, Vector2.zero, false, stub);
                 }
+                else
+                {
+                    for (int j = 0; j < coarseCols.Count; j++)
+                    {
+                        float x = tearXs[coarseCols[j]];
+                        AddVertex(vh, new Vector3(x, y), EdgeFactor(x, r, edge), default, Vector2.zero, false, stub);
+                    }
+                }
+                if (prevBase >= 0) ConnectRows(vh, prevBase, prevFine, rowBase, perfRow);
+                prevBase = rowBase;
+                prevFine = perfRow;
             }
-            for (int row = 0; row < ys.Count - 1; row++)
+        }
+
+        private void ConnectRows(VertexHelper vh, int a, bool aFine, int b, bool bFine)
+        {
+            if (aFine == bFine)
             {
-                int a = baseIndex + row * cols;
-                int b = baseIndex + (row + 1) * cols;
-                for (int c = 0; c < cols - 1; c++)
+                int n = aFine ? tearXs.Count : coarseCols.Count;
+                for (int c = 0; c < n - 1; c++)
                 {
                     vh.AddTriangle(a + c, a + c + 1, b + c + 1);
                     vh.AddTriangle(a + c, b + c + 1, b + c);
                 }
+                return;
+            }
+            int coarse = aFine ? b : a;
+            int fine = aFine ? a : b;
+            for (int j = 0; j < coarseCols.Count - 1; j++)
+            {
+                int i0 = coarseCols[j], i1 = coarseCols[j + 1];
+                for (int i = i0; i < i1; i++) vh.AddTriangle(coarse + j, fine + i, fine + i + 1);
+                vh.AddTriangle(coarse + j, fine + i1, coarse + j + 1);
             }
         }
 
@@ -355,7 +404,7 @@ namespace APC.UI
             if (tear != null)
             {
                 p = tear.Deform(p, stub, out float shade, out float alpha);
-                c = new Color(c.r * shade, c.g * shade, c.b * shade, c.a * alpha);
+                c = new Color(c.r * shade, c.g * shade, c.b * shade, c.a * alpha * (stub ? 1f : bodyFade));
             }
             vh.AddVert(toLocal.MultiplyPoint3x4(p), c, Vector2.zero); // uv 0 = 도트 없는 흰 픽셀
         }
@@ -387,7 +436,7 @@ namespace APC.UI
             if (tear != null && !isShadow)
             {
                 p = tear.Deform(p, stub, out float tearShade, out float tearAlpha);
-                c = new Color(Mathf.Min(1f, c.r * tearShade), Mathf.Min(1f, c.g * tearShade), Mathf.Min(1f, c.b * tearShade), c.a * tearAlpha);
+                c = new Color(Mathf.Min(1f, c.r * tearShade), Mathf.Min(1f, c.g * tearShade), Mathf.Min(1f, c.b * tearShade), c.a * tearAlpha * (stub ? 1f : bodyFade));
             }
 
             if (isShadow)
