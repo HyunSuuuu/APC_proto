@@ -255,26 +255,145 @@ namespace APC.EditorTools
 
         // ── 레벨업 배너 (중앙) + 플레이어 위 파티클 ───────────────────────
 
+        /// <summary>
+        /// 자물쇠 해금 연출 배너 (2026-11-25). 그림은 전부 정점 도형(UIShape · LevelUpKeyGraphic · LevelUpShackleGraphic · LevelUpBurst)이고
+        /// 루트에 하위 Canvas를 둬서, 연출 중 매 프레임 바뀌는 열쇠 · 파티클 메시가 HUD 전체를 다시 묶지 않게 한다.
+        /// 뱃지 좌표는 설계 단위(뱃지 지름 100, 아래로 +y) × U.
+        /// </summary>
         static void BuildLevelUpBanner()
         {
+            const float U = 1.5f;              // 설계 단위 → px (뱃지 150px)
+            const float BannerWidth = 760f;
+            const int ChipSlots = 8;
+            var cream = new Color32(0xFE, 0xE4, 0xA0, 0xFF);
+            var brown = new Color32(0xBF, 0x7B, 0x33, 0xFF);
+            var dark = new Color32(0x1A, 0x0D, 0x00, 0xFF);
+
             var canvas = GameObject.Find("HUD Canvas").transform;
             var old = canvas.Find("LevelUpBanner");
+            int sibling = old != null ? old.GetSiblingIndex() : -1;
             if (old != null) DestroyIfExists(old.gameObject);
 
             var root = UIRect("LevelUpBanner", canvas, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            if (sibling >= 0) root.SetSiblingIndex(sibling);
             var group = root.gameObject.AddComponent<CanvasGroup>();
-            var band = UIImage("Panel", root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 180f), new Vector2(1000f, 190f),
-                new Color(0.1f, 0.08f, 0.05f, 0.7f), BuiltinSprite("UI/Skin/UISprite.psd"));
-            band.type = Image.Type.Sliced;
-            var title = UIText("Title", band.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 30f), new Vector2(980f, 110f), "LEVEL UP!  Lv.2", 84f, TitleFont, new Color(1f, 0.85f, 0.3f));
-            var note = UIText("Note", band.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, -55f), new Vector2(960f, 50f), "해금 내용", 32f, BodyFont, Color.white);
+            root.gameObject.AddComponent<Canvas>(); // 하위 Canvas: 연출 중 메시 갱신이 HUD를 다시 묶지 않게
 
-            var banner = root.gameObject.AddComponent<LevelUpBanner>();
-            SetRef(banner, "group", group);
-            SetRef(banner, "panel", band.rectTransform);
-            SetRef(banner, "titleLabel", title);
-            SetRef(banner, "noteLabel", note);
-            SetRef(banner, "burst", BuildConfetti());
+            var center = new Vector2(0.5f, 0.5f);
+            var popup = UIRect("Popup", root, center, center, new Vector2(0f, 290f), new Vector2(BannerWidth, 0f));
+
+            // ── 배너 (피벗 위쪽 가운데 = 뱃지 중심, 높이는 해금 칩 줄 수에 맞춰 실행 중에 바뀜)
+            var banner = UIRect("Banner", popup, center, center, Vector2.zero, new Vector2(BannerWidth, 250f));
+            banner.pivot = new Vector2(0.5f, 1f);
+            Shape("Shadow", banner, UIShape.Kind.RoundRect, new Color(0f, 0f, 0f, 0.28f), default, 0f, 24f, stretch: new Vector4(-6f, -16f, 6f, -4f));
+            Shape("Frame", banner, UIShape.Kind.RoundRect, new Color32(0xFF, 0xF9, 0xD7, 0xFF), default, 0f, 22f, stretch: new Vector4(-5f, -5f, 5f, 5f));
+            Shape("Panel", banner, UIShape.Kind.RoundRect, cream, brown, 4f, 18f, stretch: Vector4.zero);
+            var stripLine = Shape("StripLine", banner, UIShape.Kind.RoundRect, new Color32(0xD9, 0xA2, 0x57, 0xFF), default, 0f, 14f, topOnly: true);
+            TopStrip(stripLine.rectTransform, 4f, 32f);
+            var strip = Shape("Strip", banner, UIShape.Kind.RoundRect, new Color32(0xE4, 0xB2, 0x68, 0xFF), default, 0f, 14f, topOnly: true);
+            TopStrip(strip.rectTransform, 4f, 29f);
+
+            var title = UIText("Title", banner, new Vector2(0.5f, 1f), new Vector2(0f, -132f), new Vector2(720f, 72f), "LEVEL UP! <color=#CD6100>Lv.5</color>", 64f, TitleFont, new Color32(0x5A, 0x2D, 0x00, 0xFF));
+            title.richText = true;
+
+            var chipRoot = UIRect("Chips", banner, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), Vector2.zero, Vector2.zero);
+            var chips = new RectTransform[ChipSlots];
+            for (int i = 0; i < ChipSlots; i++)
+            {
+                var chip = Shape($"Chip{i}", chipRoot, UIShape.Kind.RoundRect, new Color32(0xFF, 0xF3, 0xCF, 0xFF), brown, 3f, 19f, size: new Vector2(120f, 38f));
+                chip.gameObject.AddComponent<CanvasGroup>();
+                var label = UIText("Label", chip.rectTransform, center, Vector2.zero, Vector2.zero, "해금", 21f, BodyFont, new Color32(0x5A, 0x2D, 0x00, 0xFF));
+                label.rectTransform.anchorMin = Vector2.zero;
+                label.rectTransform.anchorMax = Vector2.one;
+                label.fontStyle = TMPro.FontStyles.Bold;
+                label.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
+                label.overflowMode = TMPro.TextOverflowModes.Truncate; // 본문 폰트에 말줄임표(…) 글자가 없음
+                chips[i] = chip.rectTransform;
+            }
+
+            // ── 뱃지 (배너 위 가장자리 가운데)
+            var badge = UIRect("Badge", popup, center, center, Vector2.zero, new Vector2(100f * U, 100f * U));
+            Shape("Outer", badge, UIShape.Kind.Circle, new Color32(0xCD, 0x61, 0x00, 0xFF), dark, 2.5f * U, 0f, size: Vector2.one * 96.5f * U);
+            Shape("Inner", badge, UIShape.Kind.Circle, new Color32(0x3B, 0x20, 0x00, 0xFF), dark, 1.5f * U, 0f, size: Vector2.one * 81.5f * U);
+
+            // 자물쇠: 피벗 = 설계 (50, 62) = 흔들림 축. 고리 → 열쇠 → 몸통 순 (열쇠 끝은 몸통 뒤로 숨음)
+            var lockPivot = UIRect("Lock", badge, center, center, new Vector2(0f, (50f - 62f) * U), Vector2.zero);
+            var shackleRect = UIRect("Shackle", lockPivot, center, center, Vector2.zero, new Vector2(40f * U, 50f * U));
+            shackleRect.gameObject.AddComponent<LevelUpShackleGraphic>().raycastTarget = false;
+            var keyPos = UIRect("KeyPos", lockPivot, center, center, new Vector2(0f, (62f - 52f) * U), Vector2.zero);
+            var keyRect = UIRect("Key", keyPos, center, center, Vector2.zero, new Vector2(28f * U, 76f * U));
+            keyRect.pivot = new Vector2(0.5f, 1f);
+            var key = keyRect.gameObject.AddComponent<LevelUpKeyGraphic>();
+            key.raycastTarget = false;
+            var body = Shape("Body", lockPivot, UIShape.Kind.RoundRect, new Color32(0xFE, 0xF3, 0xE4, 0xFF), Color.black, 2.6f * U, 4.8f * U, size: new Vector2(42.6f * U, 31.6f * U));
+            body.rectTransform.anchoredPosition = new Vector2(0f, (62f - 60.5f) * U);
+            var shine = Shape("Shine", lockPivot, UIShape.Kind.RoundRect, new Color(1f, 1f, 1f, 0.7f), default, 0f, 2f * U, size: new Vector2(37f * U, 5f * U));
+            shine.rectTransform.anchoredPosition = new Vector2(0f, (62f - 50f) * U);
+
+            var flash = Shape("Flash", badge, UIShape.Kind.Circle, Color.white, default, 0f, 0f, size: Vector2.one * 96.5f * U);
+
+            // ── 해금 순간 효과 (뱃지 위)
+            var rings = new UIShape[2];
+            for (int i = 0; i < rings.Length; i++)
+            {
+                rings[i] = Shape($"Ring{i + 1}", popup, UIShape.Kind.Ring, Color.white, default, 0f, 0f, size: Vector2.one * 100f * U);
+                var so = new SerializedObject(rings[i]);
+                so.FindProperty("ringWidth").floatValue = 5f;
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+            var starsRect = UIRect("Stars", popup, center, center, new Vector2(0f, (50f - 60.7f) * U), new Vector2(10f, 10f));
+            var stars = starsRect.gameObject.AddComponent<LevelUpBurst>();
+            stars.raycastTarget = false;
+
+            var banner2 = root.gameObject.AddComponent<LevelUpBanner>();
+            SetRef(banner2, "group", group);
+            SetRef(banner2, "popup", popup);
+            SetRef(banner2, "banner", banner);
+            SetRef(banner2, "titleLabel", title);
+            var so2 = new SerializedObject(banner2);
+            var chipProp = so2.FindProperty("chips");
+            chipProp.arraySize = chips.Length;
+            for (int i = 0; i < chips.Length; i++) chipProp.GetArrayElementAtIndex(i).objectReferenceValue = chips[i];
+            var ringProp = so2.FindProperty("rings");
+            ringProp.arraySize = rings.Length;
+            for (int i = 0; i < rings.Length; i++) ringProp.GetArrayElementAtIndex(i).objectReferenceValue = rings[i];
+            so2.ApplyModifiedPropertiesWithoutUndo();
+            SetRef(banner2, "badge", badge);
+            SetRef(banner2, "flash", flash);
+            SetRef(banner2, "lockPivot", lockPivot);
+            SetRef(banner2, "shackle", shackleRect);
+            SetRef(banner2, "keyPos", keyPos);
+            SetRef(banner2, "key", key);
+            SetRef(banner2, "stars", stars);
+            SetRef(banner2, "confetti", BuildConfetti());
+        }
+
+        /// <summary>레벨업 배너용 도형. stretch = (왼, 아래, 오른, 위) 여백으로 부모를 꽉 채움, 아니면 size 크기로 가운데.</summary>
+        static UIShape Shape(string name, Transform parent, UIShape.Kind kind, Color fill, Color outline, float outlineWidth, float radius,
+            Vector2 size = default, Vector4? stretch = null, bool topOnly = false)
+        {
+            var center = new Vector2(0.5f, 0.5f);
+            var rect = UIRect(name, parent, center, center, Vector2.zero, size);
+            if (stretch is Vector4 m)
+            {
+                rect.anchorMin = Vector2.zero;
+                rect.anchorMax = Vector2.one;
+                rect.offsetMin = new Vector2(m.x, m.y);
+                rect.offsetMax = new Vector2(m.z, m.w);
+            }
+            var shape = rect.gameObject.AddComponent<UIShape>();
+            shape.Setup(kind, fill, outline, outlineWidth, radius, topOnly);
+            return shape;
+        }
+
+        /// <summary>배너 안쪽 맨 위 띠 (테두리 inset만큼 안으로, 높이 h).</summary>
+        static void TopStrip(RectTransform rect, float inset, float h)
+        {
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.offsetMin = new Vector2(inset, -inset - h);
+            rect.offsetMax = new Vector2(-inset, -inset);
         }
 
         /// <summary>플레이어 머리 위 축하 파티클 (색종이 조각이 위로 터졌다가 떨어짐).</summary>

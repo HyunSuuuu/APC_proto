@@ -940,8 +940,22 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### LevelUpBanner
 [UI/LevelUpBanner.cs](../Scripts/UI/LevelUpBanner.cs)
-- **역할**: 레벨업 연출 v1 — 화면 중앙 `LEVEL UP! Lv.N` + 해금 한 줄(`LevelTable.GetUnlockNote`) + 그 레벨에 합류하는 `새 트럭: 색`(`CompanyDefinition.UnlockLevel`)이 약 2초 떴다 사라지고, 플레이어 위 색종이 파티클(`LevelUpConfetti`)이 터진다.
-- **주의**: 게임을 멈추지 않고 입력도 막지 않는다 (CanvasGroup `blocksRaycasts = false`). 여러 레벨이 한꺼번에 오르면 차례로 보여준다.
+- **역할**: 레벨업 연출 v2 (2026-11-25, GDD 10.2) — 자물쇠 해금 배너. `LEVEL UP! Lv.N` + 해금 내용 칩(`LevelTable.GetUnlockNote`를 `·` · 줄 바꿈으로 나눔, `이름: 내용`은 이름을 라벨 칩으로) + 그 레벨 합류 `새 트럭: 색`(`CompanyDefinition.UnlockLevel`). 해금 순간 플레이어 위 색종이(`LevelUpConfetti`)도 터진다.
+- **동작**: 레벨마다 DOTween Sequence 하나 — 팝인 0 → 열쇠 올라와 꽂힘 0.2 · 0.65 → 자물쇠 흔들림 0.8(축 `Lock`) → 열쇠 90° 돌림 1.13(`LevelUpKeyGraphic.Turn`) → 고리 뽑힘 1.28 → 뱃지 펀치 · 플래시 · 고리 2개 · 별(`LevelUpBurst.Time`) · 색종이 1.4 → 글자 1.46 → 칩 1.64부터 70ms 간격 → `holdDuration`(2초 `임시`) 뒤 위로 67px 떠오르며 사라짐. 칩 칸 8개는 미리 만들어 두고 켜고 끄기만, 줄 바꿈 배치 · 배너 높이도 코드가 맞춘다.
+- **연결**: 구조는 `SiteBuilder.BuildLevelUpBanner`가 만든다(루트에 **하위 Canvas** — 연출 중 열쇠 · 별 메시 갱신이 HUD 전체를 다시 묶지 않게). `BeltPlacer`가 `Dismiss`.
+- **주의**: 게임을 멈추지 않고 입력도 막지 않는다 (CanvasGroup `blocksRaycasts = false`). 여러 레벨이 한꺼번에 오르면 차례로 보여준다. 게임 시간 연출. v1 구조로 저장된 씬(TycoonTest · ShaderTestScene)에서는 경고를 내고 꺼진다 → 그 씬도 쓰려면 Build Site(또는 해당 빌더)로 다시 만든다.
+
+#### UIShape
+[UI/UIShape.cs](../Scripts/UI/UIShape.cs)
+- **역할**: 스프라이트 없이 정점으로 그리는 UI 도형 — 원 · 고리 · 둥근 사각형(위 모서리만 가능) + 안쪽 테두리. 같은 파일의 정적 `UIMesh`(부채꼴 · 타원 · 고리 · 둥근 사각형 · 볼록 다각형 넓히기 · 굵은 선)를 열쇠 · 고리 · 별 그래픽이 같이 쓴다.
+- **주의**: 텍스처가 기본 흰색 하나라 같은 Canvas 안 다른 정점 도형과 한 드로우콜로 묶인다(사이에 글자가 겹치면 나뉨). `UIMesh`는 공용 버퍼를 써서 할당이 없고 메인 스레드 전용.
+
+#### LevelUpKeyGraphic · LevelUpShackleGraphic · LevelUpBurst
+[UI/LevelUpKeyGraphic.cs](../Scripts/UI/LevelUpKeyGraphic.cs) · [UI/LevelUpShackleGraphic.cs](../Scripts/UI/LevelUpShackleGraphic.cs) · [UI/LevelUpBurst.cs](../Scripts/UI/LevelUpBurst.cs)
+- **역할**: 레벨업 배너 뱃지 그림. 좌표는 설계 단위(뱃지 지름 100, 아래로 +y) × `unit` 1.5px.
+  - 열쇠: 뾰족한 끝 · 왼쪽으로 튀어나온 톱니 2개 · 둥근 손잡이(구멍). `Turn` 0 → 1에 앞면 폭 cosθ, 옆면 폭 두께 × sinθ(몸통 5.5 · 손잡이 10) — 검은 테두리 → 회색 옆면(왼쪽 밝게) → 앞면 순. 피벗 = 열쇠 끝.
+  - 고리: 왼쪽 다리 짧게(50), 오른쪽 다리 길게(72) → 13 뽑혀도 오른쪽은 몸통(46~75) 안. 검은 굵은 선 위 크림색 선.
+  - 별: 별 20 + 동그라미 6을 **Graphic 하나 · 메시 하나**로. 값 배열은 처음 한 번 만들고 `Restart`에서 다시 섞기만, `Time` < 0이면 정점 0개(숨김). 오브젝트 생성 · SetActive 없음.
 
 #### GuideArrow
 [UI/GuideArrow.cs](../Scripts/UI/GuideArrow.cs)
