@@ -202,13 +202,17 @@ namespace APC.Logistics
         /// <summary>플레이어 · 알바가 지금 들고 있는 화물 + 벨트 위 화물(GDD 7.10) 중 조건에 맞는 수.</summary>
         public static int CountCarried(ItemDefinition item, CargoOrigin origin)
         {
-            var total = ConveyorBelt.CountOnBelts(_ => true, c => c.Item == item && c.Origin == origin);
-            foreach (var who in Interactor.All)
+            // 인덱스로 돈다: IReadOnlyList foreach는 열거자 박싱 — 빈 상차 칸마다 매 프레임 불려 GC (2026-11-25)
+            var total = ConveyorBelt.CountOnBelts(item, origin);
+            var all = Interactor.All;
+            for (var i = 0; i < all.Count; i++)
             {
-                if (who.Stack == null) continue;
-                foreach (var cargo in who.Stack.Items)
+                var stack = all[i].Stack;
+                if (stack == null) continue;
+                var items = stack.Items;
+                for (var j = 0; j < items.Count; j++)
                 {
-                    if (cargo.Item == item && cargo.Origin == origin) total++;
+                    if (items[j].Item == item && items[j].Origin == origin) total++;
                 }
             }
             return total;

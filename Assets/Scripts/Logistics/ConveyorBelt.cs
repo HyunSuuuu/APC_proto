@@ -54,6 +54,20 @@ namespace APC.Logistics
         float lastFeed; // 같은 Start의 벨트끼리 번갈아 올리기 (오래 못 받은 벨트 먼저)
         static int fedFrame = -1;
 
+        /// <summary>벨트 위 그 품목 · 출처 화물 수. 클로저 없이 — Warehouse.CountCarried가 빈 상차 칸마다 매 프레임 부른다 (2026-11-25 GC).</summary>
+        public static int CountOnBelts(Data.ItemDefinition item, CargoOrigin origin)
+        {
+            var n = 0;
+            foreach (var belt in Registered)
+            {
+                foreach (var cargo in belt.cargos)
+                {
+                    if (cargo.Item == item && cargo.Origin == origin) n++;
+                }
+            }
+            return n;
+        }
+
         /// <summary>벨트 위 화물 중 조건에 맞는 수 (End가 맞는 벨트만). '찼다' 계산에 손에 든 수처럼 더한다 (GDD 7.10).</summary>
         public static int CountOnBelts(System.Func<ConveyorBelt, bool> beltMatch, System.Func<Cargo, bool> cargoMatch)
         {
