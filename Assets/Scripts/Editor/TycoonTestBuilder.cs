@@ -11,7 +11,7 @@ namespace APC.EditorTools
 {
     /// <summary>
     /// 타이쿤 시험 (2026-11-20): Game 씬 · 데이터를 복사해 8 × 8 부지를 만든다. 원본 씬 · 에셋은 건드리지 않는다.
-    /// 왼쪽 열 = 하차장 8 (트럭은 서쪽), 오른쪽 열 = 상차장 8 (트럭은 동쪽), 가운데 6열 = 사무실 1 + 보관 A~D (대각선으로 섞음).
+    /// 왼쪽 열 = 하차장 8 (트럭은 서쪽), 오른쪽 열 = 상차장 8 (트럭은 동쪽), 2열 = 사무실 1 + 스캔 7, 3~7열 = 보관 A~D (대각선으로 섞음).
     /// 데이터 복사본(Assets/Data/Tycoon): 배치 · 트럭 간격 · 최대 알바 · 카메라 줌만 바꾼다. 알바 대량 생성은 씬의 TycoonTest.
     /// </summary>
     public static class TycoonTestBuilder
@@ -75,6 +75,7 @@ namespace APC.EditorTools
                 for (var c = 2; c < Size; c++)
                 {
                     if (r == 1 && c == 2) { list.Add(("Office", "Module_Office", r, c, 0)); continue; }
+                    if (c == 2) { list.Add(($"Scan{r}", "Module_Scan", r, c, 0)); continue; } // 하차장 옆 = 스캔 구역 (씬 SiteGrid id와 같아야 칸이 열림)
                     var company = "ABCD"[(r + c) % 4];
                     // 지게차 직무는 id "StoreD"가 열려야 고용 후보에 나온다 (StaffService.IsRoleOpen)
                     var id = company == 'D' && !storeDNamed ? "StoreD" : $"Store{company}_R{r}C{c}";
