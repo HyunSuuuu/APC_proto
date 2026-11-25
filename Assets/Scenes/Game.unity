@@ -4696,7 +4696,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4299629fac5d61b48a14e2cc99e1659f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.Logistics.Warehouse
-  shelfPrefab: {fileID: 3671193564190701847, guid: 2eccd8cc828b4b54f9f3a19afcf8114b, type: 3}
 --- !u!114 &281971196
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8941,7 +8940,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -60.000122, y: -24}
+  m_AnchoredPosition: {x: -60, y: -24}
   m_SizeDelta: {x: -659.13135, y: -172}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &528023724
@@ -13991,9 +13990,6 @@ PrefabInstance:
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 4082215993412590095, guid: 3873f222ab25c7b40bb1dbad458046ac, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 0}
     - targetCorrespondingSourceObject: {fileID: 3810959800726662960, guid: 3873f222ab25c7b40bb1dbad458046ac, type: 3}
       insertIndex: -1
       addedObject: {fileID: 0}
@@ -17354,8 +17350,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 150, y: -385}
-  m_SizeDelta: {x: 520, y: 50}
+  m_AnchoredPosition: {x: 0, y: 372}
+  m_SizeDelta: {x: 1100, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1072080263
 MonoBehaviour:
@@ -17421,7 +17417,7 @@ MonoBehaviour:
   m_lineSpacingMax: 0
   m_paragraphSpacing: 0
   m_charWidthMaxAdj: 0
-  m_TextWrappingMode: 1
+  m_TextWrappingMode: 0
   m_wordWrappingRatios: 0.4
   m_overflowMode: 0
   m_linkedTextComponent: {fileID: 0}
@@ -34387,6 +34383,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Module_StoreA1
       objectReference: {fileID: 0}
+    - target: {fileID: 8429143723549273220, guid: dce0a5745f7d609498d2c3c29d485dbf, type: 3}
+      propertyPath: m_TextStyleHashCode
+      value: -1183493901
+      objectReference: {fileID: 0}
     - target: {fileID: 8451073390211424409, guid: dce0a5745f7d609498d2c3c29d485dbf, type: 3}
       propertyPath: m_LocalPosition.x
       value: 30
@@ -34432,6 +34432,9 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 2783558332974603286, guid: dce0a5745f7d609498d2c3c29d485dbf, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 8423553975628435302, guid: dce0a5745f7d609498d2c3c29d485dbf, type: 3}
       insertIndex: -1
       addedObject: {fileID: 0}
   m_SourcePrefab: {fileID: 100100000, guid: dce0a5745f7d609498d2c3c29d485dbf, type: 3}
@@ -37978,12 +37981,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 4343118531187047217, guid: 4f7eac6a3c902d94e8fde7a217ab200f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 0}
-    - targetCorrespondingSourceObject: {fileID: 1742440081379866095, guid: 4f7eac6a3c902d94e8fde7a217ab200f, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 0}
-    - targetCorrespondingSourceObject: {fileID: 4257211053342456736, guid: 4f7eac6a3c902d94e8fde7a217ab200f, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 0}
   m_SourcePrefab: {fileID: 100100000, guid: 4f7eac6a3c902d94e8fde7a217ab200f, type: 3}
 --- !u!4 &2005635950 stripped
 Transform:
@@ -38679,12 +38676,17 @@ MonoBehaviour:
   cellTemplate: {fileID: 1933905319}
   cellStep: {x: 210, y: 160}
   resetButton: {fileID: 1673804028}
+  rotateButton: {fileID: 0}
   reasonLabel: {fileID: 1072080263}
   emptyColor: {r: 0.96, g: 0.95, b: 0.92, a: 1}
   fixedColor: {r: 0.38, g: 0.35, b: 0.33, a: 1}
   returnsColor: {r: 0.55, g: 0.62, b: 0.8, a: 1}
+  inboundColor: {r: 0.85, g: 0.62, b: 0.35, a: 1}
   lockedColor: {r: 0.55, g: 0.55, b: 0.55, a: 0.45}
   darkText: {r: 0.25, g: 0.22, b: 0.2, a: 1}
+  selectedScale: 1.08
+  truckBarColor: {r: 0.85, g: 0.2, b: 0.18, a: 1}
+  truckBarThickness: 14
 --- !u!1 &2048232718
 GameObject:
   m_ObjectHideFlags: 0

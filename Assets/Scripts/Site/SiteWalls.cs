@@ -58,6 +58,7 @@ namespace APC.Site
             ApplyGradient();
             Build();
             grid.OnUnlocked.Subscribe(_ => Build()).AddTo(this);
+            grid.OnMoved.Subscribe(_ => Build()).AddTo(this); // 하차 모듈 이동 · 회전 → 트럭 쪽 벽 틈이 바뀜 (M20-3)
         }
 
         void OnValidate() => ApplyGradient(); // 인스펙터에서 바꾸면 Play 중에도 바로 반영

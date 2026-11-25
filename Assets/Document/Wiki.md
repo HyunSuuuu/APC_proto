@@ -225,9 +225,9 @@ PlayerMover : 이동 전에 SiteGrid.IsAreaWalkable로 열린 칸 안인지 확�
 SiteNavMesh : 팝 연출이 끝나면 네비메시 다시 굽기 (알바용)
 SiteUnlocker : 울타리를 다음 구역으로 옮김
 
-모듈 재배치 (GDD 4.4): 계약 PC `모듈` 탭(ModulePanel) 미니맵에서 끌어 놓기 → 팝업 닫을 때
-SiteGrid.ApplyArrangement → 모듈 통째로 이동(선반 · 상자 · 작업 지점 함께) → OnMoved
-   → SiteNavMesh 다시 굽기 · StaffWorker.Repath · SiteUnlocker 빈 공간 발판 자리
+모듈 재배치 (GDD 4.4): 계약 PC `모듈` 탭(ModulePanel) 미니맵에서 끌어 놓기 · 칸 누르고 [회전] → 팝업 닫을 때
+SiteGrid.ApplyArrangement(칸 + yaw) → 모듈 통째로 이동 · 회전(선반 · 상자 · 작업 지점 · 주차 트럭 함께) → OnMoved
+   → SiteNavMesh 다시 굽기 · StaffWorker.Repath · SiteUnlocker 빈 공간 발판 자리 · SiteWalls 다시 짓기
 ```
 
 잠긴 칸에는 아무것도 없다 (보이지 않고 들어갈 수 없음). 해금하면 그 모듈 안의 `ShelfSlot`, `InboundBay` 등이 켜지면서 스스로 동작을 시작한다.
@@ -814,11 +814,12 @@ StaffWorker (thinkInterval 0.25초마다 판단)
   - `IsCellOpen(cell)`: 칸 (열, 행)이 열렸나 (인접 확인용).
   - 빈 공간: `Unlock`이 붙일 모듈의 칸에 있는 `Empty` 모듈을 **끈다** (`SetActive(false)`, instance는 남아 해금된 것으로 침 → 바닥 충돌체가 빠져 네비메시에서도 빠짐). 빈 공간 칸에 놓이는 1칸 모듈은 처음 칸이 차 있으면 `TryFindEmptyCell`(가장 가까운 빈 공간)에 붙는다 — 발판 자리와 같은 규칙.
   - 칸 조회는 **모듈 실제 위치**로 한다 (재배치 뒤 config `row` · `column`과 다름): `WorldToCell`, `CellCenter(cell)`, `ModuleAt(cell)`(켜진 모듈), `IsEmptyTile(cell)`, `TryFindEmptyCell(preferred)`, `IdOf(module)`. `OpenedCells` = 열린 칸 전부 (`SiteWalls`가 씀).
+  - `ApplyArrangement(모듈 → (칸, yaw))`: 자리나 방향이 바뀐 모듈만 옮기고 돌림 + 팝, 하나라도 바뀌면 `OnMoved`. `YawOf(module)` = Y 회전을 0 / 90 / 180 / 270으로 (M20-3).
 
 #### SiteWalls
 [Site/SiteWalls.cs](../Scripts/Site/SiteWalls.cs)
 - **역할**: 부지 바깥 벽 (M14-2). 열린 칸과 안 열린 칸 · 부지 밖 사이 변에만 1m 조각(`wall_s` 앞 · `wall_l` 뒤)을 이어 세우고 꼭짓점에 기둥(`pillar_s` · `pillar_L`). 앞 / 뒤 = 변 바깥 방향이 카메라 쪽이면 앞(낮은 벽).
-- **동작**: `Start`와 `SiteGrid.OnUnlocked`마다 `Walls` 자식을 지우고 다시 세운다 → 해금되면 칸 사이 벽이 사라지고 새 테두리에 생긴다. 하차 · 상차장 모듈(`InboundBay` · `OutboundBay`)의 주차장 쪽(모듈 로컬 −x) 변은 비운다.
+- **동작**: `Start`와 `SiteGrid.OnUnlocked` · `OnMoved`(하차장 이동 · 회전, M20-3)마다 `Walls` 자식을 지우고 다시 세운다 → 해금되면 칸 사이 벽이 사라지고 새 테두리에 생긴다. 하차 · 상차장 모듈(`InboundBay` · `OutboundBay`)의 주차장 쪽(모듈 로컬 −x) 변은 비운다.
 - **연결**: Build Site `AddWalls`가 `SiteGrid` 오브젝트에 붙이고 Prop fbx · `M_Prop` · `M_Wall`을 연결한다.
 - **안쪽 면 그라데이션** (2026-11-23): 벽 조각만 `wallMaterial`(`M_Wall` = `APC/WallCutout` + `_WALL_GRADIENT`), 기둥 · 창문은 `material`. `Start` · `OnValidate`(인스펙터 수정 즉시, Play 중 포함)에서 `gradientBottom`(234, 198, 154) · `gradientTop`(242, 235, 204) · `gradientStart`(0m) · `gradientEnd`(3.4m)를 전역 `_WallGradientBottom` · `_WallGradientTop` · `_WallGradientStart` · `_WallGradientEnd`로 넘김 → 셰이더가 메시 로컬 +y 면(부지 안쪽)의 albedo를 Start 아래는 아래 색, End 위는 위 색, 사이는 높이에 비례해 섞음 (2026-11-24). 바깥 면 · 위 갈색 띠(3.6955m~, 셰이더 `WALL_BAND_BOTTOM`)는 원래 색.
 - **주의**: 색은 `.linear`로 바꿔 넘긴다 — `Shader.SetGlobalColor`는 `Material.SetColor`와 달리 sRGB → 선형 변환을 안 해서, 그냥 넘기면 밝고 흐리게 나온다 (2026-11-24 측정으로 확인). 화면 색은 조명을 받아 바뀐다: 해가 비치는 북쪽 벽은 넣은 색과 거의 같고(파랑만 약 8 낮음), 동쪽 벽처럼 해 반대쪽은 어둡다.
@@ -1010,15 +1011,18 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### ModulePanel
 [UI/ModulePanel.cs](../Scripts/UI/ModulePanel.cs)
-- **역할**: 계약 PC 팝업의 `모듈` 탭 페이지 (GDD 4.4, M12-2). 6 × 4 부지 미니맵에서 보관 · 반품 칸을 끌어다 놓아 자리를 바꾼다.
-- **동작**: `Begin()`(팝업 열 때) = `SiteGrid.ModuleAt`으로 칸마다 모듈을 찍어 `original` · `staged`에 둔다. `Drop(source, target)` = 대상이 빈 공간 · 보관 · 반품이면 `staged`에서 자리 맞바꿈(이동 · 교체), 고정 모듈 · 잠긴 칸 · 바깥이면 실패(칸 흔들림 + 사유 글자 1.5초). [되돌리기] = `staged` ← `original`. `Apply()`(팝업 닫을 때) = `SiteGrid.ApplyArrangement`.
+- **역할**: 계약 PC 팝업의 `모듈` 탭 페이지 (GDD 4.4, M12-2). 6 × 4 부지 미니맵에서 하차 · 보관 · 반품 칸을 끌어다 놓아 자리를 바꾸고, 칸을 눌러 고른 뒤 [회전]으로 90°씩 돌린다 (M20-3).
+- **동작**: `Begin()`(팝업 열 때) = `SiteGrid.ModuleAt`으로 칸마다 모듈을 찍어 `original` · `staged`에 둔다. `Drop(source, target)` = 대상이 빈 공간 · 보관 · 반품이면 `staged`에서 자리 맞바꿈(이동 · 교체), 고정 모듈 · 잠긴 칸 · 바깥이면 실패(칸 흔들림 + 사유 글자 1.5초). [되돌리기] = `staged` ← `original`. `Apply()`(팝업 닫을 때) = `SiteGrid.ApplyArrangement`(칸 + `stagedYaw`).
+  - 하차장(`InboundBay`가 있는 모듈, prefab Kind는 Fixed 그대로)도 끌 수 있다. 트럭 쪽(로컬 −x: yaw 0 서 · 90 북 · 180 동 · 270 남) 이웃 칸이 `siteCells`(잠긴 칸 포함 부지) 밖이어야 하고, 지금 방향이 안 되면 시계 방향으로 되는 첫 방향으로 자동 회전 `임시`, 아무 방향도 안 되면 실패. 맞바꾸는 상대가 하차장이어도 같은 검사.
+  - `Select(cell)`(ModuleCell 누르기) = 빈 공간이 아닌 옮길 수 있는 칸을 고름(`selectedScale` 1.08). `Rotate`([회전]) = 시계 방향 90°, 하차장은 바깥이 되는 다음 방향만 — 없으면 흔들림 + `트럭이 들어올 바깥 변이 하나뿐이에요`. `rotateButton`이 비면 [되돌리기]를 복사해 왼쪽에 만든다 (shortcut). 스캔 모듈(`Module_Scan`, 2026-11-26부터 Kind Movable) = `scanColor`. 하차장 칸 = 이름 + 색 `inboundColor` + 주차장 쪽 변 바깥에 붉은 바(`ModuleCell.ShowTruckSide`, `truckBarColor` · `truckBarThickness` 14px). 사유 글자(`Reason`)는 미니맵 위 (0, 372) · 폭 1100 · 줄바꿈 없음 (2026-11-26, [회전]과 겹침 · 두 줄 방지).
+  - 옮기거나 **돌린** 모듈에 걸친 벨트도 안내 · 철거 · 전액 환불 (`BeltsOnMoved`).
   - 칸 색: 빈 공간 흰색, 고정 어두운 회색, 보관 = 그 회사 품목 띠 색(id `Store` + 회사 id), 반품 파랑, 잠긴 칸 반투명 회색 `잠김`. 부지 밖 칸은 숨김. 이름 = `SiteLayout.GetDisplayName`.
 - **연결**: `cellTemplate`(`ModuleCell`, 꺼진 채 · 위치 = (1,1) 칸) → 실행 때 24칸 생성(`cellStep` 210 × 160). Build Site의 `BuildModulePage`가 만든다.
 - **주의**: 미니맵 변경은 닫기 전까지 부지에 적용되지 않는다 (탭을 바꿔도 유지).
 
 #### ModuleCell
 [UI/ModuleCell.cs](../Scripts/UI/ModuleCell.cs)
-- **역할**: 미니맵 칸 1개. `Cell`(열, 행) · `Draggable`(Movable 모듈만). 끌면 맨 위로 올라가 손가락을 따라가고, 놓으면 레이캐스트로 아래 칸을 찾아 `ModulePanel.Drop`.
+- **역할**: 미니맵 칸 1개. `Cell`(열, 행) · `Draggable`(보관 · 반품 · 하차장). 누르기만 하면(끌기 없음) `ModulePanel.Select` (M20-3). 끌면 맨 위로 올라가 손가락을 따라가고, 놓으면 레이캐스트로 아래 칸을 찾아 `ModulePanel.Drop`.
 - **동작**: 끌기 시작하면 자기 복제본을 원래 자리에 반투명 자리 표시(`_Ghost`, `ModuleCell` 꺼짐, `ghostAlpha`)로 남기고, 놓으면 지운다. 자리 표시 위에 놓으면 제자리.
 - **주의**: 놓을 칸은 **레이캐스트를 다시 켜기 전에** 찾는다 (켜면 맨 위에 있는 끌던 칸 자신이 잡혀 늘 제자리로 돌아가던 버그, 2026-11-16).
 
