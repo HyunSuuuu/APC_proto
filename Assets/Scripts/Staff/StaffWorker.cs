@@ -50,6 +50,9 @@ namespace APC.Staff
         [SerializeField, Tooltip("퇴사할 때 깜빡이는 색")] Color angryColor = new(0.9f, 0.1f, 0.1f);
 
         NavMeshAgent agent;
+        int crowdId = -1;   // A* 이동 번호 (StaffNav). −1 = NavMesh로 움직임
+        bool pathFailed;    // A*: 마지막 길찾기 실패
+        Vector3 destination; // 마지막으로 가라고 한 곳 (두 방식 공용)
         Interactor interactor;
         CarryStack stack;
         StaffRules rules;
@@ -125,10 +128,56 @@ namespace APC.Staff
         public static int PathRequests { get; private set; }
         public static int NoPathCount { get; private set; }
 
+        internal static IReadOnlyList<StaffWorker> All => AllWorkers;
+        internal int CrowdId => crowdId;
+        bool AStar => crowdId >= 0;
+        bool OnNav => AStar || agent.isOnNavMesh;
+
         bool SetPath(Vector3 point)
         {
             PathRequests++;
-            return agent.SetDestination(point);
+            destination = point;
+            if (!AStar) return agent.SetDestination(point);
+            pathFailed = !StaffNav.Shared.SetPath(crowdId, point, agent.speed);
+            return !pathFailed;
+        }
+
+        void StopPath()
+        {
+            if (AStar) StaffNav.Shared.Stop(crowdId);
+            else if (agent.isOnNavMesh) agent.ResetPath();
+        }
+
+        void PauseMove(bool paused)
+        {
+            if (AStar) StaffNav.Shared.Pause(crowdId, paused);
+            else if (agent.isOnNavMesh) agent.isStopped = paused;
+        }
+
+        /// <summary>StaffNav 스위치에 맞춘다: A*면 NavMeshAgent를 끄고 StaffNav에 등록, NavMesh면 되돌린다. 가는 중이면 같은 곳으로 다시 길을 찾는다.</summary>
+        internal void ApplyNavMode()
+        {
+            if (StaffNav.UseAStar == AStar) return;
+            var moving = State == Phase.Moving;
+            if (StaffNav.UseAStar)
+            {
+                agent.enabled = false; // 켜 두면 NavMeshAgent가 위치를 되돌린다
+                crowdId = StaffNav.Shared.Register(transform, agent.speed);
+            }
+            else
+            {
+                StaffNav.Shared.Release(crowdId);
+                crowdId = -1;
+                agent.enabled = true;
+                agent.Warp(transform.position);
+            }
+            if (moving) SetPath(destination);
+        }
+
+        /// <summary>A* 격자를 다시 구운 뒤 (StaffNav): 같은 목적지로 길을 다시 찾는다.</summary>
+        internal void RefreshPath()
+        {
+            if (State == Phase.Moving) SetPath(destination);
         }
 
         void Awake()
@@ -145,7 +194,11 @@ namespace APC.Staff
             }
         }
 
-        void OnEnable() => AllWorkers.Add(this);
+        void OnEnable()
+        {
+            AllWorkers.Add(this);
+            if (rules != null) ApplyNavMode(); // 꺼졌다 켜진 알바 (처음은 Start에서)
+        }
 
         /// <summary>밀린 시급을 정한다 (정산 [확인] 때 StaffService가 부름). 0보다 크면 머리 위 ₩이 둥실거린다.</summary>
         internal void SetOwed(int amount)
@@ -169,7 +222,7 @@ namespace APC.Staff
             if (Fired) return;
             Fire();
             SetOwed(0);
-            if (agent.isOnNavMesh) agent.isStopped = true;
+            PauseMove(true);
             var roleColor = rules.GetRoleColor(Role);
             var bodyTransform = models != null && models.Length > 0 ? models[0].transform.parent : body.transform; // 모델이면 모델째 뛴다
             DOTween.Sequence()
@@ -178,7 +231,7 @@ namespace APC.Staff
                 .OnComplete(() =>
                 {
                     SetColor(roleColor);
-                    if (agent.isOnNavMesh) agent.isStopped = false;
+                    PauseMove(false);
                 })
                 .SetLink(gameObject);
         }
@@ -227,6 +280,7 @@ namespace APC.Staff
         void Start()
         {
             if (SiteGrid.Instance != null) SiteGrid.Instance.OnMoved.Subscribe(_ => Repath()).AddTo(this);
+            ApplyNavMode();
         }
 
         /// <summary>모듈 재배치 알림 (GDD 4.4). 옮긴 모듈은 팝 연출(크기 0 → 1) 중이라 바로 계산하지 않고, 연출이 끝난 뒤 판단 때 <see cref="ApplyRepath"/>.</summary>
@@ -248,7 +302,7 @@ namespace APC.Staff
             var reference = TargetZone != null ? TargetZone : lastZone;
             if (reference != null && reference.isActiveAndEnabled && !IsSettled(reference)) return; // 팝 연출이 끝난 뒤에
             repathPending = false;
-            if (leaving || !agent.isOnNavMesh) return;
+            if (leaving || !OnNav) return;
             if (State == Phase.Parked || (State == Phase.Moving && parking))
             {
                 Park();
@@ -259,7 +313,7 @@ namespace APC.Staff
             var stand = target.transform.TransformPoint(standLocal);
             switch (State)
             {
-                case Phase.Moving when (agent.destination - stand).sqrMagnitude > 1f:
+                case Phase.Moving when (destination - stand).sqrMagnitude > 1f:
                     SetPath(stand);
                     break;
                 case Phase.Working when (transform.position - stand).sqrMagnitude > 1f:
@@ -272,6 +326,12 @@ namespace APC.Staff
 
         void OnDisable()
         {
+            if (AStar)
+            {
+                StaffNav.Shared.Release(crowdId);
+                crowdId = -1;
+                agent.enabled = true; // 다시 켜지면 OnEnable이 스위치에 맞춘다
+            }
             ReleaseAll();
             AllWorkers.Remove(this);
             if (StaffService.Instance != null) StaffService.Instance.Remove(this);
@@ -461,7 +521,7 @@ namespace APC.Staff
             SetStand(best, ChooseStand(best));
             dropping = false;
             scanning = true; // 화물 예약 없음
-            agent.SetDestination(OccupiedPosition);
+            SetPath(OccupiedPosition);
             State = Phase.Moving;
             return true;
         }
@@ -651,7 +711,7 @@ namespace APC.Staff
         {
             ReleaseAll();
             // 막 생성된 프레임 등 에이전트가 아직 네비메시에 없으면 길을 못 잡는다 → 그 자리에서 기다렸다가 다음 판단 때 다시
-            if (!agent.isOnNavMesh || !TryChooseWaitPoint(out var point) || !SetPath(point))
+            if (!OnNav || !TryChooseWaitPoint(out var point) || !SetPath(point))
             {
                 Hold();
                 return;
@@ -738,8 +798,8 @@ namespace APC.Staff
 
         bool Arrived()
         {
-            if (agent.pathPending) return false;
-            if (agent.pathStatus == NavMeshPathStatus.PathInvalid)
+            if (!AStar && agent.pathPending) return false;
+            if (AStar ? pathFailed : agent.pathStatus == NavMeshPathStatus.PathInvalid)
             {
                 var target = TargetZone;
                 NoPathCount++;
@@ -747,7 +807,7 @@ namespace APC.Staff
                 Hold();
                 return false;
             }
-            return agent.remainingDistance <= ArriveDistance;
+            return (AStar ? StaffNav.Shared.Remaining(crowdId) : agent.remainingDistance) <= ArriveDistance;
         }
 
         /// <summary>가는 중인 목표가 아직 유효한가. 예약은 잠깐 풀고 다시 확인해 다시 잡는다 (자기 예약 때문에 일이 없어 보이지 않게).</summary>
@@ -833,14 +893,14 @@ namespace APC.Staff
         void Hold()
         {
             ReleaseAll();
-            if (agent.isOnNavMesh) agent.ResetPath();
+            StopPath();
             State = Phase.Waiting;
         }
 
         void Abort()
         {
             ReleaseAll();
-            if (agent.isOnNavMesh) agent.ResetPath();
+            StopPath();
             State = Phase.Idle;
             thinkTimer = 0f;
         }

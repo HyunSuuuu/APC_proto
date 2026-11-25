@@ -335,7 +335,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | [CashFlyConfig](../Scripts/Data/CashFlyConfig.cs) | `CashFlyConfig` | 주운 현금 → HUD 저금통 **달러 아이콘 연출**: 비행 시간, **속도 그래프**(`moveCurve`, 시간 0~1 → 경로 진행 0~1, 기울기 = 속도, 1을 넘기면 지나쳤다 돌아옴), 포물선 높이, **출발 랜덤 반경**(`startRadius`, HUD px — 플레이어 화면 위치 둘레 원 안 무작위 지점에서 출발, 0 = 중앙), 기본 크기, **크기 그래프**(`scaleCurve`, 시간 → 배율), 도착 때 저금통 아이콘 튐. Build Site가 `CashFlyEffect`에 직접 연결 (없으면 만듦, 비면 `OrDefault`) |
 | [GoldenTruckConfig](../Scripts/Data/GoldenTruckConfig.cs) | `GoldenTruckConfig` | **황금 트럭** (GDD 6.4, 2026-11-18 `LogisticsConfig`에서 옮김): 확률 · 금 값 배율, 몸체 색(`solidColor` = `_BaseMap`을 흰색으로 덮어 단색) · 깜빡임, 점광원, 반짝임 파티클(`M_GoldSparkle`), 쏟기(지연 · 간격 · 튐 · 쌓는 모양 · 떠남 지연), 흡수(반경 · 간격 · 비행 · 회전 · 크기 그래프). `GameDatabase.GoldenTruck` (비면 `OrDefault`). 값은 매번 읽으므로 Play 중 조절 가능 |
 | [StampConfig](../Scripts/Data/StampConfig.cs) | `StampConfig` | 계약 PC **도장 연출**: 누르기 배율 · 시간, 카드 위 머무는 시간, 복귀 시간 · 이징, 자국 · 필터, 흔들림 · 사유 시간, 계약 후 팝업 닫힘 지연. **`GameDatabase`가 아니라** Build Site가 `Stamp` · `StampCard` · `ContractPopup`에 직접 연결 (없으면 만들고, 연결이 비면 기본값 `OrDefault`) |
-| [NavGridConfig](../Scripts/Data/NavGridConfig.cs) | `NavGridConfig` | A* 격자 (2026-11-24): 칸 0.5m · 장애물 키우기 0.5 · 타일 2m · 장애물 높이 띠 0.3~2.0 · 붙이기 반경 2m · 프레임당 길찾기 20. **GameDatabase에 아직 안 넣음** (측정 도구만 씀) |
+| [NavGridConfig](../Scripts/Data/NavGridConfig.cs) | `NavGridConfig` | A* 격자 (2026-11-24): 칸 0.5m · 장애물 키우기 0.5 · 타일 2m · 장애물 높이 띠 0.3~2.0 · 붙이기 반경 2m · 프레임당 길찾기 20. `GameDatabase.NavGrid`(비면 기본값 `OrDefault`, 2026-11-25 A* 토글) · 측정 도구는 에셋 경로로 |
 | [NavBenchmarkConfig](../Scripts/Data/NavBenchmarkConfig.cs) | `NavBenchmarkConfig` | 길찾기 비교 측정: 알바 수 · 예열 · 측정 · 반복, 보정(실제 알바 직무별 수 · 뽑는 간격 0.1초), 길 쌍 수 · 길이 비율 한도, 레일 크기 · 개수, Profiler 기록. 메뉴가 에셋 경로로 읽음 |
 | [DataTypes](../Scripts/Data/DataTypes.cs) | — | 공용 구조체 `IntRange`(`Roll()`로 무작위), `WeightedInt` |
 
@@ -696,6 +696,13 @@ StaffWorker (thinkInterval 0.25초마다 판단)
   - `Workers`는 고용 순서대로 (시급 지급 순서, GDD 11.7). `IsRoleOpen(role)` = 반품은 `SiteGrid.IsUnlocked("Ret1")`, 지게차는 `IsUnlocked("StoreD")` 뒤에만 (`NextEmptyRole` · 자동 배정 삭제, M11-9). `CountRole(role)`.
 - **연결**: `StaffSpawnPoint.Current`, `StaffRules`, `PartService`(후보 교체), `HirePanel`(고용 탭), `RosterPanel`(배치 탭), 디버그 메뉴 `Staff` 절.
 - **주의**: 네비메시가 없으면 `Spawn`은 null이고 고용도 실패한다 (돈은 나가지 않음).
+
+#### StaffNav
+[Staff/StaffNav.cs](../Scripts/Staff/StaffNav.cs)
+- **역할**: 알바 길찾기 스위치 (2026-11-25): NavMesh(기본) ↔ 방 단위 A*. DEBUG Staff `Path A*`(`SetUseAStar`). 처음 켤 때 생기고 꺼도 남는다.
+- **동작**: 부지 격자(`SiteNavGrid`)를 굽고 `NavCrowd`로 A* 알바를 한 Update에서 움직인다. `OnUnlocked` = 그 방만 · `OnMoved` = 전체를 팝 연출(`FacilityPopDuration` + 0.05초) 뒤 다시 굽고, 다시 구운 방을 지나던 알바만 `RefreshPath`. 열린 칸이 격자 범위를 넘으면 새로 굽는다.
+- **연결**: `StaffWorker.ApplyNavMode`(켤 때 · Start · 다시 켜질 때) — A*면 NavMeshAgent를 끄고 등록. 설정 `GameDatabase.NavGrid`.
+- **주의**: NavMesh는 그대로 굽는다 — 대기 위치 고르기 · 생성 위치가 아직 `NavMesh.SamplePosition`을 쓴다.
 
 #### StaffSpawnPoint
 [Staff/StaffSpawnPoint.cs](../Scripts/Staff/StaffSpawnPoint.cs)
