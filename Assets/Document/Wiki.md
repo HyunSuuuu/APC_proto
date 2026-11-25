@@ -540,17 +540,25 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Logistics/StorageZone.cs](../Scripts/Logistics/StorageZone.cs)
 - **역할**: 팔레트 둘레 존 (4.2 × 3.8m). **트럭 화물 내려놓기 먼저**(`CanAccept`/`Store`), 내려놓을 것이 없으면 선반에 갈 화물을 집는다(`TakeForShelves`). `ShelfZone`과 같은 구조. `HasCargoFor`(분류 알바가 집기 전에 확인)를 구현한다.
 - **쓰레기 출력** (`Trash`, M13-11): `GiveOrigin` = Trash, 적재 수 무시 · 쓰레기 `trashCarryMax`(12)개까지 (`CanCarryMoreTrash`). 반품 팔레트(`Returns`)는 `GiveOrigin` = ReturnPallet.
+- **스캔** (스캔 팔레트만, GDD 7.2a): 멈추고 `scanStartDelay` 뒤 한 사람이 스캔(`Scanner` · `ScanProgress`). 시간 = 시작 때 미분류 수 × `scanSecondsPerBox`(1초), 스캔 중 미분류가 늘면 그만큼 늘어 게이지가 줄었다 다시 참 (M20-1). `StaffScanWanted` = `CanScan`(미분류 1개 이상 · 남은 빈자리) — 최소 개수 규칙 없음. 다 차면 `RevealUnsorted`.
 - **알림** (M13-3, 플레이어만): 팔레트에 상자는 있는데 하나도 못 집으면(그 색 선반이 다 참) '선반 가득'. 반품 팔레트 · 재포장 입력에서 하나도 못 넣으면 찌그러진 상자면 '가득', 아니면 '넣을 수 없음' (선반에서 꺼낸 상자는 안 셈).
 
 #### Shelf
 [Logistics/Shelf.cs](../Scripts/Logistics/Shelf.cs)
-- **역할**: 품목 1종 전용 분류 선반. 칸에 실제 상자가 올라가고 위에 수량(`7/10`)이 뜬다.
-- **동작**: `Setup(item, capacity)`(`BaseCapacity` = 1단계 용량 기억), `SetCapacity(value)`(선반 단계, 수량 글자 갱신, M16-3), `Store`, `TakeOne`(마지막에 넣은 상자), `HasSpace` · `FreeSpace`. 한 단 = 가로 `boxesPerSide` × 세로 `boxRows`(0이면 정사각형). `Shelf.prefab` = 모델 `Shelf` 1.2배 2개 등 맞대기(2.15 × 1.6m, 3 × 2칸, 첫 단 0.29 · 단 높이 0.59, M14-3), `PalletRack.prefab` = 2 × 2. 둘레에 `ShelfZone` 하나 (선반 3.6 × 3.2).
-- **연결**: `Warehouse.BuildShelf`가 `Shelf.prefab`으로 만든다.
+- **역할**: 색 보관 구역 하나의 **보관함** (M20-2, 2026-11-25 — 선반 4개 통합). 바로 아래 자식 선반 모델(`ShelfModel`) 4개에 실제 상자가 올라가고, 수량(`7/24`)은 구역 가운데에 하나만 뜬다. 가운데 `ShelfZone` 하나로 넣고 꺼낸다.
+- **동작**: `Setup(item, capacity)`(`BaseCapacity` 기억, 모델마다 아이콘 색), `CapacityAt(stage)` = 기본 + `shelfStageStepPerModel`(2) × 모델 수 × (단계 − 1) → 24 · 32 · 40 / 랙 16 · 24 · 32, `SetCapacity(value)`, `Store`, `TakeOne`(마지막에 넣은 상자), `HasSpace` · `FreeSpace` · `ModelCount`. 칸 순서 = **모델을 돌아가며 하나씩**(빈 선반에 하나씩 채워짐).
+- **연결**: 모듈 프리팹 `Content/ShelfArea`(ShelfSlot + Shelf + `Boxes` + `CountLabel` + `Zone` 2.4 × 2.4m, 작업 지점 4) — `StandardModules.BuildShelfGroup`이 만든다. `Warehouse.SetupShelf`가 품목 · 용량을 넣는다.
+- **주의**: 모델은 Shelf **바로 아래 자식**이어야 한다 — 칸 위치를 로컬 TRS로 계산(팝 연출로 크기 0일 때도 맞게).
+
+#### ShelfModel
+[Logistics/ShelfModel.cs](../Scripts/Logistics/ShelfModel.cs)
+- **역할**: 보관 구역 선반 모델 하나 (M20-2). 모양 · 상자 칸 배치 · 장애물만 갖는다 (보관함 · 존 · 수량 없음).
+- **동작**: `SlotInParent(i)` = i번째 칸을 부모(Shelf) 로컬로. 한 단 = 가로 `boxesPerSide` × 세로 `boxRows`(0이면 정사각형), 다 차면 위 단. `IconRenderer`(구역이 색칠). `Shelf.prefab` = 모델 `Shelf` 1.2배 2개 등 맞대기(2.15 × 1.6m, 3 × 2칸, 첫 단 0.29 · 단 높이 0.59, M14-3), `PalletRack.prefab` = 1 × 1, 단 높이 1.45.
+- **연결**: `ShelfArea` 네 모서리(±2.4)에 중첩 프리팹 — `Shelf.prefab`을 고치면 A~C 구역 선반 전부에 반영 (M19-1). `BeltPlacer`는 모델마다 막힘으로 본다(가운데 통로는 비움).
 
 #### ShelfZone
 [Logistics/ShelfZone.cs](../Scripts/Logistics/ShelfZone.cs)
-- **역할**: 선반 둘레 존 (선반 3.6 × 3.2m · 팔레트 랙 3.2m). **내려놓기 먼저** — 같은 품목, Origin = Storage, Normal 상태 화물을 받고 Origin을 Shelf로 바꾼다 (재포장 상자면 `Warehouse.NotifyRepackedShelved`). 내려놓을 것이 없으면 `OrderService.GetDemand(품목) > 0`일 때만 1개씩 꺼낸다 (GDD 8.4). `Shelf` 프로퍼티로 붙은 선반을 읽고, `HasCargoFor`(알바 판단용)를 구현한다.
+- **역할**: 보관 구역 가운데 존 하나 (2.4 × 2.4m, M20-2 — 옛 선반마다 둘레 존 대체). **내려놓기 먼저** — 같은 품목, Origin = Storage, Normal 상태 화물을 받고 Origin을 Shelf로 바꾼다 (재포장 상자면 `Warehouse.NotifyRepackedShelved`). 내려놓을 것이 없으면 `OrderService.GetDemand(품목) > 0`일 때만 1개씩 꺼낸다 (GDD 8.4). `Shelf` 프로퍼티로 붙은 선반을 읽고, `HasCargoFor`(알바 판단용)를 구현한다.
 - **지게차** (M11-8): `Warehouse.CanHandle` — D 팔레트 랙은 지게차 알바만 넣고(Origin = **Truck**, 하차 칸 공간 안 거침) 꺼내고, 일반 선반은 지게차가 못 쓴다.
 - **알림** (M13-3, 플레이어만): 하나도 못 넣으면 이 색 상자(Origin = Storage)를 들었으면 '가득'(선반 꽉 참), 그 밖의 상자(다른 색 · 트럭 화물 · 반품)면 '넣을 수 없음'. 선반에서 꺼낸 상자(상차로 가는 중)는 안 센다. 글자 원본 = `Shelf.CountLabel`.
 - **되돌리기** (M17-1, 2026-11-20): `PartService.OutboundOpen`이 아니면(2파트가 끝나 회차한 뒤) Origin = Shelf인 같은 품목도 받는다 — 플레이어 · 알바(`StaffWorker`가 배달할 곳으로 찾아감) 모두. 2파트 중엔 들고 기다린다.
@@ -570,17 +578,18 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### ShelfSlot
 [Logistics/ShelfSlot.cs](../Scripts/Logistics/ShelfSlot.cs)
-- **역할**: 색 보관 구역 모듈의 네 모서리 "선반 자리" (GDD 4.2 · 7.3). 켜질 때 `ShelfSlot.All`에 스스로 등록하고, **`Start`에서 자기 선반을 세운다** → 구역 모듈이 생기는(해금 · 시작) 순간 선반 4개가 함께 생긴다 (M11-5, 2026-11-15).
-- **동작**: `item`(구역 색 품목, 비우면 안 세움), `shelfPrefab`(비우면 Warehouse 기본 선반, D = 팔레트 랙), `capacity`(0 = `LogisticsConfig.shelfCapacity` 6, 랙 4), `unlockLevel`, `order`, `Occupant`(세워진 선반), `WorldFootprint`(선반 + 존이 차지하는 바닥 — 패드가 피함).
-- **연결**: `Warehouse.BuildShelf(slot)`. 값은 `StandardModules.BuildShelfArea`가 프리팹에 넣는다.
+- **역할**: 색 보관 구역 모듈 가운데 "구역 자리" (GDD 4.2 · 7.3, 모듈당 1개 — M20-2). 켜질 때 `ShelfSlot.All`에 스스로 등록하고, **`Start`에서 같은 오브젝트의 보관함(`Shelf`)을 설정 · 등록한다** → 구역 모듈이 생기는(해금 · 시작) 순간 선반 4개가 함께 생긴다 (M11-5). 선반 모델은 중첩 프리팹 (M19-1).
+- **동작**: `item`(구역 색 품목, 비우면 설정 안 함), `capacity`(0 = `LogisticsConfig.shelfCapacity` 24, 랙 16), `unlockLevel`, `order`, `Occupant`(보관함), `WorldFootprint`(선반 4개 + 존 바닥, 반 길이 3.6 — 패드가 피함).
+- **연결**: `Warehouse.SetupShelf(slot, shelf)`. `StandardModules.BuildShelfGroup`이 만든다.
+- **주의**: 보관함이 없으면 경고만 낸다.
 
 #### Warehouse
 [Logistics/Warehouse.cs](../Scripts/Logistics/Warehouse.cs)
 - **역할**: 창고 전체의 선반 목록과 재고 집계. 씬에 하나 (`Site/Logistics`).
-- **선반 단계** (M16-3, GDD 7.3): 보관 모듈(`SiteModule`)마다 단계 1~3 (`GetShelfStage`), `RaiseShelfStage(module)` = 그 모듈 선반 전부 `SetCapacity(StageCapacity(기본, 단계))` + 살짝 튀기(`DOPunchScale`). `StageCapacity` = 기본 × (1 + 0.5 × (단계 − 1)) → 선반 6 · 9 · 12, 랙 4 · 6 · 8. `ShelfModules()` · `FirstShelfOf(module)`은 설비 탭용. **크기 0에서 키우는 `FacilityPop`은 쓰지 않는다** — 팝업으로 멈춘 동안 0에 머물러 그때 들어온 상자가 크기 0으로 붙는다 (`CargoPile.Add`는 `SetParent(root, true)`).
+- **선반 단계** (M16-3, GDD 7.3): 보관 모듈(`SiteModule`)마다 단계 1~3 (`GetShelfStage`), `RaiseShelfStage(module)` = 그 모듈 보관함 `SetCapacity(shelf.CapacityAt(단계))` + 살짝 튀기(`DOPunchScale`) → 구역 24 · 32 · 40, 랙 16 · 24 · 32 (M20-2, 옛 `StageCapacity` 삭제). `ShelfModules()` · `FirstShelfOf(module)`은 설비 탭용. **크기 0에서 키우는 `FacilityPop`은 쓰지 않는다** — 팝업으로 멈춘 동안 0에 머물러 그때 들어온 상자가 크기 0으로 붙는다 (`CargoPile.Add`는 `SetParent(root, true)`).
 - **지게차 규칙** (M11-8): static `IsLarge(item)`(`GameDatabase.GetCompanyOf().IsLarge`), `CanHandle(who, item)` = 지게차 알바(`Interactor.Forklift`)는 D만 · 나머지(플레이어 포함)는 D 말고만. `LargeRoom(item)` = 랙 빈자리 − 트럭에서 꺼내 든 D (예외면 상차 수요까지), `DirectLoad(item)` = 랙 재고 0 + 상차 D 수요 > 0 → 트럭 → 상차 직행.
 - **동작**:
-  - `BuildShelf(slot)`: 자리의 품목 · 모양 · 용량으로 선반을 **자리의 자식, 로컬 0**에 세운다 (팝 연출). 같은 색 선반은 여러 개.
+  - `SetupShelf(slot, shelf)`: 구역 보관함에 자리의 품목 · 용량을 넣고 목록에 등록한다 (팝 연출). 선반을 만들지 않는다 (M19-1). 목록 = **구역마다 1개** (M20-2), 같은 색 구역은 여러 개.
   - `NearestShelfWithSpace(item, from)`: 그 색 선반 중 빈자리 있는 가장 가까운 것 (가이드 화살표)
   - `HasShelf(item)`: 그 색 선반이 하나라도 있나 = 보관 구역이 지어졌나 (하차 트럭 후보, M13-1)
 - **주의**: 선반을 월드 좌표로 세우면 안 된다 — 해금 모듈은 팝 연출로 크기 0에서 시작해 모듈 중심에 붙는다.
@@ -1200,7 +1209,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **사무실 주의**: `Module_Office.prefab`은 사용자가 손으로 위치를 고쳤다 (2026-11-12). `EnsureAll(true)` · Apply 메뉴는 이를 덮어쓰므로, 다른 모듈만 고칠 땐 `Rebuild("Module_…")`로 그 모듈만.
 - **메뉴 `APC > Setup > Apply Layout 6x4`**(`ApplyLayoutInternal`, 옛 v0.3 메뉴 대체): SiteLayout · 회사 선반 구역을 기본값으로, 보관 · 반품 · 쓰레기장 · 빈 공간 모듈 다시 만들기, `ObsoleteAssets` 삭제, Build Site. 레벨 표는 건드리지 않는다.
 - **6 × 4 트럭 방향** (`DefaultAssignments`): `In1` (4,2) 회전 0 `_M`, `In2` (3,1) 270, `Out1` (2,4) 180 `_M`, `Out2` (3,5) · `Out3` (3,6) 90. (4,1) · (2,5) 바깥 칸에 트럭 두 대가 들어오므로 주차 칸을 서로 먼 쪽으로 비켰다 (모서리가 조금 겹침).
-- **동작**: `EnsureAll(overwrite)`, `Rebuild(asset)`(모듈 하나만 다시), `ShelfPrefab(overwrite)` · `PalletRackPrefab(overwrite)`(D 가구 구역, 2 × 2 한 단) · `OutboundTruckPrefab(overwrite)`. 보관 구역 `BuildShelfArea(root, 회사 id, rack)` = 네 모서리 `ShelfSlot`에 그 회사 품목 · 랙 · 용량을 넣는다. 같은 경로에 덮어쓰므로 GUID와 참조는 유지된다.
+- **동작**: `EnsureAll(overwrite)`, `Rebuild(asset)`(모듈 하나만 다시), `ShelfPrefab(overwrite)` · `PalletRackPrefab(overwrite)`(D 가구 구역, 2 × 2 한 단) · `OutboundTruckPrefab(overwrite)`. 보관 구역 `BuildShelfArea(root, 회사 id, rack)` → `BuildShelfGroup(content, item, rack)` = `ShelfArea`(ShelfSlot · Shelf · 가운데 존 · 수량) + 네 모서리 `Shelf.prefab`(rack이면 그것) 중첩 프리팹 (M20-2). `ShelfPrefab` · `PalletRackPrefab`은 이제 모델(`ShelfModel`)만 만든다. 같은 경로에 덮어쓰므로 GUID와 참조는 유지된다.
 - **주의**: 평소에는 **없는 프리팹만** 만든다. 프리팹을 손으로 고쳤다면 Rebuild를 누르지 않는다 (덮어씀). 좌표는 모듈 중심 기준(1칸 = −5 ~ +5)이고, 주차장의 바깥쪽은 −x다. 코드를 바꿨는데 프리팹이 이미 있으면 해당 프리팹만 `Rebuild`/`overwrite: true`로 다시 만든다.
 
 #### BuildKit

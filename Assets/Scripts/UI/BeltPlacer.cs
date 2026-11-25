@@ -565,7 +565,7 @@ namespace APC.UI
                 if (hit.isTrigger || hit is CharacterController || hit.bounds.max.y < 0.3f || hit.GetComponentInParent<Cargo>() != null) continue;
                 AddFacility(hit.bounds);
             }
-            foreach (var shelf in FindObjectsByType<Shelf>(FindObjectsSortMode.None))
+            foreach (var shelf in FindObjectsByType<ShelfModel>(FindObjectsSortMode.None)) // 구역 보관함(Shelf) 전체가 아니라 모델마다 — 가운데 통로는 비움
             {
                 var renderers = shelf.GetComponentsInChildren<Renderer>();
                 if (renderers.Length == 0) continue;

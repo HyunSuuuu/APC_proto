@@ -8,7 +8,8 @@ namespace APC.Data
     {
         [Header("보관")]
         [SerializeField, Min(1), Tooltip("하차 칸 상자 두는 공간 용량 (하차 칸마다 따로, GDD 7.2 임시)")] int sharedStorageCapacity = 10;
-        [SerializeField, Min(1), Tooltip("선반 1개 용량 (GDD 7.3, 1단계 6). 팔레트 랙은 ShelfSlot.capacity")] int shelfCapacity = 6;
+        [SerializeField, Min(1), Tooltip("보관 구역 하나 용량 (선반 4개 통합, GDD 7.3 M20-2, 1단계 24). 팔레트 랙은 ShelfSlot.capacity")] int shelfCapacity = 24;
+        [SerializeField, Min(0), Tooltip("선반 단계마다 모델 1개당 늘어나는 칸 (GDD 7.3) → 구역 24 · 32 · 40, 랙 16 · 24 · 32")] int shelfStageStepPerModel = 2;
 
         [Header("입고 트럭")]
         [SerializeField, Min(0.1f), Tooltip("나타난 자리에서 주차 칸까지 후진으로 들어오는 시간 (초)")] float truckReverseDuration = 2f;
@@ -53,9 +54,7 @@ namespace APC.Data
         [SerializeField, Tooltip("일반 트럭 모델 [0] Small · [1] Middle · [2] Big (Brown_*_Truck_Open, GDD 7.1)")] GameObject[] normalTruckModels = new GameObject[3];
         [SerializeField, Range(0f, 1f), Tooltip("하차 트럭이 보라(D 가구) 트럭일 확률 — D보관을 지은 뒤만 (GDD 6.3 임시)")] float largeTruckChance = 0.1f;
         [SerializeField, Min(0f), Tooltip("하차 칸 공간 둘레 존에 멈추고 스캔 게이지가 차기 시작하기까지 (초, GDD 7.2a 임시)")] float scanStartDelay = 0.25f;
-        [SerializeField, Min(0.05f), Tooltip("플레이어 스캔 게이지 (초, 상자 수 무관, GDD 7.2a 임시)")] float playerScanDuration = 0.75f;
-        [SerializeField, Min(0.05f), Tooltip("하차 알바 스캔 게이지 (초, 스탯 무관 고정, GDD 7.2a 임시)")] float staffScanDuration = 2f;
-        [SerializeField, Min(1), Tooltip("하차 알바가 스캔을 시작하는 미분류 상자 수 (GDD 7.2a 확정). 트럭이 비었거나 없으면 이보다 적어도 스캔 (18장 55 가정)")] int staffScanMinBoxes = 6;
+        [SerializeField, Min(0.05f), Tooltip("미분류 상자 1개당 스캔 시간 (초). 게이지 = 미분류 수 × 이 값, 스캔 중 들어오면 1개당 더함. 플레이어 · 알바 같음 (GDD 7.2a, M20-1 임시)")] float scanSecondsPerBox = 1f;
         [SerializeField, Min(0f), Tooltip("스캔 완료 때 상자마다 색 테이프가 붙는 연출 간격 (초, GDD 7.2a 임시)")] float scanRevealInterval = 0.05f;
         [SerializeField, Tooltip("미분류 상자 모델 (무지 골판지, Prop/Box 임시)")] GameObject unsortedBoxModel;
         [SerializeField, Min(0.1f), Tooltip("미분류 상자 모델 크기 배율")] float unsortedBoxScale = 1.667f;
@@ -69,9 +68,7 @@ namespace APC.Data
         public GameObject GetNormalTruckModel(int truckStep) => normalTruckModels != null && truckStep < normalTruckModels.Length ? normalTruckModels[truckStep] : null;
         public float LargeTruckChance => largeTruckChance;
         public float ScanStartDelay => scanStartDelay;
-        public float PlayerScanDuration => playerScanDuration;
-        public float StaffScanDuration => staffScanDuration;
-        public int StaffScanMinBoxes => staffScanMinBoxes;
+        public float ScanSecondsPerBox => scanSecondsPerBox;
         public float ScanRevealInterval => scanRevealInterval;
         public GameObject UnsortedBoxModel => unsortedBoxModel;
         public float UnsortedBoxScale => unsortedBoxScale;
@@ -101,6 +98,7 @@ namespace APC.Data
 
         public int SharedStorageCapacity => sharedStorageCapacity;
         public int ShelfCapacity => shelfCapacity;
+        public int ShelfStageStepPerModel => shelfStageStepPerModel;
         public float TruckReverseDuration => truckReverseDuration;
         public float TruckLeaveDuration => truckLeaveDuration;
         public float InboundArrivalInterval => inboundArrivalInterval;

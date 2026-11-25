@@ -74,7 +74,7 @@ namespace APC.UI
                 var shelf = warehouse.FirstShelfOf(module);
                 if (shelf == null) continue;
                 var stage = warehouse.GetShelfStage(module);
-                var now = Warehouse.StageCapacity(shelf.BaseCapacity, stage);
+                var now = shelf.CapacityAt(stage);
                 var row = rows[i];
                 row.Find("Name").GetComponent<TMP_Text>().text = $"{shelf.Item.DisplayName} {SameColorIndex(i)}";
                 var value = row.Find("Value").GetComponent<TMP_Text>();
@@ -87,7 +87,7 @@ namespace APC.UI
                     buy.interactable = false;
                     continue;
                 }
-                value.text = $"{stage}단계  {now}개  →  {stage + 1}단계  {Warehouse.StageCapacity(shelf.BaseCapacity, stage + 1)}개";
+                value.text = $"{stage}단계  {now}개  →  {stage + 1}단계  {shelf.CapacityAt(stage + 1)}개";
                 buyLabel.text = $"₩{costs[stage - 1]:N0}";
                 buy.interactable = cash >= costs[stage - 1];
             }

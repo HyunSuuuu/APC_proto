@@ -303,10 +303,10 @@ namespace APC.EditorTools
         }
 
         /// <summary>
-        /// 색 보관 구역 (GDD 4.2 · 7.3): + 모양 통로를 뺀 네 모서리에 그 색 선반 자리 4개.
-        /// 자리마다 품목을 넣어 두어 모듈이 붙는 순간 선반 4개가 함께 생긴다 (ShelfSlot.Start). rack = 선반 대신 쓸 모양 (D 팔레트 랙).
+        /// 색 보관 구역 (GDD 4.2 · 7.3): + 모양 통로를 뺀 네 모서리에 그 색 선반 모델 4개 + 가운데 보관함 하나 (M20-2 통합).
+        /// rack = 선반 대신 쓸 모양 (D 팔레트 랙).
         /// </summary>
-        static void BuildShelfArea(GameObject root, string companyId, Shelf rack = null)
+        static void BuildShelfArea(GameObject root, string companyId, ShelfModel rack = null)
         {
             APC.Data.ItemDefinition item = null;
             foreach (var company in BuildKit.Database.Companies)
@@ -314,24 +314,43 @@ namespace APC.EditorTools
                 if (company.Id == companyId && company.Items.Count > 0) item = company.Items[0];
             }
             if (item == null) Debug.LogWarning($"[StandardModules] 회사 '{companyId}' 품목이 없어 선반 없이 만듭니다.");
-            var content = ModuleFactory.Content(root);
-            var offsets = new[]
-            {
-                new Vector3(-2.4f, 0f, 2.4f), new Vector3(2.4f, 0f, 2.4f), new Vector3(-2.4f, 0f, -2.4f), new Vector3(2.4f, 0f, -2.4f),
-            };
-            for (var i = 0; i < offsets.Length; i++)
-            {
-                var slotGo = new GameObject($"ShelfSlot_{i + 1}");
-                slotGo.transform.SetParent(content, false);
-                slotGo.transform.localPosition = offsets[i];
-                var slot = slotGo.AddComponent<ShelfSlot>();
-                BuildKit.SetInt(slot, "unlockLevel", 1);
-                BuildKit.SetInt(slot, "order", i);
-                BuildKit.SetRef(slot, "item", item);
-                BuildKit.SetRef(slot, "shelfPrefab", rack);
-                BuildKit.SetInt(slot, "capacity", rack != null ? 4 : 0); // 팔레트 랙 4 `임시` (GDD 7.3)
-            }
+            BuildShelfGroup(ModuleFactory.Content(root), item, rack);
             Label(root, $"{companyId}보관");
+        }
+
+        /// <summary>
+        /// 보관 구역 보관함 (GDD 7.3, M20-2): `ShelfArea` = ShelfSlot(품목 · 용량) + Shelf(보관함 · 수량 하나) + 가운데 사각 존 하나,
+        /// 바로 아래 네 모서리에 선반 모델 중첩 프리팹 (Shelf.prefab을 고치면 모든 구역에 반영). 용량 0 = LogisticsConfig.shelfCapacity(24), 랙 16.
+        /// </summary>
+        public static Shelf BuildShelfGroup(Transform content, APC.Data.ItemDefinition item, ShelfModel rack = null)
+        {
+            var model = rack != null ? rack : ShelfPrefab();
+            var area = new GameObject("ShelfArea");
+            area.transform.SetParent(content, false);
+            foreach (var offset in new[] { new Vector3(-2.4f, 0f, 2.4f), new Vector3(2.4f, 0f, 2.4f), new Vector3(-2.4f, 0f, -2.4f), new Vector3(2.4f, 0f, -2.4f) })
+            {
+                var instance = (GameObject)PrefabUtility.InstantiatePrefab(model.gameObject, area.transform);
+                instance.transform.localPosition = offset;
+            }
+            var boxRoot = new GameObject("Boxes").transform;
+            boxRoot.SetParent(area.transform, false);
+            var label = BuildKit.BillboardLabel(area.transform, "0/24", new Vector3(0f, 2.5f, 0f), 6f);
+
+            // 가운데 사각 존 하나 (크기 `임시`) — 모서리 선반 사이 통로 안
+            var zone = rack != null
+                ? BuildKit.Zone<ShelfZone>(area.transform, "Zone", Vector3.zero, new Vector2(2.4f, 2.4f), new Color(0.8f, 0.62f, 0.45f), new Color(1f, 0.6f, 0.2f), null)
+                : BuildKit.Zone<ShelfZone>(area.transform, "Zone", Vector3.zero, new Vector2(2.4f, 2.4f), new Color(0.5f, 0.62f, 0.8f), new Color(0.35f, 0.7f, 1f), null);
+            WorkSlots(zone, new Vector3(-0.8f, 0f, 0f), new Vector3(0.8f, 0f, 0f), new Vector3(0f, 0f, -0.8f), new Vector3(0f, 0f, 0.8f));
+
+            var slot = area.AddComponent<ShelfSlot>();
+            BuildKit.SetInt(slot, "unlockLevel", 1);
+            BuildKit.SetRef(slot, "item", item);
+            BuildKit.SetInt(slot, "capacity", rack != null ? 16 : 0); // 팔레트 랙 4개 × 4 (GDD 7.3)
+            var shelf = area.AddComponent<Shelf>();
+            BuildKit.SetRef(shelf, "boxRoot", boxRoot);
+            BuildKit.SetRef(shelf, "countLabel", label);
+            BuildKit.SetRef(zone, "shelf", shelf);
+            return shelf;
         }
 
         /// <summary>사무실 (7번). 계약 PC는 오른쪽 위.</summary>
@@ -405,13 +424,14 @@ namespace APC.EditorTools
 
         // ── 시설 프리팹 ─────────────────────────────────────────────────
 
-        public static Shelf ShelfPrefab(bool overwrite = false)
+        /// <summary>선반 모델 (GDD 7.3, M20-2): 모양 · 상자 칸 · 장애물만. 보관함 · 존 · 수량은 구역(BuildShelfGroup)이 갖는다.</summary>
+        public static ShelfModel ShelfPrefab(bool overwrite = false)
         {
             var path = $"{PrefabRoot}/Shelf.prefab";
-            var existing = AssetDatabase.LoadAssetAtPath<Shelf>(path);
+            var existing = AssetDatabase.LoadAssetAtPath<ShelfModel>(path);
             if (existing != null && !overwrite) return existing;
 
-            // 정사각형 선반 1.6m (한 단 3 × 3칸, 3단) + 둘레 존 3.2m 하나 (GDD 7.3)
+            // 정사각형 선반 1.6m (한 단 3 × 3칸, 3단) (GDD 7.3)
             var root = new GameObject("Shelf");
             var metal = BuildKit.Mat("M_Shelf", new Color(0.35f, 0.45f, 0.6f));
             foreach (var x in new[] { -0.77f, 0.77f })
@@ -422,18 +442,10 @@ namespace APC.EditorTools
             var icon = BuildKit.Cube("ItemIcon", root.transform, new Vector3(0f, 2.35f, 0f), new Vector3(0.6f, 0.06f, 0.6f), BuildKit.Mat("M_Tape", Color.white));
             var boxRoot = new GameObject("Boxes").transform;
             boxRoot.SetParent(root.transform, false);
-            var label = BuildKit.BillboardLabel(root.transform, "0/10", new Vector3(0f, 2.9f, 0f), 6f);
 
-            var zone = BuildKit.Zone<ShelfZone>(root.transform, "Zone", Vector3.zero, new Vector2(3.2f, 3.2f),
-                new Color(0.5f, 0.62f, 0.8f), new Color(0.35f, 0.7f, 1f), null);
-
-            var shelf = root.AddComponent<Shelf>();
+            var shelf = root.AddComponent<ShelfModel>();
             BuildKit.SetRef(shelf, "boxRoot", boxRoot);
             BuildKit.SetRef(shelf, "iconRenderer", icon.GetComponent<Renderer>());
-            BuildKit.SetRef(shelf, "countLabel", label);
-            BuildKit.SetRef(zone, "shelf", shelf);
-            // 네 변의 작업 지점. 장애물(1.6m) + 네비메시 에이전트 반경(0.5) 바깥, 존(3.2m) 안
-            WorkSlots(zone, new Vector3(-1.4f, 0f, 0f), new Vector3(1.4f, 0f, 0f), new Vector3(0f, 0f, -1.4f), new Vector3(0f, 0f, 1.4f));
 
             // 장애물 (M6): 플레이어는 충돌체에 막히고, 알바는 네비메시 구멍(carve)을 돌아간다.
             // 충돌체가 바닥처럼 구워지지 않게 네비메시 굽기에서는 뺀다.
@@ -449,17 +461,17 @@ namespace APC.EditorTools
 
             PrefabUtility.SaveAsPrefabAsset(root, path);
             UnityEngine.Object.DestroyImmediate(root);
-            return AssetDatabase.LoadAssetAtPath<Shelf>(path);
+            return AssetDatabase.LoadAssetAtPath<ShelfModel>(path);
         }
 
         /// <summary>
-        /// D 가구 구역 팔레트 랙 (GDD 7.3): 낮은 나무 팔레트 2 × 2 한 단 (용량 4는 자리에서). 둘레 존 · 장애물은 선반과 같다.
+        /// D 가구 구역 팔레트 랙 모델 (GDD 7.3): 낮은 나무 팔레트 2 × 2 한 단 (용량은 구역에서). 장애물은 선반과 같다.
         /// 지게차 전용 규칙은 M11-8에서 붙인다.
         /// </summary>
-        public static Shelf PalletRackPrefab(bool overwrite = false)
+        public static ShelfModel PalletRackPrefab(bool overwrite = false)
         {
             var path = $"{PrefabRoot}/PalletRack.prefab";
-            var existing = AssetDatabase.LoadAssetAtPath<Shelf>(path);
+            var existing = AssetDatabase.LoadAssetAtPath<ShelfModel>(path);
             if (existing != null && !overwrite) return existing;
 
             var root = new GameObject("PalletRack");
@@ -471,20 +483,13 @@ namespace APC.EditorTools
             var icon = BuildKit.Cube("ItemIcon", root.transform, new Vector3(0f, 1.9f, 0f), new Vector3(0.6f, 0.06f, 0.6f), BuildKit.Mat("M_Tape", Color.white));
             var boxRoot = new GameObject("Boxes").transform;
             boxRoot.SetParent(root.transform, false);
-            var label = BuildKit.BillboardLabel(root.transform, "0/4", new Vector3(0f, 2.4f, 0f), 6f);
 
-            var zone = BuildKit.Zone<ShelfZone>(root.transform, "Zone", Vector3.zero, new Vector2(3.2f, 3.2f),
-                new Color(0.8f, 0.62f, 0.45f), new Color(1f, 0.6f, 0.2f), null);
-
-            var shelf = root.AddComponent<Shelf>();
+            var shelf = root.AddComponent<ShelfModel>();
             BuildKit.SetRef(shelf, "boxRoot", boxRoot);
             BuildKit.SetRef(shelf, "iconRenderer", icon.GetComponent<Renderer>());
-            BuildKit.SetRef(shelf, "countLabel", label);
             BuildKit.SetInt(shelf, "boxesPerSide", 2);
             BuildKit.SetFloat(shelf, "boxSpacing", 0.75f);
             BuildKit.SetFloat(shelf, "firstLevelHeight", 0.16f);
-            BuildKit.SetRef(zone, "shelf", shelf);
-            WorkSlots(zone, new Vector3(-1.4f, 0f, 0f), new Vector3(1.4f, 0f, 0f), new Vector3(0f, 0f, -1.4f), new Vector3(0f, 0f, 1.4f));
 
             var body = root.AddComponent<BoxCollider>();
             body.center = new Vector3(0f, 0.6f, 0f);
@@ -498,7 +503,7 @@ namespace APC.EditorTools
 
             PrefabUtility.SaveAsPrefabAsset(root, path);
             UnityEngine.Object.DestroyImmediate(root);
-            return AssetDatabase.LoadAssetAtPath<Shelf>(path);
+            return AssetDatabase.LoadAssetAtPath<ShelfModel>(path);
         }
 
         public static InboundTruck TruckPrefab()
