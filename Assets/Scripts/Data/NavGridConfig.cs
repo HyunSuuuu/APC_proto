@@ -25,14 +25,5 @@ namespace APC.Data
         public float SnapRadius => snapRadius;
         public int MaxPathsPerFrame => maxPathsPerFrame;
         public int SnapCells => Mathf.RoundToInt(snapRadius / cellSize);
-
-        static NavGridConfig fallback;
-
-        public static NavGridConfig OrDefault(NavGridConfig config)
-        {
-            if (config != null) return config;
-            if (fallback == null) fallback = CreateInstance<NavGridConfig>();
-            return fallback;
-        }
     }
 }

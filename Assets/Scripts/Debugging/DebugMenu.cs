@@ -228,8 +228,6 @@ namespace APC.Debugging
             GUILayout.EndHorizontal();
             // 켜면 위 생성 · 고용 탭 새 후보가 모두 코스튬 (이미 뽑힌 후보는 [새로고침] 후)
             if (GUILayout.Button(StaffRules.ForceCostume ? "[Costume 100%]" : "Costume 100%", buttonStyle)) StaffRules.ForceCostume = !StaffRules.ForceCostume;
-            // 켜면 알바 길찾기 = 방 단위 A* (지금 알바 · 새 알바 모두), 끄면 NavMesh (2026-11-25)
-            if (GUILayout.Button(APC.Staff.StaffNav.UseAStar ? "[Path A*]" : "Path A*", buttonStyle)) APC.Staff.StaffNav.SetUseAStar(!APC.Staff.StaffNav.UseAStar);
             foreach (var worker in staff.Workers)
             {
                 var stats = worker.Stats;
