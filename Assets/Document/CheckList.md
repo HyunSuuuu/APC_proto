@@ -66,7 +66,7 @@
   - **2026-11-25 사용자 요청 6건 (브랜치 `work-1125`, 작업마다 커밋)**: Play(MCP, TycoonTest) 확인. 사람 손 테스트 아직
     - ① 스캔 칸 벽: 원인 = 씬 SiteGrid(2열 `Scan2~8`)와 `SiteLayout_Tycoon` · 빌더(같은 자리 `StoreX_RnC2`)가 어긋나 칸이 안 열림 → 배치를 Scan으로. 벽은 남북 테두리에만 남음
     - ② 트럭 풀: `InboundQueue`가 `Instantiate`(회차 때 경고 + Destroy) → `TruckPool.Get`, `InboundTruck` 모델 캐시, 풀 최대 64, Prewarm = 줄 + 하차 칸 수. 패널 `Truck Pool: new / destroyed` — 시작 40 뒤 그대로, destroyed 0
-    - ③ 하차 대기 줄 = 하차 칸마다 칸 앞(도로 너머, 칸마다 몫 = 줄 합계 ÷ 칸 수, TycoonTest 4대), 배경 −1열 세로 도로 · −2 ~ −4열 잔디. 나가는 트럭은 칸 앞 도로에서 왼쪽으로. **바뀜**: 후진 거리 8 → 20m, 시간 그대로 `임시`
+    - ③ 하차 대기 줄 = 하차 칸마다 칸 앞(도로 너머, 칸마다 몫 = 줄 합계 ÷ 칸 수, TycoonTest 4대), 배경 −1열 세로 도로 · −2 ~ −4열 잔디. 나가는 트럭은 칸 앞 도로에서 왼쪽으로. **바뀜**: 후진 거리 8 → 20m, 시간 그대로 `임시`. **바뀜** (사용자): 줄 30 → **40 = 8칸 × 5대**, TycoonTest는 `InboundQueue.FillAtOnce` — 시작하자마자 채우고 한 대 빠지면 바로 보충, 교대(`OnShift`) 때 줄을 돌려보내지 않음. Play(MCP, 알바 100명 · 교대 지남): 줄 55555555 유지, 하차 트럭 객체 48, 에러 0
     - ④⑤ 튀는 곳 · CPU (알바 100명, 같은 절차): `StaffWorker` 판단 시점 몰림(고용 때 무작위 · 위상 유지) · `Park` 실패 반복(실패 뒤 1초 쉬기 `임시`) · `InteractionZone.FindAt` 존 사각형 캐시 · `CreateForTruck` · `CountCarried` · `IReadOnlyList` foreach 박싱 → 평균 45.3 → 13.1ms, 최대 346 → 31ms, 33ms 넘는 프레임 11% → 0, GC 94 → 0.4~3.7KB/프레임. 알바 0명 6.64 → 6.42ms. 남은 후보: 짐 옮길 때 떠오르는 글자 TMP `AddComponent`(GC 약 1KB/프레임)
     - ⑥ A* 토글 = a4d939f 다시 적용(위 항목). 알바 100명 NavMesh 13.1 · A* 12.8ms, 경고 · 에러 0. 스트레스 버튼: DEBUG Staff 직무 여러 개 고르고 `Hire 100 mixed`(돌아가며 섞음, 고용금 · 최대 인원 무시), 알바 목록은 앞 12명만
   - **디버그 메뉴 일반 빌드 허용 (2026-11-20, 사용자 요청)**: `DebugMenu.releaseBuild`(기본 켬) — 일반(Release) 빌드에서도 DEBUG 버튼 · F1. 출시 전에 끔 (GDD 14.5 확정). 컴파일 에러 0, 실제 빌드에서는 아직 확인 안 함

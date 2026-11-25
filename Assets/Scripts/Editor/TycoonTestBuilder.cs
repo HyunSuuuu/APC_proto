@@ -42,7 +42,7 @@ namespace APC.EditorTools
             Set(logistics, so =>
             {
                 so.FindProperty("inboundArrivalInterval").floatValue = 2f; // 하차장 8칸이 놀지 않게 (원본 20초)
-                so.FindProperty("inboundQueueSize").intValue = 30; // 하차 · 상차 동시라 알바가 쉬지 않게 줄을 길게
+                so.FindProperty("inboundQueueSize").intValue = 40; // 하차 칸 8 × 5대 — TycoonTest가 줄을 바로 채우고 빠지면 바로 보충 (InboundQueue.FillAtOnce)
             });
             Set(levels, so =>
             {

@@ -36,6 +36,9 @@ namespace APC.Logistics
         /// <summary>디버그 메뉴: 다음 도착 트럭을 황금 트럭으로.</summary>
         public static bool ForceGoldenNext;
 
+        /// <summary>타이쿤 시험: 도착 간격 없이 줄을 바로 채우고, 한 대 빠지면 바로 보충한다 (TycoonTest가 켬, 이 오브젝트가 사라지면 꺼짐).</summary>
+        public static bool FillAtOnce;
+
         void Awake() => Instance = this;
 
         List<InboundTruck> LineOf(InboundBay bay)
@@ -97,12 +100,13 @@ namespace APC.Logistics
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
+            FillAtOnce = false;
         }
 
         IEnumerator Start()
         {
             // 상차 파트가 되면 줄에 선 하차 트럭은 바로 돌아간다 (2026-11-20). 하차장에 정차한 트럭은 남음
-            if (Economy.PartService.Instance != null) Economy.PartService.Instance.OnShift.Subscribe(_ => SendAwayLine()).AddTo(this);
+            if (Economy.PartService.Instance != null) Economy.PartService.Instance.OnShift.Subscribe(_ => { if (!FillAtOnce) SendAwayLine(); }).AddTo(this); // 바로 채우는 모드는 줄 유지 (돌려보내며 다시 채우면 잠깐 80대)
             var config = GameManager.Instance.Database.Logistics;
             // 동시에 나오는 최대 = 줄 합계 + 칸마다 1대(주차 또는 떠나는 중). 트럭 TMP Awake 비용을 시작 때 (풀 최대 64에서 잘림)
             // shortcut: 시작 때 있는 칸만 센다 — 확장으로 칸이 늘면 그만큼은 도중에 만든다
@@ -156,7 +160,8 @@ namespace APC.Logistics
                     line.Add(truck);
                     EnsureMarkers(target, line.Count);
                 }
-                yield return new WaitForSeconds(config.InboundArrivalInterval);
+                if (FillAtOnce) yield return null; // 한 프레임에 한 대 (풀에서 꺼내므로 끊김 없음)
+                else yield return new WaitForSeconds(config.InboundArrivalInterval);
             }
         }
 

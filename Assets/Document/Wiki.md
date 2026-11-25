@@ -611,6 +611,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Logistics/InboundQueue.cs](../Scripts/Logistics/InboundQueue.cs)
 - **역할**: 하차 트럭 도착 · 차량 대기열 (GDD 7.1, M13-9). 하차장에 넘기는 것은 `PartService.InboundOpen`일 때만 — 아니면 `Request`가 기다리는 목록에 넣고 `Update`가 열릴 때 줄 맨 앞부터 `Dispatch` (2026-11-19). SiteGrid 오브젝트에 붙는다 (`SiteBuilder.BakeGrid`).
 - **동작** (2026-11-25 **바뀜**: 한 줄 → 하차 칸마다 칸 앞 줄): 도착 루프 = 줄 합계가 `InboundQueueSize` 미만이고 선반 있는 입고 색이 있고 받을 칸이 있을 때 트럭 생성 → `InboundArrivalInterval` 대기. 받을 칸(`PickBay`) = 줄이 몫(합계 ÷ 칸 수, 올림)보다 짧은 칸 중 (줄 + 주차 중 1)이 가장 적은 칸 — 비어 기다리는 칸이면 칸 앞에서 바로 넘기고, 아니면 그 칸 줄 끝(`InboundBay.LineSlot`)에 팝. `Request(bay)` = 그 칸 줄 맨 앞을 넘기고 나머지를 당김 (0.6초). 대기 자리 표시(반투명 판 `TruckWaitSlot_칸_n`)는 칸마다 줄이 처음 그 길이가 될 때 만든다 — 재질은 에셋 `markerMaterial`(`Art/Materials/M_TruckWaitSlot`, URP Unlit 반투명).
+- **바로 채우기** (2026-11-25, TycoonTest): `FillAtOnce`(TycoonTest가 켬, 이 오브젝트가 사라지면 꺼짐)면 도착 간격 대신 한 프레임에 한 대 — 줄을 바로 채우고 빠지면 바로 보충, `OnShift` 때 줄을 돌려보내지 않는다. TycoonTest 줄 40 = 8칸 × 5대.
 - **풀** (2026-11-23): 트럭은 `TruckPool.Get`으로 꺼내고 회차 · 하차 후 `TruckPool.Release`로 돌려준다(Destroy 안 함). 시작 때 `Prewarm(InboundQueueSize + 하차 칸 수)`(2026-11-25 — 동시에 나오는 최대, 확장으로 는 칸은 도중에 만듦).
 - **회차** (2026-11-20): `PartService.OnShift`(상차 파트 시작)에 줄의 트럭을 모두 돌려보냄(줄 뒤쪽으로 빠지며 작아진 뒤 풀로 반환). 하차장에 정차한 트럭은 남는다. 튜토리얼 구간엔 첫 트럭(상자 `TutorialBoxes`개, 황금 없음)만 하차장에 넘긴다(`CanDock`).
 - **주의**: 실행 코드에서 `Shader.Find`로 재질을 만들지 않는다 — 빌드에서 셰이더가 빠져 null 예외 → 도착 코루틴이 멈춰 **트럭이 안 나오고** 판이 분홍이 됐다 (2026-11-18 빌드 버그).
