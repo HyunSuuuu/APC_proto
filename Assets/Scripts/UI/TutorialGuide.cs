@@ -90,7 +90,22 @@ namespace APC.UI
             {
                 if (who.GetComponent<StaffWorker>() == null) player = who;
             }
+            StartCoroutine(ShowPiggyOnFirstCash());
             yield return Run();
+        }
+
+        /// <summary>
+        /// 튜토리얼 중 저금통에 처음 돈이 들어오면(사무실을 지은 뒤 첫 돈 줍기) 저금통을 한 번 비춘다 (2026-11-27 피드백).
+        /// 단계 강조와 겹치지 않게 화면이 비었을 때(게임 중 · 강조 없음).
+        /// </summary>
+        IEnumerator ShowPiggyOnFirstCash()
+        {
+            var piggy = GameManager.Instance.Wallet.Piggy;
+            yield return new WaitUntil(() => piggy.CurrentValue > 0); // 사무실 전에는 돈이 바로 지갑으로 가서 0
+            if (!Running) yield break; // 튜토리얼이 이미 끝났으면 비추지 않음
+            yield return new WaitUntil(() => !spotlighting && GameManager.Instance.State.CurrentValue == GameState.Playing);
+            var view = FindFirstObjectByType<PiggyBankView>();
+            if (view != null) yield return Spotlight(view.transform.position);
         }
 
         /// <summary>디버그: 지금 단계를 끝난 것으로 친다.</summary>
@@ -206,7 +221,8 @@ namespace APC.UI
                 {
                     // 단계 5-1 (GDD 13 · 7.2a): 하차 칸 공간에 내려놓기 → 미분류 상자를 스캔 모듈 팔레트로 (2026-11-24)
                     Message = "팔레트에 내려놓고, 다시 집어 스캔 팔레트로 옮기세요",
-                    Target = () => Find<StorageZone>(z => z.Storage != null && z.Storage.Kind == StorageKind.Scan),
+                    // 바로 앞 하차 칸 공간을 비춘다 (2026-11-27 피드백: 스캔 팔레트로 날아가면 내려놓을 곳을 못 봄). 스캔 팔레트는 다음 단계에서 비춤
+                    Target = () => Find<StorageZone>(z => z.Storage != null && z.Storage.Kind == StorageKind.Pallet),
                     Done = () => ScanPalletHasBoxes() || StorageZone.ScanCount > 0,
                 },
                 new()

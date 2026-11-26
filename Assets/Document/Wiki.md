@@ -528,6 +528,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **`ShelfAllowance(item)`**: 그 품목을 선반에 더 보낼 수 있는 수 = 선반 빈자리 − 들고 가는 수 − 분류 알바 예약 − **선반에서 꺼내 들고 있는 상차용 상자 수**(되돌릴 자리, M17-1. 지게차 `Warehouse.LargeRoom`도 같음). `FindForShelves`(→ `TakeForShelves` · `HasCargoForShelves`)가 이 값으로 판정한다.
 - **연결**: 하차장 모듈마다 팔레트 하나, 반품 구역에 반품 팔레트 · 재포장 입력 · 쓰레기 출력 · 재포장 팔레트 하나씩. 각각 `StorageZone` 하나로 넣고 꺼낸다 (보관 알바 = Pallet · Repacked 존에서 집음, 반품 알바 = Returns · Trash 존에서 집음 — `StaffWorker.IsRoleZone`).
 - **주의**: 플레이어 · 분류 알바가 같은 `ShelfAllowance`를 쓴다. 예약된 수만큼은 플레이어도 덜 받는다.
+- **찌그러진 상자 내주기** (2026-11-27 수정): 스캔 팔레트(`Scan`)의 스캔된 찌그러진 상자 → 반품 팔레트 빈자리가 있으면 준다 (`CanGive`). 옛 코드는 하차 칸 공간(`Pallet`) 기준으로 남아 있어 스캔 팔레트에서 못 집고 '선반 가득'만 뜨고, 반품 팔레트가 비어 반품 알바도 서 있었음.
 
 - **스캔 팔레트 · 벨트** (2026-11-24, `conveyor-scan`): 종류 `Scan = 6`(스캔 모듈 팔레트) — 하차 칸 공간(`Pallet`)은 미분류만 내주고(`ScanAllowance()` = 스캔 팔레트 빈자리 − 손 · 벨트 위 미분류, 출처 `CargoOrigin.Unscanned`), `Scan`은 미분류를 받아 스캔 뒤 색 상자를 선반 · 반품 팔레트로 준다. `ScanRoom`은 스캔 팔레트에 스캔돼 기다리는 수를 뺀다. 벨트 Start / End(`IBeltStart` · `IBeltEnd`): 연결은 `Pallet → Scan`뿐 (`ConveyorBelt.CanConnect`).
 
@@ -1014,6 +1015,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **동작**: 단계 14개(GDD 13 단계 표, M16-6 — 시작 발판 건물 · `In1` · `StoreA1` · `Out1`(`StartPadStep`) → 트럭에서 꺼내기 → 선반 → 상차 → 돈 줍기(현금 존이 비면 끝) → 사무실 발판 → 무료 하차 알바 → 한 명 더 고용(알바 2 또는 팝업 열었다 닫음) → 정산 → B보관 → Ret1)를 처음부터(빈 땅) 0.2초(실제 시간)마다 완료 조건으로 확인. 단계 대상이 생기고 게임이 `Playing`이고 단계 시작 뒤 `spotlightDelay`(1초, 해금 팝 연출이 멈춘 채 작게 남지 않게)가 지나면 한 번 강조: `GameManager.OpenPopup`(멈춤) → `CameraRig.Spotlight` → `holdTime` 1.8초 `임시` 또는 탭(`Pointer.press`) → `EndSpotlight` · `ClosePopup`. 그 뒤로 `GuideArrow.TutorialTarget` = 대상. 고용 단계에서는 `StaffService.OfferFreeCandidate(Unload, 속도 1 · 적재 3)`를 계속 확인해 넣는다.
 - **연결**: 배너는 실행 중 만든 오버레이 캔버스(sortingOrder 49, 레이캐스트 안 막음). `ApplyBannerLayout(portrait)`가 화면 방향 플래그(`ScreenLayout.Portrait`, M21-1)로 배치를 고른다 — 가로 1920×1080 높이 기준 · 가운데 너비 1100 · y -110, 세로 1080×2340 너비 기준 · 좌우 여백 20 늘림 · 중심이 화면 위에서 1/5(앵커 y 0.8) `임시`. `Update`에서 방향이 바뀌면 다시 적용(자동회전 대비) — 팝업(`GameState.Popup`)이 열리면 숨김, 강조 중에는 보임. 디버그 메뉴 `SkipStep` · `Stop`, static `Disabled`.
 - **주의**: 대상 찾기는 `FindObjectsByType`(단계 시작 뒤 대상이 생길 때까지 0.2초마다).
+- **2026-11-27**: 5-1 단계(내려놓기) 대상 = 하차 칸 공간(`StorageKind.Pallet`) — 스캔 팔레트는 5-2에서 강조. `ShowPiggyOnFirstCash` = `Wallet.Piggy`가 처음 0보다 커지면(사무실 뒤 첫 돈) 튜토리얼 중이면 `PiggyBankView`를 한 번 `Spotlight` (강조 중이 아니고 게임 중일 때).
 
 #### CashView
 [UI/CashView.cs](../Scripts/UI/CashView.cs)

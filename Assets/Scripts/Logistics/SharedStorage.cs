@@ -420,7 +420,7 @@ namespace APC.Logistics
             CargoState.Normal => ShelfAllowance(candidate.Item) > 0,
             CargoState.Return => kind switch
             {
-                StorageKind.Pallet => Allowance(StorageKind.Returns, CargoOrigin.Storage) > 0,
+                StorageKind.Scan => Allowance(StorageKind.Returns, CargoOrigin.Storage) > 0, // 스캔 팔레트의 찌그러진 상자 → 반품 팔레트 (2026-11-27 버그: 옛 Pallet 기준이라 못 집음)
                 StorageKind.Returns => Allowance(StorageKind.RepackInput, CargoOrigin.ReturnPallet) > 0,
                 _ => false, // 재포장 입력은 다시 주지 않는다
             },
