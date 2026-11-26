@@ -128,11 +128,32 @@ namespace APC.Staff
         {
             AllWorkers.Clear();
             PathRequests = NoPathCount = 0;
+            thinkFrame = -1;
+            thinksThisFrame = maxThinksPerFrame = 0;
         }
 
         // 성능 측정용 (PerformanceHUD가 읽는다): 길 요청 수 · 길 없음 수 — A* 전환 비교 기준 (2026-11-23)
         public static int PathRequests { get; private set; }
         public static int NoPathCount { get; private set; }
+
+        // 성능 측정용 (PerformanceHUD, 2026-11-26): 한 프레임에 Think가 몇 번 몰렸나 — HUD가 읽고 0으로 되돌린다
+        static int thinkFrame = -1;
+        static int thinksThisFrame;
+        static int maxThinksPerFrame;
+
+        /// <summary>HUD 측정 구간 동안 한 프레임 Think 최대 수를 돌려주고 0으로 되돌린다.</summary>
+        public static int TakeMaxThinksPerFrame()
+        {
+            var max = maxThinksPerFrame;
+            maxThinksPerFrame = 0;
+            return max;
+        }
+
+        /// <summary>HUD 측정용: NavMesh가 아직 길을 계산 중이라 출발하지 못함 (A*는 즉시 계산이라 항상 false).</summary>
+        internal bool PathPending => !AStar && agent.enabled && agent.pathPending;
+
+        /// <summary>HUD 측정용: 할 일이 없어 대기 위치로 가는 중.</summary>
+        internal bool Parking => parking;
 
         internal static IReadOnlyList<StaffWorker> All => AllWorkers;
         internal int CrowdId => crowdId;
@@ -392,6 +413,13 @@ namespace APC.Staff
 
         void Think()
         {
+            if (thinkFrame != Time.frameCount)
+            {
+                thinkFrame = Time.frameCount;
+                thinksThisFrame = 0;
+            }
+            maxThinksPerFrame = Mathf.Max(maxThinksPerFrame, ++thinksThisFrame);
+
             if (Fired && stack.Count.CurrentValue == 0)
             {
                 Leave();

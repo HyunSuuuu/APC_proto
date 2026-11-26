@@ -3,7 +3,9 @@
 > 기준 문서: [GDD.md](GDD.md) v0.4 · [TechStack.md](TechStack.md)
 > 체크 방법: 작업이 끝나면 `- [ ]` → `- [x]`. 마일스톤의 **완료 확인**을 실제 플레이로 통과해야 다음 마일스톤으로 넘어간다.
 
-## 인수인계 — 이어받은 사람이 할 일 (2026-11-25 기준)
+## 인수인계 — 이어받은 사람이 할 일 (2026-11-26 기준)
+
+- **2026-11-26 알바 최적화 시작 (브랜치 `optimize`)**: 첫 단계로 성능 패널에 알바 상태 · 길 계산 대기 · 판단 몰림 표시(아래 2절 타이쿤 메모). 다음: 실기기에서 수치 확인 → A* 장애물을 충돌체 대신 데이터로 → 기본 A* · 서는/대기 위치를 A* 격자로 → GC(박싱 · 예약 클로저 · Dictionary) → 경고 로그 빌드 제외 → ChooseStand 후보 미리 굽기.
 
 - **2026-11-25 타이쿤 시험 6건 + 스트레스 버튼 (브랜치 `work-1125`, 작업 번호 없음)**: 스캔 칸 벽 · 트럭 풀 · 하차 칸별 대기 줄 · 알바 100명 끊김/CPU/GC · A* 토글 다시 적용 · DEBUG `Hire 100 mixed`. MCP Play · 프로파일 끝, 사람 손 테스트 아직 → 아래 2절 타이쿤 메모.
 - **2026-11-25 레벨업 연출 v2 (자물쇠 해금)**: M5-6 메모 참고. Game 씬만 새 배너, TycoonTest · ShaderTestScene은 옛 배너라 레벨업 연출이 꺼짐(경고) → 필요하면 다시 빌드. 사람 손 테스트 아직.
@@ -70,6 +72,7 @@
     - ③ 하차 대기 줄 = 하차 칸마다 칸 앞(도로 너머, 칸마다 몫 = 줄 합계 ÷ 칸 수, TycoonTest 4대), 배경 −1열 세로 도로 · −2 ~ −4열 잔디. 나가는 트럭은 칸 앞 도로에서 왼쪽으로. **바뀜**: 후진 거리 8 → 20m, 시간 그대로 `임시`. **바뀜** (사용자): 줄 30 → **40 = 8칸 × 5대**, TycoonTest는 `InboundQueue.FillAtOnce` — 시작하자마자 채우고 한 대 빠지면 바로 보충, 교대(`OnShift`) 때 줄을 돌려보내지 않음. Play(MCP, 알바 100명 · 교대 지남): 줄 55555555 유지, 하차 트럭 객체 48, 에러 0
     - ④⑤ 튀는 곳 · CPU (알바 100명, 같은 절차): `StaffWorker` 판단 시점 몰림(고용 때 무작위 · 위상 유지) · `Park` 실패 반복(실패 뒤 1초 쉬기 `임시`) · `InteractionZone.FindAt` 존 사각형 캐시 · `CreateForTruck` · `CountCarried` · `IReadOnlyList` foreach 박싱 → 평균 45.3 → 13.1ms, 최대 346 → 31ms, 33ms 넘는 프레임 11% → 0, GC 94 → 0.4~3.7KB/프레임. 알바 0명 6.64 → 6.42ms. 남은 후보: 짐 옮길 때 떠오르는 글자 TMP `AddComponent`(GC 약 1KB/프레임)
     - ⑥ A* 토글 = a4d939f 다시 적용(위 항목). 알바 100명 NavMesh 13.1 · A* 12.8ms, 경고 · 에러 0. 스트레스 버튼: DEBUG Staff 직무 여러 개 고르고 `Hire 100 mixed`(돌아가며 섞음, 고용금 · 최대 인원 무시), 알바 목록은 앞 12명만
+  - **알바 상태 측정 HUD (2026-11-26, 사용자 요청 · 브랜치 `optimize`, 최적화 계획 15번)**: 저사양 기기에서 알바가 짐을 든 채 서 있거나 일 없이 돌아다니는 원인을 가르려고 `PerformanceHUD`에 두 줄 추가 — `Staff: Go / Work / Hold (cargo) / ToPark / Parked / Idle`(상태별 수, Hold 중 짐 든 수 = 배달할 곳 없음), `PathPending n`(NavMesh 길 계산 대기) · `Think max n/frame`(구간 안 한 프레임 판단 최대 수, 위상 몰림 확인). `StaffWorker`에 `PathPending` · `Parking` · `TakeMaxThinksPerFrame()` 추가(측정용, 동작 변화 없음). Play(MCP, TycoonTest, 알바 30명): `Go 10 / Parked 20 / PathPending 0 / Think max 3`, 에러 0. 실기기 측정 아직 — 가설: PathPending 많음 = 길찾기 예산(→ A*), Hold cargo 많음 = 선반 가득, Think max 큼 = 판단 몰림
   - **디버그 메뉴 일반 빌드 허용 (2026-11-20, 사용자 요청)**: `DebugMenu.releaseBuild`(기본 켬) — 일반(Release) 빌드에서도 DEBUG 버튼 · F1. 출시 전에 끔 (GDD 14.5 확정). 컴파일 에러 0, 실제 빌드에서는 아직 확인 안 함
 - **M15 모델 2차** ([M15](#m15-모델-2차--프로토타입-모델-전부-2026-11-18-gdd-151-모델-2차)) — 계획 · GDD 끝, **"시작" 지시 대기**. M15-1 D 보라 → M15-2 색별 상자 → M15-3 트럭 → M15-4 선반 · 랙 · 팔레트 → M15-5 재포장 테이블 → M15-6 사무실 · 표지판 → M15-7 배경 · 벽. 시작 전에 물을 것: GDD 18장 47(`sign_yellow` · D 표지판 · `*_Open_Box` 쓰임). 새 fbx 크기 · 기준점 · 재질은 아직 안 열어 봄, 보라 Small · Middle 트럭은 이름에 `_Open` 없음
 - **벽 뒤 캐릭터 가림 → 벽 컷아웃 (2026-11-19, `shader-develop` 브랜치, ShaderTestScene에서 사용자 확인 완료)**: 실루엣 대신 **컷아웃** 채택. 새 파일만 — 셰이더 `Shaders/WallCutout.shader`(URP Lit 복사) · `WallCutout.hlsl`, 재질 `M_WallCutout`, 스크립트 `Visuals/WallCutout`(플레이어에 붙임). 플레이어를 가리는 구조물 · 배경(벽 · 기둥 · 창문 · 문틀 · 주차장 · 가로등 · 나무 · 표지판 · 배경 · 공사 울타리, 이름 앞부분)에 원형 구멍, 작업 물건 · 캐릭터 · 바닥은 제외. 반지름 1.5 · 가장자리 0.4 · 높이 1 `임시`. **바뀜 (2026-11-19, 사용자 요청)**: `Game.unity` Player에 `WallCutout` 붙이고 `WallFadeConfig.enabled` 끔 → 벽 반투명 페이드 대신 컷아웃 (둘 다 켜면 같은 벽 재질을 번갈아 바꿔 충돌). MCP Play: 배경 · 구조물 렌더러 101개 컷아웃 재질, `M_PropFade` 0, 에러 0. 벽 조각은 시작 직후 아직 안 세워져 확인 못 함 — 사람 손 테스트 아직. ShaderTestScene ContractPopup 오류(설비 · 트럭 탭 없음)는 고치지 않음. **남은 것**: main에 셰이더 · 스크립트 · 재질 4개 가져가기, 알바도 구멍 낼지, 작업 항목 번호(요청 때)

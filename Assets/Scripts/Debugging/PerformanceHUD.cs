@@ -183,6 +183,7 @@ namespace APC.Debugging
                 ? $"Scan: {(WallCutout.TotalScanMs - runScanMs0) / scans:F2} ms x {scans:N0}"
                 : "Scan: 0");
             sb.AppendLine($"Paths: {(StaffWorker.PathRequests - runPaths0) / runTime:F1}/s, NoPath +{StaffWorker.NoPathCount - runNoPath0:N0} ({(StaffService.Instance != null ? StaffService.Instance.Workers.Count : 0)} staff)");
+            AppendStaffStates();
             sb.AppendLine(gcAllocRecorder.Valid
                 ? $"GC: {runGcAlloc / runTime / 1024f:F1} KB/s, +{System.GC.CollectionCount(0) - runGcCount0:N0} GC"
                 : $"GC: +{System.GC.CollectionCount(0) - runGcCount0:N0} GC");
@@ -205,6 +206,37 @@ namespace APC.Debugging
             if (performanceText != null) performanceText.text = sb.ToString();
 
             ResetInterval();
+        }
+
+        /// <summary>
+        /// 알바 상태 분포 (2026-11-26, 저사양 기기에서 알바가 서 있는 원인 구분): 일하러 가는 중(그중 NavMesh 길 계산 대기) ·
+        /// 대기 위치로 가는 중 · 일하는 중 · 그 자리 대기(그중 짐 든 채 = 배달할 곳 없음) · 대기 위치 · 판단 전, 그리고 구간 안 한 프레임 Think 최대 수.
+        /// </summary>
+        void AppendStaffStates()
+        {
+            int toWork = 0, pathWait = 0, toPark = 0, working = 0, waiting = 0, waitCarry = 0, parked = 0, idle = 0;
+            var all = StaffWorker.All;
+            for (var i = 0; i < all.Count; i++) // IReadOnlyList foreach = 열거자 박싱
+            {
+                var worker = all[i];
+                switch (worker.State)
+                {
+                    case StaffWorker.Phase.Moving:
+                        if (worker.Parking) toPark++;
+                        else toWork++;
+                        if (worker.PathPending) pathWait++;
+                        break;
+                    case StaffWorker.Phase.Working: working++; break;
+                    case StaffWorker.Phase.Waiting:
+                        waiting++;
+                        if (worker.Stack.Count.CurrentValue > 0) waitCarry++;
+                        break;
+                    case StaffWorker.Phase.Parked: parked++; break;
+                    default: idle++; break;
+                }
+            }
+            sb.AppendLine($"Staff: Go {toWork} / Work {working} / Hold {waiting} (cargo {waitCarry}) / ToPark {toPark} / Parked {parked} / Idle {idle}");
+            sb.AppendLine($"PathPending {pathWait}, Think max {StaffWorker.TakeMaxThinksPerFrame()}/frame");
         }
 
         static long ReadRecorder(ProfilerRecorder recorder) => !recorder.Valid || recorder.Count == 0 ? -1 : recorder.LastValue;
