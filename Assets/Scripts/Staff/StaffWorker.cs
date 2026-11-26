@@ -28,6 +28,11 @@ namespace APC.Staff
     {
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         static readonly List<StaffWorker> AllWorkers = new();
+        // 대기 위치 후보 · 정렬 기준 재사용 (Park마다 List · 클로저 할당 → 알바 100명 GC, 2026-11-25). 메인 스레드 · 재진입 없음
+        static readonly List<Vector3> WaitCandidates = new();
+        static Vector3 sortOrigin;
+        static readonly System.Comparison<Vector3> ByOriginDistance = (a, b) => FlatDistance(a, sortOrigin).CompareTo(FlatDistance(b, sortOrigin));
+        const float ParkRetryDelay = 1f;
 
         const float ArriveDistance = 0.2f;
         // 도착했는데 이만큼(초) 동안 상호작용이 시작되지 않으면 포기한다 (서는 위치가 존 밖에 있는 등 배치 오류 대비)
@@ -50,6 +55,9 @@ namespace APC.Staff
         [SerializeField, Tooltip("퇴사할 때 깜빡이는 색")] Color angryColor = new(0.9f, 0.1f, 0.1f);
 
         NavMeshAgent agent;
+        int crowdId = -1;   // A* 이동 번호 (StaffNav). −1 = NavMesh로 움직임
+        bool pathFailed;    // A*: 마지막 길찾기 실패
+        Vector3 destination; // 마지막으로 가라고 한 곳 (두 방식 공용)
         Interactor interactor;
         CarryStack stack;
         StaffRules rules;
@@ -57,6 +65,7 @@ namespace APC.Staff
 
         CargoZone zone;
         RepackTable gauge; // 반품 알바가 서서 재포장하는 테이블 (zone 대신, 1명 예약)
+        InteractionZone scanStation; // 하차 알바가 서서 스캔하는 자리 (IScanStation — 스캔 팔레트 · 벨트 스캔 구역, zone 대신)
         ReturnsFocus focus;
         bool hasStand;
         Vector3 standLocal; // 서는 위치 (대상 존 로컬 — 모듈이 옮겨져도 같이 따라간다)
@@ -71,6 +80,7 @@ namespace APC.Staff
         bool repathPending; // 모듈 재배치 알림을 받았고 팝 연출이 끝나기를 기다리는 중
         System.Action releaseReservation; // 지금 잡고 있는 예약을 푸는 함수 (없으면 null)
         float thinkTimer;
+        float parkRetryAt; // 대기 위치 찾기 실패 뒤 다시 찾는 시각 (Park)
         float workTime;
         float idleTime;
         int lastCount;
@@ -84,7 +94,7 @@ namespace APC.Staff
         public CarryStack Stack => stack;
 
         /// <summary>지금 가고 있거나 일하는 존 (재포장 테이블 포함). 없으면 null.</summary>
-        public InteractionZone TargetZone => gauge != null ? gauge : zone;
+        public InteractionZone TargetZone => gauge != null ? gauge : scanStation != null ? scanStation : zone;
 
         /// <summary>고용 순서 번호 (배치 탭 이름 `알바 N`).</summary>
         public int Number { get; internal set; }
@@ -125,10 +135,56 @@ namespace APC.Staff
         public static int PathRequests { get; private set; }
         public static int NoPathCount { get; private set; }
 
+        internal static IReadOnlyList<StaffWorker> All => AllWorkers;
+        internal int CrowdId => crowdId;
+        bool AStar => crowdId >= 0;
+        bool OnNav => AStar || agent.isOnNavMesh;
+
         bool SetPath(Vector3 point)
         {
             PathRequests++;
-            return agent.SetDestination(point);
+            destination = point;
+            if (!AStar) return agent.SetDestination(point);
+            pathFailed = !StaffNav.Shared.SetPath(crowdId, point, agent.speed);
+            return !pathFailed;
+        }
+
+        void StopPath()
+        {
+            if (AStar) StaffNav.Shared.Stop(crowdId);
+            else if (agent.isOnNavMesh) agent.ResetPath();
+        }
+
+        void PauseMove(bool paused)
+        {
+            if (AStar) StaffNav.Shared.Pause(crowdId, paused);
+            else if (agent.isOnNavMesh) agent.isStopped = paused;
+        }
+
+        /// <summary>StaffNav 스위치에 맞춘다: A*면 NavMeshAgent를 끄고 StaffNav에 등록, NavMesh면 되돌린다. 가는 중이면 같은 곳으로 다시 길을 찾는다.</summary>
+        internal void ApplyNavMode()
+        {
+            if (StaffNav.UseAStar == AStar) return;
+            var moving = State == Phase.Moving;
+            if (StaffNav.UseAStar)
+            {
+                agent.enabled = false; // 켜 두면 NavMeshAgent가 위치를 되돌린다
+                crowdId = StaffNav.Shared.Register(transform, agent.speed);
+            }
+            else
+            {
+                StaffNav.Shared.Release(crowdId);
+                crowdId = -1;
+                agent.enabled = true;
+                agent.Warp(transform.position);
+            }
+            if (moving) SetPath(destination);
+        }
+
+        /// <summary>A* 격자를 다시 구운 뒤 (StaffNav): 같은 목적지로 길을 다시 찾는다.</summary>
+        internal void RefreshPath()
+        {
+            if (State == Phase.Moving) SetPath(destination);
         }
 
         void Awake()
@@ -145,7 +201,11 @@ namespace APC.Staff
             }
         }
 
-        void OnEnable() => AllWorkers.Add(this);
+        void OnEnable()
+        {
+            AllWorkers.Add(this);
+            if (rules != null) ApplyNavMode(); // 꺼졌다 켜진 알바 (처음은 Start에서)
+        }
 
         /// <summary>밀린 시급을 정한다 (정산 [확인] 때 StaffService가 부름). 0보다 크면 머리 위 ₩이 둥실거린다.</summary>
         internal void SetOwed(int amount)
@@ -169,7 +229,7 @@ namespace APC.Staff
             if (Fired) return;
             Fire();
             SetOwed(0);
-            if (agent.isOnNavMesh) agent.isStopped = true;
+            PauseMove(true);
             var roleColor = rules.GetRoleColor(Role);
             var bodyTransform = models != null && models.Length > 0 ? models[0].transform.parent : body.transform; // 모델이면 모델째 뛴다
             DOTween.Sequence()
@@ -178,7 +238,7 @@ namespace APC.Staff
                 .OnComplete(() =>
                 {
                     SetColor(roleColor);
-                    if (agent.isOnNavMesh) agent.isStopped = false;
+                    PauseMove(false);
                 })
                 .SetLink(gameObject);
         }
@@ -196,6 +256,7 @@ namespace APC.Staff
             Stats = stats;
             agent.speed = rules.GetMoveSpeed(stats.moveSpeed);
             interactor.Configure(rules.PickInterval, rules.InteractionDelay);
+            thinkTimer = Random.value * rules.ThinkInterval; // 같은 프레임에 고용한 알바가 매번 같은 프레임에 판단하지 않게 (100명 = 90ms 끊김, 2026-11-25)
             SetRole(role);
         }
 
@@ -227,6 +288,7 @@ namespace APC.Staff
         void Start()
         {
             if (SiteGrid.Instance != null) SiteGrid.Instance.OnMoved.Subscribe(_ => Repath()).AddTo(this);
+            ApplyNavMode();
         }
 
         /// <summary>모듈 재배치 알림 (GDD 4.4). 옮긴 모듈은 팝 연출(크기 0 → 1) 중이라 바로 계산하지 않고, 연출이 끝난 뒤 판단 때 <see cref="ApplyRepath"/>.</summary>
@@ -248,7 +310,7 @@ namespace APC.Staff
             var reference = TargetZone != null ? TargetZone : lastZone;
             if (reference != null && reference.isActiveAndEnabled && !IsSettled(reference)) return; // 팝 연출이 끝난 뒤에
             repathPending = false;
-            if (leaving || !agent.isOnNavMesh) return;
+            if (leaving || !OnNav) return;
             if (State == Phase.Parked || (State == Phase.Moving && parking))
             {
                 Park();
@@ -259,7 +321,7 @@ namespace APC.Staff
             var stand = target.transform.TransformPoint(standLocal);
             switch (State)
             {
-                case Phase.Moving when (agent.destination - stand).sqrMagnitude > 1f:
+                case Phase.Moving when (destination - stand).sqrMagnitude > 1f:
                     SetPath(stand);
                     break;
                 case Phase.Working when (transform.position - stand).sqrMagnitude > 1f:
@@ -272,6 +334,12 @@ namespace APC.Staff
 
         void OnDisable()
         {
+            if (AStar)
+            {
+                StaffNav.Shared.Release(crowdId);
+                crowdId = -1;
+                agent.enabled = true; // 다시 켜지면 OnEnable이 스위치에 맞춘다
+            }
             ReleaseAll();
             AllWorkers.Remove(this);
             if (StaffService.Instance != null) StaffService.Instance.Remove(this);
@@ -284,7 +352,8 @@ namespace APC.Staff
 
             thinkTimer -= deltaTime;
             var think = thinkTimer <= 0f;
-            if (think) thinkTimer = rules.ThinkInterval;
+            // 위상 유지: 긴 프레임(0.25초+) 한 번에 전원이 0 아래로 → '= 간격'이면 모두 같은 프레임에 판단하게 굳는다 (100명 = 80ms 끊김, 2026-11-25)
+            if (think) thinkTimer = rules.ThinkInterval - Mathf.Repeat(-thinkTimer, rules.ThinkInterval);
             if (think && repathPending) ApplyRepath();
 
             switch (State)
@@ -361,7 +430,7 @@ namespace APC.Staff
 
             foreach (var candidate in InteractionZone.Active)
             {
-                if (candidate is not CargoZone cargoZone || cargoZone.Slots.Count == 0 || !IsSettled(cargoZone)) continue;
+                if (candidate is not CargoZone cargoZone || cargoZone.Slots.Length == 0 || !IsSettled(cargoZone)) continue;
                 var ok = drop ? cargoZone.CanReceiveAny(interactor) : IsRoleZone(cargoZone) && HasWork(cargoZone);
                 if (!ok) continue;
 
@@ -438,39 +507,46 @@ namespace APC.Staff
         }
 
         /// <summary>
-        /// 하차 알바 스캔 (GDD 7.2a): 미분류가 `staffScanMinBoxes`개 이상(트럭이 비었거나 없으면 그보다 적어도)이고 아무도 스캔하지 않는
+        /// 하차 알바 스캔 (GDD 7.2a): 미분류가 1개 이상(M20-1, 최소 개수 규칙 삭제)이고 아무도 스캔하지 않는
         /// 가장 가까운 하차 칸 공간으로 간다. 한 칸 한 사람 — 다른 하차 알바가 스캔하러 가는 칸은 고르지 않는다.
         /// </summary>
         bool TryScan()
         {
-            StorageZone best = null;
-            var bestDistance = float.MaxValue;
-            var from = transform.position;
-            foreach (var candidate in InteractionZone.Active)
-            {
-                if (candidate is not StorageZone storageZone || storageZone.Slots.Count == 0 || !IsSettled(storageZone)) continue;
-                if (!storageZone.StaffScanWanted || (storageZone.Scanner != null && storageZone.Scanner != interactor) || ScanTakenByOther(storageZone)) continue;
-                var distance = NearestSlotDistance(storageZone, from);
-                if (distance >= bestDistance) continue;
-                best = storageZone;
-                bestDistance = distance;
-            }
+            // 벨트 스캔 구역 먼저 (상자가 오는 중 · 기다릴 때만, M20-5), 없으면 스캔 팔레트
+            var best = NearestScanStation(beltOnly: true) ?? NearestScanStation(beltOnly: false);
             if (best == null) return false;
             ReleaseAll();
-            zone = best;
+            scanStation = best;
             SetStand(best, ChooseStand(best));
             dropping = false;
             scanning = true; // 화물 예약 없음
-            agent.SetDestination(OccupiedPosition);
+            SetPath(OccupiedPosition);
             State = Phase.Moving;
             return true;
         }
 
-        bool ScanTakenByOther(StorageZone target)
+        InteractionZone NearestScanStation(bool beltOnly)
+        {
+            InteractionZone best = null;
+            var bestDistance = float.MaxValue;
+            var from = transform.position;
+            foreach (var candidate in InteractionZone.Active)
+            {
+                if (candidate is not IScanStation station || (beltOnly && candidate is not BeltScanZone) || candidate.Slots.Length == 0 || !IsSettled(candidate)) continue;
+                if (!station.StaffScanWanted || (station.Scanner != null && station.Scanner != interactor) || ScanTakenByOther(candidate)) continue;
+                var distance = NearestSlotDistance(candidate, from);
+                if (distance >= bestDistance) continue;
+                best = candidate;
+                bestDistance = distance;
+            }
+            return best;
+        }
+
+        bool ScanTakenByOther(InteractionZone target)
         {
             foreach (var other in AllWorkers)
             {
-                if (other != this && other.scanning && other.zone == target) return true;
+                if (other != this && other.scanning && other.scanStation == target) return true;
             }
             return false;
         }
@@ -649,11 +725,18 @@ namespace APC.Staff
         /// </summary>
         void Park()
         {
-            ReleaseAll();
-            // 막 생성된 프레임 등 에이전트가 아직 네비메시에 없으면 길을 못 잡는다 → 그 자리에서 기다렸다가 다음 판단 때 다시
-            if (!agent.isOnNavMesh || !TryChooseWaitPoint(out var point) || !SetPath(point))
+            // 임시 1초: 대기 위치 찾기 실패 뒤엔 잠깐 다시 찾지 않는다 — 붐비면 후보 81곳을 0.25초마다 다 봐서 알바 100명 = 프레임당 30ms (2026-11-25). 일 찾기(Find)는 그대로
+            if (Time.time < parkRetryAt)
             {
                 Hold();
+                return;
+            }
+            ReleaseAll();
+            // 막 생성된 프레임 등 에이전트가 아직 네비메시에 없으면 길을 못 잡는다 → 그 자리에서 기다렸다가 다음 판단 때 다시
+            if (!OnNav || !TryChooseWaitPoint(out var point) || !SetPath(point))
+            {
+                Hold();
+                parkRetryAt = Time.time + ParkRetryDelay;
                 return;
             }
             waitPoint = point;
@@ -665,7 +748,8 @@ namespace APC.Staff
 
         bool TryChooseWaitPoint(out Vector3 point)
         {
-            var candidates = new List<Vector3>();
+            var candidates = WaitCandidates;
+            candidates.Clear();
             var from = transform.position;
             point = default;
             if (lastZone != null && lastZone.isActiveAndEnabled && !IsSettled(lastZone)) return false; // 팝 연출 중 → 잠깐 그 자리에서, 다음 판단 때 다시
@@ -712,8 +796,8 @@ namespace APC.Staff
                 from = center;
             }
 
-            var origin = from;
-            candidates.Sort((a, b) => FlatDistance(a, origin).CompareTo(FlatDistance(b, origin)));
+            sortOrigin = from;
+            candidates.Sort(ByOriginDistance);
             foreach (var candidate in candidates)
             {
                 if (IsGoodWaitPoint(candidate, out point)) return true;
@@ -728,18 +812,19 @@ namespace APC.Staff
             point = candidate;
             if (!NavMesh.SamplePosition(candidate, out var hit, NavSnapRadius, NavMesh.AllAreas)) return false;
             point = hit.position;
+            if (CountNear(point, rules.WaitSpacing * 0.95f) > 0) return false; // 붐벼서 실패가 가장 흔하다 → 존 193개보다 먼저 (결과는 같음)
             foreach (var other in InteractionZone.Active)
             {
                 var local = other.transform.InverseTransformPoint(point);
                 if (Mathf.Abs(local.x) <= other.Size.x * 0.5f + WaitZoneClearance && Mathf.Abs(local.z) <= other.Size.y * 0.5f + WaitZoneClearance) return false;
             }
-            return CountNear(point, rules.WaitSpacing * 0.95f) == 0 && IsClear(point);
+            return IsClear(point);
         }
 
         bool Arrived()
         {
-            if (agent.pathPending) return false;
-            if (agent.pathStatus == NavMeshPathStatus.PathInvalid)
+            if (!AStar && agent.pathPending) return false;
+            if (AStar ? pathFailed : agent.pathStatus == NavMeshPathStatus.PathInvalid)
             {
                 var target = TargetZone;
                 NoPathCount++;
@@ -747,16 +832,16 @@ namespace APC.Staff
                 Hold();
                 return false;
             }
-            return agent.remainingDistance <= ArriveDistance;
+            return (AStar ? StaffNav.Shared.Remaining(crowdId) : agent.remainingDistance) <= ArriveDistance;
         }
 
         /// <summary>가는 중인 목표가 아직 유효한가. 예약은 잠깐 풀고 다시 확인해 다시 잡는다 (자기 예약 때문에 일이 없어 보이지 않게).</summary>
         bool StillValid()
         {
             if (gauge != null) return gauge.isActiveAndEnabled && gauge.HasWork;
+            if (scanning) return scanStation != null && scanStation.isActiveAndEnabled && scanStation is IScanStation scanZone && scanZone.StaffScanWanted && (scanZone.Scanner == null || scanZone.Scanner == interactor);
             if (zone == null || !zone.isActiveAndEnabled) return false;
             if (dropping) return zone.CanReceiveAny(interactor);
-            if (scanning) return zone is StorageZone scanZone && scanZone.StaffScanWanted && (scanZone.Scanner == null || scanZone.Scanner == interactor);
 
             ReleaseReservation();
             var ok = IsRoleZone(zone) && HasWork(zone);
@@ -787,12 +872,12 @@ namespace APC.Staff
                 if (!gauge.HasWork || stuckAtTable) FinishWork();
                 return;
             }
-            if (scanning) // 스캔: 게이지는 StorageZone이 채운다. 끝났거나 다른 사람이 스캔하면 다음 일
+            if (scanning) // 스캔: 게이지는 스캔 자리(팔레트 · 벨트 스캔 구역)가 채운다. 끝났거나(벨트가 비면 떠남) 다른 사람이 스캔하면 다음 일
             {
-                var scanZone = zone as StorageZone;
-                var stuckAtScan = workTime >= rules.InteractionDelay + StuckTimeout && interactor.CurrentZone != zone && !repathPending;
+                var scanZone = scanStation as IScanStation;
+                var stuckAtScan = workTime >= rules.InteractionDelay + StuckTimeout && interactor.CurrentZone != scanStation && !repathPending;
                 var mine = scanZone != null && scanZone.Scanner == interactor;
-                if (scanZone == null || stuckAtScan || (!mine && (!scanZone.StaffScanWanted || scanZone.Scanner != null))) FinishWork();
+                if (scanZone == null || stuckAtScan || !scanZone.StaffScanWanted || (!mine && scanZone.Scanner != null)) FinishWork();
                 return;
             }
             var count = stack.Count.CurrentValue;
@@ -833,14 +918,14 @@ namespace APC.Staff
         void Hold()
         {
             ReleaseAll();
-            if (agent.isOnNavMesh) agent.ResetPath();
+            StopPath();
             State = Phase.Waiting;
         }
 
         void Abort()
         {
             ReleaseAll();
-            if (agent.isOnNavMesh) agent.ResetPath();
+            StopPath();
             State = Phase.Idle;
             thinkTimer = 0f;
         }
@@ -852,6 +937,7 @@ namespace APC.Staff
             if (gauge != null) gauge.Release(this);
             zone = null;
             gauge = null;
+            scanStation = null;
             hasStand = false;
             hasWait = false;
             parking = false;

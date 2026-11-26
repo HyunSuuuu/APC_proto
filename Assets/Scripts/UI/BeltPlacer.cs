@@ -16,11 +16,14 @@ namespace APC.UI
 {
     /// <summary>
     /// 컨베이어 벨트 설치 상태 (GDD 7.10, M18-3). B책상 `벨트` 탭 [설치]로 들어온다.
-    /// 게임 멈춤 + 카메라 위에서 내려다보기 · 2m 격자(배치 불가 칸 붉은색) → Start 존 누르기(파랑) → 가로 · 세로로 늘인 미리보기를
-    /// 눌러 꺾임 점 → End 존 위에 오면 축에 맞춘 연결 구간을 자동으로 붙여 초록 → [저장] = 칸 수 × beltCellCost 지불 · 벨트 생성.
+    /// 게임 멈춤 + 카메라 위에서 내려다보기 · 열린 칸(옅게) · 시설 · 벨트 · 존 자리(붉게) → Start 존 누르기(파랑) → 가로 · 세로로 0.5m씩 늘인 미리보기를
+    /// 눌러 꺾임 점 → End 존 위에 오면 축에 맞춘 연결 구간을 자동으로 붙여 초록 → [저장] = 길이(m, 올림) × beltCostPerMeter 지불 · 벨트 생성.
+    /// M20-4: 격자 없음 · 시설 바로 옆 허용 · 다른 벨트와 교차 금지 · 길 막힘 검사(막으면 빨강 + [저장] 꺼짐) · 저장 때 벨트 자리 사람 밀어내기.
     /// Start · End 끝은 존 중심을 지나는 가로 · 세로 축 위에서 존 변에 붙는다 (Start는 첫 구간이 존 중심에서 나가므로 저절로, End는 가까운 변으로 꺾임 자동 추가).
     /// PC: 마우스 이동 = 미리보기, 클릭 = 점, 끌기 = 화면 이동, 휠 = 줌. 모바일: 한 손가락 끌기 = 미리보기, 떼기 = 점, 두 손가락 = 이동 · 줌.
-    /// [취소] = 버리고 나감, [저장]해도 설치 상태는 끝난다.
+    /// [나가기](옛 [취소]) = 저장 안 한 것 버리고 나감, [저장]해도 설치 화면은 남는다 (M20-5).
+    /// M20-5 스캔 구역 모드: 깔린 벨트를 누르면 그 지점에 스캔 구역(초록 상자 + 옆 작업 존), 구역을 누르면 선택(아웃라인) → 끌면 벨트 따라 이동 ·
+    /// 다시 누르면 작업 존 반대편 · [철거]. 새 구역 값은 [저장] 때 낸다.
     /// </summary>
     public sealed class BeltPlacer : MonoBehaviour
     {
@@ -42,6 +45,13 @@ namespace APC.UI
         [SerializeField, Min(1f), Tooltip("누른 채 이만큼(px) 움직이면 화면 이동 (PC)")] float dragThreshold = 12f;
         [SerializeField, Tooltip("비용 숫자 위치 = 미리보기 끝 화면 위치 + 이만큼 (px)")] Vector2 costOffset = new(70f, 40f);
 
+        [Header("모드 · 스캔 구역 (M20-5)")]
+        [SerializeField, Tooltip("벨트 설치 모드")] Button beltModeButton;
+        [SerializeField, Tooltip("스캔 구역 모드")] Button scanModeButton;
+        [SerializeField, Tooltip("스캔 구역 선택 중 [철거]")] Button scanRemoveButton;
+        [SerializeField] Color scanZoneColor = new(0.25f, 0.85f, 0.35f, 0.45f);
+        [SerializeField] Color selectedColor = new(1f, 0.85f, 0.2f, 0.95f);
+
         [Header("색")]
         [SerializeField] Color gridColor = new(1f, 1f, 1f, 0.3f);
         [SerializeField] Color blockedColor = new(1f, 0.15f, 0.15f, 0.55f);
@@ -57,13 +67,16 @@ namespace APC.UI
 
         public bool IsActive { get; private set; }
 
-        readonly HashSet<Vector2Int> openTiles = new();
-        readonly HashSet<Vector2Int> redTiles = new();   // 붉게 보일 칸 (표시용 — 판정은 아래 사각형으로 정밀하게)
+        readonly HashSet<Vector2Int> openCells = new();  // 열린 모듈 칸 (SiteGrid 칸)
         readonly List<bool> hiddenWasActive = new();
-        readonly List<Rect> facilityRects = new();       // 시설 자리 (x = 월드 x, y = 월드 z)
+        readonly List<Rect> facilityRects = new();       // 시설 · 깔린 벨트 자리 (x = 월드 x, y = 월드 z)
         readonly List<Vector3> points = new(); // 확정한 점. 0 = Start 존 중심
         readonly List<Vector3> path = new();   // 지금 보이는 경로 (Start 변에서 시작, 미리보기 · 연결 구간 포함)
-        readonly List<(Vector3 point, Vector2Int tile)> samples = new();
+        readonly List<Vector3> samples = new();
+        readonly List<Rect> blockRects = new();
+        readonly List<Vector3> checkedPath = new(); // 길 막힘 검사를 마친 경로 (같으면 다시 안 함)
+        bool pathBlocked;                           // 저장하면 존 · 열린 칸에 못 가게 막는가 (M20-4)
+        Bounds siteArea;
         readonly List<Vector3> tail = new();
         readonly List<Vector3> verts = new();
         readonly List<Color> colors = new();
@@ -73,6 +86,7 @@ namespace APC.UI
         Camera cam;
         GameObject root;
         Mesh previewMesh;
+        Mesh gridMesh;
         Material material;
 
         InteractionZone startZone;
@@ -90,6 +104,14 @@ namespace APC.UI
         bool dragging;
         bool multiTouch;
 
+        // 스캔 구역 모드 (M20-5): 놓기 · 옮기기 · 뒤집기는 [저장] 전까지 미리보기, [나가기]면 되돌림
+        bool scanMode;
+        BeltScanZone selectedScan;  // 아웃라인 강조
+        BeltScanZone removingScan;  // 철거 확인 중
+        BeltScanZone draggingScan;  // 누른 채 끄는 중
+        readonly List<BeltScanZone> createdScans = new();                               // 저장 안 한 새 구역
+        readonly Dictionary<BeltScanZone, (float distance, int side)> savedScans = new(); // 저장된 구역의 바꾸기 전 자리
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() => Instance = null;
 
@@ -103,6 +125,10 @@ namespace APC.UI
             undoButton.onClick.AddListener(Undo);
             removeConfirmButton.onClick.AddListener(ConfirmRemove);
             removeCancelButton.onClick.AddListener(CloseRemove);
+            beltModeButton.onClick.AddListener(() => SetMode(false));
+            scanModeButton.onClick.AddListener(() => SetMode(true));
+            scanRemoveButton.onClick.AddListener(AskRemoveScan);
+            scanRemoveButton.gameObject.SetActive(false);
             removePanel.SetActive(false);
             ui.SetActive(false);
         }
@@ -131,7 +157,8 @@ namespace APC.UI
             }
 
             ResetDrawing();
-            CollectTiles(out var area);
+            CollectArea(out var area);
+            siteArea = area;
             root = new GameObject("BeltPlacer");
             material = new Material(Config.BeltOverlayMaterial);
             BuildGrid();
@@ -141,33 +168,58 @@ namespace APC.UI
 
             rig.BeginTopDown(area, cameraDuration);
             ui.SetActive(true);
-            Hint("하차 칸 공간(팔레트)을 누르세요 · 깔린 벨트를 누르면 철거");
+            SetMode(false);
         }
 
+        /// <summary>[벨트 설치] · [스캔 구역] 모드 (M20-5). 바꾸면 그리던 벨트 · 선택은 지운다 (저장 안 한 스캔 구역 변경은 남음).</summary>
+        void SetMode(bool scan)
+        {
+            scanMode = scan;
+            ResetDrawing();
+            selectedScan = draggingScan = null;
+            CloseRemove();
+            Hint(scan ? "벨트를 누르면 스캔 구역 · 구역을 누르면 선택(끌면 이동, 한 번 더 = 반대편)" : "하차 칸 공간(팔레트)을 누르세요 · 깔린 벨트를 누르면 철거");
+        }
+
+        /// <summary>[나가기]: 저장 안 한 것(그리던 벨트 · 스캔 구역 변경)은 버리고 게임으로 (M20-5).</summary>
         void Finish()
         {
             if (!IsActive) return;
             IsActive = false;
+            RevertScans();
+            selectedScan = draggingScan = null;
             CloseRemove();
             ui.SetActive(false);
             if (root != null) Destroy(root);
             if (material != null) Destroy(material);
             if (previewMesh != null) Destroy(previewMesh);
+            if (gridMesh != null) Destroy(gridMesh);
+            gridMesh = null;
             for (var i = 0; i < hideWhileActive.Length; i++) hideWhileActive[i].SetActive(hiddenWasActive[i]);
             rig.EndTopDown();
             GameManager.Instance.ClosePopup();
         }
 
+        /// <summary>[저장] = 지금 상황 저장, 설치 화면은 그대로 (M20-5). 벨트 모드 = 그린 벨트, 스캔 모드 = 새 구역 값 지불 · 옮기기 확정.</summary>
         void Save()
         {
-            if (!done) return;
+            if (scanMode)
+            {
+                SaveScans();
+                return;
+            }
+            if (!done || pathBlocked) return;
             var cost = Cost;
             if (!GameManager.Instance.Wallet.TrySpend(cost)) return;
             ConveyorBelt.Create(start, end, path).Cost = cost;
-            Finish();
+            PushPeopleOff(path);
+            ResetDrawing();
+            CollectArea(out siteArea); // 새 벨트가 막는 자리 · 교차 금지에 들어감
+            BuildGrid();
+            Hint("저장했어요 · 이어서 설치하거나 [나가기]");
         }
 
-        int Cost => path.Count < 2 ? 0 : ConveyorBelt.CellCount(path) * Config.BeltCellCost;
+        int Cost => path.Count < 2 ? 0 : ConveyorBelt.CostOf(path);
 
         void ResetDrawing()
         {
@@ -176,24 +228,34 @@ namespace APC.UI
             startZone = hoverZone = endZone = null;
             start = null;
             end = null;
-            pathValid = done = false;
+            pathValid = done = pathBlocked = false;
+            checkedPath.Clear();
             dragging = multiTouch = pressOverUi = false;
         }
 
         void Update()
         {
             if (!IsActive) return;
-            if (selected != null) // 철거 확인 창: 지도 입력 안 받음
+            if (selected != null || removingScan != null) // 철거 확인 창: 지도 입력 안 받음
             {
                 Redraw();
                 return;
             }
             ReadPointer(out var hover, out var click);
-            if (hover.HasValue && rig.ScreenToGround(hover.Value, out var ground)) UpdatePreview(ground);
+            if (hover.HasValue && rig.ScreenToGround(hover.Value, out var ground))
+            {
+                if (!scanMode) UpdatePreview(ground);
+                else if (draggingScan != null) MoveScan(draggingScan, ground);
+                else lastGround = ground; // 스캔 모드: 놓일 자리 미리보기
+            }
             if (click.HasValue && rig.ScreenToGround(click.Value, out var target))
             {
-                UpdatePreview(target);
-                Click();
+                if (scanMode) ScanClick(target);
+                else
+                {
+                    UpdatePreview(target);
+                    Click();
+                }
             }
             Redraw();
         }
@@ -221,12 +283,19 @@ namespace APC.UI
                 else if (!multiTouch)
                 {
                     var t = touches[0];
-                    if (t.phase == TouchPhase.Began) pressOverUi = UiHitTest.IsOverUi(t.screenPosition);
+                    if (t.phase == TouchPhase.Began)
+                    {
+                        pressOverUi = UiHitTest.IsOverUi(t.screenPosition);
+                        pressPosition = t.screenPosition;
+                        if (!pressOverUi) GrabSelectedScan(t.screenPosition);
+                    }
                     if (!pressOverUi)
                     {
                         hover = t.screenPosition;
-                        if (t.phase == TouchPhase.Ended) click = t.screenPosition; // 떼면 그 자리가 점
+                        var dragged = draggingScan != null && (t.screenPosition - pressPosition).magnitude > dragThreshold;
+                        if (t.phase == TouchPhase.Ended && !dragged) click = t.screenPosition; // 떼면 그 자리가 점 (스캔 구역을 끌었으면 아님)
                     }
+                    if (t.phase is TouchPhase.Ended or TouchPhase.Canceled) draggingScan = null;
                 }
                 if (allEnding) multiTouch = false;
                 return;
@@ -241,15 +310,17 @@ namespace APC.UI
                 pressPosition = position;
                 dragging = false;
                 pressOverUi = UiHitTest.IsOverUi(position);
+                if (!pressOverUi) GrabSelectedScan(position);
             }
             if (button.isPressed && !pressOverUi)
             {
                 if (!dragging && (position - pressPosition).magnitude > dragThreshold) dragging = true;
-                if (dragging) rig.PanTopDown(position - mouse.delta.ReadValue(), position);
+                if (dragging && draggingScan == null) rig.PanTopDown(position - mouse.delta.ReadValue(), position); // 스캔 구역을 잡았으면 화면 대신 구역을 끈다
             }
             if (button.wasReleasedThisFrame && !pressOverUi && !dragging) click = position;
+            if (button.wasReleasedThisFrame) draggingScan = null;
             var overUi = UiHitTest.IsOverUi(position);
-            if (!dragging && !overUi) hover = position;
+            if ((!dragging || draggingScan != null) && !overUi) hover = position;
             var scroll = mouse.scroll.ReadValue().y;
             if (!overUi && !Mathf.Approximately(scroll, 0f)) rig.ZoomTopDown(scroll > 0f ? 0.9f : 1.1f);
         }
@@ -296,7 +367,7 @@ namespace APC.UI
             if (end != null)
             {
                 done = true;
-                Hint("[저장]을 누르면 설치돼요");
+                Hint(pathBlocked ? "길이 막힙니다 — 다른 길로 이어 주세요" : "[저장]을 누르면 설치돼요");
                 return;
             }
             points.Add(path[^1]);
@@ -330,16 +401,212 @@ namespace APC.UI
 
         void ConfirmRemove()
         {
+            if (removingScan != null)
+            {
+                RemoveScan(removingScan);
+                CloseRemove();
+                return;
+            }
             if (selected == null) return;
-            GameManager.Instance.Wallet.Add(Refund(selected));
-            selected.Dismantle(); // 위 물건은 Start로
+            if (selected.ScanZone != null) // 저장 안 한 스캔 구역 변경은 벨트와 같이 사라짐
+            {
+                createdScans.Remove(selected.ScanZone);
+                savedScans.Remove(selected.ScanZone);
+            }
+            GameManager.Instance.Wallet.Add(Refund(selected)); // 벨트 Cost에 저장된 스캔 구역 값도 들어 있음 (같은 비율)
+            selected.Dismantle(); // 위 물건은 Start로 (바로 꺼져 아래 수집에서 빠짐)
             CloseRemove();
+            CollectArea(out siteArea); // 철거한 벨트 자리가 다시 비었음
+            BuildGrid();
         }
 
         void CloseRemove()
         {
             selected = null;
+            removingScan = null;
             if (removePanel != null) removePanel.SetActive(false);
+        }
+
+        // ── 스캔 구역 (M20-5) ────────────────────────────────
+
+        int PendingScanCost
+        {
+            get
+            {
+                var n = 0;
+                foreach (var zone in createdScans)
+                {
+                    if (zone != null) n++;
+                }
+                return n * Config.BeltScanZoneCost;
+            }
+        }
+
+        bool HasPendingScan => createdScans.Count > 0 || savedScans.Count > 0;
+
+        /// <summary>스캔 모드 누르기: 구역 = 선택(이미 선택이면 반대편으로), 빈 벨트 = 그 지점에 새 구역, 그 밖 = 선택 풀기.</summary>
+        void ScanClick(Vector3 ground)
+        {
+            lastGround = ground;
+            var hit = ScanZoneAt(ground);
+            if (hit != null)
+            {
+                if (hit == selectedScan) Flip(hit);
+                else selectedScan = hit;
+                return;
+            }
+            var belt = BeltAt(ground);
+            if (belt == null)
+            {
+                selectedScan = null;
+                return;
+            }
+            if (belt.ScanZone != null)
+            {
+                selectedScan = belt.ScanZone;
+                Hint("벨트마다 스캔 구역은 하나예요");
+                return;
+            }
+            var distance = ClampAlong(belt, belt.DistanceAlong(ground));
+            belt.PoseAt(distance, out var point, out var dir);
+            var clicked = Vector3.Dot(ground - point, Vector3.Cross(Vector3.up, dir)) >= 0f ? 1 : -1; // 누른 쪽 먼저
+            var side = WorkFree(belt, distance, clicked, null) ? clicked : WorkFree(belt, distance, -clicked, null) ? -clicked : 0;
+            if (side == 0)
+            {
+                Hint("알바가 설 자리가 없어요 · 다른 지점을 누르세요");
+                return;
+            }
+            var zone = BeltScanZone.Create(belt, distance, side);
+            createdScans.Add(zone);
+            selectedScan = zone;
+            Hint($"새 스캔 구역 ₩{Config.BeltScanZoneCost:N0} — [저장]하면 설치돼요");
+        }
+
+        /// <summary>누른 곳의 스캔 구역 (작업 존 또는 벨트 위 초록 상자).</summary>
+        static BeltScanZone ScanZoneAt(Vector3 ground)
+        {
+            foreach (var belt in ConveyorBelt.All)
+            {
+                var zone = belt.ScanZone;
+                if (zone == null) continue;
+                belt.PoseAt(zone.Distance, out var point, out _);
+                if (zone.Contains(ground) || Vector2.Distance(new Vector2(ground.x, ground.z), new Vector2(point.x, point.z)) < ConveyorBelt.Width * 0.6f) return zone;
+            }
+            return null;
+        }
+
+        /// <summary>누른 곳이 선택된 구역이면 끌기를 시작한다 (끌면 화면 대신 구역이 벨트를 따라 움직임).</summary>
+        void GrabSelectedScan(Vector2 screen)
+        {
+            draggingScan = null;
+            if (!scanMode || selectedScan == null || !rig.ScreenToGround(screen, out var ground)) return;
+            if (ScanZoneAt(ground) == selectedScan) draggingScan = selectedScan;
+        }
+
+        static float ClampAlong(ConveyorBelt belt, float distance)
+        {
+            var snapped = Mathf.Round(distance / Config.BeltSnap) * Config.BeltSnap;
+            return Mathf.Clamp(snapped, Mathf.Min(1f, belt.Length * 0.5f), Mathf.Max(belt.Length - 1f, belt.Length * 0.5f)); // 양 끝(올리고 내리는 자리)은 피함
+        }
+
+        void MoveScan(BeltScanZone zone, Vector3 ground)
+        {
+            var distance = ClampAlong(zone.Belt, zone.Belt.DistanceAlong(ground));
+            if (Mathf.Abs(distance - zone.Distance) < 0.01f || !WorkFree(zone.Belt, distance, zone.Side, zone)) return;
+            Stage(zone);
+            zone.Place(distance, zone.Side);
+        }
+
+        void Flip(BeltScanZone zone)
+        {
+            if (!WorkFree(zone.Belt, zone.Distance, -zone.Side, zone))
+            {
+                Hint("반대편에는 알바가 설 자리가 없어요");
+                return;
+            }
+            Stage(zone);
+            zone.Place(zone.Distance, -zone.Side);
+        }
+
+        /// <summary>저장된 구역을 처음 바꿀 때 원래 자리를 기억한다 ([나가기]면 되돌림).</summary>
+        void Stage(BeltScanZone zone)
+        {
+            if (!createdScans.Contains(zone) && !savedScans.ContainsKey(zone)) savedScans[zone] = (zone.Distance, zone.Side);
+        }
+
+        /// <summary>벨트 distance 지점 side 쪽 작업 존 자리가 열린 칸 안이고 시설 · 벨트 · 다른 존과 안 겹치는가.</summary>
+        bool WorkFree(ConveyorBelt belt, float distance, int side, BeltScanZone ignore)
+        {
+            belt.PoseAt(distance, out var point, out var dir);
+            var center = point + Vector3.Cross(Vector3.up, dir) * (side * BeltScanZone.WorkOffset);
+            var half = BeltScanZone.WorkSize * 0.5f - Vector2.one * 0.03f; // 벨트에 맞닿는 변은 겹침 아님
+            var rect = new Rect(center.x - half.x, center.z - half.y, half.x * 2f, half.y * 2f);
+            if (!IsOpen(rect.min) || !IsOpen(rect.max) || !IsOpen(new Vector2(rect.xMin, rect.yMax)) || !IsOpen(new Vector2(rect.xMax, rect.yMin))) return false;
+            foreach (var facility in facilityRects)
+            {
+                if (facility.Overlaps(rect)) return false;
+            }
+            foreach (var zone in InteractionZone.Active)
+            {
+                if (zone != ignore && zone.WorldRect.Overlaps(rect)) return false;
+            }
+            return true;
+        }
+
+        void SaveScans()
+        {
+            var cost = PendingScanCost;
+            if (!HasPendingScan || !GameManager.Instance.Wallet.TrySpend(cost)) return;
+            foreach (var zone in createdScans)
+            {
+                if (zone != null) zone.Belt.Cost += Config.BeltScanZoneCost; // 벨트 철거 · 재배치 환불에 같이 들어감
+            }
+            createdScans.Clear();
+            savedScans.Clear();
+            Hint("저장했어요 · 이어서 고치거나 [나가기]");
+        }
+
+        /// <summary>[나가기]: 저장 안 한 새 구역은 없애고, 옮기거나 뒤집은 구역은 원래 자리로.</summary>
+        void RevertScans()
+        {
+            foreach (var zone in createdScans)
+            {
+                if (zone != null) DestroyScan(zone);
+            }
+            foreach (var pair in savedScans)
+            {
+                if (pair.Key != null) pair.Key.Place(pair.Value.distance, pair.Value.side);
+            }
+            createdScans.Clear();
+            savedScans.Clear();
+        }
+
+        void AskRemoveScan()
+        {
+            if (selectedScan == null) return;
+            removingScan = selectedScan;
+            removeLabel.text = createdScans.Contains(removingScan) ? "이 스캔 구역을 뺄까요?" : $"이 스캔 구역을 철거할까요?\n₩{Mathf.FloorToInt(Config.BeltScanZoneCost * Config.BeltRefundRate):N0} 돌려받음";
+            removePanel.SetActive(true);
+        }
+
+        /// <summary>스캔 구역 하나 철거: 저장 안 한 것은 그냥 빼고, 저장된 것은 벨트와 같은 비율 환불 (GDD 7.10 M20-5).</summary>
+        void RemoveScan(BeltScanZone zone)
+        {
+            if (!createdScans.Remove(zone))
+            {
+                GameManager.Instance.Wallet.Add(Mathf.FloorToInt(Config.BeltScanZoneCost * Config.BeltRefundRate));
+                zone.Belt.Cost = Mathf.Max(0, zone.Belt.Cost - Config.BeltScanZoneCost);
+                savedScans.Remove(zone);
+            }
+            DestroyScan(zone);
+            selectedScan = null;
+        }
+
+        static void DestroyScan(BeltScanZone zone)
+        {
+            if (zone.Belt != null && zone.Belt.ScanZone == zone) zone.Belt.ScanZone = null; // 멈춰 있던 미분류 상자가 바로 다시 간다
+            zone.gameObject.SetActive(false);
+            Destroy(zone.gameObject);
         }
 
         void UpdatePreview(Vector3 ground)
@@ -371,20 +638,21 @@ namespace APC.UI
                     pathValid = true;
                 }
                 TrimStart();
+                if (end != null) CheckBlocked();
                 return;
             }
 
-            // 마지막 점에서 가로 또는 세로(움직인 거리가 큰 쪽)로 칸마다 늘인다. 붉은 칸에서 멈춤.
+            // 마지막 점에서 가로 또는 세로(움직인 거리가 큰 쪽)로 beltSnap(0.5m)마다 늘인다. 막히면 멈춤 (M20-4 — 2m 격자 없음).
             var last = points[^1];
             var delta = ground - last;
             var horizontal = Mathf.Abs(delta.x) >= Mathf.Abs(delta.z);
-            var size = Config.BeltCellSize;
+            var size = Config.BeltSnap;
             var from = horizontal ? last.x : last.z;
             var to = horizontal ? ground.x : ground.z;
             var step = to >= from ? 1 : -1;
             var k = step > 0 ? Mathf.FloorToInt(from / size + 0.001f) + 1 : Mathf.CeilToInt(from / size - 0.001f) - 1;
             var reached = last;
-            for (var guard = 0; guard < 200 && (step > 0 ? k * size <= to + size * 0.5f : k * size >= to - size * 0.5f); guard++, k += step)
+            for (var guard = 0; guard < 400 && (step > 0 ? k * size <= to + size * 0.5f : k * size >= to - size * 0.5f); guard++, k += step)
             {
                 var next = horizontal ? new Vector3(k * size, 0f, last.z) : new Vector3(last.x, 0f, k * size);
                 if (!SegmentFree(reached, next, null) || OverlapsSelf(last, next, points)) break;
@@ -465,7 +733,7 @@ namespace APC.UI
         /// </summary>
         bool OverlapsSelf(Vector3 a, Vector3 b, List<Vector3> drawn)
         {
-            var width = Config.BeltCellSize * 0.7f;
+            var width = ConveyorBelt.Width;
             var length = Vector3.Distance(a, b);
             var first = width + 0.05f; // 직각으로 꺾은 직후 표본은 앞 구간과 거리 = 정확히 폭 → 부동소수 오차로 겹침 판정 안 나게
             if (length <= first) return false;
@@ -489,19 +757,19 @@ namespace APC.UI
         }
 
         /// <summary>
-        /// a → b에 벨트를 놓을 수 있는가: 열린 칸이고 (다른 벨트와는 겹쳐도 됨, 2026-11-24), 벨트 폭 사각형이 시설 · 다른 존과 안 겹침.
-        /// Start 존 · allowedEnd 존 안의 표본은 건너뜀 (예외). 존 · 시설은 2m 격자와 안 맞아 칸이 아니라 사각형으로 본다 (존 사이 좁은 틈도 지나감).
+        /// a → b에 벨트를 놓을 수 있는가 (M20-4): 벨트 폭 사각형이 열린 모듈 칸 안이고, 시설 · **깔린 벨트(교차 금지)** · 다른 존과 겹치지 않음 —
+        /// 겹칠 때만 막힘(여유 0)이라 시설 바로 옆 · 좁은 틈도 지나간다. Start 존 · allowedEnd 존 안의 표본은 건너뜀 (예외).
         /// </summary>
         bool SegmentFree(Vector3 a, Vector3 b, InteractionZone allowedEnd)
         {
             samples.Clear();
             ConveyorBelt.Footprint(a, b, samples);
-            var half = Config.BeltCellSize * 0.3f;
-            foreach (var (point, tile) in samples)
+            var half = ConveyorBelt.Width * 0.5f - 0.02f; // 경계에 딱 닿는 것은 겹침 아님
+            foreach (var point in samples)
             {
                 if (startZone.Contains(point) || (allowedEnd != null && allowedEnd.Contains(point))) continue;
-                if (!openTiles.Contains(tile)) return false;
                 var footprint = new Rect(point.x - half, point.z - half, half * 2f, half * 2f);
+                if (!IsOpen(footprint.min) || !IsOpen(footprint.max) || !IsOpen(new Vector2(footprint.xMin, footprint.yMax)) || !IsOpen(new Vector2(footprint.xMax, footprint.yMin))) return false;
                 foreach (var rect in facilityRects)
                 {
                     if (rect.Overlaps(footprint)) return false;
@@ -512,6 +780,189 @@ namespace APC.UI
                 }
             }
             return true;
+        }
+
+        bool IsOpen(Vector2 xz) => openCells.Contains(SiteGrid.Instance.WorldToCell(new Vector3(xz.x, 0f, xz.y)));
+
+        // ── 길 막힘 검사 · 밀어내기 (M20-4) ─────────────────────
+
+        const float WalkStep = 0.5f;
+        readonly List<Rect> walkBlockers = new();
+        readonly Queue<int> walkQueue = new();
+        int[] walkLabels;
+        bool[] walkFree;
+        HashSet<int> reachableBefore;
+
+        /// <summary>경로가 바뀌었으면 다시 검사: 이 벨트를 놓으면 전에 갈 수 있던 존 · 열린 칸 중 하나라도 못 가게 되는가.</summary>
+        void CheckBlocked()
+        {
+            if (checkedPath.Count == path.Count)
+            {
+                var same = true;
+                for (var i = 0; i < path.Count && same; i++) same = checkedPath[i] == path[i];
+                if (same) return;
+            }
+            checkedPath.Clear();
+            checkedPath.AddRange(path);
+            reachableBefore ??= ReachableTargets(null); // 설치 상태 동안 시설은 그대로 (철거하면 CollectArea가 비움)
+            var before = reachableBefore;
+            var after = ReachableTargets(path);
+            pathBlocked = false;
+            foreach (var target in before) pathBlocked |= !after.Contains(target);
+        }
+
+        /// <summary>
+        /// 0.5m 격자로 사람이 설 수 있는 자리(열린 칸 · 시설 · 깔린 벨트 + 사람 반지름 밖)를 이어 가장 큰 덩어리를 찾고,
+        /// 그 덩어리에 닿는 목표(존 i = i, 열린 칸 = 존 수 + 칸 순서)를 돌려준다. extra = 새로 놓을 벨트 경로.
+        /// </summary>
+        HashSet<int> ReachableTargets(IReadOnlyList<Vector3> extra)
+        {
+            var r = Config.BeltWalkerRadius;
+            walkBlockers.Clear();
+            foreach (var rect in facilityRects) walkBlockers.Add(Rect.MinMaxRect(rect.xMin - r, rect.yMin - r, rect.xMax + r, rect.yMax + r));
+            if (extra != null) ConveyorBelt.BlockRects(extra, r, walkBlockers);
+
+            var min = siteArea.min;
+            var nx = Mathf.CeilToInt(siteArea.size.x / WalkStep);
+            var nz = Mathf.CeilToInt(siteArea.size.z / WalkStep);
+            var count = nx * nz;
+            if (walkFree == null || walkFree.Length != count)
+            {
+                walkFree = new bool[count];
+                walkLabels = new int[count];
+            }
+            for (var z = 0; z < nz; z++)
+            for (var x = 0; x < nx; x++)
+                walkFree[z * nx + x] = IsOpen(new Vector2(min.x + (x + 0.5f) * WalkStep, min.z + (z + 0.5f) * WalkStep));
+            foreach (var rect in walkBlockers) // 막는 사각형을 격자에 칠함
+            {
+                var x0 = Mathf.Max(0, Mathf.CeilToInt((rect.xMin - min.x) / WalkStep - 0.5f));
+                var x1 = Mathf.Min(nx - 1, Mathf.FloorToInt((rect.xMax - min.x) / WalkStep - 0.5f));
+                var z0 = Mathf.Max(0, Mathf.CeilToInt((rect.yMin - min.z) / WalkStep - 0.5f));
+                var z1 = Mathf.Min(nz - 1, Mathf.FloorToInt((rect.yMax - min.z) / WalkStep - 0.5f));
+                for (var z = z0; z <= z1; z++)
+                for (var x = x0; x <= x1; x++)
+                    walkFree[z * nx + x] = false;
+            }
+
+            // 덩어리 나누기 (4방향)
+            System.Array.Fill(walkLabels, -1);
+            int best = -1, bestSize = 0, label = 0;
+            for (var i = 0; i < count; i++)
+            {
+                if (!walkFree[i] || walkLabels[i] >= 0) continue;
+                var size = 0;
+                walkLabels[i] = label;
+                walkQueue.Enqueue(i);
+                while (walkQueue.Count > 0)
+                {
+                    var c = walkQueue.Dequeue();
+                    size++;
+                    var cx = c % nx;
+                    var cz = c / nx;
+                    if (cx > 0) Visit(c - 1, label);
+                    if (cx < nx - 1) Visit(c + 1, label);
+                    if (cz > 0) Visit(c - nx, label);
+                    if (cz < nz - 1) Visit(c + nx, label);
+                }
+                if (size > bestSize)
+                {
+                    bestSize = size;
+                    best = label;
+                }
+                label++;
+            }
+
+            var reached = new HashSet<int>();
+            var zones = InteractionZone.Active;
+            for (var i = 0; i < zones.Count; i++)
+            {
+                if (Touches(zones[i].WorldRect, best, min, nx, nz)) reached.Add(i);
+            }
+            var cellIndex = 0;
+            var cellSize = GameManager.Instance.Database.Site.CellSize;
+            foreach (var cell in openCells)
+            {
+                var c = SiteGrid.Instance.CellCenter(cell);
+                if (Touches(new Rect(c.x - cellSize * 0.5f, c.z - cellSize * 0.5f, cellSize, cellSize), best, min, nx, nz)) reached.Add(zones.Count + cellIndex);
+                cellIndex++;
+            }
+            return reached;
+        }
+
+        void Visit(int index, int label)
+        {
+            if (!walkFree[index] || walkLabels[index] >= 0) return;
+            walkLabels[index] = label;
+            walkQueue.Enqueue(index);
+        }
+
+        bool Touches(Rect rect, int label, Vector3 min, int nx, int nz)
+        {
+            var x0 = Mathf.Max(0, Mathf.FloorToInt((rect.xMin - min.x) / WalkStep));
+            var x1 = Mathf.Min(nx - 1, Mathf.FloorToInt((rect.xMax - min.x) / WalkStep));
+            var z0 = Mathf.Max(0, Mathf.FloorToInt((rect.yMin - min.z) / WalkStep));
+            var z1 = Mathf.Min(nz - 1, Mathf.FloorToInt((rect.yMax - min.z) / WalkStep));
+            for (var z = z0; z <= z1; z++)
+            for (var x = x0; x <= x1; x++)
+                if (walkLabels[z * nx + x] == label) return true;
+            return false;
+        }
+
+        /// <summary>저장한 벨트 자리에 선 플레이어 · 알바를 가장 가까운 빈 바닥으로 옮긴다 (들고 있던 상자는 그대로, GDD 7.10 M20-4).</summary>
+        void PushPeopleOff(IReadOnlyList<Vector3> beltPath)
+        {
+            var r = Config.BeltWalkerRadius;
+            blockRects.Clear();
+            ConveyorBelt.BlockRects(beltPath, r, blockRects);
+            foreach (var who in FindObjectsByType<Interactor>(FindObjectsSortMode.None))
+            {
+                var p = who.transform.position;
+                if (!InsideAny(blockRects, p) || !TryFindFloor(p, r, out var floor)) continue;
+                floor.y = p.y;
+                var agent = who.GetComponent<UnityEngine.AI.NavMeshAgent>();
+                if (agent != null && agent.enabled)
+                {
+                    agent.Warp(floor);
+                    continue;
+                }
+                var body = who.GetComponent<CharacterController>();
+                if (body != null) body.enabled = false; // 켠 채 옮기면 되돌아감
+                who.transform.position = floor;
+                if (body != null) body.enabled = true;
+            }
+        }
+
+        /// <summary>p 둘레를 0.5m씩 넓혀 가며 열린 칸 · 시설 · 벨트 밖의 첫 자리.</summary>
+        bool TryFindFloor(Vector3 p, float r, out Vector3 floor)
+        {
+            for (var ring = 1; ring <= 16; ring++)
+            {
+                var d = ring * WalkStep;
+                for (var k = 0; k < 16; k++)
+                {
+                    var angle = k * Mathf.PI / 8f;
+                    floor = p + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * d;
+                    if (!IsOpen(new Vector2(floor.x, floor.z)) || InsideAny(blockRects, floor)) continue;
+                    var clear = true;
+                    foreach (var rect in facilityRects)
+                    {
+                        if (Rect.MinMaxRect(rect.xMin - r, rect.yMin - r, rect.xMax + r, rect.yMax + r).Contains(new Vector2(floor.x, floor.z))) clear = false;
+                    }
+                    if (clear) return true;
+                }
+            }
+            floor = p;
+            return false;
+        }
+
+        static bool InsideAny(List<Rect> rects, Vector3 p)
+        {
+            foreach (var rect in rects)
+            {
+                if (rect.Contains(new Vector2(p.x, p.z))) return true;
+            }
+            return false;
         }
 
         // 연결은 하차 칸 공간 → 스캔 모듈 팔레트뿐 (2026-11-24 축소, ConveyorBelt.CanConnect)
@@ -532,40 +983,35 @@ namespace APC.UI
 
         // ── 격자 · 막힌 칸 ───────────────────────────────────
 
-        void CollectTiles(out Bounds area)
+        /// <summary>열린 모듈 칸 + 시설 · 깔린 벨트 사각형을 모은다 (M20-4: 2m 격자 없음 — 판정은 사각형으로).</summary>
+        void CollectArea(out Bounds area)
         {
-            openTiles.Clear();
-            redTiles.Clear();
+            openCells.Clear();
             facilityRects.Clear();
+            reachableBefore = null;
+            checkedPath.Clear();
             var grid = SiteGrid.Instance;
-            var size = Config.BeltCellSize;
             var moduleSize = GameManager.Instance.Database.Site.CellSize;
-            var perSide = Mathf.RoundToInt(moduleSize / size);
             area = default;
             var first = true;
             foreach (var cell in grid.OpenedCells)
             {
+                openCells.Add(cell);
                 var center = grid.CellCenter(cell);
                 var b = new Bounds(new Vector3(center.x, 0f, center.z), new Vector3(moduleSize, 0f, moduleSize));
                 if (first) area = b;
                 else area.Encapsulate(b);
                 first = false;
-                for (var i = 0; i < perSide; i++)
-                for (var j = 0; j < perSide; j++)
-                {
-                    var offset = new Vector3((i - (perSide - 1) * 0.5f) * size, 0f, (j - (perSide - 1) * 0.5f) * size);
-                    openTiles.Add(ConveyorBelt.TileOf(center + offset));
-                }
             }
 
-            // 시설 자리: 충돌체(책상 · 저금통 · 소품, 바닥 · 사람 · 화물 빼고) + 선반 모델.
+            // 시설 자리: 충돌체(책상 · 저금통 · 소품 · 벽 · **깔린 벨트**, 바닥 · 사람 · 화물 빼고) + 선반 모델.
             // 보관 더미(SharedStorage)는 하차 칸에선 모듈 Content에 붙어 있어 경계를 쓰면 모듈 전체가 막힌다 → 옆 존이 막는 것으로 충분
             foreach (var hit in FindObjectsByType<Collider>(FindObjectsSortMode.None))
             {
-                if (hit.isTrigger || hit is CharacterController || hit.bounds.max.y < 0.3f || hit.GetComponentInParent<Cargo>() != null) continue;
+                if (hit.isTrigger || hit is CharacterController || hit.bounds.max.y < 0.3f || hit.GetComponentInParent<Cargo>() != null || hit.GetComponentInParent<Interactor>() != null) continue;
                 AddFacility(hit.bounds);
             }
-            foreach (var shelf in FindObjectsByType<Shelf>(FindObjectsSortMode.None))
+            foreach (var shelf in FindObjectsByType<ShelfModel>(FindObjectsSortMode.None)) // 구역 보관함(Shelf) 전체가 아니라 모델마다 — 가운데 통로는 비움
             {
                 var renderers = shelf.GetComponentsInChildren<Renderer>();
                 if (renderers.Length == 0) continue;
@@ -573,29 +1019,9 @@ namespace APC.UI
                 foreach (var r in renderers) b.Encapsulate(r.bounds);
                 AddFacility(b);
             }
-            foreach (var zone in InteractionZone.Active) redTiles.UnionWith(TilesIn(zone.WorldRect));
         }
 
-        void AddFacility(Bounds b)
-        {
-            var rect = Rect.MinMaxRect(b.min.x, b.min.z, b.max.x, b.max.z);
-            facilityRects.Add(rect);
-            redTiles.UnionWith(TilesIn(rect));
-        }
-
-        /// <summary>rect와 겹치는 칸 (가장자리 0.05m 스치는 것은 뺌).</summary>
-        static IEnumerable<Vector2Int> TilesIn(Rect rect)
-        {
-            const float skin = 0.05f;
-            var size = Config.BeltCellSize;
-            var minX = Mathf.RoundToInt((rect.xMin + skin) / size);
-            var maxX = Mathf.RoundToInt((rect.xMax - skin) / size);
-            var minZ = Mathf.RoundToInt((rect.yMin + skin) / size);
-            var maxZ = Mathf.RoundToInt((rect.yMax - skin) / size);
-            for (var x = minX; x <= maxX; x++)
-            for (var z = minZ; z <= maxZ; z++)
-                yield return new Vector2Int(x, z);
-        }
+        void AddFacility(Bounds b) => facilityRects.Add(Rect.MinMaxRect(b.min.x, b.min.z, b.max.x, b.max.z));
 
         // ── 그리기 (메시) ────────────────────────────────────
 
@@ -607,21 +1033,31 @@ namespace APC.UI
             return go.AddComponent<MeshFilter>();
         }
 
+        /// <summary>열린 모듈 칸은 옅게, 시설 · 깔린 벨트 · 존 자리는 붉게 (판정과 같은 사각형).</summary>
         void BuildGrid()
         {
             verts.Clear();
             colors.Clear();
             tris.Clear();
-            var size = Config.BeltCellSize;
-            foreach (var tile in openTiles)
+            var moduleSize = GameManager.Instance.Database.Site.CellSize;
+            foreach (var cell in openCells)
             {
-                AddRect(ConveyorBelt.TileCenter(tile), new Vector2(size * 0.92f, size * 0.92f), OverlayHeight, redTiles.Contains(tile) ? blockedColor : gridColor);
+                AddRect(SiteGrid.Instance.CellCenter(cell), new Vector2(moduleSize * 0.98f, moduleSize * 0.98f), OverlayHeight, gridColor);
             }
-            var mesh = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
-            mesh.SetVertices(verts);
-            mesh.SetColors(colors);
-            mesh.SetTriangles(tris, 0);
-            NewMeshObject("Grid").mesh = mesh;
+            foreach (var rect in facilityRects)
+            {
+                if (IsOpen(rect.center)) AddRect(new Vector3(rect.center.x, 0f, rect.center.y), rect.size, OverlayHeight * 1.5f, blockedColor);
+            }
+            foreach (var zone in InteractionZone.Active) AddRect(Center(zone), zone.WorldRect.size, OverlayHeight * 1.5f, blockedColor);
+            if (gridMesh == null)
+            {
+                gridMesh = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+                NewMeshObject("Grid").mesh = gridMesh;
+            }
+            gridMesh.Clear();
+            gridMesh.SetVertices(verts);
+            gridMesh.SetColors(colors);
+            gridMesh.SetTriangles(tris, 0);
         }
 
         void Redraw()
@@ -635,29 +1071,84 @@ namespace APC.UI
 
             var cost = Cost;
             var affordable = GameManager.Instance.Wallet.Cash.CurrentValue >= cost;
-            var color = !affordable ? noMoneyColor : end != null ? endColor : previewColor;
-            var width = Config.BeltCellSize * 0.7f;
+            var color = !affordable || (end != null && pathBlocked) ? noMoneyColor : end != null ? endColor : previewColor;
+            var width = ConveyorBelt.Width;
             for (var i = 1; i < path.Count; i++) AddSegment(path[i - 1], path[i], width, color);
             if (selected != null)
             {
                 var line = selected.Points;
                 for (var i = 1; i < line.Count; i++) AddSegment(line[i - 1], line[i], width, noMoneyColor);
             }
+            if (scanMode) // 스캔 구역: 작업 존 초록, 선택된 것은 노란 아웃라인 (M20-5) — 벨트 윗면보다 높게 그려 묻히지 않게
+            {
+                var y = ScanDrawHeight;
+                foreach (var belt in ConveyorBelt.All)
+                {
+                    var scan = belt.ScanZone;
+                    if (scan == null) continue;
+                    var rect = scan.WorldRect;
+                    AddRect(Center(scan), rect.size, y, scan == removingScan ? noMoneyColor : scanZoneColor);
+                    if (scan == selectedScan) AddOutline(rect, 0.12f, y + 0.01f, selectedColor);
+                }
+                AddScanGhost(y);
+            }
             previewMesh.Clear();
             previewMesh.SetVertices(verts);
             previewMesh.SetColors(colors);
             previewMesh.SetTriangles(tris, 0);
 
-            var showCost = path.Count >= 2;
+            var scanCost = PendingScanCost;
+            var scanAffordable = GameManager.Instance.Wallet.Cash.CurrentValue >= scanCost;
+            var showCost = scanMode ? scanCost > 0 && selectedScan != null : path.Count >= 2;
             costLabel.gameObject.SetActive(showCost);
             if (showCost)
             {
-                costLabel.text = $"₩{cost:N0}";
-                costLabel.color = affordable ? Color.white : noMoneyColor;
-                costLabel.transform.position = (Vector2)cam.WorldToScreenPoint(path[^1]) + costOffset;
+                costLabel.text = $"₩{(scanMode ? scanCost : cost):N0}";
+                costLabel.color = (scanMode ? scanAffordable : affordable) ? Color.white : noMoneyColor;
+                costLabel.transform.position = (Vector2)cam.WorldToScreenPoint(scanMode ? selectedScan.transform.position : path[^1]) + costOffset;
             }
-            saveButton.interactable = done && affordable;
-            undoButton.interactable = start != null;
+            saveButton.interactable = scanMode ? HasPendingScan && scanAffordable : done && affordable && !pathBlocked;
+            undoButton.interactable = !scanMode && start != null;
+            beltModeButton.interactable = scanMode;   // 지금 모드 버튼은 눌린 채(꺼짐)
+            scanModeButton.interactable = !scanMode;
+            scanRemoveButton.gameObject.SetActive(scanMode && selectedScan != null && removingScan == null);
+        }
+
+        static float ScanDrawHeight => Config.BeltHeight + 0.08f;
+
+        /// <summary>
+        /// 스캔 모드 미리보기: 포인터가 구역 없는 벨트 위면 그 지점에 놓일 초록 상자 + 작업 존 (놓을 수 없으면 빨강).
+        /// 쪽은 누르기와 같게 (포인터 쪽 먼저, 막혔으면 반대쪽).
+        /// </summary>
+        void AddScanGhost(float y)
+        {
+            if (draggingScan != null || removingScan != null || ScanZoneAt(lastGround) != null) return;
+            var belt = BeltAt(lastGround);
+            if (belt == null || belt.ScanZone != null) return;
+            var distance = ClampAlong(belt, belt.DistanceAlong(lastGround));
+            belt.PoseAt(distance, out var point, out var dir);
+            var right = Vector3.Cross(Vector3.up, dir);
+            var pointer = Vector3.Dot(lastGround - point, right) >= 0f ? 1 : -1;
+            var side = WorkFree(belt, distance, pointer, null) ? pointer : WorkFree(belt, distance, -pointer, null) ? -pointer : 0;
+            var color = side != 0 ? new Color(0.3f, 1f, 0.4f, 0.75f) : noMoneyColor; // 바닥 · 벨트 색과 안 섞이게 진하게
+            if (side == 0) side = pointer;
+            var along = Mathf.Abs(dir.x) > 0.5f;
+            AddRect(point, along ? new Vector2(0.5f, ConveyorBelt.Width + 0.1f) : new Vector2(ConveyorBelt.Width + 0.1f, 0.5f), y, color);
+            var center = point + right * (side * BeltScanZone.WorkOffset);
+            var size = BeltScanZone.WorkSize;
+            var rect = new Rect(center.x - size.x * 0.5f, center.z - size.y * 0.5f, size.x, size.y);
+            AddRect(center, size, y, color);
+            AddOutline(rect, 0.1f, y + 0.01f, Color.white);
+        }
+
+        void AddOutline(Rect rect, float thickness, float y, Color color)
+        {
+            var t = thickness;
+            if (t <= 0f) return;
+            AddRect(new Vector3(rect.center.x, 0f, rect.yMin), new Vector2(rect.width + t, t), y, color);
+            AddRect(new Vector3(rect.center.x, 0f, rect.yMax), new Vector2(rect.width + t, t), y, color);
+            AddRect(new Vector3(rect.xMin, 0f, rect.center.y), new Vector2(t, rect.height + t), y, color);
+            AddRect(new Vector3(rect.xMax, 0f, rect.center.y), new Vector2(t, rect.height + t), y, color);
         }
 
         void AddRect(Vector3 center, Vector2 size, float height, Color color)

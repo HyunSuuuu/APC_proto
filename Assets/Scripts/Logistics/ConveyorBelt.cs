@@ -28,7 +28,7 @@ namespace APC.Logistics
     /// <summary>
     /// 컨베이어 벨트 1개 (GDD 7.10, M18-1). 꺾임 점을 잇는 경로를 따라 화물을 `beltCellSize` 간격 · 초당 `beltCellsPerSecond`칸으로 옮긴다.
     /// Start는 첫 칸이 비면 하나 올리고, End가 못 받으면 맨 앞부터 줄지어 멈췄다가 자리가 나면 다시 간다.
-    /// 벨트 위 화물은 아무 스택 · 더미에도 없으므로 누구도 집지 못한다. 바닥 장치라 충돌체 · 네비메시 영향 없음.
+    /// 벨트 위 화물은 아무 스택 · 더미에도 없으므로 누구도 집지 못한다. 벨트는 벽처럼 막는다 — 사람 · 알바가 못 지나감 (M20-4).
     /// </summary>
     public sealed class ConveyorBelt : MonoBehaviour
     {
@@ -51,8 +51,52 @@ namespace APC.Logistics
         public int Cost { get; set; }
         public IBeltStart Start => start;
         public IBeltEnd End => end;
+        public float Length => length;
+
+        /// <summary>벨트 스캔 구역 (벨트당 1개, 없으면 null, M20-5). 미분류 상자는 그 지점에서 스캔될 때까지 멈춘다.</summary>
+        public BeltScanZone ScanZone { get; set; }
+
+        /// <summary>스캔 지점에 와 있는(또는 그 앞에서 오는) 미분류 상자 수 — 하차 알바가 올지 정한다.</summary>
+        public int UnsortedBeforeScan
+        {
+            get
+            {
+                if (ScanZone == null) return 0;
+                var n = 0;
+                for (var i = 0; i < cargos.Count; i++)
+                {
+                    if (cargos[i].Unsorted && distances[i] <= ScanZone.Distance + 0.01f) n++;
+                }
+                return n;
+            }
+        }
+
+        /// <summary>스캔 지점에 도착해 멈춘 미분류 상자 (맨 앞 하나). 없으면 null.</summary>
+        public Cargo CargoAtScan()
+        {
+            if (ScanZone == null) return null;
+            for (var i = 0; i < cargos.Count; i++)
+            {
+                if (cargos[i].Unsorted && distances[i] >= ScanZone.Distance - 0.01f && !DOTween.IsTweening(cargos[i].transform)) return cargos[i];
+            }
+            return null;
+        }
         float lastFeed; // 같은 Start의 벨트끼리 번갈아 올리기 (오래 못 받은 벨트 먼저)
         static int fedFrame = -1;
+
+        /// <summary>벨트 위 그 품목 · 출처 화물 수. 클로저 없이 — Warehouse.CountCarried가 빈 상차 칸마다 매 프레임 부른다 (2026-11-25 GC).</summary>
+        public static int CountOnBelts(Data.ItemDefinition item, CargoOrigin origin)
+        {
+            var n = 0;
+            foreach (var belt in Registered)
+            {
+                foreach (var cargo in belt.cargos)
+                {
+                    if (cargo.Item == item && cargo.Origin == origin) n++;
+                }
+            }
+            return n;
+        }
 
         /// <summary>벨트 위 화물 중 조건에 맞는 수 (End가 맞는 벨트만). '찼다' 계산에 손에 든 수처럼 더한다 (GDD 7.10).</summary>
         public static int CountOnBelts(System.Func<ConveyorBelt, bool> beltMatch, System.Func<Cargo, bool> cargoMatch)
@@ -81,44 +125,39 @@ namespace APC.Logistics
         /// <summary>착지 후 beltPickupDelay가 지났는가 — 쌓이자마자 벨트로 빠져 순간이동처럼 보이지 않게 (GDD 7.10).</summary>
         public static bool Settled(Cargo cargo) => Time.time >= cargo.LandedAt + GameManager.Instance.Database.Logistics.BeltPickupDelay;
 
-        /// <summary>월드 위치 → 2m 칸 (칸 중심 = 칸 크기의 배수, 모듈 10m 칸과 맞물림).</summary>
-        public static Vector2Int TileOf(Vector3 position)
-        {
-            var size = GameManager.Instance.Database.Logistics.BeltCellSize;
-            return new Vector2Int(Mathf.RoundToInt(position.x / size), Mathf.RoundToInt(position.z / size));
-        }
+        /// <summary>벨트 폭 (m) — 판 · 막는 상자 · 설치 판정이 같이 쓴다.</summary>
+        public static float Width => GameManager.Instance.Database.Logistics.BeltWidth;
 
-        public static Vector3 TileCenter(Vector2Int tile)
-        {
-            var size = GameManager.Instance.Database.Logistics.BeltCellSize;
-            return new Vector3(tile.x * size, 0f, tile.y * size);
-        }
-
-        /// <summary>
-        /// a → b 구간이 덮는 칸들: 0.5m마다 벨트 폭 양쪽 가장자리 칸 (격자에서 벗어난 Start · End 연결 구간은 두 칸에 걸침).
-        /// 각 표본 위치와 칸을 out에 더한다.
-        /// </summary>
-        public static void Footprint(Vector3 a, Vector3 b, List<(Vector3 point, Vector2Int tile)> output)
+        /// <summary>a → b 구간 중심선 위 0.25m마다 표본 (양 끝 포함). 판정은 표본마다 벨트 폭 사각형으로.</summary>
+        public static void Footprint(Vector3 a, Vector3 b, List<Vector3> output)
         {
             var length = Vector3.Distance(a, b);
             if (length <= 0f) return;
-            var dir = (b - a) / length;
-            var side = Vector3.Cross(Vector3.up, dir) * (GameManager.Instance.Database.Logistics.BeltCellSize * 0.3f);
-            var steps = Mathf.CeilToInt(length / 0.5f);
-            for (var i = 0; i <= steps; i++)
-            {
-                var p = a + dir * (length * i / steps);
-                output.Add((p, TileOf(p + side)));
-                output.Add((p, TileOf(p - side)));
-            }
+            var steps = Mathf.CeilToInt(length / 0.25f);
+            for (var i = 0; i <= steps; i++) output.Add(Vector3.Lerp(a, b, (float)i / steps));
         }
 
-        /// <summary>경로 길이를 칸 수로 (비용 = 칸 수 × beltCellCost). 최소 1칸.</summary>
-        public static int CellCount(IReadOnlyList<Vector3> path)
+        public static float PathLength(IReadOnlyList<Vector3> path)
         {
             var length = 0f;
             for (var i = 1; i < path.Count; i++) length += Vector3.Distance(path[i - 1], path[i]);
-            return Mathf.Max(1, Mathf.CeilToInt(length / GameManager.Instance.Database.Logistics.BeltCellSize - 0.01f));
+            return length;
+        }
+
+        /// <summary>설치비 = 길이(m, 올림, 최소 1) × beltCostPerMeter (GDD 7.10 M20-4).</summary>
+        public static int CostOf(IReadOnlyList<Vector3> path)
+            => Mathf.Max(1, Mathf.CeilToInt(PathLength(path) - 0.01f)) * GameManager.Instance.Database.Logistics.BeltCostPerMeter;
+
+        /// <summary>경로 구간마다 벨트가 막는 바닥 사각형 (x = 월드 x, y = 월드 z, 꺾이는 곳 이어지게 끝을 폭 절반 늘림). 가로 · 세로 구간만.</summary>
+        public static void BlockRects(IReadOnlyList<Vector3> path, float inflate, List<Rect> output)
+        {
+            var half = Width * 0.5f + inflate;
+            for (var i = 1; i < path.Count; i++)
+            {
+                var a = path[i - 1];
+                var b = path[i];
+                output.Add(Rect.MinMaxRect(Mathf.Min(a.x, b.x) - half, Mathf.Min(a.z, b.z) - half, Mathf.Max(a.x, b.x) + half, Mathf.Max(a.z, b.z) + half));
+            }
         }
 
         /// <summary>벨트를 만든다. path = Start 쪽 끝부터 꺾임 점 · End 쪽 끝 (월드, 가로 · 세로로만 이어짐).</summary>
@@ -218,7 +257,9 @@ namespace APC.Logistics
                     limit = distances[i] - spacing;
                     continue;
                 }
-                var d = Mathf.Max(distances[i], Mathf.Min(distances[i] + speed * dt, limit));
+                var stop = limit;
+                if (ScanZone != null && cargos[i].Unsorted && distances[i] <= ScanZone.Distance + 0.01f) stop = Mathf.Min(stop, ScanZone.Distance); // 스캔될 때까지 지점에서 멈춤 (M20-5)
+                var d = Mathf.Max(distances[i], Mathf.Min(distances[i] + speed * dt, stop));
                 distances[i] = d;
                 Place(cargos[i], d);
                 limit = d - spacing;
@@ -265,6 +306,37 @@ namespace APC.Logistics
             cargo.transform.SetPositionAndRotation(position, rotation);
         }
 
+        /// <summary>경로 위 거리 → 바닥 위치 · 진행 방향 (스캔 구역 놓기).</summary>
+        public void PoseAt(float distance, out Vector3 point, out Vector3 direction)
+        {
+            Pose(distance, out var position, out var rotation);
+            point = new Vector3(position.x, 0f, position.z);
+            direction = rotation * Vector3.forward;
+        }
+
+        /// <summary>바닥 점 p에 가장 가까운 경로 위 거리.</summary>
+        public float DistanceAlong(Vector3 p)
+        {
+            var best = float.MaxValue;
+            var result = 0f;
+            var walked = 0f;
+            for (var i = 1; i < points.Count; i++)
+            {
+                var ab = points[i] - points[i - 1];
+                var segment = ab.magnitude;
+                var t = ab.sqrMagnitude > 0f ? Mathf.Clamp01(Vector3.Dot(p - points[i - 1], ab) / ab.sqrMagnitude) : 0f;
+                var q = points[i - 1] + ab * t;
+                var d = Vector2.Distance(new Vector2(p.x, p.z), new Vector2(q.x, q.z));
+                if (d < best)
+                {
+                    best = d;
+                    result = walked + segment * t;
+                }
+                walked += segment;
+            }
+            return result;
+        }
+
         /// <summary>경로 위 거리 → 화물 위치 · 방향 (벨트 위 높이).</summary>
         void Pose(float distance, out Vector3 position, out Quaternion rotation)
         {
@@ -286,11 +358,33 @@ namespace APC.Logistics
             }
         }
 
-        /// <summary>shortcut: 구간마다 회색 판 하나 (화살표 · 움직이는 무늬 없음) — 벨트 모델이 오면 교체 (GDD 18장 57)</summary>
+        /// <summary>
+        /// shortcut: 구간마다 회색 판 하나 (화살표 · 움직이는 무늬 없음) — 벨트 모델이 오면 교체 (GDD 18장 57).
+        /// 구간마다 막는 상자(충돌체 + 네비메시 장애물 carving) — 사람 · 알바가 못 지나감 (M20-4). 충돌체가 바닥으로 구워지지 않게 굽기에서 뺀다 (선반과 같음).
+        /// </summary>
         void BuildVisual()
         {
             var config = GameManager.Instance.Database.Logistics;
-            var width = config.BeltCellSize * 0.7f;
+            var width = Width;
+            gameObject.AddComponent<Unity.AI.Navigation.NavMeshModifier>().ignoreFromBuild = true;
+            for (var i = 1; i < points.Count; i++)
+            {
+                var a = points[i - 1];
+                var b = points[i];
+                var block = new GameObject("BeltBlock");
+                block.transform.SetParent(transform, false);
+                block.transform.SetPositionAndRotation((a + b) * 0.5f, Quaternion.LookRotation(b - a));
+                var size = new Vector3(width, config.BeltBlockHeight, Vector3.Distance(a, b) + width);
+                var center = new Vector3(0f, config.BeltBlockHeight * 0.5f, 0f);
+                var box = block.AddComponent<BoxCollider>();
+                box.center = center;
+                box.size = size;
+                var obstacle = block.AddComponent<UnityEngine.AI.NavMeshObstacle>();
+                obstacle.shape = UnityEngine.AI.NavMeshObstacleShape.Box;
+                obstacle.center = center;
+                obstacle.size = size;
+                obstacle.carving = true;
+            }
             for (var i = 1; i < points.Count; i++)
             {
                 var a = points[i - 1];

@@ -17,15 +17,24 @@ namespace APC.Logistics
     /// </summary>
     public sealed class TruckPool : MonoBehaviour
     {
-        const int MaxSize = 16; // 임시
+        const int MaxSize = 64; // 임시 — 동시에 나와 있는 트럭보다 커야 회차 때 지우지 않는다 (TycoonTest 하차 줄 30대)
 
         static TruckPool instance;
+
+        /// <summary>감시용: 만든 · 지운 트럭 수 (성능 패널). Prewarm 뒤에도 오르면 풀이 모자라거나 풀을 안 거친 트럭.</summary>
+        public static int Created { get; private set; }
+        public static int Destroyed { get; private set; }
 
         readonly Dictionary<Component, ObjectPool<Component>> byPrefab = new();
         readonly Dictionary<Component, ObjectPool<Component>> byInstance = new();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() => instance = null;
+        static void ResetStatics()
+        {
+            instance = null;
+            Created = 0;
+            Destroyed = 0;
+        }
 
         static TruckPool Instance => instance != null ? instance : instance = new GameObject("TruckPool").AddComponent<TruckPool>();
 
@@ -56,6 +65,7 @@ namespace APC.Logistics
             if (!self.byInstance.Remove(truck, out var pool))
             {
                 Debug.LogWarning($"[TruckPool] 풀에서 꺼내지 않은 트럭 {truck.name} — 지웁니다.", truck);
+                Destroyed++;
                 Destroy(truck.gameObject);
                 return;
             }
@@ -78,13 +88,18 @@ namespace APC.Logistics
             pool = new ObjectPool<Component>(
                 () =>
                 {
+                    Created++;
                     var truck = Instantiate(prefab, transform);
                     truck.gameObject.SetActive(false);
                     return truck;
                 },
                 actionOnGet: null, // Get<T>이 자리를 잡은 뒤 켠다
                 actionOnRelease: OnRelease,
-                actionOnDestroy: truck => Destroy(truck.gameObject),
+                actionOnDestroy: truck =>
+                {
+                    Destroyed++;
+                    Destroy(truck.gameObject);
+                },
                 collectionCheck: true, defaultCapacity: 4, maxSize: MaxSize);
             byPrefab[prefab] = pool;
             return pool;

@@ -12,8 +12,6 @@ namespace APC.Logistics
     {
         public static Warehouse Instance { get; private set; }
 
-        [SerializeField] Shelf shelfPrefab;
-
         readonly List<Shelf> shelves = new();
 
         public IReadOnlyList<Shelf> Shelves => shelves;
@@ -63,12 +61,9 @@ namespace APC.Logistics
             return false;
         }
 
-        /// <summary>선반 자리에 그 자리의 품목 · 모양 · 용량으로 선반을 세운다 (팝 연출). ShelfSlot.Start가 부른다.</summary>
-        public Shelf BuildShelf(ShelfSlot slot)
+        /// <summary>보관 구역 보관함(선반 모델 4개 통합, M20-2)을 자리의 품목 · 용량으로 설정하고 등록한다 (팝 연출). ShelfSlot.Start가 부른다.</summary>
+        public Shelf SetupShelf(ShelfSlot slot, Shelf shelf)
         {
-            var prefab = slot.ShelfPrefab != null ? slot.ShelfPrefab : shelfPrefab;
-            var shelf = Instantiate(prefab, slot.transform); // 로컬 0: 해금 모듈은 팝 연출로 크기 0에서 시작해 월드 좌표로 놓으면 모듈 중심에 붙는다
-
             shelf.name = $"Shelf_{slot.Item.Id}";
             shelf.Setup(slot.Item, slot.Capacity > 0 ? slot.Capacity : GameManager.Instance.Database.Logistics.ShelfCapacity);
             slot.Occupant = shelf;
@@ -77,7 +72,7 @@ namespace APC.Logistics
             return shelf;
         }
 
-        // ── 선반 단계 (GDD 7.3, M16-3): 보관 모듈마다 1 → 2 → 3. 용량 = 기본 × (1 + 0.5 × (단계 − 1)) → 선반 6 · 9 · 12, 랙 4 · 6 · 8
+        // ── 선반 단계 (GDD 7.3, M16-3 · M20-2): 보관 모듈마다 1 → 2 → 3. 용량 = Shelf.CapacityAt → 구역 24 · 32 · 40, 랙 16 · 24 · 32
         readonly Dictionary<APC.Site.SiteModule, int> shelfStages = new();
 
         public int GetShelfStage(APC.Site.SiteModule module) => shelfStages.TryGetValue(module, out var stage) ? stage : 1;
@@ -104,8 +99,6 @@ namespace APC.Logistics
             return null;
         }
 
-        public static int StageCapacity(int baseCapacity, int stage) => baseCapacity + baseCapacity / 2 * (stage - 1);
-
         /// <summary>그 모듈 선반을 다음 단계로 (돈 · 최대 확인은 부르는 쪽). 그 모듈 선반 전부 용량이 바뀐다.</summary>
         public void RaiseShelfStage(APC.Site.SiteModule module)
         {
@@ -114,7 +107,7 @@ namespace APC.Logistics
             foreach (var shelf in shelves)
             {
                 if (shelf.GetComponentInParent<APC.Site.SiteModule>() != module) continue;
-                shelf.SetCapacity(StageCapacity(shelf.BaseCapacity, stage));
+                shelf.SetCapacity(shelf.CapacityAt(stage));
                 // 크기 0에서 키우는 FacilityPop은 쓰지 않는다 — 팝업으로 멈춘 동안 0에 머물러 그때 들어온 상자가 크기 0으로 붙음
                 shelf.transform.DOKill(true);
                 shelf.transform.DOPunchScale(Vector3.one * 0.12f, 0.35f, 6, 0.5f).SetLink(shelf.gameObject);
@@ -202,13 +195,17 @@ namespace APC.Logistics
         /// <summary>플레이어 · 알바가 지금 들고 있는 화물 + 벨트 위 화물(GDD 7.10) 중 조건에 맞는 수.</summary>
         public static int CountCarried(ItemDefinition item, CargoOrigin origin)
         {
-            var total = ConveyorBelt.CountOnBelts(_ => true, c => c.Item == item && c.Origin == origin);
-            foreach (var who in Interactor.All)
+            // 인덱스로 돈다: IReadOnlyList foreach는 열거자 박싱 — 빈 상차 칸마다 매 프레임 불려 GC (2026-11-25)
+            var total = ConveyorBelt.CountOnBelts(item, origin);
+            var all = Interactor.All;
+            for (var i = 0; i < all.Count; i++)
             {
-                if (who.Stack == null) continue;
-                foreach (var cargo in who.Stack.Items)
+                var stack = all[i].Stack;
+                if (stack == null) continue;
+                var items = stack.Items;
+                for (var j = 0; j < items.Count; j++)
                 {
-                    if (cargo.Item == item && cargo.Origin == origin) total++;
+                    if (items[j].Item == item && items[j].Origin == origin) total++;
                 }
             }
             return total;

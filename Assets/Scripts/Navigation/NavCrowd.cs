@@ -13,6 +13,7 @@ namespace APC.Navigation
         {
             public Transform Body;
             public float Speed;
+            public bool Paused;
             public Vector3 Position;
             public int Next;
             public readonly List<Vector3> Path = new();
@@ -42,6 +43,32 @@ namespace APC.Navigation
             var a = agents[agent];
             a.Path.Clear();
             a.Next = 0;
+        }
+
+        /// <summary>빼기 — 길을 지우고 몸을 놓는다. 번호는 다시 쓰지 않는다 (shortcut: 고용 · 해고마다 칸이 하나씩 남음, 수천 명이면 빈 칸 재사용).</summary>
+        public void Remove(int agent)
+        {
+            Stop(agent);
+            agents[agent].Body = null;
+        }
+
+        /// <summary>멈춤 (길은 그대로, 풀면 이어서 감).</summary>
+        public void SetPaused(int agent, bool paused) => agents[agent].Paused = paused;
+
+        public void SetSpeed(int agent, float speed) => agents[agent].Speed = speed;
+
+        /// <summary>남은 길이 (m, 지금 위치 → 남은 웨이포인트). 서 있으면 0.</summary>
+        public float RemainingDistance(int agent)
+        {
+            var a = agents[agent];
+            var total = 0f;
+            var from = a.Position;
+            for (var i = a.Next; i < a.Path.Count; i++)
+            {
+                total += Vector3.Distance(from, a.Path[i]);
+                from = a.Path[i];
+            }
+            return total;
         }
 
         public bool IsMoving(int agent) => agents[agent].Next < agents[agent].Path.Count;
@@ -76,7 +103,7 @@ namespace APC.Navigation
                 for (var i = 0; i < agents.Count; i++)
                 {
                     var a = agents[i];
-                    if (a.Next >= a.Path.Count) continue;
+                    if (a.Paused || a.Next >= a.Path.Count) continue;
                     var budget = a.Speed * deltaTime;
                     var position = a.Position;
                     var heading = Vector3.zero;

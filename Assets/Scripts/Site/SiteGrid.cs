@@ -195,20 +195,26 @@ namespace APC.Site
 
         /// <summary>
         /// 모듈 재배치 적용 (GDD 4.4, 사무실 PC `모듈` 탭을 닫을 때). 모듈 → 새 칸. 보관 · 반품 · 빈 공간 모듈의 자리 맞바꿈이라 열린 칸은 그대로다.
-        /// 모듈 통째로 옮기므로 선반 · 상자 · 작업 지점이 같이 간다. 옮긴 모듈은 팝 연출, 하나라도 옮겼으면 OnMoved.
+        /// 모듈 통째로 옮기므로 선반 · 상자 · 작업 지점 · 주차한 트럭이 같이 간다. 옮기거나 돌린 모듈은 팝 연출, 하나라도 바뀌었으면 OnMoved.
+        /// yaw = Y 회전 (0 / 90 / 180 / 270, M20-3 [회전]).
         /// </summary>
-        public void ApplyArrangement(IReadOnlyDictionary<SiteModule, Vector2Int> arrangement)
+        public void ApplyArrangement(IReadOnlyDictionary<SiteModule, (Vector2Int cell, int yaw)> arrangement)
         {
             var moved = false;
             foreach (var pair in arrangement)
             {
-                if (pair.Key == null || WorldToCell(pair.Key.transform.position) == pair.Value) continue;
-                pair.Key.transform.position = CellCenter(pair.Value);
+                if (pair.Key == null) continue;
+                var t = pair.Key.transform;
+                if (WorldToCell(t.position) == pair.Value.cell && YawOf(pair.Key) == pair.Value.yaw) continue;
+                t.SetPositionAndRotation(CellCenter(pair.Value.cell), Quaternion.Euler(0f, pair.Value.yaw, 0f));
                 if (pair.Key.Kind != SiteModule.ModuleKind.Empty) FacilityPop.Play(pair.Key.transform);
                 moved = true;
             }
             if (moved) movedSubject.OnNext(Unit.Default);
         }
+
+        /// <summary>모듈의 Y 회전을 90° 단위로 (0 / 90 / 180 / 270).</summary>
+        public static int YawOf(SiteModule module) => ((Mathf.RoundToInt(module.transform.eulerAngles.y / 90f) % 4 + 4) % 4) * 90;
 
         /// <summary>그 위치가 열린 칸 안인가 (시작 전에는 빈 땅 · 입구 칸도).</summary>
         public bool IsWalkable(Vector3 worldPosition)

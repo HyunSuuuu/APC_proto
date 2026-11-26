@@ -225,9 +225,9 @@ PlayerMover : 이동 전에 SiteGrid.IsAreaWalkable로 열린 칸 안인지 확�
 SiteNavMesh : 팝 연출이 끝나면 네비메시 다시 굽기 (알바용)
 SiteUnlocker : 울타리를 다음 구역으로 옮김
 
-모듈 재배치 (GDD 4.4): 계약 PC `모듈` 탭(ModulePanel) 미니맵에서 끌어 놓기 → 팝업 닫을 때
-SiteGrid.ApplyArrangement → 모듈 통째로 이동(선반 · 상자 · 작업 지점 함께) → OnMoved
-   → SiteNavMesh 다시 굽기 · StaffWorker.Repath · SiteUnlocker 빈 공간 발판 자리
+모듈 재배치 (GDD 4.4): 계약 PC `모듈` 탭(ModulePanel) 미니맵에서 끌어 놓기 · 칸 누르고 [회전] → 팝업 닫을 때
+SiteGrid.ApplyArrangement(칸 + yaw) → 모듈 통째로 이동 · 회전(선반 · 상자 · 작업 지점 · 주차 트럭 함께) → OnMoved
+   → SiteNavMesh 다시 굽기 · StaffWorker.Repath · SiteUnlocker 빈 공간 발판 자리 · SiteWalls 다시 짓기
 ```
 
 잠긴 칸에는 아무것도 없다 (보이지 않고 들어갈 수 없음). 해금하면 그 모듈 안의 `ShelfSlot`, `InboundBay` 등이 켜지면서 스스로 동작을 시작한다.
@@ -335,7 +335,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 | [CashFlyConfig](../Scripts/Data/CashFlyConfig.cs) | `CashFlyConfig` | 주운 현금 → HUD 저금통 **달러 아이콘 연출**: 비행 시간, **속도 그래프**(`moveCurve`, 시간 0~1 → 경로 진행 0~1, 기울기 = 속도, 1을 넘기면 지나쳤다 돌아옴), 포물선 높이, **출발 랜덤 반경**(`startRadius`, HUD px — 플레이어 화면 위치 둘레 원 안 무작위 지점에서 출발, 0 = 중앙), 기본 크기, **크기 그래프**(`scaleCurve`, 시간 → 배율), 도착 때 저금통 아이콘 튐. Build Site가 `CashFlyEffect`에 직접 연결 (없으면 만듦, 비면 `OrDefault`) |
 | [GoldenTruckConfig](../Scripts/Data/GoldenTruckConfig.cs) | `GoldenTruckConfig` | **황금 트럭** (GDD 6.4, 2026-11-18 `LogisticsConfig`에서 옮김): 확률 · 금 값 배율, 몸체 색(`solidColor` = `_BaseMap`을 흰색으로 덮어 단색) · 깜빡임, 점광원, 반짝임 파티클(`M_GoldSparkle`), 쏟기(지연 · 간격 · 튐 · 쌓는 모양 · 떠남 지연), 흡수(반경 · 간격 · 비행 · 회전 · 크기 그래프). `GameDatabase.GoldenTruck` (비면 `OrDefault`). 값은 매번 읽으므로 Play 중 조절 가능 |
 | [StampConfig](../Scripts/Data/StampConfig.cs) | `StampConfig` | 계약 PC **도장 연출**: 누르기 배율 · 시간, 카드 위 머무는 시간, 복귀 시간 · 이징, 자국 · 필터, 흔들림 · 사유 시간, 계약 후 팝업 닫힘 지연. **`GameDatabase`가 아니라** Build Site가 `Stamp` · `StampCard` · `ContractPopup`에 직접 연결 (없으면 만들고, 연결이 비면 기본값 `OrDefault`) |
-| [NavGridConfig](../Scripts/Data/NavGridConfig.cs) | `NavGridConfig` | A* 격자 (2026-11-24): 칸 0.5m · 장애물 키우기 0.5 · 타일 2m · 장애물 높이 띠 0.3~2.0 · 붙이기 반경 2m · 프레임당 길찾기 20. **GameDatabase에 아직 안 넣음** (측정 도구만 씀) |
+| [NavGridConfig](../Scripts/Data/NavGridConfig.cs) | `NavGridConfig` | A* 격자 (2026-11-24): 칸 0.5m · 장애물 키우기 0.5 · 타일 2m · 장애물 높이 띠 0.3~2.0 · 붙이기 반경 2m · 프레임당 길찾기 20. `GameDatabase.NavGrid`(비면 기본값 `OrDefault`, 2026-11-25 A* 토글) · 측정 도구는 에셋 경로로 |
 | [NavBenchmarkConfig](../Scripts/Data/NavBenchmarkConfig.cs) | `NavBenchmarkConfig` | 길찾기 비교 측정: 알바 수 · 예열 · 측정 · 반복, 보정(실제 알바 직무별 수 · 뽑는 간격 0.1초), 길 쌍 수 · 길이 비율 한도, 레일 크기 · 개수, Profiler 기록. 메뉴가 에셋 경로로 읽음 |
 | [DataTypes](../Scripts/Data/DataTypes.cs) | — | 공용 구조체 `IntRange`(`Roll()`로 무작위), `WeightedInt` |
 
@@ -431,7 +431,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### InteractionZone (추상)
 [Interaction/InteractionZone.cs](../Scripts/Interaction/InteractionZone.cs)
 - **역할**: 모든 존의 바탕. 영역(`size`, 루트 기준 XZ 사각형), 안에 있는 interactor 목록, 바닥 색 표시, 작업 지점(`Slots`, 자식 `WorkSlot`). `Active`로 켜진 모든 존을 본다.
-- **동작**: `FindAt(위치)`는 등록된 존을 순서대로 보고 처음 맞는 것을 돌려준다. 바닥 색은 `FloorProgress`에 따라 idle → active로 바뀐다 (`MaterialPropertyBlock`으로 재질 복사 없이).
+- **동작**: `FindAt(위치)`는 등록된 존을 순서대로 보고 처음 맞는 것을 돌려준다 — 존 바닥 사각형(`WorldRect`)을 프레임마다 한 번 계산해 두고 비교 (2026-11-25, 사람마다 `InverseTransformPoint`면 알바 100명 × 존 193개 = 5ms). 존이 켜지고 꺼지면 다시 계산. `Active`(List) · `Slots`(배열)는 foreach 박싱을 없애려고 구체 타입 — 읽기만 한다. 바닥 색은 `FloorProgress`에 따라 idle → active로 바뀐다 (`MaterialPropertyBlock`으로 재질 복사 없이).
 - **하위 클래스가 정하는 것**: `Tick`(필수), `WaitsForReadyDelay`, `TicksWhileMoving`(true면 멈추지 않아도 Tick — 쓰레기장, M13-11), `FloorProgress`, `OnEnter`/`OnExit`.
 - **겹침 확인**: `WorldRect`(바닥 사각형), `AnyOverlap(rect)`(어떤 존과든 겹치나 — 나중에 놓는 패드 자리 찾기), `FootprintRect(transform, half)`(로컬 사각형 → 월드).
 - **주의**: 루트 크기(scale)는 1로 둔다. `OnEnable`/`OnDisable`/`Update`를 덮어쓸 때는 `base.` 호출을 잊지 않는다.
@@ -535,22 +535,44 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Logistics/ConveyorBelt.cs](../Scripts/Logistics/ConveyorBelt.cs) · [UI/BeltPlacer.cs](../Scripts/UI/BeltPlacer.cs)
 - **역할**: 컨베이어 벨트 (GDD 7.10, 2026-11-24 축소). 2m 격자 경로로 화물을 초당 1칸 옮김, End가 차면 줄지어 멈춤, 착지 0.3초 뒤 가져감, '찼다' 계산에 벨트 위 수 포함(`CountOnBelts`). `BeltPlacer` = B책상 `벨트` 탭 [설치] 화면(위에서 보기 · 격자 · 비용 · 저장/취소 · 철거 확인). 재배치 때 걸친 벨트 철거는 `ModulePanel`.
 - **연결**: 하차 칸 공간 → 스캔 모듈 팔레트 하나뿐. 씬 `HUD Canvas/BeltPlacer`, `ContractPopup` `beltTab` · `beltPage` · `beltInstallButton`.
+- **M20-4 (2026-11-26) 자유 배치 · 통과 불가**:
+  - `ConveyorBelt`: 구간마다 `BeltBlock`(BoxCollider 높이 `beltBlockHeight` 1m + `NavMeshObstacle` carving) → 플레이어 · 알바가 못 지나가고 알바는 돌아감, 루트 `NavMeshModifier.ignoreFromBuild`. `Width`(1.4m), `Footprint`(0.25m 표본), `PathLength`, `CostOf` = 길이 올림 × `beltCostPerMeter`(10), `BlockRects`(막는 사각형). 옛 `TileOf` · `TileCenter` · `CellCount` 삭제. 화물 간격 2m(`beltCellSize`)는 그대로.
+  - `BeltPlacer`: 2m 격자 대신 `beltSnap`(0.5m)씩 늘임. 판정 `SegmentFree` = 벨트 폭 사각형이 열린 모듈 칸 안 · 시설 · **깔린 벨트(충돌체라 시설로 모임 → 교차 금지)** · 다른 존과 안 겹침(바로 옆은 됨). 화면 = 열린 칸 옅게 + 시설 · 벨트 · 존 사각형 붉게. **길 막힘 검사** `CheckBlocked`: 0.5m 격자에 시설 · 벨트(+ 사람 반지름 `beltWalkerRadius` 0.4)를 칠해 가장 큰 덩어리가 닿는 목표(모든 존 + 열린 칸) — 설치 전보다 하나라도 줄면 `pathBlocked` → 경로 빨강 · [저장] 꺼짐 · `길이 막힙니다`. 저장 때 `PushPeopleOff` = 벨트 자리의 `Interactor`를 0.5m씩 넓혀 찾은 빈 바닥으로(알바 `NavMeshAgent.Warp`, 플레이어 `CharacterController` 끄고 옮김). 철거하면 `CollectArea` 다시.
+- **주의**: 경로는 가로 · 세로 구간만 (`BlockRects`가 축 정렬 사각형). 검사 기준 = 설치 화면을 연 때의 시설 (그 사이 해금 · 재배치는 게임이 멈춰 있어 없음).
+- **M20-5 (2026-11-26) 스캔 구역 · 화면 유지**:
+  - `ConveyorBelt`: `ScanZone`(벨트당 1개), 미분류 상자는 `ScanZone.Distance`에서 멈춤(뒤 상자 줄지어), `CargoAtScan`(지점에 멈춘 미분류) · `UnsortedBeforeScan`(오는 중 + 기다림) · `Length` · `PoseAt` · `DistanceAlong`. 스캔 구역 값은 저장 때 `Cost`에 더해 철거 · 재배치 환불에 같이 들어감.
+  - `BeltPlacer`: 오른쪽 모드 버튼 `BeltMode` · `ScanMode`(지금 모드는 꺼진 모양), [저장]해도 화면 유지(벨트 모드 = 벨트 생성 후 `CollectArea` 다시), [나가기](옛 `Cancel`) = `RevertScans` 후 끝. 스캔 모드 `ScanClick` = 구역 누르기 → 선택(노란 아웃라인), 선택된 것 다시 → `Flip`(반대편), 누른 채 끌기 → `MoveScan`(벨트 따라 0.5m, 양 끝 1m 피함), 빈 벨트 → 새 구역(`WorkFree`: 작업 존 1.6m가 열린 칸 · 시설 · 벨트 · 존과 안 겹치는 쪽, 누른 쪽 먼저). 저장 안 한 것 = `createdScans`(새 구역) · `savedScans`(옮기기 전 자리). 선택 중 `ScanRemove` → 철거 확인 창 재사용 → 저장된 것만 `beltRefundRate` 환불. 스캔 모드 그리기는 벨트 윗면 위(`ScanDrawHeight`), 포인터 자리 미리보기 `AddScanGhost`(진한 초록 + 흰 테두리 / 빨강). 벨트 폭 = `LogisticsConfig.beltWidth`(1.0m, `ConveyorBelt.Width`).
+
+#### BeltScanZone
+[Logistics/BeltScanZone.cs](../Scripts/Logistics/BeltScanZone.cs)
+- **역할**: 벨트 스캔 구역 (GDD 7.2a · 7.10, M20-5). 벨트 자식 존 1.6m(작업 지점 `WorkSlot` 1, 벨트를 봄) + 벨트 위 초록 상자(`ScanMarker`, 벨트 재질에 초록 색만). 같은 파일에 `IScanStation`(`StaffScanWanted` · `Scanner`) — `StorageZone`(스캔 팔레트)과 함께 하차 알바 스캔 자리.
+- **동작**: 존에 멈춘(`scanStartDelay`) 플레이어 · 하차 알바(`Target` = 이 존) 한 명이 `Scanner`, 지점의 미분류 상자 1개를 `scanSecondsPerBox`(1초) 게이지(`ScanIndicator`) → `SharedStorage.RevealOne`(팔레트 스캔과 같은 색 규칙) → 그 상자만 다시 움직임. 사람 없음 · 정할 색 없음 = 대기. `StaffScanWanted` = 벨트에 오는 중 · 기다리는 미분류가 있고 빈자리 색이 있음. `Create(belt, distance, side)` · `Place(distance, side)`.
+- **연결**: `StaffWorker.TryScan` = 벨트 스캔 구역 먼저 → 스캔 팔레트(`NearestScanStation`), 서는 자리는 `scanStation` 필드(`zone`은 `CargoZone` 전용), 벨트가 비면(`StaffScanWanted` false) 떠남. `SharedStorage`: 스캔 팔레트는 `Origin == Unscanned`면 받음(벨트에서 색이 정해진 상자 포함), `ScanRoom`은 벨트 위 색 정해진 상자도 뺌. `InteractionZone.SetSize`(실행 중 존 크기).
+- **주의**: 벨트 철거 = 자식이라 같이 없어짐. 저장 안 한 새 구역은 [나가기] 때 `DestroyScan`.
 
 #### StorageZone
 [Logistics/StorageZone.cs](../Scripts/Logistics/StorageZone.cs)
 - **역할**: 팔레트 둘레 존 (4.2 × 3.8m). **트럭 화물 내려놓기 먼저**(`CanAccept`/`Store`), 내려놓을 것이 없으면 선반에 갈 화물을 집는다(`TakeForShelves`). `ShelfZone`과 같은 구조. `HasCargoFor`(분류 알바가 집기 전에 확인)를 구현한다.
 - **쓰레기 출력** (`Trash`, M13-11): `GiveOrigin` = Trash, 적재 수 무시 · 쓰레기 `trashCarryMax`(12)개까지 (`CanCarryMoreTrash`). 반품 팔레트(`Returns`)는 `GiveOrigin` = ReturnPallet.
+- **스캔** (스캔 팔레트만, GDD 7.2a): 멈추고 `scanStartDelay` 뒤 한 사람이 스캔(`Scanner` · `ScanProgress`). 시간 = 시작 때 미분류 수 × `scanSecondsPerBox`(1초), 스캔 중 미분류가 늘면 그만큼 늘어 게이지가 줄었다 다시 참 (M20-1). `StaffScanWanted` = `CanScan`(미분류 1개 이상 · 남은 빈자리) — 최소 개수 규칙 없음. 다 차면 `RevealUnsorted`.
 - **알림** (M13-3, 플레이어만): 팔레트에 상자는 있는데 하나도 못 집으면(그 색 선반이 다 참) '선반 가득'. 반품 팔레트 · 재포장 입력에서 하나도 못 넣으면 찌그러진 상자면 '가득', 아니면 '넣을 수 없음' (선반에서 꺼낸 상자는 안 셈).
 
 #### Shelf
 [Logistics/Shelf.cs](../Scripts/Logistics/Shelf.cs)
-- **역할**: 품목 1종 전용 분류 선반. 칸에 실제 상자가 올라가고 위에 수량(`7/10`)이 뜬다.
-- **동작**: `Setup(item, capacity)`(`BaseCapacity` = 1단계 용량 기억), `SetCapacity(value)`(선반 단계, 수량 글자 갱신, M16-3), `Store`, `TakeOne`(마지막에 넣은 상자), `HasSpace` · `FreeSpace`. 한 단 = 가로 `boxesPerSide` × 세로 `boxRows`(0이면 정사각형). `Shelf.prefab` = 모델 `Shelf` 1.2배 2개 등 맞대기(2.15 × 1.6m, 3 × 2칸, 첫 단 0.29 · 단 높이 0.59, M14-3), `PalletRack.prefab` = 2 × 2. 둘레에 `ShelfZone` 하나 (선반 3.6 × 3.2).
-- **연결**: `Warehouse.BuildShelf`가 `Shelf.prefab`으로 만든다.
+- **역할**: 색 보관 구역 하나의 **보관함** (M20-2, 2026-11-25 — 선반 4개 통합). 바로 아래 자식 선반 모델(`ShelfModel`) 4개에 실제 상자가 올라가고, 수량(`7/24`)은 구역 가운데에 하나만 뜬다. 가운데 `ShelfZone` 하나로 넣고 꺼낸다.
+- **동작**: `Setup(item, capacity)`(`BaseCapacity` 기억, 모델마다 아이콘 색), `CapacityAt(stage)` = 기본 + `shelfStageStepPerModel`(2) × 모델 수 × (단계 − 1) → 24 · 32 · 40 / 랙 16 · 24 · 32, `SetCapacity(value)`, `Store`, `TakeOne`(마지막에 넣은 상자), `HasSpace` · `FreeSpace` · `ModelCount`. 칸 순서 = **모델을 돌아가며 하나씩**(빈 선반에 하나씩 채워짐).
+- **연결**: 모듈 프리팹 `Content/ShelfArea`(ShelfSlot + Shelf + `Boxes` + `CountLabel` + `Zone` 2.4 × 2.4m, 작업 지점 4) — `StandardModules.BuildShelfGroup`이 만든다. `Warehouse.SetupShelf`가 품목 · 용량을 넣는다.
+- **주의**: 모델은 Shelf **바로 아래 자식**이어야 한다 — 칸 위치를 로컬 TRS로 계산(팝 연출로 크기 0일 때도 맞게).
+
+#### ShelfModel
+[Logistics/ShelfModel.cs](../Scripts/Logistics/ShelfModel.cs)
+- **역할**: 보관 구역 선반 모델 하나 (M20-2). 모양 · 상자 칸 배치 · 장애물만 갖는다 (보관함 · 존 · 수량 없음).
+- **동작**: `SlotInParent(i)` = i번째 칸을 부모(Shelf) 로컬로. 한 단 = 가로 `boxesPerSide` × 세로 `boxRows`(0이면 정사각형), 다 차면 위 단. `IconRenderer`(구역이 색칠). `Shelf.prefab` = 모델 `Shelf` 1.2배 2개 등 맞대기(2.15 × 1.6m, 3 × 2칸, 첫 단 0.29 · 단 높이 0.59, M14-3), `PalletRack.prefab` = 1 × 1, 단 높이 1.45.
+- **연결**: `ShelfArea` 네 모서리(±2.4)에 중첩 프리팹 — `Shelf.prefab`을 고치면 A~C 구역 선반 전부에 반영 (M19-1). `BeltPlacer`는 모델마다 막힘으로 본다(가운데 통로는 비움).
 
 #### ShelfZone
 [Logistics/ShelfZone.cs](../Scripts/Logistics/ShelfZone.cs)
-- **역할**: 선반 둘레 존 (선반 3.6 × 3.2m · 팔레트 랙 3.2m). **내려놓기 먼저** — 같은 품목, Origin = Storage, Normal 상태 화물을 받고 Origin을 Shelf로 바꾼다 (재포장 상자면 `Warehouse.NotifyRepackedShelved`). 내려놓을 것이 없으면 `OrderService.GetDemand(품목) > 0`일 때만 1개씩 꺼낸다 (GDD 8.4). `Shelf` 프로퍼티로 붙은 선반을 읽고, `HasCargoFor`(알바 판단용)를 구현한다.
+- **역할**: 보관 구역 가운데 존 하나 (2.4 × 2.4m, M20-2 — 옛 선반마다 둘레 존 대체). **내려놓기 먼저** — 같은 품목, Origin = Storage, Normal 상태 화물을 받고 Origin을 Shelf로 바꾼다 (재포장 상자면 `Warehouse.NotifyRepackedShelved`). 내려놓을 것이 없으면 `OrderService.GetDemand(품목) > 0`일 때만 1개씩 꺼낸다 (GDD 8.4). `Shelf` 프로퍼티로 붙은 선반을 읽고, `HasCargoFor`(알바 판단용)를 구현한다.
 - **지게차** (M11-8): `Warehouse.CanHandle` — D 팔레트 랙은 지게차 알바만 넣고(Origin = **Truck**, 하차 칸 공간 안 거침) 꺼내고, 일반 선반은 지게차가 못 쓴다.
 - **알림** (M13-3, 플레이어만): 하나도 못 넣으면 이 색 상자(Origin = Storage)를 들었으면 '가득'(선반 꽉 참), 그 밖의 상자(다른 색 · 트럭 화물 · 반품)면 '넣을 수 없음'. 선반에서 꺼낸 상자(상차로 가는 중)는 안 센다. 글자 원본 = `Shelf.CountLabel`.
 - **되돌리기** (M17-1, 2026-11-20): `PartService.OutboundOpen`이 아니면(2파트가 끝나 회차한 뒤) Origin = Shelf인 같은 품목도 받는다 — 플레이어 · 알바(`StaffWorker`가 배달할 곳으로 찾아감) 모두. 2파트 중엔 들고 기다린다.
@@ -570,17 +592,18 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### ShelfSlot
 [Logistics/ShelfSlot.cs](../Scripts/Logistics/ShelfSlot.cs)
-- **역할**: 색 보관 구역 모듈의 네 모서리 "선반 자리" (GDD 4.2 · 7.3). 켜질 때 `ShelfSlot.All`에 스스로 등록하고, **`Start`에서 자기 선반을 세운다** → 구역 모듈이 생기는(해금 · 시작) 순간 선반 4개가 함께 생긴다 (M11-5, 2026-11-15).
-- **동작**: `item`(구역 색 품목, 비우면 안 세움), `shelfPrefab`(비우면 Warehouse 기본 선반, D = 팔레트 랙), `capacity`(0 = `LogisticsConfig.shelfCapacity` 6, 랙 4), `unlockLevel`, `order`, `Occupant`(세워진 선반), `WorldFootprint`(선반 + 존이 차지하는 바닥 — 패드가 피함).
-- **연결**: `Warehouse.BuildShelf(slot)`. 값은 `StandardModules.BuildShelfArea`가 프리팹에 넣는다.
+- **역할**: 색 보관 구역 모듈 가운데 "구역 자리" (GDD 4.2 · 7.3, 모듈당 1개 — M20-2). 켜질 때 `ShelfSlot.All`에 스스로 등록하고, **`Start`에서 같은 오브젝트의 보관함(`Shelf`)을 설정 · 등록한다** → 구역 모듈이 생기는(해금 · 시작) 순간 선반 4개가 함께 생긴다 (M11-5). 선반 모델은 중첩 프리팹 (M19-1).
+- **동작**: `item`(구역 색 품목, 비우면 설정 안 함), `capacity`(0 = `LogisticsConfig.shelfCapacity` 24, 랙 16), `unlockLevel`, `order`, `Occupant`(보관함), `WorldFootprint`(선반 4개 + 존 바닥, 반 길이 3.6 — 패드가 피함).
+- **연결**: `Warehouse.SetupShelf(slot, shelf)`. `StandardModules.BuildShelfGroup`이 만든다.
+- **주의**: 보관함이 없으면 경고만 낸다.
 
 #### Warehouse
 [Logistics/Warehouse.cs](../Scripts/Logistics/Warehouse.cs)
 - **역할**: 창고 전체의 선반 목록과 재고 집계. 씬에 하나 (`Site/Logistics`).
-- **선반 단계** (M16-3, GDD 7.3): 보관 모듈(`SiteModule`)마다 단계 1~3 (`GetShelfStage`), `RaiseShelfStage(module)` = 그 모듈 선반 전부 `SetCapacity(StageCapacity(기본, 단계))` + 살짝 튀기(`DOPunchScale`). `StageCapacity` = 기본 × (1 + 0.5 × (단계 − 1)) → 선반 6 · 9 · 12, 랙 4 · 6 · 8. `ShelfModules()` · `FirstShelfOf(module)`은 설비 탭용. **크기 0에서 키우는 `FacilityPop`은 쓰지 않는다** — 팝업으로 멈춘 동안 0에 머물러 그때 들어온 상자가 크기 0으로 붙는다 (`CargoPile.Add`는 `SetParent(root, true)`).
+- **선반 단계** (M16-3, GDD 7.3): 보관 모듈(`SiteModule`)마다 단계 1~3 (`GetShelfStage`), `RaiseShelfStage(module)` = 그 모듈 보관함 `SetCapacity(shelf.CapacityAt(단계))` + 살짝 튀기(`DOPunchScale`) → 구역 24 · 32 · 40, 랙 16 · 24 · 32 (M20-2, 옛 `StageCapacity` 삭제). `ShelfModules()` · `FirstShelfOf(module)`은 설비 탭용. **크기 0에서 키우는 `FacilityPop`은 쓰지 않는다** — 팝업으로 멈춘 동안 0에 머물러 그때 들어온 상자가 크기 0으로 붙는다 (`CargoPile.Add`는 `SetParent(root, true)`).
 - **지게차 규칙** (M11-8): static `IsLarge(item)`(`GameDatabase.GetCompanyOf().IsLarge`), `CanHandle(who, item)` = 지게차 알바(`Interactor.Forklift`)는 D만 · 나머지(플레이어 포함)는 D 말고만. `LargeRoom(item)` = 랙 빈자리 − 트럭에서 꺼내 든 D (예외면 상차 수요까지), `DirectLoad(item)` = 랙 재고 0 + 상차 D 수요 > 0 → 트럭 → 상차 직행.
 - **동작**:
-  - `BuildShelf(slot)`: 자리의 품목 · 모양 · 용량으로 선반을 **자리의 자식, 로컬 0**에 세운다 (팝 연출). 같은 색 선반은 여러 개.
+  - `SetupShelf(slot, shelf)`: 구역 보관함에 자리의 품목 · 용량을 넣고 목록에 등록한다 (팝 연출). 선반을 만들지 않는다 (M19-1). 목록 = **구역마다 1개** (M20-2), 같은 색 구역은 여러 개.
   - `NearestShelfWithSpace(item, from)`: 그 색 선반 중 빈자리 있는 가장 가까운 것 (가이드 화살표)
   - `HasShelf(item)`: 그 색 선반이 하나라도 있나 = 보관 구역이 지어졌나 (하차 트럭 후보, M13-1)
 - **주의**: 선반을 월드 좌표로 세우면 안 된다 — 해금 모듈은 팝 연출로 크기 0에서 시작해 모듈 중심에 붙는다.
@@ -601,16 +624,18 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Logistics/InboundBay.cs](../Scripts/Logistics/InboundBay.cs)
 - **회차** (2026-11-20): `PartService.OnShift`(상차 파트 시작)에 정차한 트럭은 상자가 남아도 떠난다 (교대 신호는 트럭을 받은 뒤부터만 봄).
 - **역할**: 하차 베이 1곳. 하차 주차장 모듈 안에 있다. [3.4](#34-입고-트럭-한-대)의 주차 · 출발을 코루틴으로 실행한다. 트럭 도착 · 색은 `InboundQueue`가 정한다 (M13-9).
+- **칸 앞 줄 · 도로** (2026-11-25): `LineSlot(i, spacing)` · `LineRotation` = 이 칸 대기 줄 자리(주차 방향 그대로, `spawnPoint`에서 바깥쪽 `lineOffset` 12m부터). 받은 트럭은 줄 맨 앞에서 도로를 건너 **후진으로 곧장** 주차(`TruckReverseDuration` 그대로 `임시`), 떠날 때 앞으로 나가 칸 앞 도로(`roadOffset` 4.8m)에서 왼쪽으로 꺾어 `exitDistance` 15m 가서 작아지며 사라진다.
 - **황금 트럭** (M13-16): 금은 `TruckPickupZone`이 쏟는다. 이 베이는 트럭이 빌 때까지 기다렸다가 보낸다. 떠난 트럭은 `TruckPool.Release` (2026-11-23).
 - **동작**: `InboundQueue.Request(this)` → `Receive(truck)`로 받을 때까지 대기. 꺼지면(`OnDisable`) 기다리는 목록에서 빠진다. `Storage` = 이 칸의 상자 두는 공간 (`Awake`에서 `GetComponentInParent<SharedStorage>()`, M13-2).
-- **연결**: `InboundQueue.Instance`, `parkPoint`(주차 위치 · 방향), `spawnPoint`(나타나고 사라지는 곳). `truckPrefab` 필드는 이제 안 씀 (`InboundQueue`가 생성).
+- **연결**: `InboundQueue.Instance`, `parkPoint`(주차 위치 · 방향), `spawnPoint`(주차 칸 바깥 끝 — 도로 · 줄을 여기서 잰다). `truckPrefab` 필드는 이제 안 씀 (`InboundQueue`가 생성).
 - **주의**: 트럭은 **베이 기준 로컬 좌표**로 움직인다 (`parkPoint` · `spawnPoint`는 베이 바로 아래 자식이어야 함). 확장 모듈은 크기 0에서 커지는 중(`FacilityPop`)에 첫 트럭이 나오므로, 월드 좌표를 쓰면 엉뚱한 곳에서 들어온다 (2026-11-12 수정). `OutboundBay`도 같다.
 
 #### InboundQueue
 [Logistics/InboundQueue.cs](../Scripts/Logistics/InboundQueue.cs)
 - **역할**: 하차 트럭 도착 · 차량 대기열 (GDD 7.1, M13-9). 하차장에 넘기는 것은 `PartService.InboundOpen`일 때만 — 아니면 `Request`가 기다리는 목록에 넣고 `Update`가 열릴 때 줄 맨 앞부터 `Dispatch` (2026-11-19). SiteGrid 오브젝트에 붙는다 (`SiteBuilder.BakeGrid`).
-- **동작**: 도착 루프 = 줄이 `InboundQueueSize` 미만이고 선반 있는 입고 색이 있을 때 트럭 생성 → 기다리는 베이에 바로 넘기거나 줄 끝에 팝 → `InboundArrivalInterval` 대기. `Request(bay)` = 줄 맨 앞을 넘기고 나머지를 `SlotPosition(i)`로 당김 (0.6초). 시작 때 대기 자리 표시(반투명 판 `TruckWaitSlot_n`) 3개 — 재질은 에셋 `markerMaterial`(`Art/Materials/M_TruckWaitSlot`, URP Unlit 반투명).
-- **풀** (2026-11-23): 트럭은 `TruckPool.Get`으로 꺼내고 회차 · 하차 후 `TruckPool.Release`로 돌려준다(Destroy 안 함). 시작 때 `Prewarm(InboundQueueSize + 2)` `임시`(풀 최대 16에서 잘림).
+- **동작** (2026-11-25 **바뀜**: 한 줄 → 하차 칸마다 칸 앞 줄): 도착 루프 = 줄 합계가 `InboundQueueSize` 미만이고 선반 있는 입고 색이 있고 받을 칸이 있을 때 트럭 생성 → `InboundArrivalInterval` 대기. 받을 칸(`PickBay`) = 줄이 몫(합계 ÷ 칸 수, 올림)보다 짧은 칸 중 (줄 + 주차 중 1)이 가장 적은 칸 — 비어 기다리는 칸이면 칸 앞에서 바로 넘기고, 아니면 그 칸 줄 끝(`InboundBay.LineSlot`)에 팝. `Request(bay)` = 그 칸 줄 맨 앞을 넘기고 나머지를 당김 (0.6초). 대기 자리 표시(반투명 판 `TruckWaitSlot_칸_n`)는 칸마다 줄이 처음 그 길이가 될 때 만든다 — 재질은 에셋 `markerMaterial`(`Art/Materials/M_TruckWaitSlot`, URP Unlit 반투명).
+- **바로 채우기** (2026-11-25, TycoonTest): `FillAtOnce`(TycoonTest가 켬, 이 오브젝트가 사라지면 꺼짐)면 도착 간격 대신 한 프레임에 한 대 — 줄을 바로 채우고 빠지면 바로 보충, `OnShift` 때 줄을 돌려보내지 않는다. TycoonTest 줄 40 = 8칸 × 5대.
+- **풀** (2026-11-23): 트럭은 `TruckPool.Get`으로 꺼내고 회차 · 하차 후 `TruckPool.Release`로 돌려준다(Destroy 안 함). 시작 때 `Prewarm(InboundQueueSize + 하차 칸 수)`(2026-11-25 — 동시에 나오는 최대, 확장으로 는 칸은 도중에 만듦).
 - **회차** (2026-11-20): `PartService.OnShift`(상차 파트 시작)에 줄의 트럭을 모두 돌려보냄(줄 뒤쪽으로 빠지며 작아진 뒤 풀로 반환). 하차장에 정차한 트럭은 남는다. 튜토리얼 구간엔 첫 트럭(상자 `TutorialBoxes`개, 황금 없음)만 하차장에 넘긴다(`CanDock`).
 - **주의**: 실행 코드에서 `Shader.Find`로 재질을 만들지 않는다 — 빌드에서 셰이더가 빠져 null 예외 → 도착 코루틴이 멈춰 **트럭이 안 나오고** 판이 분홍이 됐다 (2026-11-18 빌드 버그).
 - **연결**: `truckPrefab`(`InboundTruck.prefab`), `headPosition`(0, 0, −21 = 서쪽 도로 하차 1 옆) · `lineDirection`(+z) · `spacing` 7 · `truckYaw` 180 `임시`, `LogisticsConfig.InboundArrivalInterval` · `InboundQueueSize`.
@@ -645,9 +670,9 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### TruckPool
 [Logistics/TruckPool.cs](../Scripts/Logistics/TruckPool.cs)
 - **역할**: 하차 · 상차 트럭 풀 (2026-11-23). 트럭 `Instantiate` 32ms · `Destroy` 56ms 끊김(TMP `Awake` · `OnDestroy`)을 없앤다. `IPooledTruck`(`ResetForPool`)을 구현한 트럭만.
-- **동작**: 씬에 두지 않는다 — 처음 쓸 때 `TruckPool` 오브젝트가 지금 씬에 생기고, 씬과 함께 사라진다. 프리팹마다 `ObjectPool`(최대 16 `임시`). `Get(prefab, parent)` = 부모 아래 로컬 0 · 크기 1로 켬. `Release(truck)` = `DOKill` → `ResetForPool` → 끄고 풀 아래로. `Prewarm(prefab, n)` = n대(최대 16)까지 미리 만듦. 풀에서 꺼내지 않은 트럭을 돌려주면 경고 후 Destroy.
+- **동작**: 씬에 두지 않는다 — 처음 쓸 때 `TruckPool` 오브젝트가 지금 씬에 생기고, 씬과 함께 사라진다. 프리팹마다 `ObjectPool`(최대 64 `임시`, 2026-11-25 — 16이면 TycoonTest 줄 30대 회차 때 넘친 만큼 지워졌다). `Get(prefab, parent)` = 부모 아래 로컬 0 · 크기 1로 켬. `Release(truck)` = `DOKill` → `ResetForPool` → 끄고 풀 아래로. `Prewarm(prefab, n)` = n대(최대 64)까지 미리 만듦. 풀에서 꺼내지 않은 트럭을 돌려주면 경고 후 Destroy. 감시: `Created` · `Destroyed`(성능 패널 `Truck Pool: new / destroyed` — 시작 뒤 오르면 풀이 모자라거나 풀을 안 거친 트럭).
 - **연결**: `InboundQueue`(생성 · 회차), `InboundBay`(하차 후), `OutboundBay`(생성 · 출발 후).
-- **주의**: 같은 트럭 객체가 다시 오므로 트럭을 객체로 기억하는 코드는 비워 줘야 한다 — `TruckPickupZone.dumpingFrom`은 쏟기가 끝나면 null (안 그러면 다음 황금 트럭이 `DumpDelay` 없이 쏟음). 모델 교체(`InboundTruck.SetModel`)는 여전히 매번 Instantiate.
+- **주의**: 같은 트럭 객체가 다시 오므로 트럭을 객체로 기억하는 코드는 비워 줘야 한다 — `TruckPickupZone.dumpingFrom`은 쏟기가 끝나면 null (안 그러면 다음 황금 트럭이 `DumpDelay` 없이 쏟음). 모델 교체(`InboundTruck.SetModel`)는 프리팹별로 한 번 만들어 켜고 끈다 (2026-11-25).
 
 #### TruckLoadZone
 [Logistics/TruckLoadZone.cs](../Scripts/Logistics/TruckLoadZone.cs)
@@ -671,6 +696,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Staff/StaffWorker.cs](../Scripts/Staff/StaffWorker.cs)
 - **역할**: 알바 1명. 플레이어와 같은 `Interactor` · `CarryStack`을 쓰고, 이동은 `NavMeshAgent`가 한다 ([GDD 11](GDD.md#11-알바생)).
 - **지게차 직무** (M11-8): `SetRole(Forklift)` = `Interactor.Forklift` · 자식 `Forklift`(Prop `Forklift` + 포크 `Plastic_Pallet`, M_Prop, 꺼진 채) 켬 · 스택 바닥 `ForkliftAnchor`(팔레트 위) · `CharacterAnimator.UseRiding`. 작업 존 = `TruckPickupZone`(D 트럭) · D 랙 `ShelfZone`, 트럭 예약 수 = `LargeRoom`. 적재 4 고정 (`StaffRules.GetCarry`).
+- **판단 분산 · 대기 위치 재시도** (2026-11-25, 알바 100명 프로파일): 판단 타이머는 고용 때 무작위로 시작하고 되감을 때 위상을 지킨다(긴 프레임 한 번에 전원이 같은 프레임에 판단하게 굳던 문제). `Park`가 대기 위치를 못 찾으면 1초(`ParkRetryDelay` `임시`) 동안 다시 찾지 않는다 — 일 찾기(`Find`)는 그대로 0.25초마다. 후보 목록 · 정렬은 정적으로 재사용.
 - **동작**: 상태 `Phase` = `Idle / Moving / Working / Parked / Waiting`. 집는 곳은 직무로 정한다 (하차 `TruckPickupZone`, 보관(`Sort`) `StorageZone` 중 Pallet · Repacked, 상차(`Pick`) `ShelfZone`, 반품 = Returns · Trash `StorageZone` + 재포장 테이블). **반품 알바**(M13-12, `ReturnsWork`): 막히는 곳부터 — `TrashFull`이면 쓰레기 출력에서 줍기 → 재포장(`TryGauge`: 가장 가까운 `RepackTable.HasWork` 테이블 슬롯으로 가서 `gauge`로 두고, `HasWork`인 동안 서 있음) → 반품 팔레트에서 줍기 → 쓰레기 줍기 (`ReturnsFocus`로 `IsRoleZone`을 좁힘). 적재 = `StaffRules.returnsCarry` 12 (스탯 무관, `SetRole`에서). 내려놓는 곳은 들고 있는 화물을 받는 존(`CargoZone.CanReceiveAny`)이라서, 역할을 바꿔도 화물은 원래 목적지로 간다. 가장 가까운 빈 `WorkSlot`을 출발할 때 예약하고, 도착하면 `Interactor.Target`을 그 존으로 두고 `AllowDrop` · `AllowPick`을 작업에 맞춘다. 옮길 것이 `workIdleTimeout`(0.5초) 동안 없거나 가득 · 빈손이 되면 작업을 끝낸다. 예약은 3역할 공통 ([GDD 8.4](GDD.md#84-수요-계산)): 출발할 때 가져갈 만큼 `Reserve()`로 잡고, 도착하면 `ReleaseReservation()`으로 푼다. 해제는 `releaseReservation` 함수 하나. 하차 = `InboundTruck.Reserve`, 분류 = `Warehouse.ReserveShelfSpace`(`PlanForShelves` 품목별), 피킹 = `OrderService.Reserve`.
 - **연결**: `Setup(role, stats, costume)`(`StaffService.Spawn`이 부른다), `SetRole`은 `Setup` 안에서만 (직무 변경 삭제 2026-11-18, 적재 = `StaffRules.GetCarry(role, carry)` — 반품 12 · 지게차 4 고정), `Fire()`(해고), `Role` · `Stats` · `State` · `Stack` · `Number`(고용 순 번호, `DisplayName` = `알바 N`) · `Fired`. 설정값은 `StaffRules`.
 - **주의**:
@@ -696,6 +722,13 @@ StaffWorker (thinkInterval 0.25초마다 판단)
   - `Workers`는 고용 순서대로 (시급 지급 순서, GDD 11.7). `IsRoleOpen(role)` = 반품은 `SiteGrid.IsUnlocked("Ret1")`, 지게차는 `IsUnlocked("StoreD")` 뒤에만 (`NextEmptyRole` · 자동 배정 삭제, M11-9). `CountRole(role)`.
 - **연결**: `StaffSpawnPoint.Current`, `StaffRules`, `PartService`(후보 교체), `HirePanel`(고용 탭), `RosterPanel`(배치 탭), 디버그 메뉴 `Staff` 절.
 - **주의**: 네비메시가 없으면 `Spawn`은 null이고 고용도 실패한다 (돈은 나가지 않음).
+
+#### StaffNav
+[Staff/StaffNav.cs](../Scripts/Staff/StaffNav.cs)
+- **역할**: 알바 길찾기 스위치 (2026-11-25): NavMesh(기본) ↔ 방 단위 A*. DEBUG Staff `Path A*`(`SetUseAStar`). 처음 켤 때 생기고 꺼도 남는다.
+- **동작**: 부지 격자(`SiteNavGrid`)를 굽고 `NavCrowd`로 A* 알바를 한 Update에서 움직인다. `OnUnlocked` = 그 방만 · `OnMoved` = 전체를 팝 연출(`FacilityPopDuration` + 0.05초) 뒤 다시 굽고, 다시 구운 방을 지나던 알바만 `RefreshPath`. 열린 칸이 격자 범위를 넘으면 새로 굽는다.
+- **연결**: `StaffWorker.ApplyNavMode`(켤 때 · Start · 다시 켜질 때) — A*면 NavMeshAgent를 끄고 등록. 설정 `GameDatabase.NavGrid`.
+- **주의**: NavMesh는 그대로 굽는다 — 대기 위치 고르기 · 생성 위치가 아직 `NavMesh.SamplePosition`을 쓴다.
 
 #### StaffSpawnPoint
 [Staff/StaffSpawnPoint.cs](../Scripts/Staff/StaffSpawnPoint.cs)
@@ -805,11 +838,12 @@ StaffWorker (thinkInterval 0.25초마다 판단)
   - `IsCellOpen(cell)`: 칸 (열, 행)이 열렸나 (인접 확인용).
   - 빈 공간: `Unlock`이 붙일 모듈의 칸에 있는 `Empty` 모듈을 **끈다** (`SetActive(false)`, instance는 남아 해금된 것으로 침 → 바닥 충돌체가 빠져 네비메시에서도 빠짐). 빈 공간 칸에 놓이는 1칸 모듈은 처음 칸이 차 있으면 `TryFindEmptyCell`(가장 가까운 빈 공간)에 붙는다 — 발판 자리와 같은 규칙.
   - 칸 조회는 **모듈 실제 위치**로 한다 (재배치 뒤 config `row` · `column`과 다름): `WorldToCell`, `CellCenter(cell)`, `ModuleAt(cell)`(켜진 모듈), `IsEmptyTile(cell)`, `TryFindEmptyCell(preferred)`, `IdOf(module)`. `OpenedCells` = 열린 칸 전부 (`SiteWalls`가 씀).
+  - `ApplyArrangement(모듈 → (칸, yaw))`: 자리나 방향이 바뀐 모듈만 옮기고 돌림 + 팝, 하나라도 바뀌면 `OnMoved`. `YawOf(module)` = Y 회전을 0 / 90 / 180 / 270으로 (M20-3).
 
 #### SiteWalls
 [Site/SiteWalls.cs](../Scripts/Site/SiteWalls.cs)
 - **역할**: 부지 바깥 벽 (M14-2). 열린 칸과 안 열린 칸 · 부지 밖 사이 변에만 1m 조각(`wall_s` 앞 · `wall_l` 뒤)을 이어 세우고 꼭짓점에 기둥(`pillar_s` · `pillar_L`). 앞 / 뒤 = 변 바깥 방향이 카메라 쪽이면 앞(낮은 벽).
-- **동작**: `Start`와 `SiteGrid.OnUnlocked`마다 `Walls` 자식을 지우고 다시 세운다 → 해금되면 칸 사이 벽이 사라지고 새 테두리에 생긴다. 하차 · 상차장 모듈(`InboundBay` · `OutboundBay`)의 주차장 쪽(모듈 로컬 −x) 변은 비운다.
+- **동작**: `Start`와 `SiteGrid.OnUnlocked` · `OnMoved`(하차장 이동 · 회전, M20-3)마다 `Walls` 자식을 지우고 다시 세운다 → 해금되면 칸 사이 벽이 사라지고 새 테두리에 생긴다. 하차 · 상차장 모듈(`InboundBay` · `OutboundBay`)의 주차장 쪽(모듈 로컬 −x) 변은 비운다.
 - **연결**: Build Site `AddWalls`가 `SiteGrid` 오브젝트에 붙이고 Prop fbx · `M_Prop` · `M_Wall`을 연결한다.
 - **안쪽 면 그라데이션** (2026-11-23): 벽 조각만 `wallMaterial`(`M_Wall` = `APC/WallCutout` + `_WALL_GRADIENT`), 기둥 · 창문은 `material`. `Start` · `OnValidate`(인스펙터 수정 즉시, Play 중 포함)에서 `gradientBottom`(234, 198, 154) · `gradientTop`(242, 235, 204) · `gradientStart`(0m) · `gradientEnd`(3.4m)를 전역 `_WallGradientBottom` · `_WallGradientTop` · `_WallGradientStart` · `_WallGradientEnd`로 넘김 → 셰이더가 메시 로컬 +y 면(부지 안쪽)의 albedo를 Start 아래는 아래 색, End 위는 위 색, 사이는 높이에 비례해 섞음 (2026-11-24). 바깥 면 · 위 갈색 띠(3.6955m~, 셰이더 `WALL_BAND_BOTTOM`)는 원래 색.
 - **주의**: 색은 `.linear`로 바꿔 넘긴다 — `Shader.SetGlobalColor`는 `Material.SetColor`와 달리 sRGB → 선형 변환을 안 해서, 그냥 넘기면 밝고 흐리게 나온다 (2026-11-24 측정으로 확인). 화면 색은 조명을 받아 바뀐다: 해가 비치는 북쪽 벽은 넣은 색과 거의 같고(파랑만 약 8 낮음), 동쪽 벽처럼 해 반대쪽은 어둡다.
@@ -1015,15 +1049,18 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### ModulePanel
 [UI/ModulePanel.cs](../Scripts/UI/ModulePanel.cs)
-- **역할**: 계약 PC 팝업의 `모듈` 탭 페이지 (GDD 4.4, M12-2). 6 × 4 부지 미니맵에서 보관 · 반품 칸을 끌어다 놓아 자리를 바꾼다.
-- **동작**: `Begin()`(팝업 열 때) = `SiteGrid.ModuleAt`으로 칸마다 모듈을 찍어 `original` · `staged`에 둔다. `Drop(source, target)` = 대상이 빈 공간 · 보관 · 반품이면 `staged`에서 자리 맞바꿈(이동 · 교체), 고정 모듈 · 잠긴 칸 · 바깥이면 실패(칸 흔들림 + 사유 글자 1.5초). [되돌리기] = `staged` ← `original`. `Apply()`(팝업 닫을 때) = `SiteGrid.ApplyArrangement`.
+- **역할**: 계약 PC 팝업의 `모듈` 탭 페이지 (GDD 4.4, M12-2). 6 × 4 부지 미니맵에서 하차 · 보관 · 반품 칸을 끌어다 놓아 자리를 바꾸고, 칸을 눌러 고른 뒤 [회전]으로 90°씩 돌린다 (M20-3).
+- **동작**: `Begin()`(팝업 열 때) = `SiteGrid.ModuleAt`으로 칸마다 모듈을 찍어 `original` · `staged`에 둔다. `Drop(source, target)` = 대상이 빈 공간 · 보관 · 반품이면 `staged`에서 자리 맞바꿈(이동 · 교체), 고정 모듈 · 잠긴 칸 · 바깥이면 실패(칸 흔들림 + 사유 글자 1.5초). [되돌리기] = `staged` ← `original`. `Apply()`(팝업 닫을 때) = `SiteGrid.ApplyArrangement`(칸 + `stagedYaw`).
+  - 하차장(`InboundBay`가 있는 모듈, prefab Kind는 Fixed 그대로)도 끌 수 있다. 트럭 쪽(로컬 −x: yaw 0 서 · 90 북 · 180 동 · 270 남) 이웃 칸이 `siteCells`(잠긴 칸 포함 부지) 밖이어야 하고, 지금 방향이 안 되면 시계 방향으로 되는 첫 방향으로 자동 회전 `임시`, 아무 방향도 안 되면 실패. 맞바꾸는 상대가 하차장이어도 같은 검사.
+  - `Select(cell)`(ModuleCell 누르기) = 빈 공간이 아닌 옮길 수 있는 칸을 고름(`selectedScale` 1.08). `Rotate`([회전]) = 시계 방향 90°, 하차장은 바깥이 되는 다음 방향만 — 없으면 흔들림 + `트럭이 들어올 바깥 변이 하나뿐이에요`. `rotateButton`이 비면 [되돌리기]를 복사해 왼쪽에 만든다 (shortcut). 스캔 모듈(`Module_Scan`, 2026-11-26부터 Kind Movable) = `scanColor`. 하차장 칸 = 이름 + 색 `inboundColor` + 주차장 쪽 변 바깥에 붉은 바(`ModuleCell.ShowTruckSide`, `truckBarColor` · `truckBarThickness` 14px). 사유 글자(`Reason`)는 미니맵 위 (0, 372) · 폭 1100 · 줄바꿈 없음 (2026-11-26, [회전]과 겹침 · 두 줄 방지).
+  - 옮기거나 **돌린** 모듈에 걸친 벨트도 안내 · 철거 · 전액 환불 (`BeltsOnMoved`).
   - 칸 색: 빈 공간 흰색, 고정 어두운 회색, 보관 = 그 회사 품목 띠 색(id `Store` + 회사 id), 반품 파랑, 잠긴 칸 반투명 회색 `잠김`. 부지 밖 칸은 숨김. 이름 = `SiteLayout.GetDisplayName`.
 - **연결**: `cellTemplate`(`ModuleCell`, 꺼진 채 · 위치 = (1,1) 칸) → 실행 때 24칸 생성(`cellStep` 210 × 160). Build Site의 `BuildModulePage`가 만든다.
 - **주의**: 미니맵 변경은 닫기 전까지 부지에 적용되지 않는다 (탭을 바꿔도 유지).
 
 #### ModuleCell
 [UI/ModuleCell.cs](../Scripts/UI/ModuleCell.cs)
-- **역할**: 미니맵 칸 1개. `Cell`(열, 행) · `Draggable`(Movable 모듈만). 끌면 맨 위로 올라가 손가락을 따라가고, 놓으면 레이캐스트로 아래 칸을 찾아 `ModulePanel.Drop`.
+- **역할**: 미니맵 칸 1개. `Cell`(열, 행) · `Draggable`(보관 · 반품 · 하차장). 누르기만 하면(끌기 없음) `ModulePanel.Select` (M20-3). 끌면 맨 위로 올라가 손가락을 따라가고, 놓으면 레이캐스트로 아래 칸을 찾아 `ModulePanel.Drop`.
 - **동작**: 끌기 시작하면 자기 복제본을 원래 자리에 반투명 자리 표시(`_Ghost`, `ModuleCell` 꺼짐, `ghostAlpha`)로 남기고, 놓으면 지운다. 자리 표시 위에 놓으면 제자리.
 - **주의**: 놓을 칸은 **레이캐스트를 다시 켜기 전에** 찾는다 (켜면 맨 위에 있는 끌던 칸 자신이 잡혀 늘 제자리로 돌아가던 버그, 2026-11-16).
 
@@ -1163,7 +1200,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### DebugMenu
 [Debugging/DebugMenu.cs](../Scripts/Debugging/DebugMenu.cs)
 - **역할**: 치트 메뉴 (IMGUI). 에디터 · Development 빌드에서 동작하고, `releaseBuild`(기본 켬, 2026-11-20)면 일반 빌드에서도 동작한다 — 출시 전에 끈다. **왼쪽 아래** `DEBUG` 버튼 또는 F1.
-- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / **현금 존**: `Zone +200`(첫 현금 존에 쌓기) · `Collect n`(모든 현금 존 돈을 반경 무시하고 플레이어가 줍기 — 다발 · 달러 아이콘 연출 그대로, `CashZone.CollectBy`) / 레벨업 · XP +10 · **Lv.5**(목표 레벨) / 배속 ×1 · ×2 · ×4 / 일시정지 / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick / Returns 생성, **Costume 100%** 토글(켜면 생성 · 고용 탭 새 후보가 모두 코스튬, `StaffRules.ForceCostume`, Play마다 꺼짐), 알바별 `이름 spd cap 상태 들고있는수/최대`. 튜토리얼 중이면 `Tutorial n → next`(단계 건너뛰기) · `Tutorial off`.- **주의**: IMGUI는 EventSystem에 안 잡히므로 `ContainsScreenPoint`로 `UiHitTest`에 영역을 알려 준다. 새 치트는 `DrawContent`에 추가한다. 패널은 스크롤 뷰 — 마우스 · 터치 드래그(버튼 위에서도) · 휠로 내린다. 조이스틱 차단 영역은 패널 영역 전체.
+- **항목**: 상태 · 레벨 · 현금 표시 / 현금 +100 · +1,000 · +10,000 / **현금 존**: `Zone +200`(첫 현금 존에 쌓기) · `Collect n`(모든 현금 존 돈을 반경 무시하고 플레이어가 줍기 — 다발 · 달러 아이콘 연출 그대로, `CashZone.CollectBy`) / 레벨업 · XP +10 · **Lv.5**(목표 레벨) / 배속 ×1 · ×2 · ×4 / 일시정지 / **다음 모듈 해금**(해금 레벨이 가장 낮은 잠긴 대표 배치 — 묶인 칸은 같이 열림). **Staff (n)** 절: Auto(빈 역할) / Unload / Sort / Pick / Returns 생성, **스트레스 테스트**(2026-11-25): 직무 버튼 여러 개를 켜고 끄고 `Hire 100 mixed (n roles)` = 고른 직무를 돌아가며 100명 생성(`StaffService.Spawn`, 고용금 · 최대 인원 무시, 기본 하차 · 분류 · 피킹), **Costume 100%** 토글(켜면 생성 · 고용 탭 새 후보가 모두 코스튬, `StaffRules.ForceCostume`, Play마다 꺼짐), `Path A*` 토글(`StaffNav`), 알바별 `이름 spd cap 상태 들고있는수/최대`(앞 12명만, 나머지는 `... +n` — 100줄이면 OnGUI GC가 측정을 흐림). 튜토리얼 중이면 `Tutorial n → next`(단계 건너뛰기) · `Tutorial off`.- **주의**: IMGUI는 EventSystem에 안 잡히므로 `ContainsScreenPoint`로 `UiHitTest`에 영역을 알려 준다. 새 치트는 `DrawContent`에 추가한다. 패널은 스크롤 뷰 — 마우스 · 터치 드래그(버튼 위에서도) · 휠로 내린다. 조이스틱 차단 영역은 패널 영역 전체.
 - **주의**: IMGUI는 EventSystem에 안 잡히므로 `ContainsScreenPoint`로 `UiHitTest`에 영역을 알려 준다. 새 치트는 `DrawContent`에 추가한다. 패널은 스크롤 뷰 — 마우스 · 터치 드래그(버튼 위에서도) · 휠로 내린다. 조이스틱 차단 영역은 패널 영역 전체.
 
 #### PerformanceHUD
@@ -1215,7 +1252,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **사무실 주의**: `Module_Office.prefab`은 사용자가 손으로 위치를 고쳤다 (2026-11-12). `EnsureAll(true)` · Apply 메뉴는 이를 덮어쓰므로, 다른 모듈만 고칠 땐 `Rebuild("Module_…")`로 그 모듈만.
 - **메뉴 `APC > Setup > Apply Layout 6x4`**(`ApplyLayoutInternal`, 옛 v0.3 메뉴 대체): SiteLayout · 회사 선반 구역을 기본값으로, 보관 · 반품 · 쓰레기장 · 빈 공간 모듈 다시 만들기, `ObsoleteAssets` 삭제, Build Site. 레벨 표는 건드리지 않는다.
 - **6 × 4 트럭 방향** (`DefaultAssignments`): `In1` (4,2) 회전 0 `_M`, `In2` (3,1) 270, `Out1` (2,4) 180 `_M`, `Out2` (3,5) · `Out3` (3,6) 90. (4,1) · (2,5) 바깥 칸에 트럭 두 대가 들어오므로 주차 칸을 서로 먼 쪽으로 비켰다 (모서리가 조금 겹침).
-- **동작**: `EnsureAll(overwrite)`, `Rebuild(asset)`(모듈 하나만 다시), `ShelfPrefab(overwrite)` · `PalletRackPrefab(overwrite)`(D 가구 구역, 2 × 2 한 단) · `OutboundTruckPrefab(overwrite)`. 보관 구역 `BuildShelfArea(root, 회사 id, rack)` = 네 모서리 `ShelfSlot`에 그 회사 품목 · 랙 · 용량을 넣는다. 같은 경로에 덮어쓰므로 GUID와 참조는 유지된다.
+- **동작**: `EnsureAll(overwrite)`, `Rebuild(asset)`(모듈 하나만 다시), `ShelfPrefab(overwrite)` · `PalletRackPrefab(overwrite)`(D 가구 구역, 2 × 2 한 단) · `OutboundTruckPrefab(overwrite)`. 보관 구역 `BuildShelfArea(root, 회사 id, rack)` → `BuildShelfGroup(content, item, rack)` = `ShelfArea`(ShelfSlot · Shelf · 가운데 존 · 수량) + 네 모서리 `Shelf.prefab`(rack이면 그것) 중첩 프리팹 (M20-2). `ShelfPrefab` · `PalletRackPrefab`은 이제 모델(`ShelfModel`)만 만든다. 같은 경로에 덮어쓰므로 GUID와 참조는 유지된다.
 - **주의**: 평소에는 **없는 프리팹만** 만든다. 프리팹을 손으로 고쳤다면 Rebuild를 누르지 않는다 (덮어씀). 좌표는 모듈 중심 기준(1칸 = −5 ~ +5)이고, 주차장의 바깥쪽은 −x다. 코드를 바꿨는데 프리팹이 이미 있으면 해당 프리팹만 `Rebuild`/`overwrite: true`로 다시 만든다.
 
 #### BuildKit

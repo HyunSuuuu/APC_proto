@@ -3,113 +3,62 @@
 > 기준 문서: [GDD.md](GDD.md) v0.4 · [TechStack.md](TechStack.md)
 > 체크 방법: 작업이 끝나면 `- [ ]` → `- [x]`. 마일스톤의 **완료 확인**을 실제 플레이로 통과해야 다음 마일스톤으로 넘어간다.
 
-## 인수인계 — 이어받은 사람이 할 일 (2026-11-25 기준)
+## 인수인계 — 다른 컴퓨터에서 이어가기 (2026-11-26 기준)
 
-- **2026-11-25 레벨업 연출 v2 (자물쇠 해금)**: M5-6 메모 참고. Game 씬만 새 배너, TycoonTest · ShaderTestScene은 옛 배너라 레벨업 연출이 꺼짐(경고) → 필요하면 다시 빌드. 사람 손 테스트 아직.
+> 이 절은 사용자가 지시할 때만 **통째로 새로 쓴다** (지난 이력은 아래 작업 항목 메모 · git에). 목적: 새 대화가 **이미 답을 받은 질문을 다시 묻지 않고** 이어가는 것. 아래 "이미 정해진 것"은 다시 묻지 말 것.
 
-- **2026-11-23 정산 영수증 절취선 뜯기** (작업 항목 번호 없음, 기획서 [ReceiptTear_기획.md](ReceiptTear_기획.md)): [확인] · 자동 확인 · **화면 어디를 눌러도** → 배출구 위 절취선을 따라 왼쪽부터 8단계로 뜯겨 위로 날아가고, 남은 조각은 배출구로 들어감, 단계마다 화면 흔들림. MCP Play 테스트 끝(2026-11-24, 아래 M5b-5 메모), 사람 손 테스트 아직.
+### 1. 지금 상태
+- **브랜치 `m20-layout-scan-shelf`** (main `b80526a` 위). 커밋: `e7f011b` M19-1 + M20-1 + M20-2 → `f2787b0` 인수인계 → 이번 커밋 M20-3. **아직 push 안 함** → 다른 컴퓨터에서 이어가려면 이 컴퓨터에서 먼저 push (push는 사용자 지시가 있을 때만).
+- 커밋 안 한 것: `.claude/settings.json`(로컬 설정). 폰트 `LiberationSans SDF - Fallback.asset`은 늘 되돌림.
+- main에는 컨베이어 벨트 축소판 + 스캔 모듈이 들어가 있다 (`263dbaf`). 벨트 연결은 **하차 칸 공간 → 스캔 모듈 팔레트** 하나뿐 (GDD 7.10).
+- 진행: **124 / 135**. M19 1/1, **M20 3/5** (M20-1 · M20-2 · M20-3 끝). 사용자 손 테스트: M20-1 끝, M20-2 · M20-3은 아직.
 
-- **2026-11-19 개인 작업본에서 3가지만 이식**: 현금 줍기 = 상차장 모듈 칸 진입(M5b-3), 돈 있는 상차장 모듈 외곽 초록 글로우(`TileGlow`), 알바 작업 슬롯 예약 삭제 · 서는 위치 개편(M6, 자리 없어 일 못 하던 문제). 컴파일 · Play 테스트 아직.
-- **2026-11-19 파트 1 · 2 반복 이식**: 1파트 = 하차(줄 → 하차장), 2파트 = 상차(새 상차 트럭). `PartService.InboundOpen` · `OutboundOpen`, HUD `1파트 하차`. 하차 줄은 원래대로(3대 · 20초), 30초 마감 · 줄 30대 · 경적은 안 가져옴. 컴파일 · Play 테스트 아직.
+### 2. 다음 작업 = M20-4 → M20-5 (CL [M20](#m20-배치-자유도--벨트-스캔--선반-통합-2026-11-25))
+사용자는 "시작"이라고 하면 하나씩 진행시킨다. 시작 전 질문은 아래 "아직 물을 것"만.
 
-**2026-11-15 기획 변경 (기능리스트 변경사항 2)**: 목표 **Lv.5**. 계약 → **색 트럭 웨이브**, 공용 보관소 → **하차 칸 상자 공간 10**, 주문서 큐 → **상차 트럭마다 색 주문**, 돈은 정산 뒤에만(HUD 지갑 한 칸 + 저금통 `+N`), PC 팝업 → **클립보드 책상(고용 · 배치) + 컴퓨터 책상(업그레이드 · 모듈, Lv.2)**, **직무 하차 · 보관 · 상차 · 반품 · 지게차**(고용 때 직무가 정해짐), 반품 = 반품 팔레트 → **재포장 테이블** + **쓰레기 → 쓰레기장**, 황금 트럭 · 구루마 · 롤테이너 · C 전자제품 · D 가구 · 트럭 2단계. 삭제: 저장 · 할당량 · 완료 표시 · 설비 고장 · 첫 파트 90초 · **정전(2026-11-18)** → [M13](#m13-변경사항-2--색-분류--직무-4개--반품-재포장--쓰레기--lv5-gdd-2026-11-15).
+**M20-4 벨트 자유 배치 · 통과 불가** (GDD 7.10)
+- 정해진 것: 2m 격자 대신 **연속 배치**(점 맞춤 0.5m `임시`), 시설 · 존 **바로 옆 · 좁은 틈 허용**(겹칠 때만 막힘), 벨트는 플레이어 · 알바가 **못 지나감**(넘어가는 자리 없음), 저장 전 **길 막힘 검사 = 모든 상호작용 존 + 열린 칸(해금 발판 포함)**에 플레이어가 갈 수 있어야 함 → 막히면 [저장] 꺼짐 + `길이 막힙니다`. 재배치 · 회전은 길 검사 대신 옮기거나 돌린 모듈 위 벨트 철거(M20-3에서 회전도 대상에 넣음).
+- 상자 간격 2m · 속도 초당 2m는 그대로 `임시`. 코드: `UI/BeltPlacer`(칸 단위 `TileOf` · `SegmentFree` · `OverlapsSelf`), `Logistics/ConveyorBelt`.
+- 아직 물을 것: 없음 (구현 중 막히면 질문).
 
-**현재 상태** (98/113, 2026-11-18): M0~M7 · M9 완료, M8 절반, M10 0/4, **M11 5/6**(M11-8 지게차 · M11-9 고용 직무 고정 끝), M12 2/2, **M13 18/19**(M13-18 통플레이만 남음, M13-15 정전은 만들었다가 **삭제**), M14 8/8, **M15 0/7 (모델 2차, 계획만)**.
-- 코드로 지금 되는 것: 혼자서 하차 → 하차 칸 공간 → 색 선반 → 상차 트럭 → 현금 → 저금통 → 파트 정산 + 반품 사이클 + 알바 5직무(지게차 = D 트럭 ↔ 팔레트 랙 ↔ 상차) + 구루마(Lv.3) · 롤테이너(Lv.4, 플레이어만) + 하차 트럭 2단계(Lv.4 15개) + 황금 트럭 + **튜토리얼**(Lv.2 반품 구역까지)
-- **이번에 끝낸 것 (2026-11-18)**:
-  - M13-13 · M13-14: 구루마 8 · 롤테이너 12는 플레이어만(알바는 스탯), C 무게 규칙 삭제, 트럭 2단계 `truckStage2Level` 4 (A · B · C 10 → 15, D 4 그대로, 다음 도착부터)
-  - M11-9 · M11-8: 고용 후보마다 직무가 정해짐(열린 직무 중 무작위, 배치 탭은 해고만), **지게차 알바**(D보관 뒤 열림, 적재 4 고정, 고용금 +300, 포크 `Plastic_Pallet`에 한 줄, 애니 `riding`), 플레이어 지게차 삭제
-  - 플레이어 아바타 `player_SBS`, 밀기 애니 분리(`push_wagon` · `push_rolltainer` + idle, `CharacterAnimator.PushTool`)
-  - M13-16 황금 트럭: 0.05%, 금 = 트럭 상자 수, **트럭 뒤 `TruckPickupZone` 바닥에 쌓임**(하차 칸 칸 안 차지), 누구든 지나가며 흡수 → 저금통(다발 × 2). 값 · 연출 전부 **`GoldenTruckConfig`** 에셋(몸체 단색 금 · 깜빡임 · 점광원 · 반짝임 `M_GoldSparkle` · 쏟기 · 흡수). 디버그 `Golden truck`
-  - M13-17 튜토리얼: `UI/TutorialGuide`(씬 `Site/Logistics`), 8단계, 단계마다 게임 멈춤 → `CameraRig.Spotlight` 확대 1.8초(탭이면 바로) → 복귀 · 가이드 화살표(`GuideArrow.TutorialTarget`), 화면 위 배너(팝업 열리면 숨김), 첫 고용 무료 보관 알바(속도 1 · 적재 3, 기본 옷 — `StaffService.OfferFreeCandidate`). 디버그 `Tutorial n → next` · `Tutorial off`
-  - **정전 삭제** (사용자): `Scripts/Events` 폴더 · 씬 `Outage` · 사무실 분전반 · 재질 지움, 알바 멈춤 · 컴퓨터 책상 꺼짐 · 화살표 분전반 코드 뺌. GDD 14.3 = 삭제
-  - M15 계획 (GDD 15.1 "모델 2차"): 들어온 모델 전부 넣기 — **D 색 주황 → 보라** `확정`(GDD만 바꿈, 데이터는 M15-1), 트럭 크기 = 단계별(Small 10 · Middle 15 · Big 20), 상차 = `White_Big_Truck_Open`, 파랑 큰 상자 안 씀
-- **지난번 (2026-11-17)**: M14-5 ~ 7 모듈 묶기 · 주차장 · 배경 모듈, M13-8 레벨 표 · 같은 레벨 건설 타일 동시, M13-9 차량 대기열(`InboundQueue`), M13-10 ~ 12 반품 재포장 · 쓰레기 · 반품 알바, 문서 [ConfigGuide.md](ConfigGuide.md) · [ParameterList.md](ParameterList.md)
-- 알바 외형 = 유니폼 `uniformT` 90% · 코스튬 macaron · rabbit 10% (SBS는 플레이어 아바타로 감)
-- 화면: 존 바닥 판 없음(에디터 기즈모로만), 게이지는 머리 위 막대(`HeadGaugeBar`), 건설 타일만 판 · 원형 게이지
+**M20-5 벨트 스캔 구역** (GDD 7.2a · 7.10)
+- 정해진 것: 하차 공간 → 스캔 팔레트 벨트의 한 지점에 스캔 구역, 벨트 옆 작업 존에 **플레이어 또는 하차 알바**가 서면 지점에 멈춘 상자를 **1개씩 1초** 스캔 → 그 상자만 팔레트로, 뒤 상자는 줄지어 대기. 스캔 속도는 플레이어 · 알바 같음.
+- 임시(18장 68): 벨트당 1개 · ₩50, 사람 없음 · 정할 색 없음 = 대기, 하차 알바는 벨트 스캔 구역을 스캔 팔레트보다 먼저 잡음, 벨트 철거 때 같이 철거.
 
-### 1. 시작하기 전에
-1. 저장소를 받고 `git lfs install` → `git lfs pull` (폰트 에셋이 LFS)
-2. Unity **6000.3.26f1**로 연다. 처음 열 때 TechStack 3절 확인 (R3 NuGet DLL은 `Assets/Packages`에 커밋돼 있음)
-3. `Assets/Scenes/Game.unity`를 열고 Play. F1 또는 왼쪽 아래 `DEBUG`로 치트 메뉴 (현금 · 레벨업 · 배속 · 알바 · `End Part` · 모듈 해금)
-4. 씬 · 프리팹 재생성 메뉴(`Build Site` · `Apply M6 Staff` · `Rebuild Standard Modules`)는 손으로 고친 프리팹 · HUD를 덮어쓴다 — 아래 2절 '덮어쓰기 금지'를 먼저 본다
-5. 문서를 먼저 읽는다: [GDD](GDD.md) v0.4 (무엇을) → [Wiki](Wiki.md) (코드가 어떻게) → [TechStack](TechStack.md) (도구 · 규칙)
+### 3. 이미 정해진 것 (다시 묻지 않는다)
+- **M19-1** (끝): 선반은 모듈 프리팹 안 중첩 프리팹. `ShelfSlot`은 남겨서 설정만, 팝 연출 유지, 기존 프리팹에 넣기(손으로 고친 FloorArt 보존), 선반 자리 기즈모 삭제.
+- **M20-1** (끝): 스캔 = 미분류 1개당 1초(`scanSecondsPerBox`), 스캔 중 들어오면 +1초 → 게이지가 줄었다 다시 참, 최소 6개 규칙 삭제, 플레이어 · 알바 같은 속도.
+- **M20-2** (끝): 구역 1개 = 보관함 하나 + **가운데 사각형 존 하나**(2.4m `임시`), 선반 모델 4개 유지. A~C 24 → 32 → 40, **D는 랙 1개당 4 → 6 → 8 = 구역 16 → 24 → 32**(18장 67 — 랙 1개당으로 해석, 바로잡히지 않음). 넣는 순서 = 선반 4개 돌아가며 한 칸씩(18장 69).
+- **M20-3** (끝, 2026-11-26):
+  - `모듈` 탭에서 칸 누르기 = 고르기, [회전] = 90°씩 (지금은 [되돌리기]를 실행 때 복사해 왼쪽에 둠 — 위치 · 모양 `임시`).
+  - 하차장(`In1` · `In2`, 묶음 아님 → 칸마다)도 끌 수 있다. 트럭 쪽 이웃 칸이 부지 밖이어야 하고, 옮길 때 지금 방향이 안 되면 **시계 방향으로 되는 첫 방향으로 자동 회전** `임시` (GDD 방향 유지 규칙의 예외 — 사용자 확인 못 받음).
+  - 미니맵 하차 칸 = 주차장 쪽 변에 **붉은 바**(방향 글자 없음). 사유 글자는 미니맵 위 · 폭 1100 · 한 줄.
+  - **스캔 모듈도 옮길 수 있음**(`Module_Scan` Kind Movable, 미니맵 청록 `임시`). 옮기면 연결 벨트는 철거 · 환불.
+  - 벽(`SiteWalls`)은 `OnMoved`에도 다시 지음, 주차 트럭은 베이 자식이라 모듈과 같이 움직임.
+- 모바일 빌드 조언(2026-11-24 답함): 패키지 이름이 템플릿 기본값 → 바꿀 것, Game 씬에 `targetFrameRate` 없음(Android 30fps) → 60 넣을지 제안만 하고 답 못 받음, TycoonTest 빌드 제외(`f2787b0` 커밋), IL2CPP · ARM64 · 가로 · Mobile 품질은 이미 맞음.
+- 확인 안 한 것: 하차장 · 스캔 모듈을 옮긴 뒤 알바가 새 자리에서 일하는지, 옮긴 하차장 바깥 배경 장식이 트럭과 겹치는지. 미니맵 아래 안내 글이 아직 "보관 · 반품 칸을 끌어다 놓기".
 
-### 2. 다음 작업
-- **2026-11-24 성능 (프로파일러)**: 느려지는 원인 = 알바 탐색 스크립트가 아니라 렌더링 (알바 20명 → Batches 2.1k → 4.6k · 삼각형 1M, 프레임 14ms). 알바 1명 = 스킨 메시 6~12개 × 툰 · 외곽선 2 · 그림자 캐스케이드 4. **바닥 타일 그림자 끔**: `ModuleFloor.Awake`가 `FloorArt` 렌더러 `shadowCastingMode = Off`. Play(MCP): 타일 1875개 그림자 0, 그림자 그리는 렌더러 약 2900 → 387, 에러 0. 프로파일러 다시 재기 · 사람 손 테스트 아직. 남은 후보: 캐스케이드 4 → 2, `RoleRing` 그림자, 캐릭터 부위 합치기
-  - 툰 셰이더 HLSL 전환 · 외곽선 합침 완료 (M15-7 메모): 변형 17,492 → 9, SetPass 약 −15%, 화면 픽셀 차이 0. 다음 셰이더 후보 = `WallCutout.shader`에서 안 쓰는 패스(GBuffer · Universal2D · XRMotionVectors) · 라이트맵 키워드 걷어내기
-- **2026-11-19 저녁 수정 4건 (`fixing1119` 브랜치)**: ① 들고 있는 물건이 옆 · 뒤 벽을 뚫음 ② 주차장 지붕 겹침 지직거림 ③ 하차 트럭 · '공간 가득'이 지붕에 가림 ④ 진행 표시(머리 위 원형 · 바닥 표시 — GDD 5.2는 바닥 표시 삭제 · 가로 막대로 확정돼 있어 새 결정 필요). 작업 번호는 요청 때
-  - ① 완료: `PlayerMover.ClampToSite` — 상자를 들었거나 도구가 있으면 칸 경계 검사 반지름 = 든 것 끝까지 거리(렌더러로 잼, 맨손 0.78 · 구루마 1.52 · 롤테이너 1.32m) + `PlayerConfig.wallClearance` 0.25 `임시`(벽 조각이 안쪽으로 0.18 · 창문 0.25 들어옴). 이미 그 안쪽이면 더 다가가지만 못 하게. `PlayerSetup.ToolRenderers` 추가. Play(MCP): 북 · 서 벽에 밀기 → 상자 · 구루마 앞 끝이 벽 안쪽 면에서 0.15m(롤테이너 0.29m) 앞에서 멈춤, 벽 0.8m 앞에서 구루마 → 벽 쪽 0 · 옆 · 뒤로는 이동, 빈손은 예전처럼 0.4m, 40개 존 모두 반지름 1.8m로 설 자리 있음, 스크린샷, 에러 0. 사람 손 테스트 아직 (조이스틱 · 존 근처 막힘 느낌). 알바는 네비메시라 해당 없음
-  - ③ 완료 (2026-11-20, 사용자: 알림 = 항상 위, 트럭 = 추천안 컷아웃 확장): 컷아웃 대상을 배열로(`_WallCutoutCenters` 최대 8, [0] 플레이어) + 새 `Visuals/WallCutoutTarget`을 `InboundTruck` · `OutboundTruck` 프리팹에(반지름 3.2 `임시`) → 주차장 지붕에 트럭 자리 구멍, 트럭을 다시 그리지 않음. 알림 글자 = `CarryConfig.noticeMaterial`(새 재질 `TmoneyRoundWindExtraBold SDF Outline Overlay`, TMP Overlay), '공간 가득' 높이 3.5 → 4.5(트럭 숫자 `M_TruckLabelOverlay` 3.54m와 겹침). Play(MCP): In1 주차 트럭이 지붕 구멍으로 보임 · 들어오는 중에도 구멍이 따라감, '공간 가득'이 숫자 위에 보임, 에러 0. 상차 트럭 화면 · 사람 손 테스트 아직. 구멍 안이 지붕 그림자로 어둡게 보임(그림자는 안 뚫음)
-    - **바뀜** (사용자): 구멍 대상 = **주차 칸 트럭만** — 프리팹 `WallCutoutTarget` 끔, `InboundBay` · `OutboundBay`가 트럭을 주차 칸에 세울 때 켬(떠나면 지워짐). Play: 대기 줄 트럭 꺼짐 · In1 · In2 칸 트럭만 켜짐, 짐 비운 트럭이 떠난 뒤 새 트럭으로 대상 2개 유지, 에러 0
-    - **바뀜** (2026-11-23, 사용자: 트럭 풀링 전에 먼저): **트럭 컷아웃 제거** — `InboundTruck` · `OutboundTruck` 프리팹의 `WallCutoutTarget` 삭제, `InboundBay` · `OutboundBay`의 켜는 줄 삭제. 이어서 `WallCutoutTarget` 클래스도 삭제, `WallCutout`은 [0] 플레이어만 넘김(`_WallCutoutCount` = 1). 셰이더 배열(최대 8)은 그대로. Play(MCP, TycoonTest): 하차 트럭 주차, `_WallCutoutCount` 1, 에러 0. 상차 트럭 화면 · 사람 손 테스트 아직
-  - ② **나중으로 미룸** (사용자): 원인 = 같은 주차 칸((4,1) In1 · In2, (2,5) Out1 · Out2)에 두 모듈의 `TruckParking` 지붕 `parking` · 기둥 `pillar_l`이 90° 엇갈려 같은 높이로 겹침. "칸마다 첫 모듈 지붕 · 기둥만 켜기"는 해 봤다가 마음에 들지 않아 롤백
-- **타이쿤 시험 8 × 8 (2026-11-20, 사용자 요청 · 시험용, 작업 번호 없음)**: 메뉴 `APC > Test > Build Tycoon 8x8` → `Scenes/TycoonTest.unity` (Game 씬 복사, 원본 씬 · 에셋은 그대로). 왼쪽 열 하차장 8 · 오른쪽 열 상차장 8 · 가운데 사무실 + 보관 A~D 47칸(대각선 섞기). 데이터는 복사본 `Data/Tycoon/*_Tycoon`(트럭 간격 2초 · 줄 30, 최대 알바 999, 카메라 최대 거리 120). Play하면 `TycoonTest`가 Lv.5 · 파트 교대 끔(`PartService.AlwaysOpen`, 정산 없음) · 알바 78명(하차 20 · 보관 30 · 상차 20 · 지게차 8) 생성. 반품 · 쓰레기장 · 시작 건설 · 튜토리얼 없음. Play(MCP): 모듈 64개 · 알바 78명 · 하차 트럭 16(주차 8 + 줄 8) · 상차 트럭 8, 에러 0. 게임 시간 78초에 주문 2건 출고(부지가 넓어 대부분 이동 중, 하차장 쪽에 몰림), 에디터 FPS 시작 11 → 안정 60~88. 돈은 상차장 현금 존에 쌓이고 플레이어가 주워야 저금통으로 감(알바는 안 주움).
-  - **바뀜 (2026-11-20, 사용자 요청 · 최적화 시험)**: 자동 고용 78명 → 기본 0명(`TycoonTest` 인스펙터 수는 그대로 쓸 수 있음) + 시작 돈 100,000 → 고용 탭이나 DEBUG Staff 버튼으로 직접 뽑기. 대기 줄 8 → **30**(부지 아래 남쪽, 바닥을 줄 끝까지 늘림). 하차 · 상차는 파트 구분 없이 동시(`AlwaysOpen`, 파트 시간 180초에서 멈춤)
-  - Play(MCP, 10배속): 대기 줄 30대 찼음, 하차 · 상차 둘 다 열림, 고용 탭 고용 1명(돈 차감) 정상, 에러 0. 사람 손 테스트 아직
-  - **성능 패널 (2026-11-20, 사용자 요청 · 사용자 제공 코드)**: `Debugging/PerformanceHUD` — 왼쪽 아래 [PERF] 버튼 · F2로 열고 닫음, FPS · CPU/GPU 시간 · 드로우콜 · 배치 · 메모리. 빌더가 TycoonTest 씬에 캔버스를 만듦. targetFrameRate 120. Play(MCP): 글자 갱신 · 버튼 닫기/열기 정상, 에러 0. 화면 배치는 눈으로 확인 못 함(MCP 스크린샷에 오버레이 UI가 안 찍힘) — 사람 손 테스트 아직
-  - **컷아웃 비용 측정 · 벽 찾기 교체 (2026-11-20, 사용자 요청 · 끝)**: 측정 기능 → 실기기 측정 → 벽 찾기를 0.5초 전체 스캔에서 부지 변경 시점으로 교체 → 재측정 → 비교 토글 지움. 성능 패널에 컷아웃 벽 찾기 시간 · 횟수 · 바꾼 벽 수, 구간 최대 프레임, GC KB/s · 프레임 최대 · GC 횟수 추가(`WallCutout` 정적 값). 에디터 측정(TycoonTest Play): 렌더러 3422 · 벽 224, 벽 찾기 약 5~7ms(첫 회 14ms) / 0.5초. 실기기(사용자, 순간값): 벽 찾기 6.2~8.0ms(max 15), 프레임 15.5ms(max 25 = 벽 찾기 프레임), CPU 13ms, FPS 50, GC 2000KB/s(대부분 다른 곳)
-    - **바뀜** (사용자): 벽 찾기 = 부지가 바뀔 때만(`OnUnlocked` · `OnMoved` · 레벨 변경 → 그 프레임 LateUpdate 한 번), 지워진 벽은 목록에서 뺌. 비교용 DEBUG 토글 `Cutout on change` ↔ `[Cutout 0.5s scan]`(임시, 측정 뒤 지움). 패널에 누적 평균(`[Avg]`: 프레임 평균 · 최대 · 20ms 넘은 수 · 벽 찾기 평균 · GC, 방식 바꾸면 처음부터). Play(MCP): TycoonTest 새 방식 16초 동안 벽 찾기 0회 · 예전 방식 12초 22회(평균 8.6ms), Game 씬 시작 건너뛰기 · 레벨업 · StoreB 해금 뒤 벽 이름 렌더러 259개 중 놓친 것 0, 에러 0. APK `Builds/APC_perf_toggle.apk`. 실기기 비교(사용자, 누적 평균, 같은 판): 새 방식 FPS 52.7 · 프레임 18.97ms(max 33.9) · 벽 찾기 0 · GC 1384KB/s / 예전 방식(약 44초) FPS 48.2 · 프레임 20.75ms(max 42.3) · 벽 찾기 12.72ms × 88 · GC 2840KB/s · GC +38회 → **FPS +9%, 프레임 −1.8ms, 최악 프레임 −8ms, GC 할당 −51%**(벽 찾기가 GC의 절반, 에디터 측정은 과소). `>20ms` 개수는 기기 평균이 20ms 근처라 쓸모없음(예전 방식 1,987 ≈ 거의 전부). 남은 끊김(max 33.9) · GC 1384KB/s는 다른 원인 — 조사 아직
-    - 정리 (사용자): 비교 토글 `LegacyScan` · DEBUG 버튼 · `scanInterval` 지움, 패널 끊김 기준 20 → 33ms. Play(MCP, TycoonTest): 시작 1회 · 레벨업 1회만 벽 찾기, 에러 0. APK 다시 빌드 안 함
-  - **프로파일 조사 (2026-11-23, 사용자 요청)**: 에디터 2000프레임(알바 100명) — 중간 28.9ms · p95 244ms. ① 스크립트 = `StaffWorker.Update` 자체 30ms/프레임(튀면 67ms), NavMesh는 0.35ms뿐 → 원인은 일감 찾기(`FindForShelves` → `ShelfAllowance` → `CountCarried`가 모든 Interactor 손을 훑음) ② GC = 같은 곳, 튀는 프레임 60만~73만 회 · 23~29MB 할당(`IReadOnlyList` foreach 열거자 박싱 40B) → `GC.Collect` ③ Others = `EditorLoop` · `Profiler.CollectUIStats`(에디터 전용) ④ Rendering = 추가 라이트 그림자 패스의 `_AdditionalShadowParams` 경고 로그 22ms(에디터 재시작으로 사라짐, 모바일 설정은 추가 그림자 꺼짐). 트럭 `Instantiate` 32ms · `Destroy` 56ms(TMP)도 따로 튐. 알바 할당 수정 아직 — 계획 `docs/superpowers/plans/2026-11-23-sorter-job-search.md`(낭비 A~G, 0~7단계)
-  - **트럭 풀링 (2026-11-23, 사용자 요청 · 작업 번호 없음)**: 먼저 트럭 지붕 컷아웃 제거(`WallCutoutTarget` 삭제, 위 ③ 바뀜 참고). 새 `Logistics/TruckPool`(씬 배치 없음, 프리팹별 `ObjectPool` 최대 16 `임시`) + `IPooledTruck.ResetForPool` — `InboundQueue` · `InboundBay` · `OutboundBay`의 Instantiate · Destroy 교체, 시작 때 미리 만들기(하차 줄 + 2 · 상차 2 `임시`). `OutboundTruck` 주문 구독을 직접 풂, `TruckPickupZone.dumpingFrom`은 쏟기 끝나면 null. 계획 `docs/superpowers/plans/2026-11-23-truck-pooling.md`. Play(MCP, TycoonTest 4배속, 알바 30명): 하차 트럭 103대 도착하는 동안 트럭 객체 27개(재사용), 상차 11개, 황금 트럭 쏟고 떠남, 에러 0. 프로파일 수치 비교 · 사람 손 테스트(황금 연속 · 주문 카드 · 모델) 아직
-  - **부지 벽 안쪽 면 그라데이션 (2026-11-23, 사용자 요청 · 작업 번호 없음)**: 아래 `#E3CB99` → 위 `#E6D9AE`. 새 재질 `M_Wall`(`APC/WallCutout` + 키워드 `_WALL_GRADIENT`, 텍스처는 `M_Prop`과 같음) — `SiteWalls.wallMaterial`로 벽 조각(wall_s · wall_l)에만, 기둥 · 창문은 그대로 `M_Prop`. 셰이더 forward 패스가 메시 로컬 +y 면(안쪽)의 albedo를 피벗에서 `gradientHeight` 3.69m까지 보간해 바꾸고, 위 갈색 띠(3.6955m~)와 바깥 면은 원래 색. 색 · 높이는 `SiteWalls`가 전역 값으로 넘김. Game · TycoonTest · ShaderTestScene 씬 연결, Build Site에도 연결. Play(MCP, Game): 벽 152개 `M_Wall`, 안쪽 크림색 · 바깥 회색 · 띠 유지 스크린샷, 셰이더 · 콘솔 에러 0. 반투명 페이드 중(`M_PropFade`)과 GBuffer(디퍼드) 패스엔 그라데이션 없음. 사람 손 테스트 아직
-    - **바뀜** (사용자): 아래 색 `#E3CB99` → **(234, 98, 54) `#EA6236`**. `SiteWalls.OnValidate`가 전역 값을 다시 넣어 인스펙터 수정이 Play 중에도 바로 보임. Play(MCP): 위 색을 흰색으로 바꾸자 전역 값 · 화면 즉시 바뀜, 에러 0
-    - **바뀜** (2026-11-24, 사용자: 그라데이션이 안 먹음): 원인 = `gradientHeight`를 1.66으로 낮추면 그 위는 원래 색(팔레트 `#FCE5A9` 노랑)이라 경계가 딱 끊겨 보임. **위 = 오브젝트 원래 색, 아래 = (234, 198, 154)**로 바꾸고 `gradientTop` · `gradientHeight` 대신 `gradientStart` 0 · `gradientEnd` 2.5 `임시`(사이는 smoothstep, End 위는 원래 색 → 갈색 띠 유지). Play(MCP, Game): 안쪽 면 노랑 → 아래 살구색 부드럽게, 띠 유지, 셰이더 · 콘솔 에러 0. 사람 손 테스트(참고 이미지와 비교) 아직
-    - **바뀜** (2026-11-24, 사용자: 위 (242, 235, 204) · 아래 (234, 198, 154)): 위 색 `gradientTop` 다시 넣음(갈색 띠 3.6955m~는 셰이더 상수 `WALL_BAND_BOTTOM`으로 항상 원래 색), 섞는 방식 smoothstep → **높이에 비례**, `gradientEnd` 2.5 → **3.4** `임시` — 참고 이미지 색을 줄마다 재 보니 바닥에서 약 3.4m까지 거의 직선. **버그 고침**: `Shader.SetGlobalColor`가 sRGB → 선형 변환을 안 해 처음부터 색이 밝고 그라데이션이 절반 세기였음 → `.linear`로 넘김(빨강 · 파랑 시험색 측정으로 확인, TechStack 5.7b). Play(MCP, 해 드는 북쪽 벽 정면): 화면 3.6m 242,234,196 → 0.4m 235,203,156(넣은 색과 거의 같음, 파랑만 약 8 낮음 = 따뜻한 햇빛), 해 반대쪽 벽은 어둡게, 에러 0. 사람 손 테스트 아직
-  - **알바 길 찾기 측정 — NavMesh 기준값 (2026-11-23, 사용자 요청 · 계측만)**: A*(방별 · 타일별 다시 굽기) 전환 전 비교 기준. 확인: 알바 = `NavMeshAgent`, 해금 · 재배치 때 `SiteNavMesh`가 **부지 전체를 동기로** 다시 굽는다. 계측: `SiteNavMesh.LastBuildMs` · `MaxBuildMs` · `BuildCount`(정적, 굽기마다 콘솔 로그), `StaffWorker.PathRequests`(모든 `SetDestination`이 `SetPath`를 거침) · `NoPathCount`("길이 없습니다" 경고). 패널: `NavMesh Build: ms (max) x 횟수`, 누적 `Paths: n/s, NoPath +n (알바 수)`. 컴파일 에러 0. Play 테스트 아직(에디터가 사람 Play 일시정지 중이라 건드리지 않음) — 측정 아직
-    - **NavMesh vs 방 단위 A* 비교 (2026-11-24, 사용자 요청 · 측정 전용 알바 100명 · 끝)**: 새 `Scripts/Navigation`(어셈블리 `APC.Navigation`, 게임 코드 모름 — 알파로 옮길 단위) = 0.5m 격자 + 방(10m)마다 변 문 · 문 지도(방 안 다익스트라) + 문 그래프 A* + 직선 펴기 + `NavCrowd`(한 Update에서 전원 이동, 회피 없음). 어댑터 `Site/SiteNavGrid`, 측정 `Debugging/NavBenchmark`(메뉴 `APC > Test > Nav Benchmark`), 설정 `NavGridConfig` · `NavBenchmarkConfig`. 자기 검사 `NavSelfTest` OK 32. 설계 · 계획 `docs/superpowers/specs|plans/2026-11-24-astar-nav-benchmark*`
-      - 결과(에디터, Deep Profile 끔, `Logs/NavBench/20261124-131719/result.md`): 평소 길찾기 비용 NavMesh **0.36** vs A* **0.07ms/프레임**(+ 알바 0명에도 NavMesh 0.13ms), PlayerLoop 기준 대비 +0.30 vs +0.16. 길 1개 NavMesh 7µs · 방 2층 A* 16µs · 한 장 격자 185µs. 해금 NavMesh 전체 굽기 **23ms** vs A* 방별 **0.44ms**(전체 14.5ms). 레일 1개 NavMesh 전체 굽기 21.6ms · carving은 프레임에 나눠 0.5ms vs A* 타일별 0.18 · 방별 0.21ms, 레일 10개(방 10개) 타일별 1.65 · 방별 2.26ms. 실제 알바 100명은 초당 길 요청 19.1, PlayerLoop 12.7ms(일감 찾기)
-      - **바뀜**: 측정 중 Unity가 GPU 장치 오류로 한 번 꺼짐(실제 알바 100명 한 프레임 생성 때) → 0.1초 간격으로 뽑음. 저장 안 됐던 TycoonTest는 `Assets/_Recovery/0.unity`. 남은 것: 길 품질 한도(1.4) 1000쌍 중 1쌍 넘음(1.41, 문이 변 가운데 하나라서), 실기기 측정 아직, `StaffWorker`는 그대로 NavMesh
-  - **디버그 메뉴 일반 빌드 허용 (2026-11-20, 사용자 요청)**: `DebugMenu.releaseBuild`(기본 켬) — 일반(Release) 빌드에서도 DEBUG 버튼 · F1. 출시 전에 끔 (GDD 14.5 확정). 컴파일 에러 0, 실제 빌드에서는 아직 확인 안 함
-- **M15 모델 2차** ([M15](#m15-모델-2차--프로토타입-모델-전부-2026-11-18-gdd-151-모델-2차)) — 계획 · GDD 끝, **"시작" 지시 대기**. M15-1 D 보라 → M15-2 색별 상자 → M15-3 트럭 → M15-4 선반 · 랙 · 팔레트 → M15-5 재포장 테이블 → M15-6 사무실 · 표지판 → M15-7 배경 · 벽. 시작 전에 물을 것: GDD 18장 47(`sign_yellow` · D 표지판 · `*_Open_Box` 쓰임). 새 fbx 크기 · 기준점 · 재질은 아직 안 열어 봄, 보라 Small · Middle 트럭은 이름에 `_Open` 없음
-- **벽 뒤 캐릭터 가림 → 벽 컷아웃 (2026-11-19, `shader-develop` 브랜치, ShaderTestScene에서 사용자 확인 완료)**: 실루엣 대신 **컷아웃** 채택. 새 파일만 — 셰이더 `Shaders/WallCutout.shader`(URP Lit 복사) · `WallCutout.hlsl`, 재질 `M_WallCutout`, 스크립트 `Visuals/WallCutout`(플레이어에 붙임). 플레이어를 가리는 구조물 · 배경(벽 · 기둥 · 창문 · 문틀 · 주차장 · 가로등 · 나무 · 표지판 · 배경 · 공사 울타리, 이름 앞부분)에 원형 구멍, 작업 물건 · 캐릭터 · 바닥은 제외. 반지름 1.5 · 가장자리 0.4 · 높이 1 `임시`. **바뀜 (2026-11-19, 사용자 요청)**: `Game.unity` Player에 `WallCutout` 붙이고 `WallFadeConfig.enabled` 끔 → 벽 반투명 페이드 대신 컷아웃 (둘 다 켜면 같은 벽 재질을 번갈아 바꿔 충돌). MCP Play: 배경 · 구조물 렌더러 101개 컷아웃 재질, `M_PropFade` 0, 에러 0. 벽 조각은 시작 직후 아직 안 세워져 확인 못 함 — 사람 손 테스트 아직. ShaderTestScene ContractPopup 오류(설비 · 트럭 탭 없음)는 고치지 않음. **남은 것**: main에 셰이더 · 스크립트 · 재질 4개 가져가기, 알바도 구멍 낼지, 작업 항목 번호(요청 때)
-- **캐릭터 툰 · 외곽선 · 알바 관찰 외곽선 (2026-11-19, `shader-develop`)**: 툰 `Shader Graphs/APC_Toon` + 외곽선 `APC/OutlineStencil`(VLB v0.1.4에서 복사, 그림자 제외), 렌더 패스는 코드로(`OutlinePasses`, 렌더러 에셋 안 바꿈). `Game` 씬 Player · `StaffWorker.prefab`에 `CharacterToon`, 알바에만 `ObserveOutline` — **알바를 탭하면 흰 외곽선 + 바깥 검정 1px** (한 명, 다시 탭 · 빈 곳 = 해제, `ObserveOutlinePicker`). 시험 씬 `OutlineTestScene`. Play 확인: 툰 · 검정 외곽선 · 흰 외곽선 겹침 · 해제 복원, Game 씬 Player · 고용 알바 2명 적용. **남은 것 · 사람 손 테스트 아직**: 실제 마우스 · 손가락 탭(0.35초 · 0.1인치 `임시`), Mobile 품질(Forward) 화면, Frame Debugger(일반 알바에 OutlineOuter 없음), S20 프레임. 스테이터스 창 연결은 창이 생기면. 작업 항목 번호(요청 때)
-- **정산 저금통 깨기 연출 R&D (2026-11-20, 작업 항목 번호 없음 — 요청 때)**: DOTween 버전과 2D 스켈레톤 버전을 **씬 2개로 따로** 만들어 비교. HTML 미리보기(사용자 확인)대로 — 사슬에 매달린 유리 저금통(`Art/Temp/BrokeCash/Piggy_Glass.png`, 곱하기 합성 `APC/SpriteMultiply`)이 내려와 출렁 → 쩌적(우측 하단) → 0.3초 뒤 깨짐 → 구멍에서 돈이 흘러내려 더미 → 조각마다 `CashFlyEffect`로 좌측 하단 "정산할 돈" → 영수증 안내, 0원 = 먼지 · 나방 · 단추 개그. 양은 번 돈 ÷ `PiggyFullAmount` 비율(상한 2), 값은 `Data/BrokeCashConfig` `임시`
-  - **공용 + DOTween 끝**: 새 폴더 `Scripts/BrokeCash`(`BrokeCashPlan` · `BrokeCashDirector` · `PiggyBody` · `PiggyBodyTween` · `PiggyCracks` · `BrokeCashHud` · `BrokeCashArt` · `BrokeCashTester`), 메뉴 `APC > Broke Cash > Build DOTween Scene` → `BrokeCashScene.unity`(비우고 다시 만듦). Game 씬 · 정산 팝업 연결은 안 함
-  - 테스트 (MCP Play): 450/300 → 113조각 · HUD 450, 900/300 다 쏟아진 뒤 모드 → 120조각 · HUD 900, 0원 → 개그 · "…텅" · 영수증 안내, 200 중간 건너뛰기 → 200 · 늦은 비행 무시, 에러 0 (스크린샷 확인). 사람 손 테스트 아직
-  - **다음**: 2D 스켈레톤 버전 — `com.unity.2d.animation` 설치, 뼈 · 메시 · 가중치는 **에디터 스크립트로 자동 생성**(사용자 결정), 씬은 따로 (`PiggyBody` 상속)
-- **M13-18 통플레이** (Lv.1 → Lv.5 사람 손) — 필요 XP · 비용 · 월급 조정
-- **남은 것 · 사람 손 테스트 아직**: 튜토리얼 실제 상차로 3단계 · 탭 넘기기, 황금 트럭 알바 흡수 · Lv.4 15덩이, 지게차 직행 예외, 고용 카드 제목 "코스튬" 두 줄 넘침(기존), 트럭 대기 자리 표시, M14 배치 초안들
-- **GDD 정리 필요**: 6.3에 옛 "하차 칸이 비면 4초 뒤 1대씩"이 남아 7.1(전체 20초 간격)과 충돌
+### 4. 환경 준비 (다른 컴퓨터)
+1. `git lfs install` → `git lfs pull`, Unity **6000.3.26f1**, `Assets/Scenes/Game.unity`.
+2. **Unity MCP**: main의 `.mcp.json`이 팀원 커밋 `d5950aa`에서 `{}`로 비워져 Claude Code에 `unityMCP`가 안 보인다. 이 컴퓨터는 `~/.claude.json`의 프로젝트 항목에 `"unityMCP": {"type": "http", "url": "http://localhost:8080/mcp"}`를 직접 넣었다 (`claude` CLI가 PATH에 없었음). 다른 컴퓨터도 같게 넣고 Unity 에디터에서 MCP 서버(8080)를 켠 뒤 Claude Code를 다시 시작. `.mcp.json`을 되돌릴지는 팀 결정(건드리지 않음).
+3. DEBUG 메뉴(F1 · 왼쪽 아래): 현금 · 레벨업 · Lv.5 · 배속 · `Staff` · `End Part` · 모듈 해금 · `Skip start`.
 
-### 2-1. 총책임자 과제 — 파라미터 전체 정리 (진행 중)
-- **요청**: "들어갈 파라미터 모두 정리, 이 이상의 파라미터는 없음. 테이블로 넣을지 파라미터로 넣을지"
-- **정한 범위 · 정의** (사용자, 2026-11-17): GDD에 적힌 기능 **전부**(미구현 포함). **테이블** = 기획이 준 값이 그대로 최종값으로 코드에 들어감, **파라미터** = 공식에 들어가 최종값을 바꾸는 값 (확률 · 가중치 포함)
-- **결과물 초안**: [ParameterList.md](ParameterList.md) — 1장 테이블(레벨표 · 해금 모듈 · 색 · 업그레이드 · 트럭 단계 · 단일 값 약 45개), 2장 파라미터 18개(공식 포함), 3장 값 미정 8개, 4장 코드 상수(설정으로 뺄 것) 6개, 5장 연출값(참고). 줄마다 구현 여부 · 설정 파일 · GDD 절
-- **총책임자에게 받을 답**: ① 연출값(5장)을 목록에 넣을지 ② 트럭 시간 · 카메라를 1장으로 올릴지 ③ 3장 빈칸 값(선반 단계 비용 · 레벨, C 감속, 금 덩이 수, 재포장 출구 용량, 주황 트럭 2단계 수, 롤테이너 보관 알바 적재, 정전 · 튜토리얼 세부) ④ 엑셀 · CSV로 줄지(그러면 설정 파일 → 표 읽기 개발이 따로 생김)
-- 답을 받으면: ParameterList 갱신 → GDD 반영 → 4장 코드 상수를 설정으로 옮기는 CL 항목 추가 여부 결정
+### 5. 작업 방식 · 금지
+- 흐름: 사용자가 할 일을 주면 **질문(AskUserQuestion) → GDD · CL 작성 후 멈춤 → "시작" → 구현 → MCP Play 테스트 → 문서(CL · Wiki · GDD · ParameterList) → 한국어 보고**. 사용자 손 테스트 뒤 "커밋" 지시가 오면 커밋. push는 지시할 때만.
+- 답변 · 문서 전부 한국어.
+- **덮어쓰기 금지**: `EnsureAll(true)` · `Rebuild Standard Modules` · `Apply M6 Staff` · `Apply Character Models` · Build Site 전체 · `StandardModules`의 `overwrite`(특히 `ShelfPrefab(overwrite)`는 손으로 고친 `Shelf.prefab`을 덮음). 프리팹을 고칠 땐 MCP `execute_code`로 `PrefabUtility.LoadPrefabContents` → 수정 → 저장 (M19-1 · M20-2 방식).
+- `CashFlyConfig` · `StampConfig` 값은 사용자가 고친 값 — 되돌리지 않는다.
+- 커밋 전 폰트 `LiberationSans SDF - Fallback.asset`은 `git checkout --`. `Assets/Screenshots`는 **내가 만든 파일만** 지운다(main에 `qa_*.png` 커밋돼 있음).
+- MCP 테스트 팁: 컴파일 직후 첫 Play는 `GameManager.Instance`가 비어 NRE가 날 수 있음 → Stop 후 다시 Play. 모듈 탭 시험 = `ContractPopup.Instance.Open(true)` → `ModulePage`만 켜고 `ModulePanel.Begin()` → `Drop` · `Select` · (리플렉션) `Rotate` → `Close()`. Play 직후 `StartSequence.Instance.Skip()` + `SiteGrid.Unlock(id)`로 모듈 해금(id: `Office` · `Trash` · `In1` · `In2` · `Out1~3` · `StoreA1` · `StoreA2` · `StoreB~D` · `Ret1~2` · 스캔). 플레이어 이동은 `CharacterController` 끄고 옮긴 뒤 켬, 플레이어 = `RestrictToTarget`이 false인 `Interactor`. `execute_code`는 codedom(C# 6)이라 `Object`는 `UnityEngine.Object`로. 시간 측정은 `DOVirtual.DelayedCall` + `Debug.Log` 후 콘솔 읽기. `Assembly-CSharp.dll` 복사 실패는 다시 컴파일하면 됨.
 
-- **M14-2 남은 것**: 모듈 바닥 칠하기는 **사용자가 직접**(모듈 프리팹 → 루트 인스펙터). 바깥 벽 · 창문 · 셔터 · 새 배경 소품은 M15-7
-- 사람 손 테스트 아직: M13-5(HUD 저금통 아이콘 위치), M13-7(배치 탭 4열 · 코스튬), M14-1(사무실 배치 초안 — 손으로 조정), M14-2(인스펙터 칠하기 · 벽 모양 · 재배치 때 타일이 따라가는지), M14-3(트럭 0.85배 · 장식 위치), M14-4(맨손 위치 `임시` · 걸을 때 `carry_move` · `push` · 롤테이너가 통로에 걸리는지), M14-8(존 표시 없이 플레이 가능한지), 옛 M6 · M9 · M11-3 · M11-5 · M13-1 · M13-2
-- 작업 방식: **CL 항목 하나씩** — 시작 전에 질문(**하나씩**) → GDD · CL 반영 → "시작" 지시 뒤 구현 → Play 테스트 → 문서 → 다음. 인수인계 절은 지시할 때만 고친다
-- **`SiteLayout` id**: `Office` · `Trash` · `In1` · `In2` · `Out1~3` · `StoreA1` · `StoreA2` · `StoreB~D` · `Ret1~2` (디버그 해금 · `SiteGrid.Unlock(id)`). 재배치 뒤 칸은 `SiteGrid.ModuleAt` · `WorldToCell`(실제 위치)로 본다
-- 임시로 둔 것: 반품 직무 열림 = `Ret1` 해금, 지게차 직무 = `StoreD` 해금(`StaffService.IsRoleOpen`), 튜토리얼 강조 1.8초 · 확대 0.7 `임시`
-- 이미 준비된 것:
-  - 반품: `SharedStorage`의 `StorageKind`(Pallet / Returns / Repacked / RepackInput / Trash) + `StorageZone`, 재포장 `RepackTable`(GaugeZone, `HasWork` · `TrashFull`), 쓰레기장 `TrashDropZone`, `CargoOrigin.ReturnPallet` · `Trash`
-  - 존 옵션: `InteractionZone.TicksWhileMoving`(안 멈춰도 동작), `CargoZone.IgnoresCarryCapacity`(적재 수 무시), `CargoZone.NoticeCannotDrop`(금지 그림)
-  - 연출 값 에셋: `StampConfig` · `CashFlyConfig` (사용자가 고친 값 — 되돌리지 않는다) · `GoldenTruckConfig`(황금 트럭 시험용)
-  - 디버그 메뉴: 현금 · 레벨업 · **Lv.5** · 배속 · `Golden truck` · 튜토리얼 넘기기/끄기 · `Staff`(Unload · Sort · Pick · Returns · Forklift, `Costume 100%`) · `End Part` · 모듈 해금
-  - 모델: 캐릭터 `Art/Model/Worker`(player · uniformT · macaron · rabbit · SBS, 재질 `M_Char_*` — uniformT · SBS는 부위별), 애니 `Ani`(idle · walk · carry_idle · carry_move · push — 컨트롤러는 `CharacterArt.PrepareAssets`가 빠진 상태만 더함), 소품 `Prop`(재질 `M_Prop` = `Color_Pallet.png`, 이름표 `Prop/오브젝트_모습_이름정리.png`)
-- 자동 테스트(Unity MCP) 팁: Play 중 `Application.runInBackground = true`, 플레이어 순간 이동은 `CharacterController`를 끄고 옮긴 뒤 켠다(켠 채면 되돌아감), 180초가 지나면 정산 팝업이 시간을 멈춤(`SettlementPopup.Confirm` 리플렉션), 설정 에셋에 옛 값이 저장돼 있을 수 있으니 코드 기본값만 믿지 말고 에셋을 확인, Play 직후 첫 호출은 null이 올 수 있음(다시 호출). 팝업은 Open과 같은 프레임에 레이캐스트가 안 됨(다음 호출에서). 스크린샷은 `Assets/Screenshots`에 생기므로 끝나면 지운다. `Assembly-CSharp-Editor.dll` 복사 실패가 나면 다시 컴파일
-- **덮어쓰기 금지**: `Module_Office.prefab` · `StaffWorker.prefab`은 손 · MCP로 고쳤다 — `Rebuild Standard Modules` · `Apply M6 Staff` · `EnsureAll(true)`를 실행하면 되돌아간다. Build Site 전체도 피한다(고용 탭 붉은 글씨 위치를 손으로 옮김) — HUD 일부만 다시 만들 땐 `SiteBuilder`의 해당 함수를 리플렉션으로 부른다. M14-3 모델(선반 · 팔레트 랙 · 트럭 · 반품 · 쓰레기장 · 장식)과 사용자가 꾸민 `Module_Trash` · `Module_Returns` 소품은 빌더 코드에 없으니 `StandardModules`의 `overwrite`도 피한다. 씬 `Module_Trash`는 180° 돌려 씀(`SiteLayout`의 Trash 회전 값은 아직 0). `Apply Character Models` 메뉴는 `StaffWorker`를 덮어쓰므로 쓰지 않는다 (애니 상태만 필요하면 `CharacterArt.PrepareAssets`)
-- 커밋 전에 `Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset`은 `git checkout --`으로 되돌린다
-
-### 3. 그 뒤
-- M10 2순위 남은 것 (M10-3e 선반 단계 · M10-7 · M10-8 · M10-10). 저장 · 할당량 · 완료 표시 · 정전은 삭제됨
-
-### 4. 아직 확정 안 된 것 (GDD 18장)
-- 남은 번호: 32 찌그러진 확률(에셋 10% · GDD 1%), 38 XP '설비' 범위, 41 반품 수치, **47 표지판 · 열린 상자 쓰임**(M15 전). 42 · 43 · 44 · 46은 해결
-- 27 필요 XP(3 · 6 · 6 · 6 · 9), 28 건설 타일 비용, 알바 수치 → 통플레이 때 조정. 23~25 지게차 관련은 M11-8 전에 확인
-- 저금통 지폐 색: GDD 9.5는 '초록 지폐', 모델 `Papper_Money`는 노랑 · 베이지 — 어느 쪽에 맞출지
-- 알바 말풍선(GDD 11.6)은 아직 일정 없음
-
-### 5. 작업 규칙
-- 매 단계: **시작 전에 질문해 확정 → 구현 → Play 테스트 → 문서 반영(GDD · 체크리스트 · TechStack · Wiki) → 커밋**
-- 스크립트를 추가 · 삭제하거나 역할이 바뀌면 **같은 커밋에서 [Wiki](Wiki.md) 항목**(역할 · 동작 · 연결 · 주의)을 고친다
-- 수치는 코드에 쓰지 않고 `Assets/Data`의 ScriptableObject에서 읽는다 (진입점 `GameDatabase`)
-- 모듈 프리팹은 씬을 직접 참조하지 않는다 (`Instance` 또는 자체 등록 목록). 모듈 내용은 `StandardModules` 코드 → `Rebuild` 또는 프리팹에서 고친다
-- 답변 · 문서는 한국어. 커밋은 요청할 때만 (푸시는 아직 한 번도 안 함)
+### 6. 예전 인수인계에 있던 미결 (상태 다시 확인 안 함)
+- M13-18 통플레이(Lv.1 → 5, XP · 비용 · 월급 조정), M15 모델 2차 계획, M10 2순위 남은 것.
+- 파라미터 정리([ParameterList.md](ParameterList.md)) 총책임자 답 4가지 대기, 성능(알바 일감 찾기 GC · 렌더링) 조사 계획 `docs/superpowers/plans/`.
+- 원격 브랜치 `UI-develop` · `astar-toggle` · `work-1125`는 이번 대화에서 보지 않음.
+- **main 머지 때 옮김 (2026-11-26, main 쪽 11-25 인수인계)**:
+  - 타이쿤 시험 6건 + 스트레스 버튼 (`work-1125`): 스캔 칸 벽 · 트럭 풀(최대 64) · 하차 칸마다 칸 앞 대기 줄 · 알바 100명 끊김/CPU/GC · A* 토글(DEBUG Staff `Path A*`) · `Hire 100 mixed`. MCP Play · 프로파일 끝, 사람 손 테스트 아직 (커밋 19252e4 · 68c2830 · b6f594d · cacaf0e · 528b66f · c8d5110)
+  - 레벨업 연출 v2 (자물쇠 해금): M5-6 메모. Game 씬만 새 배너, TycoonTest · ShaderTestScene은 옛 배너라 레벨업 연출이 꺼짐(경고) → 필요하면 다시 빌드. 사람 손 테스트 아직
+  - 벽 그라데이션: Game 씬 `SiteWalls.wallMaterial` 참조 되살림(7c7428a). UI: 클립보드 2D 리소스(8c5c8cf) · UI 프레임 드랍 최적화(e2167ec)
 
 ## 진행 순서
 
@@ -764,6 +713,50 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
   - 스캔 모듈 · 스캔 위치 이동은 M17-4 메모 참고 (같은 브랜치 `conveyor-scan`, 커밋 f8144df · d9ea560 · 90cde64)
 - 테스트 결과: 아직
 
+## M19. 구조 정리 (2026-11-25)
+
+> 다른 모듈과 규칙이 다른 부분을 맞춘다. 게임 규칙 · 수치는 바뀌지 않음 (GDD 변경 없음).
+
+- [x] **M19-1 선반 중첩 프리팹 통일** — 보관 구역 모듈 A~D의 선반을 실행 중 `Instantiate`하지 않고 모듈 프리팹 안에 미리 넣는다 (다른 설비와 같은 방식, 에디터에서 모듈을 열면 선반이 보임)
+  - 정함 (2026-11-25, 사용자): ① `ShelfSlot`은 남기고 설정만 — `Start`에서 자식 `Shelf`를 찾아 `Setup(품목, 용량)` + `Warehouse` 등록 + `Occupant`, `Instantiate` 없음. 품목 · 용량 · 자리 정보는 지금처럼 `ShelfSlot`이 들고 `SiteUnlocker`(발판이 선반 자리 피함)도 그대로 ② 팝 연출(`FacilityPop`) 유지 — 모듈이 붙을 때 선반 4개가 따로 튀어나옴 ③ **기존 프리팹에 넣기** — 일회용 에디터 메뉴로 `Module_ShelfArea_A~D`의 각 `ShelfSlot` 아래에 `Shelf.prefab`(D = `PalletRack.prefab`) 중첩 프리팹을 넣는다. FloorArt 등 손으로 고친 부분 보존, 모듈 `Rebuild` · `EnsureAll` 안 씀. `StandardModules.BuildShelfArea`도 같이 고쳐 나중에 다시 만들어도 같은 결과 ④ 테스트 = Unity MCP 다시 연결 후 메뉴 실행 · Play 확인
+  - 할 일: `Warehouse.BuildShelf(slot)` → 자식 선반 설정 함수로 바꿈, `Warehouse.shelfPrefab` · `ShelfSlot.shelfPrefab`(모양 고르기)은 중첩 프리팹이 대신하므로 정리. 메뉴는 이미 선반이 있으면 건너뜀(두 번 눌러도 안전). 중첩이라 `Shelf.prefab`을 고치면 12개 선반 모두에 반영 (D는 `PalletRack.prefab`)
+  - 주의: `StandardModules.ShelfPrefab(overwrite)`를 다시 돌리면 `Shelf.prefab` 손 수정이 덮어써짐 (M14 주의와 같음). 작업 전 지금 수정 중인 `Shelf.prefab`(커밋 안 됨) 확인
+  - 완료 (2026-11-25): `Warehouse.BuildShelf` → `SetupShelf(slot, shelf)`(Instantiate 없음), `ShelfSlot.Start`가 자식 `Shelf`를 찾아 설정(없으면 경고). `Warehouse.shelfPrefab` · `ShelfSlot.shelfPrefab` 삭제, `SiteBuilder` 참조 정리. **바뀜**: 일회용 메뉴 대신 MCP 코드 한 번 실행으로 A~D 프리팹 16자리에 중첩 프리팹을 넣음(남는 코드 없음). `BuildShelfArea`도 중첩 프리팹을 넣게 고침
+  - 테스트 (MCP Play): 모든 모듈 해금 → 자리 20 · 선반 20(자리마다 1개, 중복 없음), A~C 용량 6 · D 랙 4, 팝 연출 후 크기 1, 프리팹 안 선반 로컬 0 · 원본 `Shelf.prefab` / D `PalletRack.prefab`, 에러 · 경고 0. 사람 손 테스트 아직
+  - **피드백** (2026-11-25, 사용자 테스트): 선반 예상 위치 기즈모(노랑 · 초록 상자)가 실제 선반과 겹쳐 보기 불편 → `ShelfSlot.OnDrawGizmos` 삭제 (선반이 프리팹에 보이므로 필요 없음)
+- 테스트 결과: 아직
+
+## M20. 배치 자유도 · 벨트 스캔 · 선반 통합 (2026-11-25)
+
+> 사용자 할 일 5개 (2026-11-25). 순서 = 혼자 되는 것 먼저 → 벨트 스캔은 벨트 · 스캔 규칙 뒤. 미정은 GDD 18장 64 ~ 69.
+
+- [x] **M20-1 스캔 시간 = 상자 수 비례** — 스캔 시간 = 미분류 1개당 1초 `임시`(`scanSecondsPerBox`), 스캔 중 상자가 들어오면 +1초 → 게이지가 살짝 줄었다 다시 참. 최소 개수 규칙 삭제(하차 알바도 1개 이상이면 스캔), `playerScanDuration` · `staffScanDuration` · `staffScanMinBoxes` 삭제 (GDD 7.2a · 11.3)
+  - 완료 (2026-11-25): `StorageZone` `scanElapsed` · `scanBoxes`(늘기만 함) → 게이지 = 지난 시간 ÷ (미분류 수 × 1초). `StaffScanWanted` = `CanScan`(18장 55 '더 올 미분류 없을 때' 분기도 삭제). `LogisticsConfig.scanSecondsPerBox` 1
+  - 테스트 (MCP Play): 스캔 팔레트 미분류 3 + 플레이어 → 1.04초 0.344, 1개 추가 → 0.272로 줄었다 다시 참 · 약 4초에 완료(미분류 0), 에러 · 경고 0. 하차 알바 스캔 · 사람 손 테스트 아직
+- [x] **M20-2 보관 구역 선반 통합** — 구역 1개 = 보관함 하나 + 존 1개(가운데 사각형, 크기 `임시`), 선반 모델 4개는 그대로(M19-1 중첩 프리팹). 용량 A~C 24 → 32 → 40 · D 16 → 24 → 32, 수량 표시 하나, 빈 선반 칸에 하나씩 넣는 연출(가까운 선반부터 `임시`). 알바 · 가이드 · 벨트 · 단계 · 재배치(상자 같이 이동) · 회차 되돌리기 · 상차 수요가 구역 단위로 동작 (GDD 7.3)
+  - 완료 (2026-11-25): `Shelf` = 구역 보관함(모델 4개 통합, 칸 = 모델 돌아가며 하나씩, `CapacityAt`), 새 `ShelfModel`(모양 · 칸 배치만). 모듈 프리팹 `Content/ShelfArea` = ShelfSlot 1개 + Shelf + 가운데 존 2.4m + 수량 + 모서리 모델 4개(`StandardModules.BuildShelfGroup`, MCP로 A~D 변환), `Shelf.prefab` · `PalletRack.prefab`에서 Shelf · 존 · 수량 빼고 `ShelfModel`. `LogisticsConfig.shelfCapacity` 6 → 24 + `shelfStageStepPerModel` 2, D 16. `Warehouse.StageCapacity` 삭제, `BeltPlacer`는 모델마다 막힘. 다른 코드(알바 · 가이드 · 주문 · 회차)는 `Shelf` 목록을 그대로 써서 구역 단위가 됨. **바뀜**: 넣는 순서 = 가까운 선반부터 대신 4개 돌아가며 (GDD 7.3)
+  - 테스트 (MCP Play): 모두 해금 → 구역 5(A1 · B · C · D · A2) · 존 5, A~C 24 · 단계 32 · 40, D 16 → 24 → 32(단계 2번 올림, 글자 `0/32`), 상자 10개 = 네 선반에 돌아가며 한 칸씩(칸 위치 로그 확인), `TakeOne` 9/24, 플레이어가 가운데 존에 서면 들고 있던 2개 넣음(11/24), 스크린샷, 에러 · 경고 0. 알바 · 지게차 · 상차 집기 · 재배치 · 사람 손 테스트 아직
+- [x] **M20-3 모듈 회전 · 하차 모듈 이동** — `모듈` 탭 [회전] 90°씩(옮길 수 있는 모듈 모두, 닫을 때 반영), 하차 모듈 끌기 허용 — 부지 테두리 칸만, 트럭 진입 변이 부지 안쪽을 보는 회전 · 자리는 실패(흔들림 + 사유). 서 있던 트럭 · 공간 상자 같이 이동, 벽 · 셔터(`SiteWalls`) 갱신, 연결 벨트 철거 규칙 그대로 (GDD 4.4 · 7.1)
+  - `ModulePanel`(칸 누르기 = 고르기 · [회전] = `rotateButton`, 비면 [되돌리기] 복사 · 하차 판정 = `InboundBay` 있는 모듈 · 트럭 쪽 이웃 칸이 `siteCells` 밖), `SiteGrid.ApplyArrangement`(칸 + yaw) · `YawOf`, `SiteWalls`가 `OnMoved`에도 다시 지음. `In1` · `In2`는 묶음 아님 → 칸마다 (18장 64)
+  - **바뀜**: 하차장을 옮길 때 지금 방향이 안 되면 시계 방향으로 되는 첫 방향으로 자동 회전 `임시` (그대로만 두면 서쪽 하차장을 남쪽 테두리로 못 옮김)
+  - MCP 테스트: In1 (4,2) → (2,3) 실패 · → (4,3) 남향 자동 · 회전 시 `바깥 변이 하나뿐` 흔들림 · A1 회전 90° · 닫으면 부지 반영 + 주차 트럭 따라감 + 남쪽 벽 열림, 오류 0
+  - 미니맵: 하차 칸 주차장 쪽 붉은 바(`ModuleCell.ShowTruckSide`), 방향 글자 삭제, 사유 글자 미니맵 위로 · 폭 1100 · 한 줄 (2026-11-26 사용자 피드백)
+  - **바뀜**: 스캔 모듈도 옮길 수 있음 (`Module_Scan` Kind Fixed → Movable, 미니맵 `scanColor`). MCP: 스캔 (3,2) → (3,4) 이동 · 회전 → 팔레트 따라감, 오류 0
+- [x] **M20-4 벨트 자유 배치 · 통과 불가** — 2m 격자 대신 0.5m 점 맞춤 `임시`, 시설 · 존 바로 옆 · 좁은 틈 허용(겹칠 때만 막힘), 벨트는 플레이어 · 알바가 못 지나감(네비메시 장애물 + 충돌), 저장 전 **길 막힘 검사**(모든 존 + 열린 칸 · 발판, 막히면 [저장] 꺼짐 + `길이 막힙니다`). 재배치 · 회전은 검사 없이 옮긴 모듈 위 벨트 철거(M18-4 규칙, 회전도 대상에 추가) (GDD 7.10)
+  - 정함 (2026-11-26, 사용자): 비용 = 1m당 ₩10 올림(연결 구간 포함), **다른 벨트와 교차 금지**(옛 허용 대체), 저장 때 벨트 자리의 플레이어 · 알바는 **가장 가까운 빈 바닥으로 밀어냄**(들고 있던 상자 유지)
+  - 완료 (2026-11-26): `ConveyorBelt` 구간마다 `BeltBlock`(충돌체 1m + 네비메시 장애물 carving), `CostOf` = 길이 올림 × `beltCostPerMeter` 10, `TileOf` · `CellCount` 삭제. `BeltPlacer` 0.5m(`beltSnap`) 늘임 · 열린 모듈 칸 + 시설 · 벨트 · 존 사각형 판정(깔린 벨트도 충돌체라 교차 금지), 화면 = 열린 칸 옅게 + 막힌 사각형 붉게, `CheckBlocked`(0.5m 격자 덩어리 — 설치 전보다 닿는 존 · 열린 칸이 줄면 빨강 · [저장] 꺼짐 · `길이 막힙니다`), `PushPeopleOff`. `LogisticsConfig` `beltCellCost` → `beltCostPerMeter` 10 · `beltSnap` 0.5 · `beltBlockHeight` 1 · `beltWalkerRadius` 0.4, B책상 설명 "1m당 ₩10"
+  - 테스트 (MCP Play, 클릭은 코드로): In1 공간 → 스캔 팔레트 6m = ₩60 지불 · 벨트 생성(구간 2 · 장애물 2), 경로 위 플레이어 (20, −25) → (21.5, −25)로 밀림, 깔린 벨트를 가로지르는 구간 막힘 · 벨트 바로 옆(경계 맞닿음) 구간은 됨, 부지를 가로로 끊는 시험 벽 = 닿는 목표 44 → 23(막힘) · 짧은 벽 44 → 44, 네비메시: 벨트 위 없음 · 알바 길이 벨트 끝을 돌아감, 플레이어 `CharacterController.Move`로 밀면 벨트 앞 21.18에서 멈춤, 에러 · 경고 0. 실제 마우스 · 터치 설치, 화면(붉은 사각형) 눈 확인, 알바가 밀려난 뒤 일 이어가는지 · 사람 손 테스트 아직
+- [x] **M20-5 벨트 스캔 구역** — 설치 상태에서 하차 공간 → 스캔 팔레트 벨트 한 지점에 스캔 구역(벨트당 1개 · ₩50 `임시`), 벨트 옆 작업 존에 플레이어 · 하차 알바가 서면 지점에 멈춘 상자를 1개씩 1초 스캔 → 그 상자만 팔레트로, 뒤 상자는 줄지어 대기. 사람 없음 · 정할 색 없음 = 대기. 하차 알바가 작업 자리로 잡음, 벨트 철거 때 같이 철거 (GDD 7.2a · 7.10)
+  - 정함 (2026-11-26, 사용자):
+    - 설치 화면: 오른쪽 모드 버튼 **[벨트 설치]** · **[스캔 구역]**, [저장]해도 화면 유지(지금 상황 저장), [취소] → **[나가기]**(저장 안 한 것 버림), [선택 취소]는 그대로
+    - 스캔 구역 모드: 깔린 벨트를 누르면 그 지점에 초록 상자 + 바로 앞 작업 존(알바가 설 여유 공간이 있을 때만, 처음 쪽 = 여유 있는 쪽 `임시`). 다시 누르면 아웃라인 강조(선택) → 끌기 = 벨트 따라 이동, 선택 상태에서 한 번 더 누르면 작업 존이 반대편. 선택 중 [철거] 버튼 → 확인 창 → 50% 환불
+    - 돈 = [저장] 때 새 구역 값(₩50 `임시`)만, 옮기기 · 방향은 무료. 벨트 철거 = 구역도 같이 철거 · 같은 비율 환불
+    - 하차 알바 = 그 벨트에 미분류 상자가 오는 중 · 기다릴 때만 가서 섬(스캔 팔레트보다 먼저), 비면 떠남
+  - 완료 (2026-11-26): 새 `Logistics/BeltScanZone`(+ `IScanStation`), `ConveyorBelt` 스캔 지점 멈춤 · `CargoAtScan` · `UnsortedBeforeScan`, `SharedStorage.RevealOne` · 스캔 팔레트가 벨트에서 색 정해진 상자도 받음 · `ScanRoom`에 벨트 위 색 상자, `StaffWorker` 스캔 자리 `scanStation`(팔레트 · 벨트 공용), `BeltPlacer` 모드 · 화면 유지 · 나가기 · 스캔 구역 놓기/선택/끌기/뒤집기/철거, 씬 `BeltPlacer/UI`에 `BeltMode` · `ScanMode` · `ScanRemove` 버튼 + `Cancel` 글자 "나가기", `LogisticsConfig.beltScanZoneCost` 50. 처음 쪽 = 누른 쪽, 막혔으면 반대쪽 `임시`, 벨트 양 끝 1m 안엔 못 놓음 `임시`
+  - 테스트 (MCP Play, 누르기는 코드로): 하차 칸 공간 → 스캔 팔레트 벨트 저장 후 화면 유지, 스캔 모드에서 벨트 누름 → 구역(누른 동쪽이 막혀 서쪽), 반대편 막히면 `반대편에는 알바가 설 자리가 없어요`, 끌기 이동, [저장] ₩50 · 벨트 비용 60 → 110. 미분류 3개가 지점에서 줄지어 멈춤 → 플레이어가 서면 0.25초 뒤 1초에 1개씩 색이 정해져 지나감 → 스캔 팔레트 3개(A · C · A). 하차 알바: 상자가 오자 하차 일 중에 구역으로 가서 3개 스캔 → 벨트가 비자 하차로 돌아감. 옮긴 뒤 [나가기] = 원래 자리, 저장 안 한 새 구역 = 사라짐 · 돈 그대로, 구역 철거 ₩25 환불 · 벨트 비용 110 → 60. 에러 0. 실제 마우스 · 터치(끌기 · 버튼 배치 화면 — MCP 캡처에 UI가 안 찍힘), 사람 손 테스트 아직
+  - **피드백 반영** (2026-11-26, 사용자 테스트): ① 스캔 구역 표시가 바닥 · 벨트에 묻힘 → 스캔 모드 그리기를 벨트 윗면 위(`BeltHeight` + 0.08)로, 벨트 위 초록 상자도 윗면 위에 얇게. 포인터가 구역 없는 벨트 위면 **놓일 자리 미리보기**(진한 초록 + 흰 테두리, 못 놓으면 빨강 — `AddScanGhost`) ② **벨트 폭 1.4 → 1.0m** — `LogisticsConfig.beltWidth` 1 `임시` (`ConveyorBelt.Width`가 읽음, 판 · 막는 상자 · 판정 · 스캔 구역 위치 모두 따라감). MCP Play: 판 폭 1.0 · 막는 상자 1.0, 미리보기 높이 0.24(윗면 0.15 위), 위에서 찍은 화면에서 초록 칸 · 테두리 · 벨트 위 띠 보임, 에러 0
+- 테스트 결과: 아직
+
 ---
 
 ## 진행 현황
@@ -790,6 +783,8 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
 | M16 타임라인 · 프로토타입 빌드 | 7 | 6 |
 | M17 플레이 개선 | 4 | 4 |
 | M18 컨베이어 벨트 | 5 | 5 |
-| **합계** | **129** | **120** |
+| M19 구조 정리 | 1 | 1 |
+| M20 배치 자유도 · 벨트 스캔 · 선반 통합 | 5 | 5 |
+| **합계** | **135** | **126** |
 
 > 2026-11-15: M10 11 → 4 (삭제 3 · M13으로 옮김 4), M11 11 → 6 (M12 · M13이 대신한 5), M13 18 추가.

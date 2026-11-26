@@ -61,7 +61,7 @@ namespace APC.UI
             "보관 · 반품 칸을 끌어 자리를 바꿉니다. 닫으면 적용됩니다.",
             "보관 모듈 선반 단계를 올립니다.",
             "하차 트럭 단계를 올립니다.",
-            "물건을 옮길 곳을 벨트로 잇습니다. 칸당 ₩{0}, 철거하면 절반을 돌려받습니다.",
+            "물건을 옮길 곳을 벨트로 잇습니다. 1m당 ₩{0}, 철거하면 절반을 돌려받습니다.",
         };
 
         Sequence transition;
@@ -189,7 +189,7 @@ namespace APC.UI
             }
             stampArea.SetActive(tab == Tab.Hire);
             sheetTitle.text = Titles[index];
-            sheetDesc.text = string.Format(Descs[index], GameManager.Instance.Database.Logistics.BeltCellCost);
+            sheetDesc.text = string.Format(Descs[index], GameManager.Instance.Database.Logistics.BeltCostPerMeter);
 
             // 새 페이지: 아래 16에서 떠오르며 나타남
             var page = Rect(pages[index].transform);

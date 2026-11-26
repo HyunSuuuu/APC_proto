@@ -170,6 +170,7 @@ namespace APC.Debugging
             sb.AppendLine();
             sb.AppendLine($"Cutout Scan: {WallCutout.LastScanMs:F2} ms (max {WallCutout.MaxScanMs:F2}) / Walls {WallCutout.SwappedCount:N0}");
             sb.AppendLine($"NavMesh Build: {SiteNavMesh.LastBuildMs:F2} ms (max {SiteNavMesh.MaxBuildMs:F2}) x {SiteNavMesh.BuildCount:N0}");
+            sb.AppendLine($"Truck Pool: new {Logistics.TruckPool.Created:N0} / destroyed {Logistics.TruckPool.Destroyed:N0}"); // Prewarm 뒤 오르면 풀 누수
             sb.AppendLine(gcAllocRecorder.Valid
                 ? $"GC Alloc: {sumGcAlloc / elapsedTime / 1024f:F1} KB/s (frame max {maxGcAlloc / 1024f:F1} KB)"
                 : "GC Alloc: N/A (dev build only)");

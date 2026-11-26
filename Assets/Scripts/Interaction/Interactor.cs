@@ -23,8 +23,8 @@ namespace APC.Interaction
         Vector3 lastPosition;
         InteractionZone zone;
 
-        /// <summary>활성화된 모든 interactor (들고 있는 화물 수 집계용).</summary>
-        public static IReadOnlyList<Interactor> All => AllInteractors;
+        /// <summary>활성화된 모든 interactor (들고 있는 화물 수 집계용). 읽기만 한다 — 구체 타입은 foreach 열거자 박싱을 없애려고 (알바 100명 GC, 2026-11-25).</summary>
+        public static List<Interactor> All => AllInteractors;
 
         public CarryStack Stack => stack;
         public InteractionZone CurrentZone => zone;

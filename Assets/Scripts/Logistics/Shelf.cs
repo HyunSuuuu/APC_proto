@@ -6,26 +6,20 @@ using UnityEngine;
 namespace APC.Logistics
 {
     /// <summary>
-    /// 품목 1종 전용 분류 선반 (GDD 7.3). 정사각형이고, 칸에 실제 상자가 올라가며 위에 수량(7/10)을 표시한다.
-    /// 둘레의 ShelfZone 하나로 넣고 꺼낸다.
+    /// 색 보관 구역 하나의 보관함 (GDD 7.3, M20-2 통합). 네 모서리 선반 모델(`ShelfModel`, 바로 아래 자식)에 상자가 실제로 올라가고,
+    /// 수량(7/24)은 구역에 하나만 표시한다. 가운데 ShelfZone 하나로 넣고 꺼낸다.
+    /// 칸 순서 = 모델을 돌아가며 하나씩 → 빈 선반에 하나씩 채워진다.
     /// </summary>
     public sealed class Shelf : MonoBehaviour
     {
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
-        [SerializeField] Transform boxRoot;
-        [SerializeField, Tooltip("선반 위 품목 색 표시")] Renderer iconRenderer;
+        [SerializeField, Tooltip("상자 부모 (Shelf 로컬 원점 · 회전 · 크기 그대로인 자식)")] Transform boxRoot;
         [SerializeField] TMP_Text countLabel;
-
-        [Header("칸 배치 (선반 로컬, 한 단 = 가로 boxesPerSide × 세로 boxRows)")]
-        [SerializeField, Min(1)] int boxesPerSide = 3;
-        [SerializeField, Min(0), Tooltip("한 단의 세로(z) 줄 수. 0이면 boxesPerSide (정사각형)")] int boxRows;
-        [SerializeField, Min(0.1f)] float boxSpacing = 0.52f;
-        [SerializeField] float firstLevelHeight = 0.13f;
-        [SerializeField, Min(0.1f)] float levelHeight = 0.8f;
 
         readonly ReactiveProperty<int> count = new(0);
         CargoPile pile;
+        ShelfModel[] models;
         int capacity;
 
         public ItemDefinition Item { get; private set; }
@@ -34,15 +28,26 @@ namespace APC.Logistics
         public bool HasSpace => pile.Count < capacity;
         public int FreeSpace => Mathf.Max(0, capacity - pile.Count);
 
+        /// <summary>선반 모델 수 (A~C 4 · D 랙 4).</summary>
+        public int ModelCount => models.Length;
+
         /// <summary>수량 글자 (떠오르는 알림 글자의 원본으로도 쓴다).</summary>
         public TMP_Text CountLabel => countLabel;
 
-        void Awake() => pile = new CargoPile(boxRoot, SlotPosition);
+        void Awake()
+        {
+            models = GetComponentsInChildren<ShelfModel>(true);
+            if (models.Length == 0) Debug.LogWarning($"[Shelf] {name} 아래에 선반 모델이 없습니다.", this);
+            pile = new CargoPile(boxRoot, SlotPosition);
+        }
 
         void OnDestroy() => count.Dispose();
 
-        /// <summary>1단계 용량 (선반 6 · 팔레트 랙 4). 단계 용량은 Warehouse가 이것으로 계산한다.</summary>
+        /// <summary>1단계 용량 (구역 선반 24 · 팔레트 랙 16). 단계 용량은 `CapacityAt`.</summary>
         public int BaseCapacity { get; private set; }
+
+        /// <summary>단계 용량 (GDD 7.3): 단계마다 모델 1개당 `shelfStageStepPerModel`(2)칸씩 → 선반 24 · 32 · 40, 랙 16 · 24 · 32.</summary>
+        public int CapacityAt(int stage) => BaseCapacity + Core.GameManager.Instance.Database.Logistics.ShelfStageStepPerModel * ModelCount * (stage - 1);
 
         /// <summary>선반 단계 (GDD 7.3): 용량만 바뀌고 모양 · 상자는 그대로.</summary>
         public void SetCapacity(int value)
@@ -58,9 +63,13 @@ namespace APC.Logistics
             BaseCapacity = shelfCapacity;
 
             var block = new MaterialPropertyBlock();
-            iconRenderer.GetPropertyBlock(block);
-            block.SetColor(BaseColorId, item.TapeColor);
-            iconRenderer.SetPropertyBlock(block);
+            foreach (var model in models)
+            {
+                if (model.IconRenderer == null) continue;
+                model.IconRenderer.GetPropertyBlock(block);
+                block.SetColor(BaseColorId, item.TapeColor);
+                model.IconRenderer.SetPropertyBlock(block);
+            }
 
             count.Subscribe(n => countLabel.text = $"{n}/{capacity}").AddTo(this);
         }
@@ -80,23 +89,11 @@ namespace APC.Logistics
             return cargo;
         }
 
-        // 상자 칸 (1 · 2단, 실행 중엔 용량만큼)
-        void OnDrawGizmos()
-        {
-            var rows = boxRows > 0 ? boxRows : boxesPerSide;
-            var n = Application.isPlaying && capacity > 0 ? capacity : boxesPerSide * rows * 2;
-            CargoGizmos.DrawSlots(boxRoot != null ? boxRoot : transform, SlotPosition, n, new Color(0.3f, 0.8f, 1f), CargoGizmos.BoxSize);
-        }
-
+        // 모델을 돌아가며 한 칸씩 (빈 선반에 하나씩). boxRoot는 Shelf 로컬 원점이라 모델 로컬 TRS로 바로 계산한다
         Vector3 SlotPosition(int index)
         {
-            var rows = boxRows > 0 ? boxRows : boxesPerSide;
-            var perLevel = boxesPerSide * rows;
-            var level = index / perLevel;
-            var inLevel = index % perLevel;
-            var halfX = (boxesPerSide - 1) * 0.5f;
-            var halfZ = (rows - 1) * 0.5f;
-            return new Vector3((inLevel % boxesPerSide - halfX) * boxSpacing, firstLevelHeight + level * levelHeight, (inLevel / boxesPerSide - halfZ) * boxSpacing);
+            if (models.Length == 0) return Vector3.zero;
+            return models[index % models.Length].SlotInParent(index / models.Length);
         }
     }
 }

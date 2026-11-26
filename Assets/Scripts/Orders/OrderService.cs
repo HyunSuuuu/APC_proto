@@ -21,6 +21,7 @@ namespace APC.Orders
         readonly Dictionary<ItemDefinition, int> reserved = new();
         readonly Subject<Order> removed = new();
         readonly List<CompanyDefinition> candidates = new();
+        readonly Dictionary<CompanyDefinition, int> free = new(); // 재사용: 빈 상차 칸마다 매 프레임 부른다 (새로 만들면 8칸 × 프레임당 8.6KB GC, 2026-11-25)
 
         int nextNumber = 1;
         int pendingQuantity; // 다음 주문 수량 (선반이 찰 때까지 그대로, 0 = 아직 안 뽑음)
@@ -61,7 +62,8 @@ namespace APC.Orders
             if (contracts == null || !contracts.HasAnyContract || Warehouse.Instance == null) return false;
             if (pendingQuantity <= 0) pendingQuantity = GameManager.Instance.Database.Orders.RollQuantity();
             var sum = 0;
-            foreach (var company in contracts.Contracted) sum += Mathf.Max(0, ShelfFree(company.Items[0]));
+            var contracted = contracts.Contracted;
+            for (var i = 0; i < contracted.Count; i++) sum += Mathf.Max(0, ShelfFree(contracted[i].Items[0]));
             return firstOrderMade ? sum >= pendingQuantity : sum > 0;
         }
 
@@ -80,10 +82,12 @@ namespace APC.Orders
             var total = pendingQuantity;
 
             candidates.Clear();
-            var free = new Dictionary<CompanyDefinition, int>();
+            free.Clear();
             var sum = 0;
-            foreach (var company in contracts.Contracted)
+            var contracted = contracts.Contracted;
+            for (var i = 0; i < contracted.Count; i++) // foreach는 IReadOnlyList 열거자 박싱 (매 프레임 호출)
             {
+                var company = contracted[i];
                 var n = ShelfFree(company.Items[0]);
                 if (n <= 0) continue;
                 candidates.Add(company);
@@ -93,6 +97,7 @@ namespace APC.Orders
             // 첫 상차 트럭(튜토리얼 7단계)은 선반에 있는 만큼만 — 6단계가 1개만 올려도 끝나서 트럭이 안 오던 문제 (2026-11-19)
             if (!firstOrderMade && sum > 0) total = Economy.PartService.TutorialPhase ? sum : Mathf.Min(total, sum); // 튜토리얼은 선반에 올린 상자 전부 (2026-11-20)
             if (sum < total) return null; // 선반에 아직 모자람
+            if (candidates.Count == 1 && free[candidates[0]] < total) return null; // 아래 '한 색으로 모자람'과 같음 — 매 프레임 List · 뽑기 할당 전에 (2026-11-25)
 
             var lines = new List<OrderLine>();
             var first = StockBalancer.PickByWeight(candidates);

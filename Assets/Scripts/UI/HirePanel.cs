@@ -30,17 +30,15 @@ namespace APC.UI
 
         void OnEnable() => Refresh();
 
+        int shownSeconds = int.MinValue; // 글자가 바뀔 때만 넣는다 — 매 프레임 문자열 · TMP 메시 다시 만들기 (2026-11-25)
+
         void Update()
         {
-            // 후보 자동 교체 타이머 (StaffService, 팝업 중에도 흐름)
-            var staff = StaffService.Instance;
-            if (staff == null || staff.CandidateRefreshRemaining < 0f)
-            {
-                timerLabel.text = "계약 후 교체 시작";
-                return;
-            }
-            var seconds = Mathf.CeilToInt(staff.CandidateRefreshRemaining);
-            timerLabel.text = $"다음 교체 {seconds / 60:00}:{seconds % 60:00}";
+            var parts = PartService.Instance;
+            var seconds = parts == null || parts.Part.CurrentValue == 0 ? -1 : Mathf.CeilToInt(parts.Remaining.CurrentValue);
+            if (seconds == shownSeconds) return;
+            shownSeconds = seconds;
+            timerLabel.text = seconds < 0 ? "계약 후 교체 시작" : $"다음 교체 {seconds / 60:00}:{seconds % 60:00}";
         }
 
         /// <summary>도장이 후보 카드에 찍혔다. 고용했으면 true.</summary>

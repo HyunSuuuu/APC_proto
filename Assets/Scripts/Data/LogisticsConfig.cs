@@ -8,7 +8,8 @@ namespace APC.Data
     {
         [Header("보관")]
         [SerializeField, Min(1), Tooltip("하차 칸 상자 두는 공간 용량 (하차 칸마다 따로, GDD 7.2 임시)")] int sharedStorageCapacity = 10;
-        [SerializeField, Min(1), Tooltip("선반 1개 용량 (GDD 7.3, 1단계 6). 팔레트 랙은 ShelfSlot.capacity")] int shelfCapacity = 6;
+        [SerializeField, Min(1), Tooltip("보관 구역 하나 용량 (선반 4개 통합, GDD 7.3 M20-2, 1단계 24). 팔레트 랙은 ShelfSlot.capacity")] int shelfCapacity = 24;
+        [SerializeField, Min(0), Tooltip("선반 단계마다 모델 1개당 늘어나는 칸 (GDD 7.3) → 구역 24 · 32 · 40, 랙 16 · 24 · 32")] int shelfStageStepPerModel = 2;
 
         [Header("입고 트럭")]
         [SerializeField, Min(0.1f), Tooltip("나타난 자리에서 주차 칸까지 후진으로 들어오는 시간 (초)")] float truckReverseDuration = 2f;
@@ -31,8 +32,13 @@ namespace APC.Data
         [SerializeField, Min(0.5f), Tooltip("벨트 격자 한 칸 (m) = 화물 간격. 바닥 타일 2m")] float beltCellSize = 2f;
         [SerializeField, Min(0.1f), Tooltip("초당 움직이는 칸 수 (GDD 7.10 임시 1)")] float beltCellsPerSecond = 1f;
         [SerializeField, Min(0.02f), Tooltip("벨트 판 두께 = 화물이 올라가는 높이 (m)")] float beltHeight = 0.15f;
+        [SerializeField, Min(0.3f), Tooltip("벨트 폭 (m) — 판 · 막는 상자 · 설치 판정 (2026-11-26 1.4 → 1.0, 임시)")] float beltWidth = 1f;
         [SerializeField, Tooltip("벨트 판 재질 (임시 회색, 빌드에 들어가게 에셋 참조)")] Material beltMaterial;
-        [SerializeField, Min(0), Tooltip("벨트 2m 칸당 설치비 (GDD 7.10 임시 20)")] int beltCellCost = 20;
+        [SerializeField, Min(0), Tooltip("벨트 길이 1m당 설치비, 길이는 올림 (GDD 7.10 M20-4, 단가 임시 10)")] int beltCostPerMeter = 10;
+        [SerializeField, Min(0.1f), Tooltip("설치 때 꺾임 점 맞춤 간격 (m, GDD 7.10 M20-4 임시 0.5)")] float beltSnap = 0.5f;
+        [SerializeField, Min(0.1f), Tooltip("벨트가 막는 높이 (m) — 사람이 못 넘게, 판 두께와 별개")] float beltBlockHeight = 1f;
+        [SerializeField, Min(0f), Tooltip("길 막힘 검사 · 밀어내기에서 사람 반지름 (m)")] float beltWalkerRadius = 0.4f;
+        [SerializeField, Min(0), Tooltip("벨트 스캔 구역 설치비 — [저장] 때 냄, 철거 환불은 벨트와 같은 비율 (GDD 7.10 M20-5 임시 50)")] int beltScanZoneCost = 50;
         [SerializeField, Range(0f, 1f), Tooltip("설치 상태에서 철거할 때 돌려받는 비율 (GDD 7.10 임시 50%). 모듈 재배치 철거는 항상 전액")] float beltRefundRate = 0.5f;
         [SerializeField, Min(0f), Tooltip("더미 · 선반에 착지한 뒤 이만큼(초) 지나야 벨트가 가져감 — 쌓이는 모습이 보이게 (GDD 7.10 임시 0.3)")] float beltPickupDelay = 0.3f;
         [SerializeField, Tooltip("설치 상태 격자 · 미리보기 재질 (정점 색 · 반투명, Sprites/Default)")] Material beltOverlayMaterial;
@@ -53,9 +59,7 @@ namespace APC.Data
         [SerializeField, Tooltip("일반 트럭 모델 [0] Small · [1] Middle · [2] Big (Brown_*_Truck_Open, GDD 7.1)")] GameObject[] normalTruckModels = new GameObject[3];
         [SerializeField, Range(0f, 1f), Tooltip("하차 트럭이 보라(D 가구) 트럭일 확률 — D보관을 지은 뒤만 (GDD 6.3 임시)")] float largeTruckChance = 0.1f;
         [SerializeField, Min(0f), Tooltip("하차 칸 공간 둘레 존에 멈추고 스캔 게이지가 차기 시작하기까지 (초, GDD 7.2a 임시)")] float scanStartDelay = 0.25f;
-        [SerializeField, Min(0.05f), Tooltip("플레이어 스캔 게이지 (초, 상자 수 무관, GDD 7.2a 임시)")] float playerScanDuration = 0.75f;
-        [SerializeField, Min(0.05f), Tooltip("하차 알바 스캔 게이지 (초, 스탯 무관 고정, GDD 7.2a 임시)")] float staffScanDuration = 2f;
-        [SerializeField, Min(1), Tooltip("하차 알바가 스캔을 시작하는 미분류 상자 수 (GDD 7.2a 확정). 트럭이 비었거나 없으면 이보다 적어도 스캔 (18장 55 가정)")] int staffScanMinBoxes = 6;
+        [SerializeField, Min(0.05f), Tooltip("미분류 상자 1개당 스캔 시간 (초). 게이지 = 미분류 수 × 이 값, 스캔 중 들어오면 1개당 더함. 플레이어 · 알바 같음 (GDD 7.2a, M20-1 임시)")] float scanSecondsPerBox = 1f;
         [SerializeField, Min(0f), Tooltip("스캔 완료 때 상자마다 색 테이프가 붙는 연출 간격 (초, GDD 7.2a 임시)")] float scanRevealInterval = 0.05f;
         [SerializeField, Tooltip("미분류 상자 모델 (무지 골판지, Prop/Box 임시)")] GameObject unsortedBoxModel;
         [SerializeField, Min(0.1f), Tooltip("미분류 상자 모델 크기 배율")] float unsortedBoxScale = 1.667f;
@@ -69,9 +73,7 @@ namespace APC.Data
         public GameObject GetNormalTruckModel(int truckStep) => normalTruckModels != null && truckStep < normalTruckModels.Length ? normalTruckModels[truckStep] : null;
         public float LargeTruckChance => largeTruckChance;
         public float ScanStartDelay => scanStartDelay;
-        public float PlayerScanDuration => playerScanDuration;
-        public float StaffScanDuration => staffScanDuration;
-        public int StaffScanMinBoxes => staffScanMinBoxes;
+        public float ScanSecondsPerBox => scanSecondsPerBox;
         public float ScanRevealInterval => scanRevealInterval;
         public GameObject UnsortedBoxModel => unsortedBoxModel;
         public float UnsortedBoxScale => unsortedBoxScale;
@@ -86,7 +88,12 @@ namespace APC.Data
         public float BeltCellsPerSecond => beltCellsPerSecond;
         public float BeltHeight => beltHeight;
         public Material BeltMaterial => beltMaterial;
-        public int BeltCellCost => beltCellCost;
+        public int BeltCostPerMeter => beltCostPerMeter;
+        public float BeltSnap => beltSnap;
+        public float BeltBlockHeight => beltBlockHeight;
+        public float BeltWalkerRadius => beltWalkerRadius;
+        public int BeltScanZoneCost => beltScanZoneCost;
+        public float BeltWidth => beltWidth;
         public float BeltRefundRate => beltRefundRate;
         public float BeltPickupDelay => beltPickupDelay;
         public Material BeltOverlayMaterial => beltOverlayMaterial;
@@ -101,6 +108,7 @@ namespace APC.Data
 
         public int SharedStorageCapacity => sharedStorageCapacity;
         public int ShelfCapacity => shelfCapacity;
+        public int ShelfStageStepPerModel => shelfStageStepPerModel;
         public float TruckReverseDuration => truckReverseDuration;
         public float TruckLeaveDuration => truckLeaveDuration;
         public float InboundArrivalInterval => inboundArrivalInterval;
