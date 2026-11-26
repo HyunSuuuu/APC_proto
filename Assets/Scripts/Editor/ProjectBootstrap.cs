@@ -48,7 +48,7 @@ namespace APC.EditorTools
         static void ApplyPlayerSettings()
         {
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.AutoRotation;
-            PlayerSettings.allowedAutorotateToPortrait = false;
+            PlayerSettings.allowedAutorotateToPortrait = true; // M21-1: 세로 · 가로 자동 회전 (UI = ScreenLayout 플래그)
             PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
             PlayerSettings.allowedAutorotateToLandscapeLeft = true;
             PlayerSettings.allowedAutorotateToLandscapeRight = true;
@@ -56,7 +56,7 @@ namespace APC.EditorTools
             // API로 바꾼 값은 dirty 표시가 없으면 디스크에 저장되지 않는다.
             var settings = Resources.FindObjectsOfTypeAll<PlayerSettings>();
             if (settings.Length > 0) EditorUtility.SetDirty(settings[0]);
-            Debug.Log("[Bootstrap] 화면 방향: 가로 (Landscape Left/Right 자동 회전)");
+            Debug.Log("[Bootstrap] 화면 방향: 세로 · 가로 (Portrait · Landscape Left/Right 자동 회전)");
         }
 
         // ── 데이터 (M0-5) ────────────────────────────────────────────────

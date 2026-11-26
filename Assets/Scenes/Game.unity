@@ -2465,6 +2465,7 @@ GameObject:
   - component: {fileID: 135721820}
   - component: {fileID: 135721822}
   - component: {fileID: 135721821}
+  - component: {fileID: 135721823}
   m_Layer: 0
   m_Name: Hint
   m_TagString: Untagged
@@ -2591,6 +2592,24 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 135721819}
   m_CullTransparentMesh: 1
+--- !u!114 &135721823
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 135721819}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 92eaee2c2db04fb448a5c7d0fb6081ae, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::APC.UI.OrientationRect
+  portraitAnchorMin: {x: 0, y: 1}
+  portraitAnchorMax: {x: 1, y: 1}
+  portraitPivot: {x: 0.5, y: 0.5}
+  portraitPosition: {x: 0, y: -170}
+  portraitSize: {x: -80, y: 90}
+  portraitFontSizeMin: 24
 --- !u!1 &139565986
 GameObject:
   m_ObjectHideFlags: 0
@@ -13830,6 +13849,7 @@ GameObject:
   - component: {fileID: 763603612}
   - component: {fileID: 763603611}
   - component: {fileID: 763603615}
+  - component: {fileID: 763603616}
   m_Layer: 0
   m_Name: HUD Canvas
   m_TagString: Untagged
@@ -13943,6 +13963,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 98325554cd802de47a59bda36bd7dc8c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.UI.UiBootstrap
+--- !u!114 &763603616
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 763603610}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dce41d7a9c5f2d04289e88a7189989c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::APC.UI.OrientationCanvasScaler
+  landscapeResolution: {x: 1920, y: 1080}
+  landscapeMatch: 1
+  portraitResolution: {x: 1080, y: 2340}
+  portraitMatch: 0
 --- !u!1 &765325078
 GameObject:
   m_ObjectHideFlags: 0
@@ -29161,6 +29197,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 159289b4ee829c143a526555ab44cef0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.UI.ContractPopup
+  tabLength: 130
+  tabGap: 12
+  tabRound: 1.4
+  portraitTabTuck: 28
   body: {fileID: 161981783}
   group: {fileID: 161981785}
   panel: {fileID: 753335018}

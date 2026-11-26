@@ -143,6 +143,14 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 - Input System의 `TouchSimulation`은 쓰지 않는다. 에디터 개인 설정(Input Debugger)에 따라 플레이 시작 시 강제로 꺼지기 때문이다.
 - UI 위 터치 판정은 `UiHitTest` (uGUI 레이캐스트 + 디버그 메뉴 영역).
 
+### 5.5b 화면 방향 (2026-11-26, M21-1)
+
+- Player 설정 = 자동 회전, 세로 · 가로 왼쪽 · 오른쪽 허용(거꾸로 세로 제외). `ProjectBootstrap`도 같은 값.
+- 씬은 `Game` 하나. 가로 · 세로 판정은 `ScreenLayout.IsPortrait`(높이 > 너비)만 쓴다 — UI마다 `Screen.width/height`를 따로 비교하지 않는다.
+- 씬에 놓는 UI 값은 **가로 기준**. 세로 배치는 단순하면 `OrientationRect`(인스펙터), 복잡하면 스크립트에서 `IsPortrait` 구독(예: `ContractPopup.Portrait.cs`). 캔버스 기준 해상도는 `OrientationCanvasScaler`.
+- 에디터 확인: Game 뷰 왼쪽 위 `Game` → `Simulator`, 기기 고른 뒤 Play → `Rotate`. 또는 Game 뷰 해상도를 세로(1080×2340) ↔ 가로(2340×1080)로.
+- `GameVertical.unity`는 옛 세로 시험 씬 — 빌드 미포함, 쓰지 않음(남겨 둠).
+
 ### 5.6 폰트 (TextMeshPro)
 
 | 용도 | 폰트 에셋 |
