@@ -210,6 +210,7 @@ namespace APC.Staff
             interactor = GetComponent<Interactor>();
             stack = GetComponent<CarryStack>();
             interactor.RestrictToTarget = true; // 목표 존에서만 상호작용
+            interactor.OwnReservation = OwnReserved;
             interactor.AllowScan = false; // 하차 알바가 스캔하러 갔을 때만 켠다 (GDD 7.2a)
             if (unpaidIcon != null)
             {
@@ -866,7 +867,7 @@ namespace APC.Staff
             return StaffNav.Shared.Remaining(crowdId) <= ArriveDistance;
         }
 
-        /// <summary>가는 중인 목표가 아직 유효한가. 예약은 잠깐 풀고 다시 확인해 다시 잡는다 (자기 예약 때문에 일이 없어 보이지 않게).</summary>
+        /// <summary>가는 중인 목표가 아직 유효한가. 존은 자기 예약을 더해서 보므로(OwnReserved) 풀지 않고 그대로 확인한다.</summary>
         bool StillValid()
         {
             if (gauge != null) return gauge.isActiveAndEnabled && gauge.HasWork;
@@ -874,15 +875,12 @@ namespace APC.Staff
             if (zone == null || !zone.isActiveAndEnabled) return false;
             if (dropping) return zone.CanReceiveAny(interactor);
 
-            ReleaseReservation();
-            var ok = IsRoleZone(zone) && HasWork(zone);
-            if (ok) Reserve();
-            return ok;
+            return IsRoleZone(zone) && HasWork(zone);
         }
 
         void BeginWork()
         {
-            ReleaseReservation(); // 도착하면 존이 실제 수요로 판단한다 (들고 있는 수가 예약을 대신함)
+            // 예약은 도착 뒤에도 유지한다 — 풀면 집기 전(InteractionDelay) 다른 알바가 가져가 둘 다 헛걸음했다 (2026-11-26). 집은 만큼 TickWork에서 줄인다
             interactor.AllowDrop = dropping && !scanning;
             interactor.AllowPick = !dropping && !scanning;
             interactor.AllowScan = scanning;
@@ -914,6 +912,7 @@ namespace APC.Staff
             var count = stack.Count.CurrentValue;
             if (count != lastCount)
             {
+                if (!dropping) ConsumeReservation(lastCount, count);
                 lastCount = count;
                 idleTime = 0f;
             }
@@ -1029,6 +1028,44 @@ namespace APC.Staff
                     reservedItem = item;
                     reservedCount = count;
                     break;
+                }
+            }
+        }
+
+        /// <summary>존이 내줄 때 더해 볼 자기 예약 (Interactor.OwnReservation). 지금 대상 존이 아니면 0.</summary>
+        int OwnReserved(InteractionZone at, ItemDefinition item)
+        {
+            if (at == null || at != zone) return 0;
+            return reserved switch
+            {
+                Reservation.Truck => reservedCount,
+                Reservation.Demand => item == reservedItem ? reservedCount : 0,
+                Reservation.ShelfSpace => item != null && reservedPlan.TryGetValue(item, out var n) ? n : 0,
+                _ => 0,
+            };
+        }
+
+        /// <summary>새로 집은 상자(stack [from, to))만큼 예약을 줄인다 — 이제 들고 있는 수가 그 몫을 잡는다.</summary>
+        void ConsumeReservation(int from, int to)
+        {
+            if (reserved == Reservation.None || to <= from) return;
+            var items = stack.Items;
+            for (var i = from; i < to && i < items.Count; i++)
+            {
+                switch (reserved)
+                {
+                    case Reservation.Truck when reservedCount > 0:
+                        if (reservedTruck != null) reservedTruck.Unreserve(1);
+                        reservedCount--;
+                        break;
+                    case Reservation.Demand when reservedCount > 0 && items[i].Item == reservedItem:
+                        if (OrderService.Instance != null) OrderService.Instance.Unreserve(reservedItem, 1);
+                        reservedCount--;
+                        break;
+                    case Reservation.ShelfSpace when items[i].State == CargoState.Normal && items[i].Item != null && reservedPlan.TryGetValue(items[i].Item, out var n) && n > 0:
+                        if (Warehouse.Instance != null) Warehouse.Instance.UnreserveShelfSpace(items[i].Item, 1);
+                        reservedPlan[items[i].Item] = n - 1;
+                        break;
                 }
             }
         }

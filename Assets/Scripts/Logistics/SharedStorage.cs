@@ -216,9 +216,10 @@ namespace APC.Logistics
         /// 선반에 빈자리가 남은 품목만 꺼낸다 (선반 빈자리 − 이미 들고 가는 수, GDD 7.2 확정 규칙).
         /// 찌그러진 상자는 반품 팔레트에 빈자리가 남았을 때만 (GDD 7.7). 최근에 들어온 것부터 찾는다. 없으면 null.
         /// </summary>
-        public Cargo TakeForShelves()
+        /// <param name="who">집는 사람 — 그 사람이 at 존에 잡아 둔 예약은 빼지 않는다 (2026-11-26). 벨트 · 플레이어 확인은 null.</param>
+        public Cargo TakeForShelves(APC.Interaction.Interactor who = null, APC.Interaction.InteractionZone at = null)
         {
-            var i = FindForShelves();
+            var i = FindForShelves(who, at);
             if (i < 0) return null;
 
             var cargo = pile.RemoveAt(i);
@@ -231,7 +232,7 @@ namespace APC.Logistics
             : cargo.State == CargoState.Trash ? CargoOrigin.Trash : kind == StorageKind.Returns ? CargoOrigin.ReturnPallet : CargoOrigin.Storage;
 
         /// <summary>TakeForShelves로 꺼낼 화물이 있는가 (꺼내지 않음, 분류 알바용).</summary>
-        public bool HasCargoForShelves() => FindForShelves() >= 0;
+        public bool HasCargoForShelves(APC.Interaction.Interactor who = null, APC.Interaction.InteractionZone at = null) => FindForShelves(who, at) >= 0;
 
         /// <summary>
         /// 분류 알바 예약용: 지금 집으면 선반에 갈 화물을 품목별로 최대 max개까지 센다 (꺼내지 않음).
@@ -253,11 +254,11 @@ namespace APC.Logistics
             return total;
         }
 
-        int FindForShelves()
+        int FindForShelves(APC.Interaction.Interactor who, APC.Interaction.InteractionZone at)
         {
             for (var i = pile.Count - 1; i >= 0; i--)
             {
-                if (CanGive(pile.Items[i])) return i;
+                if (CanGive(pile.Items[i], who, at)) return i;
             }
             return -1;
         }
@@ -413,11 +414,11 @@ namespace APC.Logistics
         /// 이 화물을 지금 내줘도 되는가. 하차 칸 공간 = 미분류 상자만, 스캔 팔레트에 자리가 있을 때 (스캔은 스캔 모듈에서만, 2026-11-24).
         /// 그 밖 = 스캔된 상자만 (선반 · 반품 팔레트 · 재포장 입력 여유, 쓰레기는 쓰레기 출력에서만).
         /// </summary>
-        bool CanGive(Cargo candidate) => kind == StorageKind.Pallet
+        bool CanGive(Cargo candidate, APC.Interaction.Interactor who = null, APC.Interaction.InteractionZone at = null) => kind == StorageKind.Pallet
             ? candidate.Unsorted && ScanAllowance() > 0
             : !candidate.Unsorted && candidate.State switch
         {
-            CargoState.Normal => ShelfAllowance(candidate.Item) > 0,
+            CargoState.Normal => ShelfAllowance(candidate.Item) + (who != null ? who.Reserved(at, candidate.Item) : 0) > 0,
             CargoState.Return => kind switch
             {
                 StorageKind.Pallet => Allowance(StorageKind.Returns, CargoOrigin.Storage) > 0,

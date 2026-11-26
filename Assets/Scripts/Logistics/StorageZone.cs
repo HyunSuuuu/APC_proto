@@ -43,7 +43,7 @@ namespace APC.Logistics
 
         protected override bool IgnoresCarryCapacity => storage.Kind == StorageKind.Trash;
 
-        public override bool HasCargoFor(Interactor who) => CanCarryMoreTrash(who) && storage.HasCargoForShelves();
+        public override bool HasCargoFor(Interactor who) => CanCarryMoreTrash(who) && storage.HasCargoForShelves(who, this);
 
         /// <summary>쓰레기는 도구와 상관없이 최대 `trashCarryMax`(12)개까지 든다 (GDD 7.9). 쓰레기 출력이 아니면 항상 true.</summary>
         bool CanCarryMoreTrash(Interactor who)
@@ -61,7 +61,7 @@ namespace APC.Logistics
         {
             cargo = null;
             if (HoldsPick(who)) return false; // 내려놓기 → 스캔 → 집기 (GDD 7.2a)
-            cargo = CanCarryMoreTrash(who) ? storage.TakeForShelves() : null;
+            cargo = CanCarryMoreTrash(who) ? storage.TakeForShelves(who, this) : null;
             // 상자는 있는데 하나도 못 집음 (플레이어만): 스캔 팔레트 = 그 색 선반이 다 참(GDD 7.3), 하차 칸 공간 = 스캔 팔레트가 다 참
             if (cargo == null && storage.Count.CurrentValue > 0)
             {

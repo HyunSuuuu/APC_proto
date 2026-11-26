@@ -265,12 +265,12 @@ StaffWorker (thinkInterval 0.25초마다 판단)
  ├ 도착 → Interactor.Target = 그 존, AllowDrop/AllowPick 설정 → Working
  │    · 슬롯에서 interactionDelay(0.5초) 뒤부터 CargoZone.Tick (슬롯 밖이면 상호작용 없음)
  │    · 내려놓기 대상 = 들고 있는 화물을 받는 존 (역할을 바꿔도 원래 목적지로)
- │    · 도착하면 예약을 푼다 (그 뒤로는 들고 있는 수가 예약을 대신함)
+ │    · 도착해도 예약 유지, 집을 때마다 1씩 줄임 · 끝 · 포기 · 해고 때 남은 것 해제 (2026-11-26)
  ├ 옮길 것이 workIdleTimeout(0.5초) 없거나 가득 · 빈손 → 작업 끝 → 슬롯 Release → Idle
  └ 할 일 없음 → 역할 존의 빈 슬롯에서 Parked 대기 / 빈 슬롯도 없음 → 제자리 Waiting
 ```
 
-- 가는 중 대상이 사라지면 예약을 풀고 다시 고른다. 피킹 예약은 잠깐 풀고 다시 확인해 자기 예약 때문에 일이 없어 보이지 않게 한다.
+- 가는 중 대상이 사라지면 예약을 풀고 다시 고른다. 존이 자기 예약을 더해서 보므로(`Interactor.Reserved`) 풀지 않고 확인한다 (2026-11-26).
 - 플레이어와 달리 작업 고정 · 전환 쿨타임 · 가이드 화살표가 없다 (GDD 5.3).
 
 ---
@@ -427,6 +427,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **알바 규칙** (M6, 알바는 `ConfigureRules`를 부르지 않는다):
   - `RestrictToTarget` + `Target`: `Target` 존에서만 상호작용한다. 지나가거나 기다리다 걸린 다른 존은 무시하고 바닥 색도 밝히지 않는다.
   - `AllowDrop` / `AllowPick`: 작업 종류에 맞춰 끈다 (예: 하차 알바는 팔레트에서 집지 않음). `CanTransfer`에서 확인한다.
+  - `OwnReservation` · `Reserved(존, 품목)` (2026-11-26): 알바가 그 존에 잡아 둔 예약 수(트럭 예약은 품목 무관, 대상 존이 아니면 0). 존(`ShelfZone` · `TruckPickupZone` · `StorageZone`)이 내줄 때 남의 예약만 빼도록 더한다. 플레이어는 null → 0.
 
 #### InteractionZone (추상)
 [Interaction/InteractionZone.cs](../Scripts/Interaction/InteractionZone.cs)
@@ -525,7 +526,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 보관 더미. `kind`(`StorageKind`)로 쓰임이 갈린다 — **Pallet**(하차 칸 공간: 이 칸 트럭에서 꺼낸 화물, 찌그러진 상자 포함), **Returns**(반품 팔레트: 하차 칸 공간에서 꺼낸(Origin Storage) 찌그러진 상자만 받고, 재포장 입력 여유만큼 준다 — Origin ReturnPallet), **RepackInput**(재포장 테이블 입력: Origin ReturnPallet인 찌그러진 상자만 받고 주지 않음), **Trash**(쓰레기 출력: 재포장 테이블만 `Store`, 쓰레기를 Origin Trash로 준다), **Repacked**(재포장 상자 팔레트: 재포장 테이블만 `Store`, 선반 빈자리만큼 준다). 용량은 `LogisticsConfig` (하차 칸 공간 10 · 반품 팔레트 12 · 재포장 입력 6 · 쓰레기 출력 6 · 재포장 팔레트 6). **enum 숫자 고정** (Returns 1 · Repacked 2 · RepackInput 4 · Trash 5, 3 = 삭제된 InspectOutput) — 프리팹에 int로 저장되므로 끼워 넣지 않는다. 팔레트는 하차장 모듈 Content에 붙고, 같은 모듈의 `InboundBay.Storage`가 이것을 가리킨다.
 - **동작**: `CanAccept`(kind별 조건 + 빈자리, 팔레트는 `cargo.Home == this`인 트럭 화물만), `CountLabel`(떠오르는 글자 원본), `Take(state)` · `Has(state)`(재포장 테이블이 꺼냄), static `ReturnsOpen`(반품 팔레트가 있으면 찌그러진 상자가 섞임), `HasSpace`, `Store`, `TakeForShelves`(선반에 갈 자리가 있는 품목만 + 찌그러진 상자는 하차 칸 공간 → 반품 팔레트 여유, 반품 팔레트 → 재포장 입력 여유가 있을 때만 + 쓰레기 출력의 쓰레기, 최근에 들어온 것부터. Origin = Storage / ReturnPallet(반품 팔레트에서) / Trash(쓰레기)), `CountOf(item)`(반품 제외), `HasCargoForShelves()`(알바 판단용, 꺼내지 않음), `PlanForShelves(max, plan)`(분류 알바 예약용: 지금 집으면 선반에 갈 품목별 수를 최대 max까지 받은 Dictionary에 비우고 채움 · 합계 반환, 꺼내지 않음 — 2026-11-26 판단마다 new 하던 것을 알바가 재사용). `TakeForShelves`의 판정은 `FindForShelves`로 분리했다. 모듈 안에 있으므로 `SharedStorage.All`에 스스로 등록한다. `All` · `Items`(그리고 `CargoPile.Items` · `GameDatabase.Companies`)는 2026-11-26부터 `List` 그대로 내준다(읽기만) — `IReadOnlyList` foreach 열거자 박싱이 알바 판단마다 쌓이던 것.
 - **`Allowance(종류, 출처)`** (private): 그 종류 더미에 더 보낼 수 있는 찌그러진 상자 수 = 빈자리 합 − 이미 꺼내 들고 가는(그 출처) 찌그러진 상자. 재포장 입력은 받은 상자를 다시 주지 않는다.
-- **`ShelfAllowance(item)`**: 그 품목을 선반에 더 보낼 수 있는 수 = 선반 빈자리 − 들고 가는 수 − 분류 알바 예약 − **선반에서 꺼내 들고 있는 상차용 상자 수**(되돌릴 자리, M17-1. 지게차 `Warehouse.LargeRoom`도 같음). `FindForShelves`(→ `TakeForShelves` · `HasCargoForShelves`)가 이 값으로 판정한다.
+- **`ShelfAllowance(item)`**: 그 품목을 선반에 더 보낼 수 있는 수 = 선반 빈자리 − 들고 가는 수 − 분류 알바 예약 − **선반에서 꺼내 들고 있는 상차용 상자 수**(되돌릴 자리, M17-1. 지게차 `Warehouse.LargeRoom`도 같음). `FindForShelves`(→ `TakeForShelves` · `HasCargoForShelves`)가 이 값으로 판정한다. 두 함수는 `(who, at)`을 받아 집는 알바가 그 존에 잡아 둔 선반 빈자리 예약을 더해 본다(2026-11-26, `StorageZone`이 넘김 · 벨트 · `WorkCheck`는 null).
 - **연결**: 하차장 모듈마다 팔레트 하나, 반품 구역에 반품 팔레트 · 재포장 입력 · 쓰레기 출력 · 재포장 팔레트 하나씩. 각각 `StorageZone` 하나로 넣고 꺼낸다 (보관 알바 = Pallet · Repacked 존에서 집음, 반품 알바 = Returns · Trash 존에서 집음 — `StaffWorker.IsRoleZone`).
 - **주의**: 플레이어 · 분류 알바가 같은 `ShelfAllowance`를 쓴다. 예약된 수만큼은 플레이어도 덜 받는다.
 
@@ -643,7 +644,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### TruckPickupZone
 [Logistics/TruckPickupZone.cs](../Scripts/Logistics/TruckPickupZone.cs)
-- **역할**: 주차한 트럭 뒷문 앞의 집기 존. `bay.DockedTruck`에서 화물을 꺼낸다. 트럭이 없거나 이동 중이면 아무것도 안 준다. `Bay` 프로퍼티로 베이를 노출한다 (알바가 예약할 트럭을 찾음). `HasCargoFor`(알바 판단용)는 트럭의 `Available > 0`이고 `Room > 0`일 때만 참이다.
+- **역할**: 주차한 트럭 뒷문 앞의 집기 존. `bay.DockedTruck`에서 화물을 꺼낸다. 트럭이 없거나 이동 중이면 아무것도 안 준다. `Bay` 프로퍼티로 베이를 노출한다 (알바가 예약할 트럭을 찾음). `HasCargoFor`(알바 판단용)는 트럭의 `Available > 0`이고 `Room > 0`일 때만 참이다. 둘 다 집는 알바의 자기 트럭 예약(`Interactor.Reserved(this, null)`)을 더해 본다(2026-11-26, `TryGive`의 `Room`도).
 - **지게차** (M11-8): D 트럭은 지게차 알바만 꺼낸다 (`LargeRoom > 0`, `Home` 없음 — 하차 칸 공간 안 거침). 일반 트럭은 지게차가 못 꺼낸다.
 - **동작** (M13-2, GDD 7.2): `Room` = 이 칸 공간 용량 − 공간 수 − 이 칸 트럭에서 꺼내 든 수(플레이어 · 알바, `Cargo.Home`) − 트럭 예약. 0이면 플레이어도 알바도 못 꺼낸다 → 공간이 넘치지 않는다. 플레이어가 막히면 트럭 위에 '공간 가득' (`CargoZone.Notice`, 1.5초마다 최대 1번). 꺼낸 화물에 `Home = bay.Storage`를 넣는다.
 - **금** (M13-16, GDD 6.4, 2026-11-18 바뀜: 하차 칸 공간 → 이 존): 황금 트럭이면 `Update`에서 0.08초마다 금을 이 존 바닥 `CargoPile`(`GoldenTruckConfig.PileLayout`)에 쏟는다 — 공간 칸 안 차지, 꺼내 들 수 없음. **쏟는 중 · 마지막 덩이 착지 전(`absorbReadyTime`)엔 흡수 안 함** (2026-11-19). 그 뒤 `Interactor.All` 중 반경(`cashPickupRadius` + `AbsorbRadiusBonus`) 안의 누구든 하나씩 흡수(`AbsorbGold`) → 날아가 `CashFlyEffect` → `Wallet.AddToPiggy(다발 × ValueMultiplier)`. 쏟기 · 흡수 값은 `GoldenTruckConfig`.
@@ -698,10 +699,10 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **지게차 직무** (M11-8): `SetRole(Forklift)` = `Interactor.Forklift` · 자식 `Forklift`(Prop `Forklift` + 포크 `Plastic_Pallet`, M_Prop, 꺼진 채) 켬 · 스택 바닥 `ForkliftAnchor`(팔레트 위) · `CharacterAnimator.UseRiding`. 작업 존 = `TruckPickupZone`(D 트럭) · D 랙 `ShelfZone`, 트럭 예약 수 = `LargeRoom`. 적재 4 고정 (`StaffRules.GetCarry`).
 - **판단 분산 · 대기 위치 재시도** (2026-11-25, 알바 100명 프로파일): 판단 타이머는 고용 때 무작위로 시작하고 되감을 때 위상을 지킨다(긴 프레임 한 번에 전원이 같은 프레임에 판단하게 굳던 문제). `Park`가 대기 위치를 못 찾으면 1초(`ParkRetryDelay` `임시`) 동안 다시 찾지 않는다 — 일 찾기(`Find`)는 그대로 0.25초마다. 후보 목록 · 정렬은 정적으로 재사용.
 - **알바 최적화** (2026-11-26, 브랜치 `proto-optimize`): ① 예약은 람다 대신 필드(`Reservation` 종류 · `reservedTruck` · `reservedItem` · `reservedCount` · 알바마다 `reservedPlan` Dictionary 재사용) — `StillValid`가 판단마다 풀고 다시 잡아 클로저 · Dictionary가 쌓이던 것. ② 경고 로그 2개(길 없음 · 존 밖)는 `EditorWarning`(`[Conditional("UNITY_EDITOR")]`) — 빌드에선 문자열 · 스택트레이스 없음. ③ `FinishWork` · `Abort`는 다음 판단을 0 ~ 간격 절반 뒤로 흩는다(`ScatterNextThink`, 같은 프레임에 끝난 알바끼리 위상이 묶이던 것). ④ 바닥 붙이기 `TrySnapWalkable`: A*면 격자 칸 하나(장애물을 알바 반경만큼 키워 구웠으므로 소품 검사 포함 — `SamplePosition` · `CheckCapsule` 없음), NavMesh면 `SamplePosition` + `ClearOfProps`(=`IsClear`)를 다른 알바 검사 **뒤에**. ⑤ 대기 위치로 가다 부분 경로로 못 닿았어도 존 근처(`NearAnyZone`)가 아니면 그 자리에서 `Parked`(예전엔 멈췄다 다시 골라 또 걸어감), 존 근처면 `Hold` + 1초 쉬기. ⑥ 측정용 `PathPending` · `Parking` · `TakeMaxThinksPerFrame()`(`PerformanceHUD`).
-- **동작**: 상태 `Phase` = `Idle / Moving / Working / Parked / Waiting`. 집는 곳은 직무로 정한다 (하차 `TruckPickupZone`, 보관(`Sort`) `StorageZone` 중 Pallet · Repacked, 상차(`Pick`) `ShelfZone`, 반품 = Returns · Trash `StorageZone` + 재포장 테이블). **반품 알바**(M13-12, `ReturnsWork`): 막히는 곳부터 — `TrashFull`이면 쓰레기 출력에서 줍기 → 재포장(`TryGauge`: 가장 가까운 `RepackTable.HasWork` 테이블 슬롯으로 가서 `gauge`로 두고, `HasWork`인 동안 서 있음) → 반품 팔레트에서 줍기 → 쓰레기 줍기 (`ReturnsFocus`로 `IsRoleZone`을 좁힘). 적재 = `StaffRules.returnsCarry` 12 (스탯 무관, `SetRole`에서). 내려놓는 곳은 들고 있는 화물을 받는 존(`CargoZone.CanReceiveAny`)이라서, 역할을 바꿔도 화물은 원래 목적지로 간다. 가장 가까운 빈 `WorkSlot`을 출발할 때 예약하고, 도착하면 `Interactor.Target`을 그 존으로 두고 `AllowDrop` · `AllowPick`을 작업에 맞춘다. 옮길 것이 `workIdleTimeout`(0.5초) 동안 없거나 가득 · 빈손이 되면 작업을 끝낸다. 예약은 3역할 공통 ([GDD 8.4](GDD.md#84-수요-계산)): 출발할 때 가져갈 만큼 `Reserve()`로 잡고, 도착하면 `ReleaseReservation()`으로 푼다. 해제는 `reserved` 종류별 switch (2026-11-26, 예전 `releaseReservation` 람다). 하차 = `InboundTruck.Reserve`, 분류 = `Warehouse.ReserveShelfSpace`(`PlanForShelves` 품목별), 피킹 = `OrderService.Reserve`.
+- **동작**: 상태 `Phase` = `Idle / Moving / Working / Parked / Waiting`. 집는 곳은 직무로 정한다 (하차 `TruckPickupZone`, 보관(`Sort`) `StorageZone` 중 Pallet · Repacked, 상차(`Pick`) `ShelfZone`, 반품 = Returns · Trash `StorageZone` + 재포장 테이블). **반품 알바**(M13-12, `ReturnsWork`): 막히는 곳부터 — `TrashFull`이면 쓰레기 출력에서 줍기 → 재포장(`TryGauge`: 가장 가까운 `RepackTable.HasWork` 테이블 슬롯으로 가서 `gauge`로 두고, `HasWork`인 동안 서 있음) → 반품 팔레트에서 줍기 → 쓰레기 줍기 (`ReturnsFocus`로 `IsRoleZone`을 좁힘). 적재 = `StaffRules.returnsCarry` 12 (스탯 무관, `SetRole`에서). 내려놓는 곳은 들고 있는 화물을 받는 존(`CargoZone.CanReceiveAny`)이라서, 역할을 바꿔도 화물은 원래 목적지로 간다. 가장 가까운 빈 `WorkSlot`을 출발할 때 예약하고, 도착하면 `Interactor.Target`을 그 존으로 두고 `AllowDrop` · `AllowPick`을 작업에 맞춘다. 옮길 것이 `workIdleTimeout`(0.5초) 동안 없거나 가득 · 빈손이 되면 작업을 끝낸다. 예약은 3역할 공통 ([GDD 8.4](GDD.md#84-수요-계산)): 출발할 때 가져갈 만큼 `Reserve()`로 잡고, 출발할 때 잡은 예약은 **도착 뒤에도 유지**하고 집은 만큼만 줄인다(`ConsumeReservation`). 존은 내줄 때 남의 예약만 빼고 보도록 `Interactor.Reserved(존, 품목)`(=`OwnReservation`)을 더한다 (2026-11-26 — 도착 즉시 풀면 집기 전 0.5초 사이 다른 알바가 가져가 둘 다 헛걸음 · 상차 정지). 남은 것은 `ReleaseAll` → `ReleaseReservation()`. 해제는 `reserved` 종류별 switch (2026-11-26, 예전 `releaseReservation` 람다). 하차 = `InboundTruck.Reserve`, 분류 = `Warehouse.ReserveShelfSpace`(`PlanForShelves` 품목별), 피킹 = `OrderService.Reserve`.
 - **연결**: `Setup(role, stats, costume)`(`StaffService.Spawn`이 부른다), `SetRole`은 `Setup` 안에서만 (직무 변경 삭제 2026-11-18, 적재 = `StaffRules.GetCarry(role, carry)` — 반품 12 · 지게차 4 고정), `Fire()`(해고), `Role` · `Stats` · `State` · `Stack` · `Number`(고용 순 번호, `DisplayName` = `알바 N`) · `Fired`. 설정값은 `StaffRules`.
 - **주의**:
-  - 가는 중 대상이 사라지면 예약을 풀고, `thinkInterval`(0.25초)마다 다시 고른다. 가는 중 확인(`StillValid`)은 예약을 잠깐 풀고 다시 확인해 다시 잡는다.
+  - 가는 중 대상이 사라지면 예약을 풀고, `thinkInterval`(0.25초)마다 다시 고른다. 가는 중 확인(`StillValid`)은 예약을 그대로 두고 확인한다(존이 자기 예약을 더함).
   - **알바 상호작용 개편** (2026-11-19): 작업 자리(`WorkSlot`)는 예약하지 않는다 — 존 안에서 멈추면 일한다(플레이어와 같음). 존 고르기 `Find` = 서는 위치 후보까지 거리 + 그 존에 가고 있거나 일하는 같은 직무 수 × `crowdPenalty`(4m), 인원 상한 없음. 서는 위치 `ChooseStand` = 후보 중 덜 붐비는 곳 → 다 차면 `standSpacing`(0.5m)씩 넓혀 존 안 · 네비메시 위 빈 곳, 가장자리에서 `zoneEdgeMargin`(0.3m) 안. 재포장 테이블만 1명(`RepackTable.TryClaim`). 화물 예약(트럭 · 선반 빈자리 · 주문 수요)은 그대로.
   - 할 일이 없으면 `Park` — 마지막 일한 존 가장자리에서 바깥으로 `waitOffset`(0.6m) 비켜 선 곳(겹치면 변을 따라 `waitSpacing` 0.6m씩 옆으로, 일한 적 없으면 생성 지점 근처)에서 `Parked`. 대기 중엔 아무 존도 막지 않는다.
   - 도착 후 3초 + 대기 시간 동안 존이 잡히지 않으면 경고 로그 `작업 지점 … 밖에 있습니다`.
