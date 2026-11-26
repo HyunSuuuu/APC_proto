@@ -128,8 +128,9 @@
 | 플레이어 | 사무실 책상 게이지 | 0.5 | 초 | ✅ | `LogisticsConfig` | 5.2 `임시` |
 | 플레이어 | '넣을 수 없음' · '가득' 같은 자리 재표시 간격 | 1.5 | 초 | ✅ | 코드 상수 | 7.3 `확정` |
 | 물류 | 하차 칸 상자 두는 공간 용량 | 10 | 개 | ✅ | `LogisticsConfig` | 7.2 `임시` |
-| 물류 | 선반 1개 용량 (1단계) | 6 | 개 | ✅ | `LogisticsConfig` | 7.3 `확정` |
-| 물류 | 팔레트 랙 용량 (D) | 4 | 개 | ✅ | 프리팹 (`Module_ShelfArea_D`) | 7.3 `임시` |
+| 물류 | 보관 구역 용량 (1단계, 선반 4개 통합) | 24 | 개 | ✅ | `LogisticsConfig.shelfCapacity` | 7.3 `확정` (M20-2) |
+| 물류 | 선반 단계마다 모델 1개당 늘어나는 칸 | 2 | 개 | ✅ | `LogisticsConfig.shelfStageStepPerModel` | 7.3 `확정` (→ 24 · 32 · 40, 랙 16 · 24 · 32) |
+| 물류 | 팔레트 랙 구역 용량 (D) | 16 | 개 | ✅ | 프리팹 (`Module_ShelfArea_D`) | 7.3 `임시` |
 | 물류 | 하차 트럭 도착 간격 | 20 | 초 | ✅ | `LogisticsConfig` | 7.1 `임시` |
 | 물류 | 트럭 대기열 최대 | 3 | 대 | ✅ | `LogisticsConfig` | 7.1 `확정` |
 | 물류 | 같은 색 하차 트럭 최대 연속 | 3 | 대 | ✅ | 코드 상수 | 6.3 `확정` |
@@ -204,7 +205,7 @@
 | 같은 색 하차 트럭 최대 연속 | 3 | `StockBalancer` |
 | 주문 색 최대 수 | 2 | `OrderService` (최대 2색 구조라 숫자 하나로 못 바꿈) |
 | '넣을 수 없음' 재표시 간격 | 1.5초 | `CargoZone` |
-| 팔레트 랙 용량 | 4 | `Module_ShelfArea_D.prefab` (`ShelfSlot.capacity`) |
+| 팔레트 랙 구역 용량 | 16 | `Module_ShelfArea_D.prefab` (`ShelfArea` `ShelfSlot.capacity`) |
 | 작업 지점 수 | 2 · 2 · 4 · 4 · 1 | 모듈 프리팹 |
 | 트럭 대기 자리 위치 · 간격 | 도로 x 0, 7m 간격 | `InboundQueue` (씬) |
 

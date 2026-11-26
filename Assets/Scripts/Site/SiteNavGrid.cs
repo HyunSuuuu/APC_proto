@@ -83,7 +83,8 @@ namespace APC.Site
             for (var i = 0; i < count; i++)
             {
                 var hit = hits[i];
-                if (hit.enabled && hit.transform.IsChildOf(siteRoot)) output.Add(ToBox(hit));
+                // 벨트는 부지 밖(씬 루트)에 생기지만 사람 · 알바가 못 지나간다 (M20-4, 2026-11-26 A*만 이동)
+                if (hit.enabled && (hit.transform.IsChildOf(siteRoot) || hit.GetComponentInParent<Logistics.ConveyorBelt>() != null)) output.Add(ToBox(hit));
             }
         }
 

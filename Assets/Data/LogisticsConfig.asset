@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: LogisticsConfig
   m_EditorClassIdentifier: Assembly-CSharp::APC.Data.LogisticsConfig
   sharedStorageCapacity: 10
-  shelfCapacity: 6
+  shelfCapacity: 24
+  shelfStageStepPerModel: 2
   truckReverseDuration: 2
   truckLeaveDuration: 3
   inboundArrivalInterval: 20
@@ -26,8 +27,13 @@ MonoBehaviour:
   beltCellSize: 2
   beltCellsPerSecond: 1
   beltHeight: 0.15
+  beltWidth: 1
   beltMaterial: {fileID: 2100000, guid: a4a361acea61acc4f922bc0ed2a5ad0e, type: 2}
-  beltCellCost: 20
+  beltCostPerMeter: 10
+  beltSnap: 0.5
+  beltBlockHeight: 1
+  beltWalkerRadius: 0.4
+  beltScanZoneCost: 50
   beltRefundRate: 0.5
   beltPickupDelay: 0.3
   beltOverlayMaterial: {fileID: 2100000, guid: dd04889c7e3026e4d93ffa9210d9c68c, type: 2}
@@ -47,9 +53,7 @@ MonoBehaviour:
   - {fileID: 919132149155446097, guid: 8b7e0b649afdb1a42bfeae7bebca42d5, type: 3}
   largeTruckChance: 0.1
   scanStartDelay: 0.25
-  playerScanDuration: 0.75
-  staffScanDuration: 2
-  staffScanMinBoxes: 6
+  scanSecondsPerBox: 1
   scanRevealInterval: 0.05
   unsortedBoxModel: {fileID: 919132149155446097, guid: b3b374d766ad5214481470ff555f3d56, type: 3}
   unsortedBoxScale: 1.667

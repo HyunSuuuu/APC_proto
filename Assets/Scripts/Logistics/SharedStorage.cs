@@ -127,7 +127,7 @@ namespace APC.Logistics
             return kind switch
             {
                 StorageKind.Pallet => cargo.Origin == CargoOrigin.Truck && cargo.Home == this,
-                StorageKind.Scan => cargo.Unsorted && cargo.Origin == CargoOrigin.Unscanned,
+                StorageKind.Scan => cargo.Origin == CargoOrigin.Unscanned, // 미분류 · 벨트 스캔 구역에서 색이 정해진 상자 (M20-5)
                 StorageKind.Returns => cargo.State == CargoState.Return && cargo.Origin == CargoOrigin.Storage,
                 StorageKind.RepackInput => cargo.State == CargoState.Return && cargo.Origin == CargoOrigin.ReturnPallet,
                 _ => false,
@@ -296,7 +296,8 @@ namespace APC.Logistics
 
         static readonly List<CompanyDefinition> ScanColors = new();
 
-        static bool AnyScanRoom()
+        /// <summary>남은 빈자리가 있는 보관 색이 하나라도 있나 (스캔 게이지가 찰 수 있나).</summary>
+        public static bool AnyScanRoom()
         {
             CollectScanColors(ScanColors);
             foreach (var company in ScanColors)
@@ -319,7 +320,35 @@ namespace APC.Logistics
             {
                 if (storage.kind == StorageKind.Scan) room -= storage.CountOf(item); // 스캔 팔레트에 그 색으로 스캔돼 기다리는 상자
             }
+            // 벨트 스캔 구역에서 색이 정해져 스캔 팔레트로 가는 중인 상자 (M20-5)
+            room -= ConveyorBelt.CountOnBelts(b => b.End is SharedStorage { kind: StorageKind.Scan }, c => !c.Unsorted && c.Item == item && c.State == CargoState.Normal);
             return room;
+        }
+
+        /// <summary>
+        /// 벨트 스캔 구역 (GDD 7.2a M20-5): 상자 1개의 색을 정한다 — `RevealUnsorted`와 같은 규칙(찌그러짐 판정 → 남은 빈자리 ≥ 1인 색 가중치).
+        /// 정할 색이 없으면 false (상자는 미분류로 남아 기다린다).
+        /// </summary>
+        public static bool RevealOne(Cargo cargo)
+        {
+            if (!cargo.Unsorted) return false;
+            var config = GameManager.Instance.Database.Logistics;
+            CollectScanColors(ScanColors);
+            var room = new Dictionary<CompanyDefinition, int>();
+            var total = 0f;
+            foreach (var company in ScanColors)
+            {
+                room[company] = ScanRoom(company.Items[0]);
+                if (room[company] > 0) total += company.Weight;
+            }
+            if (total <= 0f) return false;
+            if (ReturnsOpen && Random.value < config.ReturnChance)
+            {
+                cargo.Reveal(PickColor(ScanColors, null).Items[0], CargoState.Return, 0f);
+                return true;
+            }
+            cargo.Reveal(PickColor(ScanColors, room).Items[0], CargoState.Normal, 0f);
+            return true;
         }
 
         /// <summary>

@@ -31,10 +31,14 @@ namespace APC.Staff
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() => Shared = null;
 
-        /// <summary>격자를 돌려준다. 없으면 만든다 (첫 알바 · 첫 생성). 부지(SiteGrid)가 없으면 null.</summary>
+        /// <summary>
+        /// 격자를 돌려준다. 없으면 만든다 (첫 알바 · 첫 생성). 부지(SiteGrid)가 없거나 아직 열린 칸이 없으면 null —
+        /// Game 씬은 시작 연출이 끝나야 칸이 열린다 (그 전에 만들면 격자 범위를 못 정해 깨졌다, 2026-11-26).
+        /// </summary>
         internal static StaffNav Ensure()
         {
-            if (Shared == null && SiteGrid.Instance != null) Shared = new GameObject("StaffNav").AddComponent<StaffNav>();
+            var grid = SiteGrid.Instance;
+            if (Shared == null && grid != null && grid.OpenedCells.Count > 0) Shared = new GameObject("StaffNav").AddComponent<StaffNav>();
             return Shared;
         }
 
@@ -72,6 +76,31 @@ namespace APC.Staff
 
         internal int Register(Transform body, float speed) => crowd.Add(body, speed);
         internal void Release(int id) => crowd.Remove(id);
+        internal void Warp(int id, Vector3 position) => crowd.Warp(id, position);
+
+        /// <summary>
+        /// 벨트를 놓거나 철거했을 때 (ConveyorBelt, 2026-11-26 — 예전 NavMeshObstacle carving 대신): 경로 둘레 타일만 다시 굽고
+        /// 그 방을 지나던 알바만 길을 다시 찾는다. 격자가 아직 없으면 할 것 없음 (만들 때 벨트까지 굽는다).
+        /// </summary>
+        internal static void NotifyObstacleChanged(List<Vector3> points, float width)
+        {
+            if (Shared == null || points.Count == 0) return;
+            var min = points[0];
+            var max = points[0];
+            foreach (var p in points)
+            {
+                min = Vector3.Min(min, p);
+                max = Vector3.Max(max, p);
+            }
+            var config = GameManager.Instance.Database.NavGrid;
+            var pad = width + config.AgentRadius + config.TileSize; // 키운 장애물이 이웃 타일까지 번진다
+            var world = Shared.site.World;
+            world.RebuildTiles(Rect.MinMaxRect(min.x - pad, min.z - pad, max.x + pad, max.z + pad));
+            foreach (var worker in StaffWorker.All)
+            {
+                if (worker.CrowdId >= 0 && Shared.crowd.IsMoving(worker.CrowdId) && Shared.crowd.PathTouchesRooms(worker.CrowdId, world.Grid, world.ChangedRooms)) worker.RefreshPath();
+            }
+        }
         internal void Stop(int id) => crowd.Stop(id);
         internal void Pause(int id, bool paused) => crowd.SetPaused(id, paused);
         internal float Remaining(int id) => crowd.RemainingDistance(id);

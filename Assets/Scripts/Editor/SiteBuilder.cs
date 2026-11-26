@@ -35,7 +35,7 @@ namespace APC.EditorTools
             var layout = database.Site;
             var size = layout.CellSize;
 
-            var shelfPrefab = StandardModules.ShelfPrefab();
+            StandardModules.ShelfPrefab();
             StandardModules.TruckPrefab();
             StandardModules.OutboundTruckPrefab();
             StandardModules.CashBundlePrefab();
@@ -62,7 +62,7 @@ namespace APC.EditorTools
 
             var services = new GameObject("Logistics").transform;
             services.SetParent(site, false);
-            SetRef(services.gameObject.AddComponent<Warehouse>(), "shelfPrefab", shelfPrefab);
+            services.gameObject.AddComponent<Warehouse>();
             services.gameObject.AddComponent<ContractService>();
             services.gameObject.AddComponent<OrderService>();
             services.gameObject.AddComponent<APC.Economy.PartService>(); // 파트 타이머 · 정산 (GDD 9.5)

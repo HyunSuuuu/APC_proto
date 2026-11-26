@@ -62,6 +62,7 @@ namespace APC.Staff
 
         CargoZone zone;
         RepackTable gauge; // 반품 알바가 서서 재포장하는 테이블 (zone 대신, 1명 예약)
+        InteractionZone scanStation; // 하차 알바가 서서 스캔하는 자리 (IScanStation — 스캔 팔레트 · 벨트 스캔 구역, zone 대신)
         ReturnsFocus focus;
         bool hasStand;
         Vector3 standLocal; // 서는 위치 (대상 존 로컬 — 모듈이 옮겨져도 같이 따라간다)
@@ -97,7 +98,7 @@ namespace APC.Staff
         public CarryStack Stack => stack;
 
         /// <summary>지금 가고 있거나 일하는 존 (재포장 테이블 포함). 없으면 null.</summary>
-        public InteractionZone TargetZone => gauge != null ? gauge : zone;
+        public InteractionZone TargetZone => gauge != null ? gauge : scanStation != null ? scanStation : zone;
 
         /// <summary>고용 순서 번호 (배치 탭 이름 `알바 N`).</summary>
         public int Number { get; internal set; }
@@ -170,7 +171,8 @@ namespace APC.Staff
         {
             PathRequests++;
             destination = point;
-            if (!OnNav) return pathFailed = false; // 격자가 아직 없음 (부지 없음) — 다음 판단 때 다시
+            if (!OnNav && StaffNav.Ensure() is { } nav) crowdId = nav.Register(transform, speed); // 켜질 때 격자가 아직 없었으면 (열린 칸 없음) 지금 등록
+            if (!OnNav) return pathFailed = false; // 격자가 아직 없음 — 다음 판단 때 다시
             pathFailed = !StaffNav.Shared.SetPath(crowdId, point, speed);
             return !pathFailed;
         }
@@ -183,6 +185,18 @@ namespace APC.Staff
         void PauseMove(bool paused)
         {
             if (OnNav) StaffNav.Shared.Pause(crowdId, paused);
+        }
+
+        /// <summary>순간 이동 (벨트 설치에 밀려남, BeltPlacer). 가던 중이면 새 자리에서 같은 목적지로 다시 길을 찾는다.</summary>
+        internal void Warp(Vector3 position)
+        {
+            if (!OnNav)
+            {
+                transform.position = position;
+                return;
+            }
+            StaffNav.Shared.Warp(crowdId, position);
+            if (State == Phase.Moving) SetPath(destination);
         }
 
         /// <summary>A* 격자를 다시 구운 뒤 (StaffNav): 같은 목적지로 길을 다시 찾는다.</summary>
@@ -520,26 +534,16 @@ namespace APC.Staff
         }
 
         /// <summary>
-        /// 하차 알바 스캔 (GDD 7.2a): 미분류가 `staffScanMinBoxes`개 이상(트럭이 비었거나 없으면 그보다 적어도)이고 아무도 스캔하지 않는
+        /// 하차 알바 스캔 (GDD 7.2a): 미분류가 1개 이상(M20-1, 최소 개수 규칙 삭제)이고 아무도 스캔하지 않는
         /// 가장 가까운 하차 칸 공간으로 간다. 한 칸 한 사람 — 다른 하차 알바가 스캔하러 가는 칸은 고르지 않는다.
         /// </summary>
         bool TryScan()
         {
-            StorageZone best = null;
-            var bestDistance = float.MaxValue;
-            var from = transform.position;
-            foreach (var candidate in InteractionZone.Active)
-            {
-                if (candidate is not StorageZone storageZone || storageZone.Slots.Length == 0 || !IsSettled(storageZone)) continue;
-                if (!storageZone.StaffScanWanted || (storageZone.Scanner != null && storageZone.Scanner != interactor) || ScanTakenByOther(storageZone)) continue;
-                var distance = NearestSlotDistance(storageZone, from);
-                if (distance >= bestDistance) continue;
-                best = storageZone;
-                bestDistance = distance;
-            }
+            // 벨트 스캔 구역 먼저 (상자가 오는 중 · 기다릴 때만, M20-5), 없으면 스캔 팔레트
+            var best = NearestScanStation(beltOnly: true) ?? NearestScanStation(beltOnly: false);
             if (best == null) return false;
             ReleaseAll();
-            zone = best;
+            scanStation = best;
             SetStand(best, ChooseStand(best));
             dropping = false;
             scanning = true; // 화물 예약 없음
@@ -548,11 +552,28 @@ namespace APC.Staff
             return true;
         }
 
-        bool ScanTakenByOther(StorageZone target)
+        InteractionZone NearestScanStation(bool beltOnly)
+        {
+            InteractionZone best = null;
+            var bestDistance = float.MaxValue;
+            var from = transform.position;
+            foreach (var candidate in InteractionZone.Active)
+            {
+                if (candidate is not IScanStation station || (beltOnly && candidate is not BeltScanZone) || candidate.Slots.Length == 0 || !IsSettled(candidate)) continue;
+                if (!station.StaffScanWanted || (station.Scanner != null && station.Scanner != interactor) || ScanTakenByOther(candidate)) continue;
+                var distance = NearestSlotDistance(candidate, from);
+                if (distance >= bestDistance) continue;
+                best = candidate;
+                bestDistance = distance;
+            }
+            return best;
+        }
+
+        bool ScanTakenByOther(InteractionZone target)
         {
             foreach (var other in AllWorkers)
             {
-                if (other != this && other.scanning && other.zone == target) return true;
+                if (other != this && other.scanning && other.scanStation == target) return true;
             }
             return false;
         }
@@ -849,9 +870,9 @@ namespace APC.Staff
         bool StillValid()
         {
             if (gauge != null) return gauge.isActiveAndEnabled && gauge.HasWork;
+            if (scanning) return scanStation != null && scanStation.isActiveAndEnabled && scanStation is IScanStation scanZone && scanZone.StaffScanWanted && (scanZone.Scanner == null || scanZone.Scanner == interactor);
             if (zone == null || !zone.isActiveAndEnabled) return false;
             if (dropping) return zone.CanReceiveAny(interactor);
-            if (scanning) return zone is StorageZone scanZone && scanZone.StaffScanWanted && (scanZone.Scanner == null || scanZone.Scanner == interactor);
 
             ReleaseReservation();
             var ok = IsRoleZone(zone) && HasWork(zone);
@@ -882,12 +903,12 @@ namespace APC.Staff
                 if (!gauge.HasWork || stuckAtTable) FinishWork();
                 return;
             }
-            if (scanning) // 스캔: 게이지는 StorageZone이 채운다. 끝났거나 다른 사람이 스캔하면 다음 일
+            if (scanning) // 스캔: 게이지는 스캔 자리(팔레트 · 벨트 스캔 구역)가 채운다. 끝났거나(벨트가 비면 떠남) 다른 사람이 스캔하면 다음 일
             {
-                var scanZone = zone as StorageZone;
-                var stuckAtScan = workTime >= rules.InteractionDelay + StuckTimeout && interactor.CurrentZone != zone && !repathPending;
+                var scanZone = scanStation as IScanStation;
+                var stuckAtScan = workTime >= rules.InteractionDelay + StuckTimeout && interactor.CurrentZone != scanStation && !repathPending;
                 var mine = scanZone != null && scanZone.Scanner == interactor;
-                if (scanZone == null || stuckAtScan || (!mine && (!scanZone.StaffScanWanted || scanZone.Scanner != null))) FinishWork();
+                if (scanZone == null || stuckAtScan || !scanZone.StaffScanWanted || (!mine && scanZone.Scanner != null)) FinishWork();
                 return;
             }
             var count = stack.Count.CurrentValue;
@@ -953,6 +974,7 @@ namespace APC.Staff
             if (gauge != null) gauge.Release(this);
             zone = null;
             gauge = null;
+            scanStation = null;
             hasStand = false;
             hasWait = false;
             parking = false;

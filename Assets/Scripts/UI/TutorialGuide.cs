@@ -50,6 +50,8 @@ namespace APC.UI
 
         TMP_Text banner;
         GameObject bannerRoot;
+        CanvasScaler bannerScaler;
+        bool portrait; // 배너 배치에 적용된 화면 방향 (세로 = true)
         Interactor player;
         int stepIndex = -1;
         bool skipStep;
@@ -74,6 +76,7 @@ namespace APC.UI
         void Update()
         {
             if (bannerRoot == null) return;
+            if (IsPortrait() != portrait) ApplyBannerLayout(IsPortrait()); // 화면 회전
             var show = bannerOn && (spotlighting || GameManager.Instance.State.CurrentValue != GameState.Popup);
             if (bannerRoot.activeSelf != show) bannerRoot.SetActive(show);
         }
@@ -339,21 +342,15 @@ namespace APC.UI
             canvas.transform.SetParent(transform, false);
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 49; // HUD 위, 팝업은 State로 숨김
-            var scaler = canvas.gameObject.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 1f;
+            bannerScaler = canvas.gameObject.AddComponent<CanvasScaler>();
+            bannerScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
 
             var back = new GameObject("Banner").AddComponent<Image>();
             back.transform.SetParent(canvas.transform, false);
             back.color = new Color(0f, 0f, 0f, 0.55f);
             back.raycastTarget = false;
-            var r = back.rectTransform;
-            r.anchorMin = r.anchorMax = new Vector2(0.5f, 1f);
-            r.pivot = new Vector2(0.5f, 1f);
-            r.anchoredPosition = new Vector2(0f, -110f); // HUD 돈 · 저금통 줄 아래
-            r.sizeDelta = new Vector2(1100f, 84f);
             bannerRoot = back.gameObject;
+            ApplyBannerLayout(IsPortrait());
 
             var anyText = FindAnyObjectByType<TextMeshProUGUI>();
             var text = new GameObject("Text").AddComponent<TextMeshProUGUI>();
@@ -374,6 +371,37 @@ namespace APC.UI
             t.offsetMin = t.offsetMax = Vector2.zero;
             banner = text;
             bannerRoot.SetActive(false);
+        }
+
+        static bool IsPortrait() => Screen.height > Screen.width;
+
+        /// <summary>
+        /// 가로: 1920×1080 높이 기준, 가운데 고정 너비 1100.
+        /// 세로: 1080×2340 너비 기준, 좌우 여백 20으로 화면 너비를 따라 늘어남, 화면 위에서 1/5 지점.
+        /// </summary>
+        void ApplyBannerLayout(bool toPortrait)
+        {
+            portrait = toPortrait;
+            var r = (RectTransform)bannerRoot.transform;
+            if (portrait)
+            {
+                bannerScaler.referenceResolution = new Vector2(1080f, 2340f);
+                bannerScaler.matchWidthOrHeight = 0f;
+                r.anchorMin = new Vector2(0f, 0.8f); // 화면 위에서 1/5 지점 (기기 비율과 상관없이)
+                r.anchorMax = new Vector2(1f, 0.8f);
+                r.pivot = new Vector2(0.5f, 0.5f);
+                r.anchoredPosition = Vector2.zero;
+                r.sizeDelta = new Vector2(-40f, 84f);
+            }
+            else
+            {
+                bannerScaler.referenceResolution = new Vector2(1920f, 1080f);
+                bannerScaler.matchWidthOrHeight = 1f;
+                r.anchorMin = r.anchorMax = new Vector2(0.5f, 1f);
+                r.pivot = new Vector2(0.5f, 1f);
+                r.anchoredPosition = new Vector2(0f, -110f); // HUD 돈 · 저금통 줄 아래
+                r.sizeDelta = new Vector2(1100f, 84f);
+            }
         }
     }
 }

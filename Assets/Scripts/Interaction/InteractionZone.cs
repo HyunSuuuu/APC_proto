@@ -24,6 +24,9 @@ namespace APC.Interaction
         WorkSlot[] slots;
 
         public Vector2 Size => size;
+
+        /// <summary>실행 중에 만드는 존(벨트 스캔 구역)의 크기.</summary>
+        protected void SetSize(Vector2 value) => size = value;
         public IReadOnlyList<Interactor> Occupants => occupants;
 
         /// <summary>켜져 있는 모든 존 (알바가 작업 대상을 찾을 때). 읽기만 한다 — 구체 타입은 foreach 열거자 박싱을 없애려고 (알바 100명 GC, 2026-11-25).</summary>

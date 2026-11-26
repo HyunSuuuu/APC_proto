@@ -53,7 +53,8 @@ namespace APC.Staff
 
     /// <summary>
     /// 알바 명단 · 후보 · 고용 (GDD 11.1, 11.3). 씬에 하나 둔다 (Site/Logistics).
-    /// 후보는 파트가 바뀔 때마다, 그리고 고용 탭 [새로고침]으로 다시 뽑는다. 고용금은 보유 재화에서만 낸다.
+    /// 후보는 자동 교체 타이머(StaffRules.CandidateRefreshSeconds)가 0이 될 때마다, 그리고 고용 탭 [새로고침]으로 다시 뽑는다. 고용금은 보유 재화에서만 낸다.
+    /// 자동 교체 타이머는 1파트가 시작된 뒤부터 파트와 따로 흐르고, 팝업이 열려 있어도 실제 시간으로 줄어든다 (일시정지에서만 멈춤, 2026-11-26).
     /// </summary>
     public sealed class StaffService : MonoBehaviour
     {
@@ -68,6 +69,7 @@ namespace APC.Staff
         readonly Subject<Unit> candidatesChanged = new();
         readonly Subject<Unit> workersChanged = new();
         int hireCount; // 알바 번호 (해고해도 다시 쓰지 않음)
+        float refreshRemaining = -1f; // 후보 자동 교체까지 (초). 음수 = 아직 시작 안 함 (1파트 전)
 
         /// <summary>고용 순서대로 (시급 지급 순서, GDD 11.7).</summary>
         public IReadOnlyList<StaffWorker> Workers => workers;
@@ -81,6 +83,9 @@ namespace APC.Staff
         public Observable<Unit> OnWorkersChanged => workersChanged;
 
         public int MaxStaff => GameManager.Instance.Level.MaxStaff;
+
+        /// <summary>후보 자동 교체까지 남은 초. 음수 = 아직 시작 안 함 (1파트 전).</summary>
+        public float CandidateRefreshRemaining => refreshRemaining;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() => Instance = null;
@@ -96,11 +101,23 @@ namespace APC.Staff
             Instance = this;
         }
 
-        void Start()
+        void Start() => RefreshCandidates(); // 처음 후보
+
+        // 후보 자동 교체: 1파트가 시작되면 타이머 시작. 팝업 중에도 실제 시간으로 흐르고, 일시정지에서만 멈춘다
+        void Update()
         {
-            // 파트가 바뀔 때마다 후보 교체 (구독하는 순간 한 번 = 처음 후보)
-            if (PartService.Instance != null) PartService.Instance.Part.Subscribe(_ => RefreshCandidates()).AddTo(this);
-            else RefreshCandidates();
+            var gm = GameManager.Instance;
+            var parts = PartService.Instance;
+            if (gm == null || parts == null || parts.Part.CurrentValue == 0) return;
+            var interval = gm.Database.Staff.CandidateRefreshSeconds;
+            if (refreshRemaining < 0f) refreshRemaining = interval;
+
+            var state = gm.State.CurrentValue;
+            if (state == GameState.Paused) return;
+            refreshRemaining -= state == GameState.Popup ? Time.unscaledDeltaTime : Time.deltaTime;
+            if (refreshRemaining > 0f) return;
+            refreshRemaining += interval;
+            RefreshCandidates();
         }
 
         void OnDestroy()

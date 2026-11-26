@@ -36,6 +36,9 @@ namespace APC.UI
             home = rect.anchoredPosition;
         }
 
+        /// <summary>놓으면 돌아갈 자리를 바꾼다 (계약 팝업 가로 · 세로 배치가 바뀔 때).</summary>
+        public void SetHome(Vector2 position) => home = position;
+
         void OnDisable()
         {
             motion?.Kill();
