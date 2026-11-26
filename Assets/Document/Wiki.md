@@ -878,6 +878,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **연결**: 칠하기 · 깔기는 에디터 `ModuleFloorEditor`(인스펙터 팔레트 + 칸 격자) → 자식 `FloorArt`에 저장. 사용법은 TechStack `Add Module Floor`.
   - 재배치(M12-2, GDD 4.4): `ApplyArrangement(모듈 → 칸)` — 보관 · 반품 · 빈 공간 모듈의 자리 맞바꿈이라 열린 칸은 그대로. 모듈 **통째로** 옮기므로 선반 · 상자 · 작업 지점이 같이 간다. 옮긴 모듈은 팝 연출, `OnMoved`(네비메시 · 알바 · 발판이 구독).
 - **주의**: 타일을 Static(정적 배칭)으로 두지 않는다 — 재배치로 모듈이 움직여도 타일이 제자리에 남는다.
+- **타일 합치기** (2026-11-26, `CombineTiles`): `Awake`에서 `FloorArt` 타일(서브메시 1개)을 머티리얼별로 한 메시 `FloorArt_<재질>`(FloorArt 자식, 로컬 좌표 — 재배치 · 팝 연출을 따라감)로 합치고 원래 렌더러는 끈다. 읽을 수 없는 메시는 건너뛰므로 바닥 fbx 30개(`Art/Model/Prop/*floor*`)는 **Read/Write 켬**. TycoonTest(모듈 64): 렌더러 4277 → 1536, 배치 1066 → 689(에디터, 같은 화면). 새 바닥 fbx도 Read/Write를 켜야 합쳐진다.
 - **주의**: `Unlock`은 레벨 · 인접 조건을 확인하지 않는다. 그 조건은 `SiteUnlocker`가 확인한다 (디버그 메뉴는 조건 없이 연다). 재배치는 1칸 모듈만 가정한다.
 
 #### SiteUnlocker
