@@ -275,6 +275,7 @@ namespace APC.Staff
                 var pick = costume && models.Length > 1 ? Random.Range(1, models.Length) : 0;
                 for (var i = 0; i < models.Length; i++) models[i].SetActive(i == pick);
                 Costume = pick > 0;
+                Visuals.SkinnedCombine.Combine(models[pick]); // 스킨 메시 6개 → 재질별 하나 (드로 절반, 2026-11-27)
             }
             rules = GameManager.Instance.Database.Staff;
             Stats = stats;

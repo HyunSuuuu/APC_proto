@@ -1185,6 +1185,12 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **동작**: `SiteGrid.Awake`가 붙인다. 시작 · `SiteGrid.OnUnlocked` · `OnMoved` · 레벨 변경(공사 울타리) 때 **바로** 굽고 2초 동안 0.1초마다 다시(팝 연출 · 차례로 튀어나오는 선반을 따라감, 시간 멈춤이어도 `unscaledTime`. 2026-11-27 — 처음엔 2초 뒤 한 번이라 늦게 생겼다) `Bake`: 그림자를 드리우던(`shadowCastingMode` ≠ Off) 켜진 `MeshRenderer` 중 높이 0.15m 이상만 남기고 나머지는 잠깐 `forceRenderingOff` → 방향광 회전의 직교 카메라(꺼진 채, `Camera.Render` 한 번, 그림자 · 후처리 · MSAA 끔, 벽 구멍 끔)가 물체 + 그림자가 닿는 바닥 범위를 0.06m/칸(최대 2048)으로 찍어 알파 = 실루엣 마스크 → 전역 `_BakedShadowMask` · `_BakedShadowVP`. 바닥 높이(0.13m) 판 `BakedShadowOverlay` 하나가 자기 위치를 그 행렬로 투영해 마스크(5점 평균) 만큼 곱하기로 어둡게(색 0.62). `LastBakeMs` 측정용.
 - **주의**: 그림자는 바닥(판 높이)에만 생기고 물체 옆면 · 윗면에는 없다. 캐릭터(스킨) · 캐릭터에 붙은 것(`CarryStack` 아래 = 도구 · 지게차 · 든 상자, 2026-11-27 — 구운 자리에 그림자가 남던 것, 블롭으로) · 상자 · 트럭(그림자 끔) · 바닥 타일 · 발판은 안 찍힌다. 즉 움직이지 않는 물체만 굽는다. 마스크 RenderTexture 최대 2048² ARGB32(약 16MB). 에디터 TycoonTest: 첫 굽기 489ms(셰이더 준비 포함, 씬 시작 때) · 다시 굽기 3.5ms, Game 씬 2.3~2.5ms. 물체마다 미리 구운 그림자를 프리팹에 넣는 방식은 안 씀 — 모듈이 회전 · 이동하면 그림자 방향이 빛과 어긋나고, 벽은 실행 중에 만들어지며, 옆 물체에 떨어지는 그림자를 담을 수 없다. 부지 신호 없이 물체를 새로 놓는 코드를 추가하면 `Schedule()`을 부른다.
 
+#### SkinnedCombine (2026-11-27)
+[Visuals/SkinnedCombine.cs](../Scripts/Visuals/SkinnedCombine.cs)
+- **역할**: 알바 스킨 메시 합치기 — 드로 줄이기. 알바 1명 = 스킨 메시 6개 × (툰 + 외곽선 2패스 + PC는 깊이 · 노멀) 드로라 100명이면 배치 2000 가까이 됐다.
+- **동작**: 정적 `Combine(코스튬 루트)` — `StaffWorker.Setup`이 고른 코스튬에 부른다(CharacterToon이 이미 재질을 바꾼 뒤). 켜진 SkinnedMeshRenderer들의 정점 · 노멀 · 탄젠트 · UV · 색 · 뼈 가중치를 이어 붙이고(정점은 원래 메시 공간, bindpose 그대로 — 스킨 결과는 렌더러 위치와 무관), 뼈 배열은 부품 순서대로 이어 붙인다(중복 허용). 재질별 서브메시 → 새 자식 `CombinedSkin` 렌더러 하나, 원래 부품은 끈다(남겨 둠). 재질 2~4개가 셰이더 · 값 · 켜진 패스가 같고 텍스처만 다르면(유니폼 피부 · 옷 · 머리) `Graphics.CopyTexture`로 2×2 아틀라스(GPU만, 기기 압축 형식 그대로, 밉은 압축 블록 크기까지) + UV를 칸으로 옮겨 **서브메시 1개 · 공유 재질 1개**. 합친 메시 · 아틀라스는 코스튬(메시 · 재질 묶음)마다 한 번 만들어 캐시.
+- **주의**: 메시 fbx는 Read/Write 켬(`Art/Model/Worker` 알바 fbx 5개, 꺼져 있으면 합치지 않음). UV가 0~1 밖이면 아틀라스가 깨진다(유니폼 0.014~0.987 확인). 플레이어는 합치지 않음. 결과(TycoonTest 알바 100명): PC 기본 화면 배치 2323 → 1376(합치기만), 줌아웃 추정 알바 1명 스킨 드로 8.2 → 3.2(아틀라스 포함), 유니폼 95명 서브메시 1 · 코스튬 5명은 재질 1~2라 그대로.
+
 #### CharacterToon
 [Visuals/CharacterToon.cs](../Scripts/Visuals/CharacterToon.cs)
 - **역할**: 캐릭터 툰 + 검정 외곽선. 켜지면 자식 `SkinnedMeshRenderer`(꺼진 코스튬 포함)의 URP Lit 재질을 "원래 재질 사본 + `M_Toon`(`APC/Toon`, `Shaders/Toon/APC_Toon.shader`) 셰이더"로 바꾼다. 외곽선은 같은 셰이더의 Outline 3패스라 슬롯을 붙이지 않는다(2026-11-24부터. 전엔 마지막 슬롯에 `M_Outline`을 붙여 마지막 서브메시에만 선이 생겼고, 지금은 서브메시마다 생김). Lit에 없는 값(그림자 · 외곽선)은 `M_Toon`에서 복사, 사본은 `OutlineOuter` 끔. `outline` 체크를 끄면 외곽선 패스도 끔. 끄면 되돌림. 들고 있는 상자(MeshRenderer)는 건드리지 않음.
