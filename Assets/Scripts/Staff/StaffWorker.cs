@@ -134,7 +134,8 @@ namespace APC.Staff
         {
             AllWorkers.Clear();
             PathRequests = NoPathCount = 0;
-            thinkFrame = -1;
+            thinkFrame = budgetFrame = -1;
+            budgetUsed = 0;
             thinksThisFrame = maxThinksPerFrame = 0;
             ThinkScale = 1f;
         }
@@ -145,6 +146,8 @@ namespace APC.Staff
 
         // 성능 측정용 (PerformanceHUD, 2026-11-26): 한 프레임에 Think가 몇 번 몰렸나 — HUD가 읽고 0으로 되돌린다
         static int thinkFrame = -1;
+        static int budgetFrame = -1;
+        static int budgetUsed;
         static int thinksThisFrame;
         static int maxThinksPerFrame;
 
@@ -369,6 +372,12 @@ namespace APC.Staff
             var think = thinkTimer <= 0f;
             // 위상 유지: 긴 프레임(0.25초+) 한 번에 전원이 0 아래로 → '= 간격'이면 모두 같은 프레임에 판단하게 굳는다 (100명 = 80ms 끊김, 2026-11-25)
             if (think) thinkTimer = ThinkInterval - Mathf.Repeat(-thinkTimer, ThinkInterval);
+            if (think && !TakeThinkBudget())
+            {
+                // shortcut: Update 순서가 앞인 알바가 먼저 예산을 쓴다 — 미룬 알바가 계속 밀리면 차례 큐로 바꾼다
+                thinkTimer = 0f; // 다음 프레임에 다시
+                think = false;
+            }
             if (think && repathPending) ApplyRepath();
 
             switch (State)
@@ -431,7 +440,11 @@ namespace APC.Staff
             {
                 // 배달할 곳이 없으면 그 자리에서 기다린다
                 if (Find(drop: true, out var dropZone)) Go(dropZone, drop: true);
-                else Hold();
+                else
+                {
+                    Hold();
+                    IdleBackoff();
+                }
                 return;
             }
 
@@ -443,8 +456,27 @@ namespace APC.Staff
                 Go(pickZone, drop: false);
                 return;
             }
-            if (State == Phase.Parked || (State == Phase.Moving && parking)) return; // 이미 기다리는 중
+            if (State == Phase.Parked || (State == Phase.Moving && parking))
+            {
+                IdleBackoff(); // 이미 기다리는 중 — 일이 없으니 판단을 늦춘다
+                return;
+            }
             Park();
+        }
+
+        /// <summary>할 일이 없을 때 다음 판단을 `idleThinkMultiplier`배 뒤로 (2026-11-26). 대기 알바가 0.25초마다 존 전체를 훑던 것.</summary>
+        void IdleBackoff() => thinkTimer = ThinkInterval * rules.IdleThinkMultiplier * (0.75f + 0.5f * Random.value); // 흩어서 위상이 묶이지 않게
+
+        /// <summary>이번 프레임 판단 예산 (`maxThinksPerFrame`). 쓰면 true.</summary>
+        bool TakeThinkBudget()
+        {
+            var frame = Time.frameCount;
+            if (budgetFrame != frame)
+            {
+                budgetFrame = frame;
+                budgetUsed = 0;
+            }
+            return ++budgetUsed <= rules.MaxThinksPerFrame;
         }
 
         /// <summary>

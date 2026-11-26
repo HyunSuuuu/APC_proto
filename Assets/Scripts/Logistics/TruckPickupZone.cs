@@ -157,18 +157,6 @@ namespace APC.Logistics
         }
 
         /// <summary>트럭에서 꺼내 그 공간으로 들고 가는 중인 화물 수 (플레이어 · 알바).</summary>
-        static int CountHeadingTo(SharedStorage storage)
-        {
-            var n = 0;
-            foreach (var who in Interactor.All)
-            {
-                if (who.Stack == null) continue;
-                foreach (var cargo in who.Stack.Items)
-                {
-                    if (cargo.Origin == CargoOrigin.Truck && cargo.Home == storage) n++;
-                }
-            }
-            return n;
-        }
+        static int CountHeadingTo(SharedStorage storage) => CarriedIndex.TruckCargoHeadingTo(storage);
     }
 }

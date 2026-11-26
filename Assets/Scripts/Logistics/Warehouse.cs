@@ -196,19 +196,7 @@ namespace APC.Logistics
         public static int CountCarried(ItemDefinition item, CargoOrigin origin)
         {
             // 인덱스로 돈다: IReadOnlyList foreach는 열거자 박싱 — 빈 상차 칸마다 매 프레임 불려 GC (2026-11-25)
-            var total = ConveyorBelt.CountOnBelts(item, origin);
-            var all = Interactor.All;
-            for (var i = 0; i < all.Count; i++)
-            {
-                var stack = all[i].Stack;
-                if (stack == null) continue;
-                var items = stack.Items;
-                for (var j = 0; j < items.Count; j++)
-                {
-                    if (items[j].Item == item && items[j].Origin == origin) total++;
-                }
-            }
-            return total;
+            return ConveyorBelt.CountOnBelts(item, origin) + CarriedIndex.Count(item, origin); // 손에 든 수는 한 번 세어 둔 값 (2026-11-26)
         }
     }
 }

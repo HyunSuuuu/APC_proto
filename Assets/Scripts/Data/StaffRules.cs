@@ -49,6 +49,8 @@ namespace APC.Data
         [SerializeField, Min(0f), Tooltip("작업 지점(슬롯)에서 멈춘 뒤 상호작용을 시작하기까지 (초). 플레이어는 PlayerConfig")] float interactionDelay = 0.5f;
         [SerializeField, Min(0.05f), Tooltip("옮길 것이 이만큼(초) 없으면 그 작업을 끝낸다")] float workIdleTimeout = 0.5f;
         [SerializeField, Min(0.1f), Tooltip("작업 판단 간격 (초)")] float thinkInterval = 0.25f;
+        [SerializeField, Min(1), Tooltip("한 프레임에 판단하는 알바 최대 수. 넘으면 다음 프레임으로 미룬다 — 느린 프레임에 판단이 몰려 더 느려지는 악순환 끊기 (2026-11-26 임시)")] int maxThinksPerFrame = 15;
+        [SerializeField, Min(1f), Tooltip("할 일이 없어 기다릴 때(대기 위치 · 배달할 곳 없음) 판단 간격 배수 (2026-11-26 임시)")] float idleThinkMultiplier = 4f;
 
         [Header("서는 위치 · 대기 (2026-11-19 알바 상호작용 개편)")]
         [SerializeField, Min(0f), Tooltip("존 고르기 몰림 벌점 (m). 점수 = 거리 + 그 존에 가고 있거나 일하는 같은 직무 수 × 이 값 (임시)")] float crowdPenalty = 4f;
@@ -84,6 +86,8 @@ namespace APC.Data
         public float InteractionDelay => interactionDelay;
         public float WorkIdleTimeout => workIdleTimeout;
         public float ThinkInterval => thinkInterval;
+        public int MaxThinksPerFrame => maxThinksPerFrame;
+        public float IdleThinkMultiplier => idleThinkMultiplier;
         public float CrowdPenalty => crowdPenalty;
         public float StandSpacing => standSpacing;
         public float ZoneEdgeMargin => zoneEdgeMargin;

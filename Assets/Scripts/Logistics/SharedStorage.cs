@@ -481,15 +481,7 @@ namespace APC.Logistics
             }
             if (free <= 0) return 0;
             free -= ConveyorBelt.CountOnBelts(_ => true, c => c.Unsorted);
-            foreach (var who in APC.Interaction.Interactor.All)
-            {
-                if (who.Stack == null) continue;
-                foreach (var cargo in who.Stack.Items)
-                {
-                    if (cargo.Unsorted) free--;
-                }
-            }
-            return free;
+            return free - CarriedIndex.Unsorted;
         }
 
         /// <summary>그 종류 더미에 더 보낼 수 있는 찌그러진 상자 수 = 빈자리 합 − 이미 꺼내 들고 가는(그 출처) 찌그러진 상자.</summary>
@@ -502,15 +494,7 @@ namespace APC.Logistics
             }
             if (free <= 0) return 0;
             free -= ConveyorBelt.CountOnBelts(_ => true, c => c.State == CargoState.Return && c.Origin == origin); // 벨트로 가는 중 (GDD 7.10)
-            foreach (var who in APC.Interaction.Interactor.All)
-            {
-                if (who.Stack == null) continue;
-                foreach (var cargo in who.Stack.Items)
-                {
-                    if (cargo.State == CargoState.Return && cargo.Origin == origin) free--;
-                }
-            }
-            return free;
+            return free - CarriedIndex.Returns(origin);
         }
 
         /// <summary>
