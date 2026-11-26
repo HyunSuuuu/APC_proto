@@ -27,11 +27,13 @@ MonoBehaviour:
   beltCellSize: 2
   beltCellsPerSecond: 1
   beltHeight: 0.15
+  beltWidth: 1
   beltMaterial: {fileID: 2100000, guid: a4a361acea61acc4f922bc0ed2a5ad0e, type: 2}
   beltCostPerMeter: 10
   beltSnap: 0.5
   beltBlockHeight: 1
   beltWalkerRadius: 0.4
+  beltScanZoneCost: 50
   beltRefundRate: 0.5
   beltPickupDelay: 0.3
   beltOverlayMaterial: {fileID: 2100000, guid: dd04889c7e3026e4d93ffa9210d9c68c, type: 2}

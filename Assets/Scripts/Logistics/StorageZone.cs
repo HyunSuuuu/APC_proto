@@ -7,7 +7,7 @@ namespace APC.Logistics
     /// 하차장 팔레트(공용 보관소) 둘레 존 (GDD 7.2). 근처에서 멈추면 **트럭 화물 내려놓기를 먼저** 하고,
     /// 내려놓을 것이 없으면 선반에 빈자리가 있는 품목만 집는다 (선반 빈자리 − 이미 들고 있는 수).
     /// </summary>
-    public sealed class StorageZone : CargoZone
+    public sealed class StorageZone : CargoZone, IScanStation
     {
         [SerializeField] SharedStorage storage;
 

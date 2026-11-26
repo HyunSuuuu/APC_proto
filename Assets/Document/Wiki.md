@@ -539,6 +539,16 @@ StaffWorker (thinkInterval 0.25초마다 판단)
   - `ConveyorBelt`: 구간마다 `BeltBlock`(BoxCollider 높이 `beltBlockHeight` 1m + `NavMeshObstacle` carving) → 플레이어 · 알바가 못 지나가고 알바는 돌아감, 루트 `NavMeshModifier.ignoreFromBuild`. `Width`(1.4m), `Footprint`(0.25m 표본), `PathLength`, `CostOf` = 길이 올림 × `beltCostPerMeter`(10), `BlockRects`(막는 사각형). 옛 `TileOf` · `TileCenter` · `CellCount` 삭제. 화물 간격 2m(`beltCellSize`)는 그대로.
   - `BeltPlacer`: 2m 격자 대신 `beltSnap`(0.5m)씩 늘임. 판정 `SegmentFree` = 벨트 폭 사각형이 열린 모듈 칸 안 · 시설 · **깔린 벨트(충돌체라 시설로 모임 → 교차 금지)** · 다른 존과 안 겹침(바로 옆은 됨). 화면 = 열린 칸 옅게 + 시설 · 벨트 · 존 사각형 붉게. **길 막힘 검사** `CheckBlocked`: 0.5m 격자에 시설 · 벨트(+ 사람 반지름 `beltWalkerRadius` 0.4)를 칠해 가장 큰 덩어리가 닿는 목표(모든 존 + 열린 칸) — 설치 전보다 하나라도 줄면 `pathBlocked` → 경로 빨강 · [저장] 꺼짐 · `길이 막힙니다`. 저장 때 `PushPeopleOff` = 벨트 자리의 `Interactor`를 0.5m씩 넓혀 찾은 빈 바닥으로(알바 `NavMeshAgent.Warp`, 플레이어 `CharacterController` 끄고 옮김). 철거하면 `CollectArea` 다시.
 - **주의**: 경로는 가로 · 세로 구간만 (`BlockRects`가 축 정렬 사각형). 검사 기준 = 설치 화면을 연 때의 시설 (그 사이 해금 · 재배치는 게임이 멈춰 있어 없음).
+- **M20-5 (2026-11-26) 스캔 구역 · 화면 유지**:
+  - `ConveyorBelt`: `ScanZone`(벨트당 1개), 미분류 상자는 `ScanZone.Distance`에서 멈춤(뒤 상자 줄지어), `CargoAtScan`(지점에 멈춘 미분류) · `UnsortedBeforeScan`(오는 중 + 기다림) · `Length` · `PoseAt` · `DistanceAlong`. 스캔 구역 값은 저장 때 `Cost`에 더해 철거 · 재배치 환불에 같이 들어감.
+  - `BeltPlacer`: 오른쪽 모드 버튼 `BeltMode` · `ScanMode`(지금 모드는 꺼진 모양), [저장]해도 화면 유지(벨트 모드 = 벨트 생성 후 `CollectArea` 다시), [나가기](옛 `Cancel`) = `RevertScans` 후 끝. 스캔 모드 `ScanClick` = 구역 누르기 → 선택(노란 아웃라인), 선택된 것 다시 → `Flip`(반대편), 누른 채 끌기 → `MoveScan`(벨트 따라 0.5m, 양 끝 1m 피함), 빈 벨트 → 새 구역(`WorkFree`: 작업 존 1.6m가 열린 칸 · 시설 · 벨트 · 존과 안 겹치는 쪽, 누른 쪽 먼저). 저장 안 한 것 = `createdScans`(새 구역) · `savedScans`(옮기기 전 자리). 선택 중 `ScanRemove` → 철거 확인 창 재사용 → 저장된 것만 `beltRefundRate` 환불. 스캔 모드 그리기는 벨트 윗면 위(`ScanDrawHeight`), 포인터 자리 미리보기 `AddScanGhost`(진한 초록 + 흰 테두리 / 빨강). 벨트 폭 = `LogisticsConfig.beltWidth`(1.0m, `ConveyorBelt.Width`).
+
+#### BeltScanZone
+[Logistics/BeltScanZone.cs](../Scripts/Logistics/BeltScanZone.cs)
+- **역할**: 벨트 스캔 구역 (GDD 7.2a · 7.10, M20-5). 벨트 자식 존 1.6m(작업 지점 `WorkSlot` 1, 벨트를 봄) + 벨트 위 초록 상자(`ScanMarker`, 벨트 재질에 초록 색만). 같은 파일에 `IScanStation`(`StaffScanWanted` · `Scanner`) — `StorageZone`(스캔 팔레트)과 함께 하차 알바 스캔 자리.
+- **동작**: 존에 멈춘(`scanStartDelay`) 플레이어 · 하차 알바(`Target` = 이 존) 한 명이 `Scanner`, 지점의 미분류 상자 1개를 `scanSecondsPerBox`(1초) 게이지(`ScanIndicator`) → `SharedStorage.RevealOne`(팔레트 스캔과 같은 색 규칙) → 그 상자만 다시 움직임. 사람 없음 · 정할 색 없음 = 대기. `StaffScanWanted` = 벨트에 오는 중 · 기다리는 미분류가 있고 빈자리 색이 있음. `Create(belt, distance, side)` · `Place(distance, side)`.
+- **연결**: `StaffWorker.TryScan` = 벨트 스캔 구역 먼저 → 스캔 팔레트(`NearestScanStation`), 서는 자리는 `scanStation` 필드(`zone`은 `CargoZone` 전용), 벨트가 비면(`StaffScanWanted` false) 떠남. `SharedStorage`: 스캔 팔레트는 `Origin == Unscanned`면 받음(벨트에서 색이 정해진 상자 포함), `ScanRoom`은 벨트 위 색 정해진 상자도 뺌. `InteractionZone.SetSize`(실행 중 존 크기).
+- **주의**: 벨트 철거 = 자식이라 같이 없어짐. 저장 안 한 새 구역은 [나가기] 때 `DestroyScan`.
 
 #### StorageZone
 [Logistics/StorageZone.cs](../Scripts/Logistics/StorageZone.cs)

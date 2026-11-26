@@ -51,6 +51,36 @@ namespace APC.Logistics
         public int Cost { get; set; }
         public IBeltStart Start => start;
         public IBeltEnd End => end;
+        public float Length => length;
+
+        /// <summary>벨트 스캔 구역 (벨트당 1개, 없으면 null, M20-5). 미분류 상자는 그 지점에서 스캔될 때까지 멈춘다.</summary>
+        public BeltScanZone ScanZone { get; set; }
+
+        /// <summary>스캔 지점에 와 있는(또는 그 앞에서 오는) 미분류 상자 수 — 하차 알바가 올지 정한다.</summary>
+        public int UnsortedBeforeScan
+        {
+            get
+            {
+                if (ScanZone == null) return 0;
+                var n = 0;
+                for (var i = 0; i < cargos.Count; i++)
+                {
+                    if (cargos[i].Unsorted && distances[i] <= ScanZone.Distance + 0.01f) n++;
+                }
+                return n;
+            }
+        }
+
+        /// <summary>스캔 지점에 도착해 멈춘 미분류 상자 (맨 앞 하나). 없으면 null.</summary>
+        public Cargo CargoAtScan()
+        {
+            if (ScanZone == null) return null;
+            for (var i = 0; i < cargos.Count; i++)
+            {
+                if (cargos[i].Unsorted && distances[i] >= ScanZone.Distance - 0.01f && !DOTween.IsTweening(cargos[i].transform)) return cargos[i];
+            }
+            return null;
+        }
         float lastFeed; // 같은 Start의 벨트끼리 번갈아 올리기 (오래 못 받은 벨트 먼저)
         static int fedFrame = -1;
 
@@ -82,7 +112,7 @@ namespace APC.Logistics
         public static bool Settled(Cargo cargo) => Time.time >= cargo.LandedAt + GameManager.Instance.Database.Logistics.BeltPickupDelay;
 
         /// <summary>벨트 폭 (m) — 판 · 막는 상자 · 설치 판정이 같이 쓴다.</summary>
-        public static float Width => GameManager.Instance.Database.Logistics.BeltCellSize * 0.7f;
+        public static float Width => GameManager.Instance.Database.Logistics.BeltWidth;
 
         /// <summary>a → b 구간 중심선 위 0.25m마다 표본 (양 끝 포함). 판정은 표본마다 벨트 폭 사각형으로.</summary>
         public static void Footprint(Vector3 a, Vector3 b, List<Vector3> output)
@@ -213,7 +243,9 @@ namespace APC.Logistics
                     limit = distances[i] - spacing;
                     continue;
                 }
-                var d = Mathf.Max(distances[i], Mathf.Min(distances[i] + speed * dt, limit));
+                var stop = limit;
+                if (ScanZone != null && cargos[i].Unsorted && distances[i] <= ScanZone.Distance + 0.01f) stop = Mathf.Min(stop, ScanZone.Distance); // 스캔될 때까지 지점에서 멈춤 (M20-5)
+                var d = Mathf.Max(distances[i], Mathf.Min(distances[i] + speed * dt, stop));
                 distances[i] = d;
                 Place(cargos[i], d);
                 limit = d - spacing;
@@ -258,6 +290,37 @@ namespace APC.Logistics
         {
             Pose(distance, out var position, out var rotation);
             cargo.transform.SetPositionAndRotation(position, rotation);
+        }
+
+        /// <summary>경로 위 거리 → 바닥 위치 · 진행 방향 (스캔 구역 놓기).</summary>
+        public void PoseAt(float distance, out Vector3 point, out Vector3 direction)
+        {
+            Pose(distance, out var position, out var rotation);
+            point = new Vector3(position.x, 0f, position.z);
+            direction = rotation * Vector3.forward;
+        }
+
+        /// <summary>바닥 점 p에 가장 가까운 경로 위 거리.</summary>
+        public float DistanceAlong(Vector3 p)
+        {
+            var best = float.MaxValue;
+            var result = 0f;
+            var walked = 0f;
+            for (var i = 1; i < points.Count; i++)
+            {
+                var ab = points[i] - points[i - 1];
+                var segment = ab.magnitude;
+                var t = ab.sqrMagnitude > 0f ? Mathf.Clamp01(Vector3.Dot(p - points[i - 1], ab) / ab.sqrMagnitude) : 0f;
+                var q = points[i - 1] + ab * t;
+                var d = Vector2.Distance(new Vector2(p.x, p.z), new Vector2(q.x, q.z));
+                if (d < best)
+                {
+                    best = d;
+                    result = walked + segment * t;
+                }
+                walked += segment;
+            }
+            return result;
         }
 
         /// <summary>경로 위 거리 → 화물 위치 · 방향 (벨트 위 높이).</summary>

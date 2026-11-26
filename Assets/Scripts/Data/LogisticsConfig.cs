@@ -32,11 +32,13 @@ namespace APC.Data
         [SerializeField, Min(0.5f), Tooltip("벨트 격자 한 칸 (m) = 화물 간격. 바닥 타일 2m")] float beltCellSize = 2f;
         [SerializeField, Min(0.1f), Tooltip("초당 움직이는 칸 수 (GDD 7.10 임시 1)")] float beltCellsPerSecond = 1f;
         [SerializeField, Min(0.02f), Tooltip("벨트 판 두께 = 화물이 올라가는 높이 (m)")] float beltHeight = 0.15f;
+        [SerializeField, Min(0.3f), Tooltip("벨트 폭 (m) — 판 · 막는 상자 · 설치 판정 (2026-11-26 1.4 → 1.0, 임시)")] float beltWidth = 1f;
         [SerializeField, Tooltip("벨트 판 재질 (임시 회색, 빌드에 들어가게 에셋 참조)")] Material beltMaterial;
         [SerializeField, Min(0), Tooltip("벨트 길이 1m당 설치비, 길이는 올림 (GDD 7.10 M20-4, 단가 임시 10)")] int beltCostPerMeter = 10;
         [SerializeField, Min(0.1f), Tooltip("설치 때 꺾임 점 맞춤 간격 (m, GDD 7.10 M20-4 임시 0.5)")] float beltSnap = 0.5f;
         [SerializeField, Min(0.1f), Tooltip("벨트가 막는 높이 (m) — 사람이 못 넘게, 판 두께와 별개")] float beltBlockHeight = 1f;
         [SerializeField, Min(0f), Tooltip("길 막힘 검사 · 밀어내기에서 사람 반지름 (m)")] float beltWalkerRadius = 0.4f;
+        [SerializeField, Min(0), Tooltip("벨트 스캔 구역 설치비 — [저장] 때 냄, 철거 환불은 벨트와 같은 비율 (GDD 7.10 M20-5 임시 50)")] int beltScanZoneCost = 50;
         [SerializeField, Range(0f, 1f), Tooltip("설치 상태에서 철거할 때 돌려받는 비율 (GDD 7.10 임시 50%). 모듈 재배치 철거는 항상 전액")] float beltRefundRate = 0.5f;
         [SerializeField, Min(0f), Tooltip("더미 · 선반에 착지한 뒤 이만큼(초) 지나야 벨트가 가져감 — 쌓이는 모습이 보이게 (GDD 7.10 임시 0.3)")] float beltPickupDelay = 0.3f;
         [SerializeField, Tooltip("설치 상태 격자 · 미리보기 재질 (정점 색 · 반투명, Sprites/Default)")] Material beltOverlayMaterial;
@@ -90,6 +92,8 @@ namespace APC.Data
         public float BeltSnap => beltSnap;
         public float BeltBlockHeight => beltBlockHeight;
         public float BeltWalkerRadius => beltWalkerRadius;
+        public int BeltScanZoneCost => beltScanZoneCost;
+        public float BeltWidth => beltWidth;
         public float BeltRefundRate => beltRefundRate;
         public float BeltPickupDelay => beltPickupDelay;
         public Material BeltOverlayMaterial => beltOverlayMaterial;
