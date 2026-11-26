@@ -1300,7 +1300,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### AndroidBuilds (2026-11-27)
 [Editor/AndroidBuilds.cs](../Scripts/Editor/AndroidBuilds.cs)
 - **역할**: 메뉴 `APC > Build > Android — Game + Tycoon (APK 2개)` — Game 씬 · TycoonTest 씬을 따로 빌드해 한 기기에 같이 설치할 수 있게.
-- **동작**: 메뉴는 바로 끝나고 다음 에디터 틱(`delayCall`)에 빌드. Game = 지금 패키지 ID · 이름 그대로, Tycoon = ID + `.tycoon` · 이름 + ` Tycoon`. 씬은 빌드 설정 목록과 상관없이 하나씩 넘긴다. 끝나면 ID · 이름을 되돌린다. 결과 `Builds/Android/APC_Game.apk` · `APC_Tycoon.apk`(git 제외), 콘솔 `[AndroidBuilds]` 줄.
+- **동작**: 메뉴는 바로 끝나고 다음 에디터 틱(`delayCall`)에 빌드. **Android 빌드에서는(이 메뉴든 Build Settings든) `DebugMenu` · `PerformanceHUD` 오브젝트를 빌드 결과에서 뺀다**(`StripDebugInBuild`, 저사양 기기 부하 — 에디터 · 씬 파일은 그대로, 2026-11-27). Game = 지금 패키지 ID · 이름 그대로, Tycoon = ID + `.tycoon` · 이름 + ` Tycoon`. 씬은 빌드 설정 목록과 상관없이 하나씩 넘긴다. 끝나면 ID · 이름을 되돌린다. 결과 `Builds/Android/APC_Game.apk` · `APC_Tycoon.apk`(git 제외), 콘솔 `[AndroidBuilds]` 줄.
 - **주의**: TycoonTest 씬은 커밋하지 않으므로 먼저 `APC > Test > Build Tycoon 8x8`로 만든다(Game 씬을 복사하므로 Game의 UI가 그대로 들어간다). 활성 대상이 Android가 아니면 처음 한 번 전환 · 재임포트로 오래 걸린다(2026-11-27: Game 515초 · Tycoon 85초, APK 각 약 56MB).
 
 | 메뉴 | 스크립트 | 하는 일 |
