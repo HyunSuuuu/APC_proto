@@ -535,6 +535,10 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Logistics/ConveyorBelt.cs](../Scripts/Logistics/ConveyorBelt.cs) · [UI/BeltPlacer.cs](../Scripts/UI/BeltPlacer.cs)
 - **역할**: 컨베이어 벨트 (GDD 7.10, 2026-11-24 축소). 2m 격자 경로로 화물을 초당 1칸 옮김, End가 차면 줄지어 멈춤, 착지 0.3초 뒤 가져감, '찼다' 계산에 벨트 위 수 포함(`CountOnBelts`). `BeltPlacer` = B책상 `벨트` 탭 [설치] 화면(위에서 보기 · 격자 · 비용 · 저장/취소 · 철거 확인). 재배치 때 걸친 벨트 철거는 `ModulePanel`.
 - **연결**: 하차 칸 공간 → 스캔 모듈 팔레트 하나뿐. 씬 `HUD Canvas/BeltPlacer`, `ContractPopup` `beltTab` · `beltPage` · `beltInstallButton`.
+- **M20-4 (2026-11-26) 자유 배치 · 통과 불가**:
+  - `ConveyorBelt`: 구간마다 `BeltBlock`(BoxCollider 높이 `beltBlockHeight` 1m + `NavMeshObstacle` carving) → 플레이어 · 알바가 못 지나가고 알바는 돌아감, 루트 `NavMeshModifier.ignoreFromBuild`. `Width`(1.4m), `Footprint`(0.25m 표본), `PathLength`, `CostOf` = 길이 올림 × `beltCostPerMeter`(10), `BlockRects`(막는 사각형). 옛 `TileOf` · `TileCenter` · `CellCount` 삭제. 화물 간격 2m(`beltCellSize`)는 그대로.
+  - `BeltPlacer`: 2m 격자 대신 `beltSnap`(0.5m)씩 늘임. 판정 `SegmentFree` = 벨트 폭 사각형이 열린 모듈 칸 안 · 시설 · **깔린 벨트(충돌체라 시설로 모임 → 교차 금지)** · 다른 존과 안 겹침(바로 옆은 됨). 화면 = 열린 칸 옅게 + 시설 · 벨트 · 존 사각형 붉게. **길 막힘 검사** `CheckBlocked`: 0.5m 격자에 시설 · 벨트(+ 사람 반지름 `beltWalkerRadius` 0.4)를 칠해 가장 큰 덩어리가 닿는 목표(모든 존 + 열린 칸) — 설치 전보다 하나라도 줄면 `pathBlocked` → 경로 빨강 · [저장] 꺼짐 · `길이 막힙니다`. 저장 때 `PushPeopleOff` = 벨트 자리의 `Interactor`를 0.5m씩 넓혀 찾은 빈 바닥으로(알바 `NavMeshAgent.Warp`, 플레이어 `CharacterController` 끄고 옮김). 철거하면 `CollectArea` 다시.
+- **주의**: 경로는 가로 · 세로 구간만 (`BlockRects`가 축 정렬 사각형). 검사 기준 = 설치 화면을 연 때의 시설 (그 사이 해금 · 재배치는 게임이 멈춰 있어 없음).
 
 #### StorageZone
 [Logistics/StorageZone.cs](../Scripts/Logistics/StorageZone.cs)

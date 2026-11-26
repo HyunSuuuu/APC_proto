@@ -28,7 +28,7 @@ namespace APC.Logistics
     /// <summary>
     /// 컨베이어 벨트 1개 (GDD 7.10, M18-1). 꺾임 점을 잇는 경로를 따라 화물을 `beltCellSize` 간격 · 초당 `beltCellsPerSecond`칸으로 옮긴다.
     /// Start는 첫 칸이 비면 하나 올리고, End가 못 받으면 맨 앞부터 줄지어 멈췄다가 자리가 나면 다시 간다.
-    /// 벨트 위 화물은 아무 스택 · 더미에도 없으므로 누구도 집지 못한다. 바닥 장치라 충돌체 · 네비메시 영향 없음.
+    /// 벨트 위 화물은 아무 스택 · 더미에도 없으므로 누구도 집지 못한다. 벨트는 벽처럼 막는다 — 사람 · 알바가 못 지나감 (M20-4).
     /// </summary>
     public sealed class ConveyorBelt : MonoBehaviour
     {
@@ -81,44 +81,39 @@ namespace APC.Logistics
         /// <summary>착지 후 beltPickupDelay가 지났는가 — 쌓이자마자 벨트로 빠져 순간이동처럼 보이지 않게 (GDD 7.10).</summary>
         public static bool Settled(Cargo cargo) => Time.time >= cargo.LandedAt + GameManager.Instance.Database.Logistics.BeltPickupDelay;
 
-        /// <summary>월드 위치 → 2m 칸 (칸 중심 = 칸 크기의 배수, 모듈 10m 칸과 맞물림).</summary>
-        public static Vector2Int TileOf(Vector3 position)
-        {
-            var size = GameManager.Instance.Database.Logistics.BeltCellSize;
-            return new Vector2Int(Mathf.RoundToInt(position.x / size), Mathf.RoundToInt(position.z / size));
-        }
+        /// <summary>벨트 폭 (m) — 판 · 막는 상자 · 설치 판정이 같이 쓴다.</summary>
+        public static float Width => GameManager.Instance.Database.Logistics.BeltCellSize * 0.7f;
 
-        public static Vector3 TileCenter(Vector2Int tile)
-        {
-            var size = GameManager.Instance.Database.Logistics.BeltCellSize;
-            return new Vector3(tile.x * size, 0f, tile.y * size);
-        }
-
-        /// <summary>
-        /// a → b 구간이 덮는 칸들: 0.5m마다 벨트 폭 양쪽 가장자리 칸 (격자에서 벗어난 Start · End 연결 구간은 두 칸에 걸침).
-        /// 각 표본 위치와 칸을 out에 더한다.
-        /// </summary>
-        public static void Footprint(Vector3 a, Vector3 b, List<(Vector3 point, Vector2Int tile)> output)
+        /// <summary>a → b 구간 중심선 위 0.25m마다 표본 (양 끝 포함). 판정은 표본마다 벨트 폭 사각형으로.</summary>
+        public static void Footprint(Vector3 a, Vector3 b, List<Vector3> output)
         {
             var length = Vector3.Distance(a, b);
             if (length <= 0f) return;
-            var dir = (b - a) / length;
-            var side = Vector3.Cross(Vector3.up, dir) * (GameManager.Instance.Database.Logistics.BeltCellSize * 0.3f);
-            var steps = Mathf.CeilToInt(length / 0.5f);
-            for (var i = 0; i <= steps; i++)
-            {
-                var p = a + dir * (length * i / steps);
-                output.Add((p, TileOf(p + side)));
-                output.Add((p, TileOf(p - side)));
-            }
+            var steps = Mathf.CeilToInt(length / 0.25f);
+            for (var i = 0; i <= steps; i++) output.Add(Vector3.Lerp(a, b, (float)i / steps));
         }
 
-        /// <summary>경로 길이를 칸 수로 (비용 = 칸 수 × beltCellCost). 최소 1칸.</summary>
-        public static int CellCount(IReadOnlyList<Vector3> path)
+        public static float PathLength(IReadOnlyList<Vector3> path)
         {
             var length = 0f;
             for (var i = 1; i < path.Count; i++) length += Vector3.Distance(path[i - 1], path[i]);
-            return Mathf.Max(1, Mathf.CeilToInt(length / GameManager.Instance.Database.Logistics.BeltCellSize - 0.01f));
+            return length;
+        }
+
+        /// <summary>설치비 = 길이(m, 올림, 최소 1) × beltCostPerMeter (GDD 7.10 M20-4).</summary>
+        public static int CostOf(IReadOnlyList<Vector3> path)
+            => Mathf.Max(1, Mathf.CeilToInt(PathLength(path) - 0.01f)) * GameManager.Instance.Database.Logistics.BeltCostPerMeter;
+
+        /// <summary>경로 구간마다 벨트가 막는 바닥 사각형 (x = 월드 x, y = 월드 z, 꺾이는 곳 이어지게 끝을 폭 절반 늘림). 가로 · 세로 구간만.</summary>
+        public static void BlockRects(IReadOnlyList<Vector3> path, float inflate, List<Rect> output)
+        {
+            var half = Width * 0.5f + inflate;
+            for (var i = 1; i < path.Count; i++)
+            {
+                var a = path[i - 1];
+                var b = path[i];
+                output.Add(Rect.MinMaxRect(Mathf.Min(a.x, b.x) - half, Mathf.Min(a.z, b.z) - half, Mathf.Max(a.x, b.x) + half, Mathf.Max(a.z, b.z) + half));
+            }
         }
 
         /// <summary>벨트를 만든다. path = Start 쪽 끝부터 꺾임 점 · End 쪽 끝 (월드, 가로 · 세로로만 이어짐).</summary>
@@ -286,11 +281,33 @@ namespace APC.Logistics
             }
         }
 
-        /// <summary>shortcut: 구간마다 회색 판 하나 (화살표 · 움직이는 무늬 없음) — 벨트 모델이 오면 교체 (GDD 18장 57)</summary>
+        /// <summary>
+        /// shortcut: 구간마다 회색 판 하나 (화살표 · 움직이는 무늬 없음) — 벨트 모델이 오면 교체 (GDD 18장 57).
+        /// 구간마다 막는 상자(충돌체 + 네비메시 장애물 carving) — 사람 · 알바가 못 지나감 (M20-4). 충돌체가 바닥으로 구워지지 않게 굽기에서 뺀다 (선반과 같음).
+        /// </summary>
         void BuildVisual()
         {
             var config = GameManager.Instance.Database.Logistics;
-            var width = config.BeltCellSize * 0.7f;
+            var width = Width;
+            gameObject.AddComponent<Unity.AI.Navigation.NavMeshModifier>().ignoreFromBuild = true;
+            for (var i = 1; i < points.Count; i++)
+            {
+                var a = points[i - 1];
+                var b = points[i];
+                var block = new GameObject("BeltBlock");
+                block.transform.SetParent(transform, false);
+                block.transform.SetPositionAndRotation((a + b) * 0.5f, Quaternion.LookRotation(b - a));
+                var size = new Vector3(width, config.BeltBlockHeight, Vector3.Distance(a, b) + width);
+                var center = new Vector3(0f, config.BeltBlockHeight * 0.5f, 0f);
+                var box = block.AddComponent<BoxCollider>();
+                box.center = center;
+                box.size = size;
+                var obstacle = block.AddComponent<UnityEngine.AI.NavMeshObstacle>();
+                obstacle.shape = UnityEngine.AI.NavMeshObstacleShape.Box;
+                obstacle.center = center;
+                obstacle.size = size;
+                obstacle.carving = true;
+            }
             for (var i = 1; i < points.Count; i++)
             {
                 var a = points[i - 1];
