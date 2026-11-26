@@ -43,6 +43,8 @@ namespace APC.Visuals
         [SerializeField, Min(0f), Tooltip("플레이어 구멍 반지름 (m)")] float radius = 1.5f;
         [SerializeField, Min(0f), Tooltip("가장자리 디더 폭 (m)")] float softness = 0.4f;
         [SerializeField, Tooltip("구멍 중심 높이 (발밑에서 m)")] float height = 1f;
+        [SerializeField, Tooltip("발 구멍 중심 높이 (발밑에서 m). 몸 가운데 기준으론 발 높이의 낮은 면(기둥 밑단 윗면)이 '뒤'로 판정돼 안 지워져서 하나 더 둔다 (2026-11-27)")] float feetHeight = 0.15f;
+        [SerializeField, Min(0f), Tooltip("발 구멍 반지름 (m)")] float feetRadius = 0.9f;
         [SerializeField, Min(0f), Tooltip("플레이어보다 이만큼(m) 카메라 쪽에 있는 벽부터 뚫는다")] float depthBias = 0.3f;
         [SerializeField, Min(0f), Tooltip("해금 발판(ExpansionPad) 구멍 반지름 (m). 0이면 발판은 뚫지 않는다 (2026-11-27 임시 — 발판을 벽이 가림)")] float padRadius = 1.6f;
         [SerializeField, Tooltip("해금 발판 구멍 중심 높이 (발판에서 m)")] float padHeight = 0.3f;
@@ -83,10 +85,12 @@ namespace APC.Visuals
 
         void LateUpdate()
         {
-            // [0] = 플레이어, [1..] = 해금 발판 (트럭 대상은 2026-11-23 삭제)
+            // [0] = 플레이어 몸, [1] = 발, [2..] = 해금 발판 (트럭 대상은 2026-11-23 삭제)
             var center = transform.position + Vector3.up * height;
             centers[0] = new Vector4(center.x, center.y, center.z, radius);
-            var count = 1;
+            var feet = transform.position + Vector3.up * feetHeight;
+            centers[1] = new Vector4(feet.x, feet.y, feet.z, feetRadius);
+            var count = 2;
             if (padRadius > 0f)
             {
                 var zones = InteractionZone.Active;

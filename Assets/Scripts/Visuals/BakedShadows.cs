@@ -9,7 +9,7 @@ using UnityEngine.Rendering.Universal;
 namespace APC.Visuals
 {
     /// <summary>
-    /// 구운 그림자 (2026-11-27). 메인 라이트 그림자를 끈 대신, 부지가 바뀔 때만(시작 · 해금 · 모듈 이동 · 레벨업 = 공사 울타리)
+    /// 구운 그림자 (2026-11-27). 메인 라이트 그림자를 끈 대신, 부지가 바뀔 때만(시작 · 해금 · 모듈 이동 · 레벨업 = 공사 울타리, 그 뒤 2초 동안 0.1초마다)
     /// 실제 빛 방향의 직교 카메라로 정적 물체 실루엣을 한 번 찍어 마스크로 두고, 바닥 높이의 판 하나(`APC/BakedShadow`)가
     /// 그 마스크를 투영해 어둡게 한다 — 프레임마다 그림자를 계산하지 않는다 (판 드로 1).
     /// 찍는 것 = 그림자를 드리우던(`shadowCastingMode` ≠ Off) 켜진 MeshRenderer 중 높이 0.15m 이상 (벽 · 기둥 · 선반 · 소품).
@@ -18,7 +18,8 @@ namespace APC.Visuals
     /// </summary>
     public sealed class BakedShadows : MonoBehaviour
     {
-        const float BakeDelay = 2f;      // 팝 연출(FacilityPop)이 끝난 뒤 찍는다
+        const float RebakeWindow = 2f;   // 변화 뒤 이 시간 동안 다시 굽는다 — 팝 연출(0.4초) · 차례로 튀어나오는 선반 · 시작 연출을 따라감
+        const float RebakeInterval = 0.1f;
         const float FloorHeight = 0.13f; // 바닥 타일 윗면(0.117) 위
         const float MinHeight = 0.15f;   // 이보다 납작한 것(바닥 · 발판 · 글자)은 찍지 않는다
         const float TexelSize = 0.06f;   // 마스크 한 칸 (m)
@@ -32,7 +33,8 @@ namespace APC.Visuals
         Camera bakeCamera;
         RenderTexture mask;
         Transform overlay;
-        float bakeAt = -1f;
+        float nextBake = -1f;
+        float rebakeUntil = -1f;
 
         /// <summary>마지막으로 구운 시간 (ms, 측정용).</summary>
         public static float LastBakeMs { get; private set; }
@@ -49,13 +51,19 @@ namespace APC.Visuals
             Schedule();
         }
 
-        /// <summary>BakeDelay 뒤에 다시 굽는다 (여러 번 불려도 한 번).</summary>
-        public void Schedule() => bakeAt = Time.unscaledTime + BakeDelay; // 정산 팝업 등 시간 멈춤에도 굽는다
+        /// <summary>바로 굽고, RebakeWindow 동안 RebakeInterval마다 다시 굽는다 (2026-11-27 — 전엔 2초 뒤 한 번이라 그림자가 늦게 생겼다).</summary>
+        public void Schedule()
+        {
+            var now = Time.unscaledTime; // 정산 팝업 등 시간 멈춤에도 굽는다
+            rebakeUntil = now + RebakeWindow;
+            nextBake = now;
+        }
 
         void LateUpdate()
         {
-            if (bakeAt < 0f || Time.unscaledTime < bakeAt) return;
-            bakeAt = -1f;
+            var now = Time.unscaledTime;
+            if (nextBake < 0f || now < nextBake) return;
+            nextBake = now < rebakeUntil ? now + RebakeInterval : -1f; // 창이 끝난 뒤 한 번 더 구우면 멈춤
             var watch = System.Diagnostics.Stopwatch.StartNew();
             Bake();
             LastBakeMs = (float)watch.Elapsed.TotalMilliseconds;
