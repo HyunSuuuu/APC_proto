@@ -1214,6 +1214,13 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 타이쿤 시험 씬 `Scenes/TycoonTest.unity` 전용 (2026-11-20). Game 씬에는 두지 않는다. `Site/Logistics`에 붙음.
 - **동작**: Start에 `PartService.AlwaysOpen` 켬 → `targetLevel`(5, 회사 4곳 전부)까지 레벨업 → 지갑에 `startCash`(100,000) → 네비메시가 생기면 직무별 수(인스펙터, 기본 0)만큼 `StaffService.Spawn`을 `spawnInterval`(0.1초) 간격으로 (고용금 · 최대 인원 무시). **바뀜 (2026-11-20)**: 자동 78명 → 기본 0명, 알바는 고용 탭이나 DEBUG Staff 버튼으로 직접 (최적화 시험용).
 - **연결**: 씬 · 데이터는 `TycoonTestBuilder`가 만든다.
+- **측정 씬 `Scenes/TestOne.unity`** (2026-11-26, TycoonTest 복사): DEBUG 메뉴 · 성능 패널을 빼고 `FpsCounter`만 왼쪽 아래, `TycoonTest` 직무별 수 = 하차 25 · 보관 35 · 상차 30 · 지게차 10 = **알바 100명**(시작 때 0.1초 간격). 빌드 설정에는 넣지 않았다. 빌더로 다시 만들지 않으므로 TycoonTest를 다시 빌드해도 그대로.
+- **주의 (2026-11-26 main 머지)**: TycoonTest · TestOne의 `BeltPlacer`에 main M20-5 버튼(`BeltMode` · `ScanMode` · `ScanRemove`)이 없어 Play하자마자 NRE — Game 씬 것을 복사해 연결했다. `TycoonTestBuilder`로 다시 만들면 Game 씬을 복사하므로 문제없다.
+
+#### FpsCounter
+[Debugging/FpsCounter.cs](../Scripts/Debugging/FpsCounter.cs)
+- **역할**: FPS 한 줄 (2026-11-26, `TestOne` 씬). 0.5초마다 `FPS n  ms` — `TMP_Text.SetText` 서식이라 갱신해도 문자열을 만들지 않는다.
+- **주의**: Awake에서 `Application.targetFrameRate = 120`(인스펙터 `targetFPS`) — 없으면 Android 기본 30에 묶여 실제 FPS가 안 보인다.
 
 #### NavBenchmark (+ NavBenchmarkEvents · NavBenchAgents · NavBenchRecorder · NavBenchReport)
 [Debugging/NavBenchmark.cs](../Scripts/Debugging/NavBenchmark.cs)
