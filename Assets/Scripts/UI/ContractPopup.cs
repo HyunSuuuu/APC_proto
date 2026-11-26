@@ -23,7 +23,7 @@ namespace APC.UI
         [SerializeField] CanvasGroup group;
         [SerializeField] RectTransform panel;
         [SerializeField] Button closeButton;
-        [SerializeField, Min(0.5f), Tooltip("닫기(X) 버튼 배율 (씬 크기 × 이 값, 2026-11-26 1.5배)")] float closeButtonScale = 1.5f;
+        [SerializeField, Min(0.5f), Tooltip("닫기(X) 버튼 배율 (씬 크기 × 이 값, 2026-11-26 1.5배 → 다시 × 1.25)")] float closeButtonScale = 1.875f;
 
         [Header("탭")]
         [SerializeField] Button hireTab;
