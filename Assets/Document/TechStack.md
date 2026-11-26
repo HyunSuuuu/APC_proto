@@ -211,6 +211,7 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 
 ### 5.7b 셰이더 · 렌더링
 
+- **모델 폴더 (M22, 2026-11-26)**: 새 모델 = `Art/Model/Prop`(팔레트 `color_pallet.png`, 재질 `M_Prop` · `M_PropFade` · `M_Wall` · `M_WallCutout`), 아직 새 모델이 없는 옛 모델 = `Art/Model/Prop_old`(팔레트 `Color_Pallet.png`, 재질 `M_Prop_Old`). 새 모델로 바뀐 옛 파일은 지운다. 새 fbx 크기는 **가져오기 Scale Factor**로 맞춘다(바닥 · 벽 · 기둥 · 창문 2, `Box_Interaction` 3) — 프리팹 배율은 손대지 않는다. 모델을 바꿀 땐 참조 GUID를 글자로 바꾸고(fbx 안 루트 ID는 같음), 메시 이름이 바뀐 것만 ID를 따로 맞춘다.
 - 추가 렌더 패스는 렌더러 에셋(Render Objects 피처) 대신 코드로 넣는다 — `Visuals/OutlinePasses`처럼 `beginCameraRendering`에서 `EnqueuePass`. 같은 LightMode를 피처로도 넣으면 두 번 그려진다.
 - 캐릭터 · 구조물 셰이더 교체는 Play 중 재질 사본으로 한다 (`CharacterToon` · `WallCutout`). 실행 코드에서 `Shader.Find`를 쓰지 않고 재질 참조로 셰이더를 빌드에 넣는다.
 - 외곽선 스텐실 그룹: 일반 1~126(16의 배수 피함), 관찰 255. 새 외곽선 재질(`APC/OutlineStencil` · `APC/Toon`)을 만들면 `APC/Art/Validate Outline Materials`를 실행한다 (관찰 그룹만 `OutlineOuter` 켬).

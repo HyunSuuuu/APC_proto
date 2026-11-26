@@ -88,8 +88,6 @@ namespace APC.Site
 
             var grid = SiteGrid.Instance;
             var cellSize = GameManager.Instance.Database.Site.CellSize;
-            var toCamera = Camera.main != null ? -Camera.main.transform.forward : Vector3.back;
-            toCamera.y = 0f;
             var pieces = Mathf.Max(1, Mathf.RoundToInt(cellSize / pieceLength));
             var pillars = new Dictionary<Vector2Int, (Vector3 position, bool high)>();
 
@@ -102,7 +100,7 @@ namespace APC.Site
                     var outward = (grid.CellCenter(cell + d) - center).normalized;
                     if (IsTruckSide(grid.ModuleAt(cell), outward)) continue;
 
-                    var high = Vector3.Dot(outward, toCamera) < 0f; // 카메라 반대쪽 = 뒤 벽
+                    var high = !IsBottomEdge(cell, d); // 맨 아래(남쪽) 바깥 벽만 낮은 벽 (2026-11-26, M22 — 옛 규칙: 카메라 쪽 = 낮은 벽)
                     var prefab = high ? highWall : lowWall;
                     var middle = center + outward * (cellSize * 0.5f);
                     var along = new Vector3(-outward.z, 0f, outward.x);
@@ -134,6 +132,23 @@ namespace APC.Site
                 var prefab = pillar.high ? highPillar : lowPillar;
                 if (prefab != null) Place(prefab, pillar.position, Quaternion.identity);
             }
+        }
+
+        /// <summary>
+        /// 남쪽(행 +1)을 보는 변이고, 그 열에서 더 아래 **부지 칸**(잠긴 칸 포함, SiteLayout 배치)이 없는가 = 부지 맨 아래 벽.
+        /// 열린 칸만 보면 아래 칸이 잠겨 있을 때 중간 벽이 낮은 벽이 된다 (2026-11-26 사용자 피드백: 하차장 열기 전 사무실 아래 벽).
+        /// </summary>
+        static bool IsBottomEdge(Vector2Int cell, Vector2Int d)
+        {
+            if (d != Vector2Int.up) return false; // 칸 좌표 y = 행, 행 +1 = 남쪽
+            foreach (var placement in GameManager.Instance.Database.Site.Modules)
+            {
+                foreach (var other in Data.SiteLayout.GetCells(placement))
+                {
+                    if (other.x == cell.x && other.y > cell.y) return false;
+                }
+            }
+            return true;
         }
 
         /// <summary>사무실 모듈인가 (계약 PC = 책상이 있는 모듈).</summary>

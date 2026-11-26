@@ -260,12 +260,7 @@ namespace APC.Logistics
                 foreach (var c in model.GetComponentsInChildren<Collider>()) Destroy(c);
                 foreach (var r in model.GetComponentsInChildren<Renderer>())
                 {
-                    if (modelMaterial != null)
-                    {
-                        var materials = new Material[r.sharedMaterials.Length];
-                        for (var i = 0; i < materials.Length; i++) materials[i] = modelMaterial;
-                        r.sharedMaterials = materials;
-                    }
+                    Visuals.PropPalette.Apply(r, modelMaterial, Core.GameManager.Instance.Database.Logistics.LegacyPropMaterial); // 옛 모델(반품 · 미분류 상자)은 옛 팔레트 (M22)
                     r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; // 상자가 많다
                 }
                 // Visual 기준 경계 — 메시 꼭짓점 8개를 Visual 로컬로 (화물이 날아가는 중 · 회전된 곳이어도 같음)

@@ -8,13 +8,13 @@ FBXHeaderExtension:  {
 		Version: 1000
 		Year: 2026
 		Month: 11
-		Day: 18
-		Hour: 9
-		Minute: 46
-		Second: 41
-		Millisecond: 341
+		Day: 26
+		Hour: 17
+		Minute: 39
+		Second: 9
+		Millisecond: 457
 	}
-	Creator: "FBX SDK/FBX Plugins version 2020.3"
+	Creator: "FBX SDK/FBX Plugins version 2020.3.10"
 	SceneInfo: "SceneInfo::GlobalInfo", "UserData" {
 		Type: "UserData"
 		Version: 100
@@ -28,31 +28,30 @@ FBXHeaderExtension:  {
 			Comment: ""
 		}
 		Properties70:  {
-			P: "DocumentUrl", "KString", "Url", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\objcet\floor_basic3.fbx"
-			P: "SrcDocumentUrl", "KString", "Url", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\objcet\floor_basic3.fbx"
+			P: "DocumentUrl", "KString", "Url", "", "D:\작업\팀플\프로토타입 오브젝트\floor_basic3.fbx"
+			P: "SrcDocumentUrl", "KString", "Url", "", "D:\작업\팀플\프로토타입 오브젝트\floor_basic3.fbx"
 			P: "Original", "Compound", "", ""
 			P: "Original|ApplicationVendor", "KString", "", "", "Autodesk"
 			P: "Original|ApplicationName", "KString", "", "", "3ds Max"
-			P: "Original|ApplicationVersion", "KString", "", "", "2023"
-			P: "Original|DateTime_GMT", "DateTime", "", "", "18/11/2026 00:46:41.341"
-			P: "Original|FileName", "KString", "", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\objcet\floor_basic3.fbx"
+			P: "Original|ApplicationVersion", "KString", "", "", "2025"
+			P: "Original|DateTime_GMT", "DateTime", "", "", "26/11/2026 08:39:09.457"
+			P: "Original|FileName", "KString", "", "", "D:\작업\팀플\프로토타입 오브젝트\floor_basic3.fbx"
 			P: "LastSaved", "Compound", "", ""
 			P: "LastSaved|ApplicationVendor", "KString", "", "", "Autodesk"
 			P: "LastSaved|ApplicationName", "KString", "", "", "3ds Max"
-			P: "LastSaved|ApplicationVersion", "KString", "", "", "2023"
-			P: "LastSaved|DateTime_GMT", "DateTime", "", "", "18/11/2026 00:46:41.341"
-			P: "Original|ApplicationActiveProject", "KString", "", "", "C:\Users\ww\Documents\3ds Max 2023"
-			P: "Original|ApplicationNativeFile", "KString", "", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\목업_261117.max"
+			P: "LastSaved|ApplicationVersion", "KString", "", "", "2025"
+			P: "LastSaved|DateTime_GMT", "DateTime", "", "", "26/11/2026 08:39:09.457"
+			P: "Original|ApplicationActiveProject", "KString", "", "", "C:\Users\jieun\OneDrive\문서\3ds Max 2025"
 		}
 	}
 }
 GlobalSettings:  {
 	Version: 1000
 	Properties70:  {
-		P: "UpAxis", "int", "Integer", "",2
+		P: "UpAxis", "int", "Integer", "",1
 		P: "UpAxisSign", "int", "Integer", "",1
-		P: "FrontAxis", "int", "Integer", "",1
-		P: "FrontAxisSign", "int", "Integer", "",-1
+		P: "FrontAxis", "int", "Integer", "",2
+		P: "FrontAxisSign", "int", "Integer", "",1
 		P: "CoordAxis", "int", "Integer", "",0
 		P: "CoordAxisSign", "int", "Integer", "",1
 		P: "OriginalUpAxis", "int", "Integer", "",2
@@ -77,7 +76,7 @@ GlobalSettings:  {
 
 Documents:  {
 	Count: 1
-	Document: 2091384392784, "", "Scene" {
+	Document: 2285036613488, "", "Scene" {
 		Properties70:  {
 			P: "SourceObject", "object", "", ""
 			P: "ActiveAnimStackName", "KString", "", "", ""
@@ -97,7 +96,7 @@ References:  {
 
 Definitions:  {
 	Version: 100
-	Count: 13
+	Count: 17
 	ObjectType: "GlobalSettings" {
 		Count: 1
 	}
@@ -291,6 +290,17 @@ Definitions:  {
 			}
 		}
 	}
+	ObjectType: "AnimationCurve" {
+		Count: 3
+	}
+	ObjectType: "AnimationCurveNode" {
+		Count: 1
+		PropertyTemplate: "FbxAnimCurveNode" {
+			Properties70:  {
+				P: "d", "Compound", "", ""
+			}
+		}
+	}
 	ObjectType: "Video" {
 		Count: 1
 		PropertyTemplate: "FbxVideo" {
@@ -324,9 +334,9 @@ Definitions:  {
 ;------------------------------------------------------------------
 
 Objects:  {
-	Geometry: 2091387016032, "Geometry::", "Mesh" {
+	Geometry: 2285036645376, "Geometry::", "Mesh" {
 		Properties70:  {
-			P: "Color", "ColorRGB", "Color", "",0.529411764705882,0.231372549019608,0.0313725490196078
+			P: "Color", "ColorRGB", "Color", "",0.525490196078431,0.231372549019608,0.0274509803921569
 		}
 		Vertices: *48 {
 			a: -50,-50,0,50,-50,0,-50,50,0,50,50,0,-50,-50,30,50,-50,30,-50,50,30,50,50,30,38.25,50,0,-38.25,50,0,-38.25,-50,0,38.25,-50,0,-38.25,-50,30,38.25,-50,30,38.25,50,30,-38.25,50,30
@@ -335,7 +345,7 @@ Objects:  {
 			a: 10,11,13,-13,1,3,7,-6,8,9,15,-15,2,0,4,-7,12,13,14,-16,1,5,13,-12,4,0,10,-13,2,6,15,-10,7,3,8,-15,5,7,14,-14,6,4,12,-16
 		} 
 		Edges: *26 {
-			a: 12,33,4,25,41,36,37,40,20,24,5,28,8,31,0,23,16,39,18,43,1,3,9,11,17,19
+			a: 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,17,19,21,23,25,27,29,31,33,35
 		} 
 		GeometryVersion: 124
 		LayerElementNormal: 0 {
@@ -352,11 +362,11 @@ Objects:  {
 			Name: "UVChannel_1"
 			MappingInformationType: "ByPolygonVertex"
 			ReferenceInformationType: "IndexToDirect"
-			UV: *56 {
-				a: 0.748851954936981,0.42337840795517,0.77197390794754,0.42337840795517,0.77197390794754,0.431311786174774,0.748851954936981,0.431311786174774,0.77197390794754,0.42337840795517,0.77197390794754,0.431311786174774,0.748851954936981,0.42337840795517,0.748851954936981,0.431311786174774,0.409476101398468,0.914222300052643,0.412947654724121,0.91463041305542,0.410533905029297,0.914222300052643,0.411889791488647,0.91463041305542,0.412947654724121,0.924926698207855,0.411889791488647,0.924926698207855,0.409476101398468,0.924518585205078,0.410533905029297,0.924518585205078,0.769257068634033,0.42337840795517,0.751568794250488,0.42337840795517,0.751568794250488,0.42337840795517,0.769257068634033,0.42337840795517,0.527159631252289,0.0750804916024208,0.534046530723572,0.0750804916024208,0.751568794250488,0.431311786174774,0.769257068634033,0.431311786174774,0.534046530723572,0.0853767767548561,0.527159631252289,0.0853767767548561,0.769257068634033,0.431311786174774,0.751568794250488,0.431311786174774
+			UV: *72 {
+				a: 0.540502667427063,0.173570722341537,0.547092437744141,0.173570722341537,0.547092437744141,0.175831705331802,0.540502667427063,0.175831705331802,0.547092437744141,0.173570722341537,0.547092437744141,0.175831705331802,0.540502667427063,0.173570722341537,0.540502667427063,0.175831705331802,0.932536661624908,0.660787999629974,0.936008214950562,0.661196112632751,0.933594465255737,0.660787999629974,0.934950351715088,0.661196112632751,0.936008214950562,0.671492397785187,0.934950351715088,0.671492397785187,0.932536661624908,0.67108428478241,0.933594465255737,0.67108428478241,0.546318173408508,0.173570722341537,0.541276931762695,0.173570722341537,0.541276931762695,0.173570722341537,0.546318173408508,0.173570722341537,0.0471875332295895,0.32982063293457,0.0451242215931416,0.32982063293457,0.541276931762695,0.175831705331802,0.546318173408508,0.175831705331802,0.0451242215931416,0.326735854148865,0.0471875332295895,0.326735854148865,0.546318173408508,0.175831705331802,0.541276931762695,0.175831705331802,0.542775630950928,0.1409912109375,0.549365401268005,0.1409912109375,0.549365401268005,0.143252193927765,0.542775630950928,0.143252193927765,0.549365401268005,0.1409912109375,0.549365401268005,0.143252193927765,0.542775630950928,0.1409912109375,0.542775630950928,0.143252193927765
 			} 
 			UVIndex: *44 {
-				a: 18,19,23,22,1,4,5,2,16,17,27,26,6,0,3,7,20,21,24,25,1,2,23,19,3,0,18,22,6,7,27,17,5,4,16,26,9,12,13,11,14,8,10,15
+				a: 18,19,23,22,29,32,33,30,16,17,27,26,34,28,31,35,20,21,24,25,1,2,23,19,3,0,18,22,6,7,27,17,5,4,16,26,9,12,13,11,14,8,10,15
 			} 
 		}
 		LayerElementMaterial: 0 {
@@ -384,19 +394,22 @@ Objects:  {
 			}
 		}
 	}
-	Model: 2091135785248, "Model::floor_basic3", "Mesh" {
+	Model: 2283105397664, "Model::floor_basic3", "Mesh" {
 		Version: 232
 		Properties70:  {
+			P: "PreRotation", "Vector3D", "Vector", "",-90,-0,0
+			P: "RotationActive", "bool", "", "",1
 			P: "InheritType", "enum", "", "",1
 			P: "ScalingMax", "Vector3D", "Vector", "",0,0,0
 			P: "GeometricTranslation", "Vector3D", "Vector", "",3.814697265625e-06,0,6.67572021484375e-06
 			P: "DefaultAttributeIndex", "int", "Integer", "",0
-			P: "MaxHandle", "int", "Integer", "UH",83
+			P: "UDP3DSMAX", "KString", "", "U", "MapChannel:1 = UVChannel_1&cr;&lf;"
+			P: "MaxHandle", "int", "Integer", "UH",12
 		}
 		Shading: T
 		Culling: "CullingOff"
 	}
-	Material: 2091388876480, "Material::Material #51", "" {
+	Material: 2285019939520, "Material::Material #60", "" {
 		Version: 102
 		ShadingModel: "unknown"
 		MultiLayer: 0
@@ -448,7 +461,7 @@ Objects:  {
 			P: "3dsMax|Parameters|sss_color", "ColorAndAlpha", "", "A",1,1,1,1
 			P: "3dsMax|Parameters|sss_depth", "Float", "", "A",10
 			P: "3dsMax|Parameters|sss_scale", "Float", "", "A",1
-			P: "3dsMax|Parameters|sss_scatter_color", "ColorAndAlpha", "", "A",100,50,25,1
+			P: "3dsMax|Parameters|sss_scatter_color", "ColorAndAlpha", "", "A",10000,5000,2500,1
 			P: "3dsMax|Parameters|emission", "Float", "", "A",1
 			P: "3dsMax|Parameters|emit_color", "ColorAndAlpha", "", "A",0,0,0,1
 			P: "3dsMax|Parameters|emit_luminance", "Float", "", "A",1500
@@ -531,33 +544,33 @@ Objects:  {
 			P: "3dsMax|Parameters|displacement_map_amt", "Float", "", "A",1
 		}
 	}
-	Video: 2091387013152, "Video::Map #3", "Clip" {
+	Video: 2285036784400, "Video::Map #9", "Clip" {
 		Type: "Clip"
 		Properties70:  {
-			P: "Path", "KString", "XRefUrl", "", "C:\Users\ww\Desktop\ㄱㅈㅇ\fbx\Color_Pallet.png"
-			P: "RelPath", "KString", "XRefUrl", "", "..\fbx\Color_Pallet.png"
+			P: "Path", "KString", "XRefUrl", "", "C:\Users\jieun\Downloads\color_pallet.png"
+			P: "RelPath", "KString", "XRefUrl", "", "C:\Users\jieun\Downloads\color_pallet.png"
 		}
 		UseMipMap: 0
-		Filename: "C:\Users\ww\Desktop\ㄱㅈㅇ\fbx\Color_Pallet.png"
-		RelativeFilename: "..\fbx\Color_Pallet.png"
+		Filename: "C:\Users\jieun\Downloads\color_pallet.png"
+		RelativeFilename: "C:\Users\jieun\Downloads\color_pallet.png"
 	}
-	Texture: 2091387015072, "Texture::Map #3", "" {
+	Texture: 2285036643456, "Texture::Map #9", "" {
 		Type: "TextureVideoClip"
 		Version: 202
-		TextureName: "Texture::Map #3"
+		TextureName: "Texture::Map #9"
 		Properties70:  {
 			P: "UVSet", "KString", "", "", "UVChannel_1"
 			P: "UseMaterial", "bool", "", "",1
 		}
-		Media: "Video::Map #3"
-		FileName: "C:\Users\ww\Desktop\ㄱㅈㅇ\fbx\Color_Pallet.png"
-		RelativeFilename: "..\fbx\Color_Pallet.png"
+		Media: "Video::Map #9"
+		FileName: "C:\Users\jieun\Downloads\color_pallet.png"
+		RelativeFilename: "C:\Users\jieun\Downloads\color_pallet.png"
 		ModelUVTranslation: 0,0
 		ModelUVScaling: 1,1
 		Texture_Alpha_Source: "Alpha_Black"
 		Cropping: 0,0,0,0
 	}
-	Implementation: 2091389965472, "Implementation::Material #51_Implementation", "" {
+	Implementation: 2284599764032, "Implementation::Material #60_Implementation", "" {
 		Version: 100
 		Properties70:  {
 			P: "ShaderLanguage", "KString", "", "", "StandardSSL"
@@ -566,7 +579,7 @@ Objects:  {
 			P: "RootBindingName", "KString", "", "", "root"
 		}
 	}
-	BindingTable: 2091214709632, "BindingTable::root 5", "" {
+	BindingTable: 2285019241952, "BindingTable::root 8", "" {
 		Version: 100
 		Properties70:  {
 			P: "TargetName", "KString", "", "", "root"
@@ -686,27 +699,97 @@ Objects:  {
 		Entry: "3dsMax|Parameters|cutout_map_on", "FbxPropertyEntry", "cutout_map_on", "FbxSemanticEntry"
 		Entry: "3dsMax|Parameters|displacement_map_amt", "FbxPropertyEntry", "displacement_map_amt", "FbxSemanticEntry"
 	}
-	AnimationStack: 2091129921856, "AnimStack::Take 001", "" {
+	AnimationStack: 2284556573616, "AnimStack::Take 001", "" {
 		Properties70:  {
 			P: "LocalStop", "KTime", "Time", "",60042005400
 			P: "ReferenceStop", "KTime", "Time", "",60042005400
 		}
 	}
-	AnimationLayer: 2091131779616, "AnimLayer::BaseLayer", "" {
+	AnimationCurve: 2285019940160, "AnimCurve::", "" {
+		Default: 0
+		KeyVer: 4009
+		KeyTime: *1 {
+			a: 0
+		} 
+		KeyValueFloat: *1 {
+			a: 0
+		} 
+		;KeyAttrFlags: Cubic|TangeantUser|WeightedRight
+		KeyAttrFlags: *1 {
+			a: 16778248
+		} 
+		;KeyAttrDataFloat: RightSlope:0, NextLeftSlope:0, RightWeight:0.333233, NextLeftWeight:0.333333, RightVelocity:0, NextLeftVelocity:0
+		KeyAttrDataFloat: *4 {
+			a: 0,0,218434820,0
+		} 
+		KeyAttrRefCount: *1 {
+			a: 1
+		} 
 	}
-	CollectionExclusive: 2091391243712, "DisplayLayer::C", "DisplayLayer" {
+	AnimationCurve: 2285019947360, "AnimCurve::", "" {
+		Default: 0
+		KeyVer: 4009
+		KeyTime: *1 {
+			a: 0
+		} 
+		KeyValueFloat: *1 {
+			a: 0
+		} 
+		;KeyAttrFlags: Cubic|TangeantUser|WeightedRight
+		KeyAttrFlags: *1 {
+			a: 16778248
+		} 
+		;KeyAttrDataFloat: RightSlope:0, NextLeftSlope:0, RightWeight:0.333233, NextLeftWeight:0.333333, RightVelocity:0, NextLeftVelocity:0
+		KeyAttrDataFloat: *4 {
+			a: 0,0,218434820,0
+		} 
+		KeyAttrRefCount: *1 {
+			a: 1
+		} 
+	}
+	AnimationCurve: 2285019941280, "AnimCurve::", "" {
+		Default: 0
+		KeyVer: 4009
+		KeyTime: *1 {
+			a: 0
+		} 
+		KeyValueFloat: *1 {
+			a: 0
+		} 
+		;KeyAttrFlags: Cubic|TangeantUser|WeightedRight
+		KeyAttrFlags: *1 {
+			a: 16778248
+		} 
+		;KeyAttrDataFloat: RightSlope:0, NextLeftSlope:0, RightWeight:0.333233, NextLeftWeight:0.333333, RightVelocity:0, NextLeftVelocity:0
+		KeyAttrDataFloat: *4 {
+			a: 0,0,218434820,0
+		} 
+		KeyAttrRefCount: *1 {
+			a: 1
+		} 
+	}
+	AnimationCurveNode: 2284556572160, "AnimCurveNode::R", "" {
 		Properties70:  {
-			P: "Color", "ColorRGB", "Color", "",0.329411764705882,0.329411764705882,0.329411764705882
+			P: "d|X", "Number", "", "A",0
+			P: "d|Y", "Number", "", "A",0
+			P: "d|Z", "Number", "", "A",0
 		}
 	}
-	CollectionExclusive: 2091391246208, "DisplayLayer::B", "DisplayLayer" {
+	AnimationLayer: 2285068367264, "AnimLayer::BaseLayer", "" {
+	}
+	CollectionExclusive: 2284581544112, "DisplayLayer::C", "DisplayLayer" {
 		Properties70:  {
-			P: "Color", "ColorRGB", "Color", "",0.894117647058824,0.6,0.713725490196078
+			P: "Color", "ColorRGB", "Color", "",0.325490196078431,0.325490196078431,0.325490196078431
 		}
 	}
-	CollectionExclusive: 2091391246592, "DisplayLayer::Layer001", "DisplayLayer" {
+	CollectionExclusive: 2284581546032, "DisplayLayer::B", "DisplayLayer" {
 		Properties70:  {
-			P: "Color", "ColorRGB", "Color", "",0.56078431372549,0.101960784313725,0.694117647058824
+			P: "Color", "ColorRGB", "Color", "",0.894117647058824,0.6,0.709803921568627
+		}
+	}
+	CollectionExclusive: 2284581546992, "DisplayLayer::Layer001", "DisplayLayer" {
+		Properties70:  {
+			P: "Color", "ColorRGB", "Color", "",0.556862745098039,0.0980392156862745,0.694117647058824
 		}
 	}
 }
@@ -717,31 +800,46 @@ Objects:  {
 Connections:  {
 	
 	;Model::floor_basic3, Model::RootNode
-	C: "OO",2091135785248,0
+	C: "OO",2283105397664,0
 	
 	;AnimLayer::BaseLayer, AnimStack::Take 001
-	C: "OO",2091131779616,2091129921856
+	C: "OO",2285068367264,2284556573616
+	
+	;AnimCurveNode::R, AnimLayer::BaseLayer
+	C: "OO",2284556572160,2285068367264
 	
 	;Geometry::, Model::floor_basic3
-	C: "OO",2091387016032,2091135785248
+	C: "OO",2285036645376,2283105397664
 	
-	;Material::Material #51, Model::floor_basic3
-	C: "OO",2091388876480,2091135785248
+	;Material::Material #60, Model::floor_basic3
+	C: "OO",2285019939520,2283105397664
 	
-	;Texture::Map #3, Material::Material #51
-	C: "OP",2091387015072,2091388876480, "DiffuseColor"
+	;AnimCurveNode::R, Model::floor_basic3
+	C: "OP",2284556572160,2283105397664, "Lcl Rotation"
 	
-	;Texture::Map #3, Material::Material #51
-	C: "OP",2091387015072,2091388876480, "3dsMax|Parameters|base_color_map"
+	;Texture::Map #9, Material::Material #60
+	C: "OP",2285036643456,2285019939520, "DiffuseColor"
 	
-	;Video::Map #3, Texture::Map #3
-	C: "OO",2091387013152,2091387015072
+	;Texture::Map #9, Material::Material #60
+	C: "OP",2285036643456,2285019939520, "3dsMax|Parameters|base_color_map"
 	
-	;Material::Material #51, Implementation::Material #51_Implementation
-	C: "OO",2091388876480,2091389965472
+	;Video::Map #9, Texture::Map #9
+	C: "OO",2285036784400,2285036643456
 	
-	;BindingTable::root 5, Implementation::Material #51_Implementation
-	C: "OO",2091214709632,2091389965472
+	;Material::Material #60, Implementation::Material #60_Implementation
+	C: "OO",2285019939520,2284599764032
+	
+	;BindingTable::root 8, Implementation::Material #60_Implementation
+	C: "OO",2285019241952,2284599764032
+	
+	;AnimCurve::, AnimCurveNode::R
+	C: "OP",2285019940160,2284556572160, "d|X"
+	
+	;AnimCurve::, AnimCurveNode::R
+	C: "OP",2285019947360,2284556572160, "d|Y"
+	
+	;AnimCurve::, AnimCurveNode::R
+	C: "OP",2285019941280,2284556572160, "d|Z"
 }
 ;Takes section
 ;----------------------------------------------------

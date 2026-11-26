@@ -704,7 +704,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
   - **알바 상호작용 개편** (2026-11-19): 작업 자리(`WorkSlot`)는 예약하지 않는다 — 존 안에서 멈추면 일한다(플레이어와 같음). 존 고르기 `Find` = 서는 위치 후보까지 거리 + 그 존에 가고 있거나 일하는 같은 직무 수 × `crowdPenalty`(4m), 인원 상한 없음. 서는 위치 `ChooseStand` = 후보 중 덜 붐비는 곳 → 다 차면 `standSpacing`(0.5m)씩 넓혀 존 안 · 네비메시 위 빈 곳, 가장자리에서 `zoneEdgeMargin`(0.3m) 안. 재포장 테이블만 1명(`RepackTable.TryClaim`). 화물 예약(트럭 · 선반 빈자리 · 주문 수요)은 그대로.
   - 할 일이 없으면 `Park` — 마지막 일한 존 가장자리에서 바깥으로 `waitOffset`(0.6m) 비켜 선 곳(겹치면 변을 따라 `waitSpacing` 0.6m씩 옆으로, 일한 적 없으면 생성 지점 근처)에서 `Parked`. 대기 중엔 아무 존도 막지 않는다.
   - 도착 후 3초 + 대기 시간 동안 존이 잡히지 않으면 경고 로그 `작업 지점 … 밖에 있습니다`.
-  - 외형 (GDD 11.1): 프리팹 `Model` 아래 `models` = [0] `uniformT`(물류 유니폼) · [1..] macaron · rabbit · macaron2(코스튬). macaron2 = macaron 모델 복제 + 재질 `M_Char_worker_macaron2`(텍스처 `macaron2_P`, 2026-11-19) — 텍스처만 다른 코스튬은 이렇게 모델을 복제해 재질만 바꾸고 `models`에 넣는다. 마카롱 두 모델의 Animator = `Character_Macaron.overrideController`(`Character.controller`에서 `idle`만 `idle_macaron`, 루프 켬, 2026-11-19). SBS는 2026-11-18 플레이어 아바타 `player_SBS`로 옮겨 빠짐. `Setup`에서 `costume`이면 코스튬 중 무작위, 아니면 유니폼을 켠다 (`Costume`). 역할 색은 모델이 아니라 발밑 원판 `RoleRing`(`body`)에 칠한다. 퇴사 연출은 `Model`째 뛴다.
+  - 외형 (GDD 11.1): 프리팹 `Model` 아래 `models` = [0] `uniformT`(물류 유니폼) · [1..] macaron · rabbit · macaron2 · **oceansunfish · takoyaki**(코스튬, 2026-11-26 M22 — Animator `Character`, fbx 아바타 `Create From This Model`, 재질 `M_Char_worker_oceansunfish`(조개 메시 `M`만 `M_Char_worker_oceansunfishM` = 텍스처 `oceansunfishM_P`) · `M_Char_worker_takoyaki`). macaron2 = macaron 모델 복제 + 재질 `M_Char_worker_macaron2`(텍스처 `macaron2_P`, 2026-11-19) — 텍스처만 다른 코스튬은 이렇게 모델을 복제해 재질만 바꾸고 `models`에 넣는다. 마카롱 두 모델의 Animator = `Character_Macaron.overrideController`(`Character.controller`에서 `idle`만 `idle_macaron`, 루프 켬, 2026-11-19). SBS는 2026-11-18 플레이어 아바타 `player_SBS`로 옮겨 빠짐. `Setup`에서 `costume`이면 코스튬 중 무작위, 아니면 유니폼을 켠다 (`Costume`). 역할 색은 모델이 아니라 발밑 원판 `RoleRing`(`body`)에 칠한다. 퇴사 연출은 `Model`째 뛴다.
   - 해고(`Fire`): 바로 `StaffService` 명단에서 빠진다. 배달하러 가는 중 · 내려놓는 중이면 끝내고, 아니면 일을 멈춘다. 손에 화물이 있으면 배달부터 하고, 빈손이 되면 `Leave()` — 생성 지점으로 걸어가 도착하면 `Destroy`.
   - 모듈 재배치(GDD 4.4): `SiteGrid.OnMoved` → `Repath()`. 가던(`Moving`) · 기다리던(`Parked`) · 일하던(`Working`) 작업 지점이 1m 넘게 옮겨갔으면 그 지점으로 다시 간다 (`Working`이면 `Moving`으로). 예약 · 대상 존은 모듈과 같이 옮겨지므로 그대로.
   - 시급(GDD 11.7): `Owed`(밀린 시급) · `PartShare`(이번 파트 비율, 고용 파트는 남은 시간 비율). `SetOwed`가 머리 위 `unpaidIcon`(빨간 ₩)을 켜고 둥실거리게 한다. `Quit()` = `Fire()` + 몸통 빨간 깜빡임 · 두 번 점프(0.9초, 그동안 `agent.isStopped`).
@@ -842,10 +842,11 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### SiteWalls
 [Site/SiteWalls.cs](../Scripts/Site/SiteWalls.cs)
-- **역할**: 부지 바깥 벽 (M14-2). 열린 칸과 안 열린 칸 · 부지 밖 사이 변에만 1m 조각(`wall_s` 앞 · `wall_l` 뒤)을 이어 세우고 꼭짓점에 기둥(`pillar_s` · `pillar_L`). 앞 / 뒤 = 변 바깥 방향이 카메라 쪽이면 앞(낮은 벽).
+- **역할**: 부지 바깥 벽 (M14-2). 열린 칸과 안 열린 칸 · 부지 밖 사이 변에만 1m 조각(`wall_s` 앞 · `wall_l` 뒤)을 이어 세우고 꼭짓점에 기둥(`pillar_s` · `pillar_L`). 앞 / 뒤 = 변 바깥 방향이 카메라 쪽이면 앞(낮은 벽). **바뀜** (2026-11-26, M22): **부지 맨 아래(남쪽) 변만 낮은 벽**, 나머지는 모두 높은 벽 — `IsBottomEdge` = 남쪽을 보는 변이고 그 열에 더 아래 **부지 칸**(잠긴 칸 포함, `SiteLayout.Modules`)이 없을 때 — 열린 칸만 보면 아래 칸이 잠겼을 때 중간 벽이 낮아짐 (2026-11-26 수정).
 - **동작**: `Start`와 `SiteGrid.OnUnlocked` · `OnMoved`(하차장 이동 · 회전, M20-3)마다 `Walls` 자식을 지우고 다시 세운다 → 해금되면 칸 사이 벽이 사라지고 새 테두리에 생긴다. 하차 · 상차장 모듈(`InboundBay` · `OutboundBay`)의 주차장 쪽(모듈 로컬 −x) 변은 비운다.
 - **연결**: Build Site `AddWalls`가 `SiteGrid` 오브젝트에 붙이고 Prop fbx · `M_Prop` · `M_Wall`을 연결한다.
-- **안쪽 면 그라데이션** (2026-11-23): 벽 조각만 `wallMaterial`(`M_Wall` = `APC/WallCutout` + `_WALL_GRADIENT`), 기둥 · 창문은 `material`. `Start` · `OnValidate`(인스펙터 수정 즉시, Play 중 포함)에서 `gradientBottom`(234, 198, 154) · `gradientTop`(242, 235, 204) · `gradientStart`(0m) · `gradientEnd`(3.4m)를 전역 `_WallGradientBottom` · `_WallGradientTop` · `_WallGradientStart` · `_WallGradientEnd`로 넘김 → 셰이더가 메시 로컬 +y 면(부지 안쪽)의 albedo를 Start 아래는 아래 색, End 위는 위 색, 사이는 높이에 비례해 섞음 (2026-11-24). 바깥 면 · 위 갈색 띠(3.6955m~, 셰이더 `WALL_BAND_BOTTOM`)는 원래 색.
+- **안쪽 면 그라데이션** (2026-11-23): 벽 조각만 `wallMaterial`(`M_Wall` = `APC/WallCutout` + `_WALL_GRADIENT`), 기둥 · 창문은 `material`. `Start` · `OnValidate`(인스펙터 수정 즉시, Play 중 포함)에서 `gradientBottom`(234, 198, 154) · `gradientTop`(242, 235, 204) · `gradientStart`(0m) · `gradientEnd`(6.8m, 2026-11-26 벽 2배)를 전역 `_WallGradientBottom` · `_WallGradientTop` · `_WallGradientStart` · `_WallGradientEnd`로 넘김 → 셰이더가 메시 로컬 +y 면(부지 안쪽)의 albedo를 Start 아래는 아래 색, End 위는 위 색, 사이는 높이에 비례해 섞음 (2026-11-24). 바깥 면 · 위 갈색 띠는 원래 색 — 띠는 높이 대신 **UV u < 0.2(`WALL_FACE_UV_MAX`) = 안쪽 면**으로 가린다 (M22, 2026-11-26: 새 `wall_outside_L/S`는 띠 높이가 3.696 · 1.552m로 달라 옛 `WALL_BAND_BOTTOM` 3.6955m 하나로 못 맞춤).
+- **M22 모델 교체** (2026-11-26): `lowWall` = `wall_outside_S`(1.8m → 배율 2로 3.6m), `highWall` = `wall_outside_L`(8m), 기둥 `pillar_S/L`, 창문 `window_outside`(4m 폭) — fbx 가져오기 배율 2(상 · 하차 모듈 `truck_parking1`과 맞춤). `pieceLength` 1 → **2**(칸 10m = 5조각), `windowStarts` {2,6} → **{0,3}**(창문 2개 = 조각 0~1 · 3~4) `임시`.
 - **주의**: 색은 `.linear`로 바꿔 넘긴다 — `Shader.SetGlobalColor`는 `Material.SetColor`와 달리 sRGB → 선형 변환을 안 해서, 그냥 넘기면 밝고 흐리게 나온다 (2026-11-24 측정으로 확인). 화면 색은 조명을 받아 바뀐다: 해가 비치는 북쪽 벽은 넣은 색과 거의 같고(파랑만 약 8 낮음), 동쪽 벽처럼 해 반대쪽은 어둡다.
 - **창문** (2026-11-19): 사무실 모듈(`ContractPC`가 있는 모듈) 칸의 바깥 벽은 한 변마다 `windowStarts`(2, 6)번째 조각부터 2칸 자리에 `windowPrefab`(`window_outside`, 폭 2m)을 놓는다. 씬 SiteWalls에 MCP로 연결.
 - **반투명** (2026-11-19, 값은 `WallFadeConfig`): 대상 = 벽 조각 + `WallFadeTarget` 렌더러(하차 · 상차 모듈 `Parking`). `CheckInterval`마다 카메라 → 플레이어 확인 높이(`CheckHeights`) 선이 경계(`HorizontalMargin` · `VerticalMargin` 넓힘, 플레이어 `IgnoreNear` 안은 무시)를 지나면 가림. 알파는 매 프레임 목표(`FadedAlpha` / 1)로 `FadeOut` · `FadeInDuration`에 맞춰 움직이고, 1 미만이 되면 재질을 `FadeMaterial`(`M_PropFade`)로 바꿔 MaterialPropertyBlock `_BaseColor` 알파로 칠함, 1이 되면 원래 재질 · 블록 되돌림. 설정이 없거나 꺼지면 모두 되돌림.
@@ -1180,6 +1181,13 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Visuals/TileGlow.cs](../Scripts/Visuals/TileGlow.cs)
 - **역할**: 바닥 사각 구역 테두리 글로우 (2026-11-19, 현금이 있는 상차장 모듈 외곽). 정적 클래스 `Create(부모, 크기, 안쪽 폭, 바깥 폭, 높이, 재질)` — 안 · 테두리 · 밖 세 사각형을 잇는 링 메시(정점 색 알파 0 · 1 · 0)를 자식 `Glow`로 만들고 꺼 둔 채 돌려준다. 그림자 없음.
 - **연결**: 셰이더 `Shaders/Glow/APC_ZoneGlow`(URP 투명 Unlit, 알파 = 정점 알파² × `_Color.a`, 시간 변화 없음) · 재질 `Art/Materials/M_CashGlow`(초록 0.3 · 1 · 0.4). `CashZone`이 쓴다.
+
+#### PropPalette
+[Visuals/PropPalette.cs](../Scripts/Visuals/PropPalette.cs)
+- **역할**: 모델 색 팔레트 고르기 (M22, 2026-11-26). 새 모델(`Art/Model/Prop`)과 옛 모델(`Art/Model/Prop_old`)은 팔레트 텍스처가 달라, 갈아 끼운 모델에 `M_Prop`(새) 또는 `M_Prop_Old`(옛)를 입힌다. 정적 `Pick(fbx 재질, modern, legacy)` · `Apply(렌더러, modern, legacy)`.
+- **동작**: fbx 원래 재질의 `_BASE_COLOR_MAP`이 legacy 재질의 `_BaseMap`과 같은 텍스처면 옛 모델로 본다.
+- **연결**: `Cargo.ShowModel` · `RepackTable`(열린 상자) · `InboundTruck.SetModel`이 `LogisticsConfig.LegacyPropMaterial`(M_Prop_Old)과 함께 부른다.
+- **주의**: shortcut — Prop_old 모델이 모두 새 모델로 바뀌면 클래스 · `legacyPropMaterial` · `M_Prop_Old`를 지운다. 프리팹 · 씬에 놓인 옛 모델 렌더러는 `M_Prop_Old`를 직접 단다.
 
 #### FacingIndicator
 [Visuals/FacingIndicator.cs](../Scripts/Visuals/FacingIndicator.cs)

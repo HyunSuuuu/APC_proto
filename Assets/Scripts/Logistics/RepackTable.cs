@@ -103,12 +103,7 @@ namespace APC.Logistics
                 t.localPosition = Vector3.zero;
                 foreach (var c in next.GetComponentsInChildren<Collider>()) Destroy(c);
                 foreach (var r in next.GetComponentsInChildren<Renderer>())
-                {
-                    if (modelMaterial == null) continue;
-                    var materials = new Material[r.sharedMaterials.Length];
-                    for (var i = 0; i < materials.Length; i++) materials[i] = modelMaterial;
-                    r.sharedMaterials = materials;
-                }
+                    Visuals.PropPalette.Apply(r, modelMaterial, GameManager.Instance.Database.Logistics.LegacyPropMaterial); // 열린 상자 = 옛 모델 → 옛 팔레트 (M22)
                 // 바닥 중앙을 workPoint에 (Cargo 모델과 같은 방식)
                 var bounds = new Bounds();
                 var first = true;

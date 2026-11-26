@@ -223,12 +223,7 @@ namespace APC.Logistics
             var minZ = float.MaxValue;
             foreach (var r in model.GetComponentsInChildren<Renderer>())
             {
-                if (modelMaterial != null)
-                {
-                    var materials = new Material[r.sharedMaterials.Length];
-                    for (var i = 0; i < materials.Length; i++) materials[i] = modelMaterial;
-                    r.sharedMaterials = materials;
-                }
+                Visuals.PropPalette.Apply(r, modelMaterial, Core.GameManager.Instance.Database.Logistics.LegacyPropMaterial); // 옛 모델이면 옛 팔레트 (M22)
                 var b = r.bounds;
                 foreach (var x in new[] { b.min.x, b.max.x })
                 foreach (var z in new[] { b.min.z, b.max.z })

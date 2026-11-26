@@ -769,6 +769,29 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
 
 ---
 
+## M22. 모델 업데이트 (2026-11-26)
+
+> 사용자 할 일 (2026-11-26). 새 Prop 모델을 `Art/Model/Prop`에 넣고 옛 모델은 `Art/Model/Prop_old`로 폴더 이름을 바꿈. GUID는 `Prop_old`의 옛 파일에 붙어 있어 지금은 모든 프리팹 · 씬 · 데이터가 옛 모델을 씀 → 연결을 새 모델로 옮긴다.
+> 방법: 새 파일 `.meta`에 옛 GUID를 넣고 옛 파일은 `Prop_old`에서 지움 (참조 수정 없이 저절로 바뀜). 조건 = 모델 안 메시 이름이 같아야 함 → Unity에서 확인, 다르면 프리팹마다 다시 연결.
+> 정함 (2026-11-26, 사용자): 팔레트 **용도별**(D 랙 · 지게차 = `Purple_Pallet`, 쓰레기장 장식 = `Blue_Pallet`) · 보관 바닥 `floor_basic_green1~3` → `floor_green1~3` · 사무실 바닥 `floor1_basic` → `floor_basic1` · 부지 벽 `wall_S/L` → `wall_outside_S/L`(안쪽 면은 셰이더 그라데이션 그대로) · **색 선반 적용**(A `Brown_Shelf` · B `Green_Shelf` · C `Blue_Shelf`, `Purple_Shelf`는 D가 팔레트 랙이라 보류) · 새 모델 없는 옛 모델은 **`Prop_old`에서 계속 사용** · 프리팹 배율(상자 1.667 · 쓰레기 2.5 · 금 등) **유지**, 눈에 띄게 다르면 알림.
+
+- [x] **M22-1 이름 같은 모델 교체** — 상자 4색 · `Purple_Big_Box` · `Box_Interaction` · `Hand_Pallet_Truck` · `Forklift` · `Wagon` · `Rolltainer` · `Discarded` · `Trash` · 사무실 소품(`Clip_Board` · `Document_Dummy` · `Employment_Desk` · `Office_Computer/Desk/Shelf` · `Papper_Money` · `Piggy_Bank` · `Plant_Pot` · `Sofa` · `Sofa_Table` · `Trash_Bin` · `Water_Purifier` · `vending_machine`) · `floor_basic1~6` · `floor_road1~7` · `street_lamp` · `tree_L` · `tulip` · `pillar_L/S` · `window_outside` · `Purple_Small/Middle_Truck`
+- [x] **M22-2 이름 바뀐 모델 교체** — 트럭 `*_Truck_Open` → `*_Truck`(갈색 · 초록 · 파랑 · 금 Small/Middle/Big, `Purple_Big`; `Brown _Middle_Truck.fbx` 이름 공백 주의) · `Offiice_Chair` → `Office_Chair` · `tree_s` → `tree_S` · `crosswalk_floor1/3` → `floor_crosswalk1/3` · 팔레트(용도별) · 바닥(`floor_green1~3`, `floor_basic1`) · 벽 `wall_outside_S/L`
+- [x] **M22-3 색 선반** — A~C 구역 선반을 구역 색 선반으로 (`Shelf.prefab`을 색별로 나누거나 모델만 바꿈, 중첩 프리팹 · `ShelfSlot` 유지 — M19-1)
+  - 완료 (2026-11-26): GUID 옮겨 심기 대신 **참조 글자 바꾸기**(옛 GUID → 새 GUID, 37개 파일 — 팔레트가 하나 → 둘이라 meta 교체로는 안 됨). 모델 안 ID는 루트 · 메시 이름이 같아 그대로, 예외 `Office_Computer` 메시 · fbx 안 재질 ID만 따로 맞춤
+  - **바뀜**: 새 모델은 **색 팔레트 텍스처가 다름**(`Prop/color_pallet.png` 1024², 옛 `Prop_old/Color_Pallet.png` 2048×1024 배치 전혀 다름) → `M_Prop` · `M_PropFade` · `M_Wall` · `M_WallCutout`을 새 팔레트로, 옛 모델용 `M_Prop_Old` 새로 만들어 옛 모델 렌더러 22곳에 연결. 실행 중 모델 갈아 끼우기(`Cargo` · `RepackTable` · `InboundTruck`)는 새 `Visuals/PropPalette`가 fbx 원래 재질 텍스처로 옛 모델을 알아보고 `LogisticsConfig.legacyPropMaterial`(M_Prop_Old)을 입힘
+  - 바닥: 사용자가 새 바닥 fbx 배율을 2로 맞춤(1m → 2m). 옛 `floor_basic_green*` · `crosswalk_floor*` · `floor1_basic`은 피벗이 모서리라 타일 자리에 보정이 들어 있었음 → 타일마다 옛 모델이 놓였을 자리와 새 모델 자리 차이만큼 옮김(259장, 손으로 고친 배치 유지)
+  - 색 선반: `Shelf_A/B/C.prefab` = `Shelf.prefab` 변형(옛 모델 끄고 `Brown/Green/Blue_Shelf` 같은 자리 · 1.2배), A~C 구역 선반 4개씩 `ReplacePrefabAssetOfPrefabInstance`, 참조 끊김 0
+  - 예전부터 깨진 것: 하차 · 상차 모듈 주차장 조각 4개(`parking` · `pillar_l` · `truck_exit`)가 지워진 `background_test.fbx`를 가리킴 (이번 작업 전부터)
+- [x] **M22-4 화면 점검 · 정리** — 모듈마다 크기 · 피벗 · 방향, 충돌체, 쌓이는 자리, 들고 쌓는 높이(`CarryConfig`), 트럭 글자 위치, 벽 그라데이션 확인. 새 모델로 바뀐 옛 파일만 `Prop_old`에서 삭제. TechStack · Wiki에 모델 폴더 규칙
+  - 정함 (2026-11-26, 사용자): 벽 · 기둥 · 창문 fbx 배율 **2**(`truck_parking1`과 맞춤) · `Box_Interaction` 배율 **3**(옛 2.67m) · 지게차 = 프리팹에서 방향 맞춤 · 의자 = 사용자가 직접 손봄 · 트럭 = Play로 보고 어긋난 것만
+  - 완료: `SiteWalls` `pieceLength` 2 · `windowStarts` {0,3} `임시` · `gradientEnd` 6.8, 셰이더 띠 판정 높이 → UV(`WALL_FACE_UV_MAX`). `StaffWorker` 지게차 모델 (270,180) → (270,0)(메시 무게중심으로 옛 방향과 같음 확인). 트럭: 3단계 모델 뒷면 맞춤 · 숫자 위치 그대로 이상 없음. 옛 파일 71개 `Prop_old`에서 삭제(참조 0 확인, 옛 버전은 git `Prop/` 기록에 있음) → 남은 옛 모델 68개
+  - 추가 (2026-11-26, 사용자): **맨 아래(남쪽) 벽만 낮은 벽**, 나머지는 높은 벽(`SiteWalls.IsBottomEdge`, 옛 규칙 = 카메라 쪽 낮은 벽). **바뀜**: '더 아래 열린 칸 없음' → '더 아래 부지 칸(잠긴 칸 포함) 없음' (하차장 열기 전 사무실 아래 벽이 낮던 버그, MCP: 사무실만 연 상태에서 사무실 아래 = 높은 벽 · 맨 아래 줄만 낮은 벽). **새 알바 코스튬 2종** `oceansunfish`(조개 메시 `M` = `oceansunfishM_P` 텍스처) · `takoyaki` → `StaffWorker` `models` [4] · [5], fbx 아바타 켬. MCP: 두 모델 툰 · 텍스처 · 애니메이터 정상, 벽 화면 확인
+  - 테스트 (MCP Play): 바닥 빈틈 없음 · 벽 8m / 3.6m · 창문 · 트럭 주차 화면 확인, 프리팹 빈 메시 · 빈 재질 · 깨진 프리팹 0, 에러 0. 사람 손 테스트 아직
+- 테스트 결과: 아직
+
+---
+
 ## 진행 현황
 
 | 마일스톤 | 작업 수 | 완료 |
@@ -796,6 +819,7 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
 | M19 구조 정리 | 1 | 1 |
 | M20 배치 자유도 · 벨트 스캔 · 선반 통합 | 5 | 5 |
 | M21 화면 방향 | 1 | 1 |
-| **합계** | **136** | **127** |
+| M22 모델 업데이트 | 4 | 4 |
+| **합계** | **140** | **131** |
 
 > 2026-11-15: M10 11 → 4 (삭제 3 · M13으로 옮김 4), M11 11 → 6 (M12 · M13이 대신한 5), M13 18 추가.
