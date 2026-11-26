@@ -15,8 +15,9 @@ namespace APC.UI
     /// 고용 탭(HirePanel)은 오른쪽 아래 도장(Stamp)을 후보 카드에 찍어 고용한다 (고용해도 열린 채). 배치 탭(RosterPanel)은 알바 카드를 끌어 역할 변경 · 해고.
     /// 계약 탭은 계약 시스템 삭제로 없앴다 (2026-11-13, GDD 6.3). 열면 고용 탭.
     /// 이 오브젝트는 항상 켜 두고, 자식 body만 켜고 끈다.
+    /// 세로 화면이면 세로 배치(ContractPopup.Portrait.cs)로 바꾼다 — 씬에 놓인 배치가 가로 기준.
     /// </summary>
-    public sealed class ContractPopup : MonoBehaviour
+    public sealed partial class ContractPopup : MonoBehaviour
     {
         [SerializeField] GameObject body;
         [SerializeField] CanvasGroup group;
@@ -64,6 +65,8 @@ namespace APC.UI
         };
 
         Sequence transition;
+        RectMask2D[] shuffleMasks; // 셔플 동안 끈 마스크 (명부 목록 등)
+        Tween maskRestore;
         Button[] tabs;
         GameObject[] pages;
         Color[] tabColors; // 씬에 칠해 둔 탭 색 = 기준 색
@@ -106,7 +109,19 @@ namespace APC.UI
             var step = Rect(rosterTab).anchoredPosition.y - y0;
             tabY = new[] { y0, y0 + step, y0 + step * 2f, y0 + step * 3f }; // 4번째 = B책상 `벨트`
             tabX = Rect(hireTab).anchoredPosition.x;
+            CaptureLandscape();
             body.SetActive(false);
+        }
+
+        // 열려 있는 동안 화면이 돌면 배치를 다시 잡는다
+        void Update()
+        {
+            if (!IsOpen || IsPortrait() == portrait) return;
+            SetLayout(IsPortrait());
+            PlaceTabs();
+            for (var i = 0; i < tabs.Length; i++) SetTabLook(i, i == current, true);
+            pages[current].SetActive(false); // 설비 줄처럼 템플릿에서 만드는 줄을 새 배치로 다시 만든다
+            pages[current].SetActive(true);
         }
 
         static RectTransform Rect(Component c) => (RectTransform)c.transform;
@@ -116,11 +131,12 @@ namespace APC.UI
         {
             if (IsOpen) return;
             IsOpen = true;
+            if (IsPortrait() != portrait) SetLayout(IsPortrait()); // 켜기 전에 — 도장이 처음 켜질 때 자리를 기억한다
             body.SetActive(true);
             modulePage.Begin();
-            var shown = deskB ? new[] { facilityTab, truckTab, moduleTab, beltTab } : new[] { hireTab, rosterTab, upgradeTab };
-            foreach (var tab in tabs) tab.gameObject.SetActive(System.Array.IndexOf(shown, tab) >= 0);
-            for (var i = 0; i < shown.Length; i++) Rect(shown[i]).anchoredPosition = new Vector2(tabX, tabY[i]);
+            shownTabs = deskB ? new[] { facilityTab, truckTab, moduleTab, beltTab } : new[] { hireTab, rosterTab, upgradeTab };
+            foreach (var tab in tabs) tab.gameObject.SetActive(System.Array.IndexOf(shownTabs, tab) >= 0);
+            PlaceTabs();
             current = -1;
             SelectTab(deskB ? Tab.Facility : Tab.Hire, true);
             GameManager.Instance.OpenPopup();
@@ -191,12 +207,16 @@ namespace APC.UI
             sheetTitle.rectTransform.DOPunchAnchorPos(new Vector2(6f, 0f), 0.3f, 6).SetUpdate(true);
         }
 
-        /// <summary>선택 탭은 앞 종이 위로 나오고 커지며 밝아짐, 나머지는 종이 밑으로 7 들어가고 어두워짐.</summary>
+        /// <summary>
+        /// 선택 탭은 앞 종이 위로 나오고 커지며 밝아짐, 나머지는 종이 밑으로 7 들어가고 어두워짐.
+        /// 가로 = 오른쪽 탭이 왼쪽(종이 쪽)으로, 세로 = 아래 탭이 위쪽(종이 쪽)으로 들어간다.
+        /// </summary>
         void SetTabLook(int i, bool active, bool instant)
         {
             var rt = Rect(tabs[i]);
             rt.SetParent(active ? tabsFront : tabsBehind, true);
             var x = active ? tabX : tabX - 7f;
+            var y = active ? portraitTabTuck : portraitTabTuck + 7f;
             var scale = active ? 1.03f : 0.97f;
             var bright = active ? 1.03f : 0.84f;
             var color = new Color(tabColors[i].r * bright, tabColors[i].g * bright, tabColors[i].b * bright, 1f);
@@ -206,31 +226,59 @@ namespace APC.UI
             image.DOKill();
             if (instant)
             {
-                rt.anchoredPosition = new Vector2(x, rt.anchoredPosition.y);
+                rt.anchoredPosition = portrait ? new Vector2(0f, y) : new Vector2(x, rt.anchoredPosition.y);
                 rt.localScale = Vector3.one * scale;
                 image.color = color;
                 return;
             }
-            rt.DOAnchorPosX(x, 0.25f).SetEase(Ease.OutBack, 2.2f).SetUpdate(true);
+            if (portrait) rt.DOAnchorPosY(y, 0.25f).SetEase(Ease.OutBack, 2.2f).SetUpdate(true);
+            else rt.DOAnchorPosX(x, 0.25f).SetEase(Ease.OutBack, 2.2f).SetUpdate(true);
             rt.DOScale(scale, 0.25f).SetEase(Ease.OutBack, 2.2f).SetUpdate(true);
             image.DOColor(color, 0.2f).SetUpdate(true);
         }
 
-        /// <summary>앞 종이가 들렸다 흔들리며 내려앉고, 뒤 종이 두 장이 따라 흔들림.</summary>
+        /// <summary>
+        /// 앞 종이가 들렸다 흔들리며 내려앉고, 뒤 종이 두 장이 따라 흔들림.
+        /// RectMask2D는 회전을 지원하지 않아 종이가 기운 동안 목록 가장자리가 잘리므로, 셔플 동안만 앞 종이 안의 마스크를 끈다 (2026-11-26).
+        /// </summary>
         void ShufflePaper(float duration)
         {
-            paperFront.DOKill(true);
-            DOTween.Sequence().SetTarget(paperFront).SetUpdate(true)
-                .Append(paperFront.DOLocalRotate(new Vector3(0, 0, -1.2f), duration * 0.3f).SetEase(Ease.OutQuad))
-                .Join(paperFront.DOAnchorPosY(8f, duration * 0.3f).SetEase(Ease.OutQuad))
-                .Append(paperFront.DOLocalRotate(new Vector3(0, 0, 0.8f), duration * 0.35f).SetEase(Ease.InOutQuad))
-                .Join(paperFront.DOAnchorPosY(-3f, duration * 0.35f).SetEase(Ease.InOutQuad))
-                .Append(paperFront.DOLocalRotate(Vector3.zero, duration * 0.35f).SetEase(Ease.OutBack, 2f))
-                .Join(paperFront.DOAnchorPosY(0f, duration * 0.35f).SetEase(Ease.OutBack, 2f));
+            maskRestore?.Kill(); // 연달아 바꾸면 앞 셔플의 마스크부터 되살린다
+            RestoreShuffleMasks();
+            shuffleMasks = paperFront.GetComponentsInChildren<RectMask2D>(false);
+            foreach (var mask in shuffleMasks) mask.enabled = false;
+            maskRestore = DOVirtual.DelayedCall(duration, RestoreShuffleMasks).SetUpdate(true).SetLink(gameObject);
+
+            Shuffle(paperFront, duration);
+            if (portrait) Shuffle((RectTransform)stampArea.transform, duration); // 세로: 도장 받침도 앞 종이와 같이 흔들림
             paperBack1.DOKill(true);
             paperBack1.DOPunchRotation(new Vector3(0, 0, 0.9f), duration, 4).SetUpdate(true);
             paperBack2.DOKill(true);
             paperBack2.DOPunchRotation(new Vector3(0, 0, -1.1f), duration, 4).SetUpdate(true);
+        }
+
+        void RestoreShuffleMasks()
+        {
+            maskRestore = null;
+            if (shuffleMasks == null) return;
+            foreach (var mask in shuffleMasks)
+            {
+                if (mask != null) mask.enabled = true;
+            }
+            shuffleMasks = null;
+        }
+
+        /// <summary>들림(-1.2° · 위 8) → 흔들림(0.8° · 아래 3) → OutBack 착지. 위치는 (·, 0) 기준.</summary>
+        static void Shuffle(RectTransform target, float duration)
+        {
+            target.DOKill(true);
+            DOTween.Sequence().SetTarget(target).SetUpdate(true)
+                .Append(target.DOLocalRotate(new Vector3(0, 0, -1.2f), duration * 0.3f).SetEase(Ease.OutQuad))
+                .Join(target.DOAnchorPosY(8f, duration * 0.3f).SetEase(Ease.OutQuad))
+                .Append(target.DOLocalRotate(new Vector3(0, 0, 0.8f), duration * 0.35f).SetEase(Ease.InOutQuad))
+                .Join(target.DOAnchorPosY(-3f, duration * 0.35f).SetEase(Ease.InOutQuad))
+                .Append(target.DOLocalRotate(Vector3.zero, duration * 0.35f).SetEase(Ease.OutBack, 2f))
+                .Join(target.DOAnchorPosY(0f, duration * 0.35f).SetEase(Ease.OutBack, 2f));
         }
     }
 }

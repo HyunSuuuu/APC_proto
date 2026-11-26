@@ -32,13 +32,14 @@ namespace APC.UI
 
         void Update()
         {
-            var parts = PartService.Instance;
-            if (parts == null || parts.Part.CurrentValue == 0)
+            // 후보 자동 교체 타이머 (StaffService, 팝업 중에도 흐름)
+            var staff = StaffService.Instance;
+            if (staff == null || staff.CandidateRefreshRemaining < 0f)
             {
                 timerLabel.text = "계약 후 교체 시작";
                 return;
             }
-            var seconds = Mathf.CeilToInt(parts.Remaining.CurrentValue);
+            var seconds = Mathf.CeilToInt(staff.CandidateRefreshRemaining);
             timerLabel.text = $"다음 교체 {seconds / 60:00}:{seconds % 60:00}";
         }
 
