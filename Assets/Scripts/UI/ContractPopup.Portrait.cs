@@ -82,7 +82,7 @@ namespace APC.UI
         bool portrait;   // 지금 적용된 배치 (세로 = true)
         float portraitStackWidth;
 
-        static bool IsPortrait() => Screen.height > Screen.width;
+        static bool IsPortrait() => ScreenLayout.Portrait; // 화면 방향 플래그 (M21-1)
 
         void CaptureLandscape()
         {
@@ -298,10 +298,13 @@ namespace APC.UI
             Place(Child(card, "Reason"), TopCenter, new Vector2(half - 175f, -146f), new Vector2(310f, 32f));
             Place(Child(card, "DividerL"), TopCenter, new Vector2(0f, -172f), new Vector2(width - 60f, 2f));
             Place(Child(card, "DividerR"), TopCenter, new Vector2(0f, -172f), new Vector2(0f, 2f)); // 세로는 구분선 하나
-            Place(Child(card, "Speed"), TopCenter, new Vector2(left, -200f), new Vector2(column, 34f));
-            Place(Child(card, "SpeedTrack"), TopCenter, new Vector2(left, -237f), new Vector2(column, 14f));
-            Place(Child(card, "Carry"), TopCenter, new Vector2(right, -200f), new Vector2(column, 34f));
-            Place(Child(card, "CarryTrack"), TopCenter, new Vector2(right, -237f), new Vector2(column, 14f));
+            // 글자 · 게이지 왼쪽에 스탯 아이콘(글자의 자식 `Icon`, 42 + 사이 8)이 들어갈 자리를 비운다
+            const float iconRoom = 50f;
+            var bar = column - iconRoom;
+            Place(Child(card, "Speed"), TopCenter, new Vector2(left + iconRoom * 0.5f, -200f), new Vector2(bar, 34f));
+            Place(Child(card, "SpeedTrack"), TopCenter, new Vector2(left + iconRoom * 0.5f, -237f), new Vector2(bar, 14f));
+            Place(Child(card, "Carry"), TopCenter, new Vector2(right + iconRoom * 0.5f, -200f), new Vector2(bar, 34f));
+            Place(Child(card, "CarryTrack"), TopCenter, new Vector2(right + iconRoom * 0.5f, -237f), new Vector2(bar, 14f));
             if (Child(card, "Reason") is { } reason && reason.GetComponent<TMP_Text>() is { } text)
             {
                 text.enableAutoSizing = true; // 사유는 오른쪽 칸 안에서 줄여 한 줄

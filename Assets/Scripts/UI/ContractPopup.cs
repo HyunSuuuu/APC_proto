@@ -113,8 +113,9 @@ namespace APC.UI
             body.SetActive(false);
         }
 
-        // 열려 있는 동안 화면이 돌면 배치를 다시 잡는다
-        void Update()
+        // 열려 있는 동안 화면이 돌면 배치를 다시 잡는다.
+        // LateUpdate = HUD CanvasScaler(OrientationCanvasScaler가 기준 해상도를 바꿈)가 Update에서 크기를 다시 잡은 뒤 → 세로 배치가 새 캔버스 크기를 읽는다
+        void LateUpdate()
         {
             if (!IsOpen || IsPortrait() == portrait) return;
             SetLayout(IsPortrait());

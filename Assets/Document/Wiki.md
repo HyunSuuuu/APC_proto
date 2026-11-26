@@ -947,6 +947,24 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **동작**: `[DefaultExecutionOrder(-900)]`. `Awake`에서 자식을 모두 끈 뒤 순서대로 다시 켠다. 팝업의 `Instance`는 다른 스크립트의 `Start` 전에 등록된다.
 - **주의**: 팝업은 루트가 켜진 뒤 `Awake`에서 자기 `body`를 숨긴다 (4.9 팝업 규칙 그대로).
 
+#### ScreenLayout
+[UI/ScreenLayout.cs](../Scripts/UI/ScreenLayout.cs)
+- **역할**: 화면 방향 플래그 (static, M21-1 2026-11-26). 세로 = `Screen.height > Screen.width`. 가로 · 세로 판정은 여기 한 곳 — 씬은 `Game` 하나로 양쪽을 쓴다 (GDD 1.2).
+- **동작**: `BeforeSceneLoad`에 숨은 오브젝트 `ScreenLayout`(DontDestroyOnLoad, 실행 순서 −1000)을 만들어 매 프레임 가장 먼저 화면 크기를 본다. `IsPortrait`(R3 `ReadOnlyReactiveProperty<bool>`)는 방향이 바뀔 때만 알리고, `Portrait`는 지금 값. Domain Reload를 꺼도 Play마다 새로 만든다.
+- **연결**: `OrientationCanvasScaler` · `OrientationRect`가 구독, `ContractPopup`(`LateUpdate`) · `TutorialGuide`(`Update`)는 `Portrait`를 읽어 자기 배치와 다르면 다시 잡는다.
+- **주의**: −1000 순서라 구독한 스케일러가 CanvasScaler(0)보다 먼저 기준 해상도를 바꾼다. 캔버스 크기를 읽어 배치하는 UI는 `LateUpdate`에서 (같은 프레임에 CanvasScaler가 크기를 다시 잡은 뒤). 에디터 확인 = Game 뷰를 **Simulator**로 바꾸고 Rotate, 또는 Game 뷰 해상도를 세로로.
+
+#### OrientationCanvasScaler
+[UI/OrientationCanvasScaler.cs](../Scripts/UI/OrientationCanvasScaler.cs)
+- **역할**: 같은 오브젝트 CanvasScaler의 기준 해상도 · Match를 화면 방향에 따라 바꾼다. `HUD Canvas`: 가로 1920×1080 · 1(높이) / 세로 1080×2340 · 0(너비) (옛 `GameVertical` 씬 값).
+- **주의**: 실행 중에는 씬의 CanvasScaler 값 대신 이 값이 쓰인다. Play 중 인스펙터 값을 바꾸면 바로 반영.
+
+#### OrientationRect
+[UI/OrientationRect.cs](../Scripts/UI/OrientationRect.cs)
+- **역할**: UI 하나의 세로 배치. 씬 RectTransform 값 = 가로(`Awake`에 저장), 인스펙터 = 세로 앵커 · 피벗 · 위치 · 크기 · TMP 최소 글씨(0 = 그대로). 방향이 바뀌면 바꿔 끼운다. 지금 = `BeltPlacer/UI/Hint`(세로 좌우 늘림 −80 · 최소 24).
+- **동작**: ⋮ 메뉴 `지금 RectTransform → 세로 값` — 세로 화면에서 맞춘 값을 복사(씬 값은 가로로 되돌려 둘 것).
+- **주의**: 처음 켜질 때(`Awake`) 가로 값을 저장하므로 실행 중 코드가 같은 RectTransform을 옮기면 겹친다. `ContractPopup` body 안에는 붙이지 않는다(팝업이 자기 배치를 저장 · 복원).
+
 #### LevelView
 [UI/LevelView.cs](../Scripts/UI/LevelView.cs)
 - **역할**: HUD 좌상단 `Lv.N`(줄바꿈 없이 자동 크기) + 경험치 아이콘(`Art/Temp/Star`, Build Site, **XP가 오를 때마다 통통 튐** `xpIconPunch`) + 경험치 바 + **누적** `TotalXp/NextLevelXp` (Lv.1 `0/30` → Lv.2 `30/80`). 바는 이번 레벨 안에서 찬 비율로 부드럽게 차고, 레벨이 오르면 패널이 튄다.
@@ -992,7 +1010,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 튜토리얼 (GDD 13, M13-17). 씬 `Site/Logistics`에 하나. 저장이 없어 새 게임마다 처음부터.
 - **튜토리얼 파트** (2026-11-20): 트럭 꺼내기 단계에서 `PartService.BeginTutorialPart()`(시계 없는 1파트), 선반 단계 = 선반 위 상자 합계가 `PartService.TutorialBoxes`(5)가 되면 `ShiftTutorial()`(2파트 + 교대 배너). 돈 줍기 다음 단계 `2파트(상차)가 끝났어요. 정산을 확인하세요`가 `EndPart()` → 튜토리얼 정산 → [확인] 뒤 진짜 1파트면 끝.
 - **동작**: 단계 14개(GDD 13 단계 표, M16-6 — 시작 발판 건물 · `In1` · `StoreA1` · `Out1`(`StartPadStep`) → 트럭에서 꺼내기 → 선반 → 상차 → 돈 줍기(현금 존이 비면 끝) → 사무실 발판 → 무료 하차 알바 → 한 명 더 고용(알바 2 또는 팝업 열었다 닫음) → 정산 → B보관 → Ret1)를 처음부터(빈 땅) 0.2초(실제 시간)마다 완료 조건으로 확인. 단계 대상이 생기고 게임이 `Playing`이고 단계 시작 뒤 `spotlightDelay`(1초, 해금 팝 연출이 멈춘 채 작게 남지 않게)가 지나면 한 번 강조: `GameManager.OpenPopup`(멈춤) → `CameraRig.Spotlight` → `holdTime` 1.8초 `임시` 또는 탭(`Pointer.press`) → `EndSpotlight` · `ClosePopup`. 그 뒤로 `GuideArrow.TutorialTarget` = 대상. 고용 단계에서는 `StaffService.OfferFreeCandidate(Unload, 속도 1 · 적재 3)`를 계속 확인해 넣는다.
-- **연결**: 배너는 실행 중 만든 오버레이 캔버스(sortingOrder 49, 레이캐스트 안 막음). `ApplyBannerLayout(portrait)`가 화면 방향 플래그(`Screen.height > Screen.width`)로 배치를 고른다 — 가로 1920×1080 높이 기준 · 가운데 너비 1100 · y -110, 세로 1080×2340 너비 기준 · 좌우 여백 20 늘림 · 중심이 화면 위에서 1/5(앵커 y 0.8) `임시`. `Update`에서 방향이 바뀌면 다시 적용(자동회전 대비) — 팝업(`GameState.Popup`)이 열리면 숨김, 강조 중에는 보임. 디버그 메뉴 `SkipStep` · `Stop`, static `Disabled`.
+- **연결**: 배너는 실행 중 만든 오버레이 캔버스(sortingOrder 49, 레이캐스트 안 막음). `ApplyBannerLayout(portrait)`가 화면 방향 플래그(`ScreenLayout.Portrait`, M21-1)로 배치를 고른다 — 가로 1920×1080 높이 기준 · 가운데 너비 1100 · y -110, 세로 1080×2340 너비 기준 · 좌우 여백 20 늘림 · 중심이 화면 위에서 1/5(앵커 y 0.8) `임시`. `Update`에서 방향이 바뀌면 다시 적용(자동회전 대비) — 팝업(`GameState.Popup`)이 열리면 숨김, 강조 중에는 보임. 디버그 메뉴 `SkipStep` · `Stop`, static `Disabled`.
 - **주의**: 대상 찾기는 `FindObjectsByType`(단계 시작 뒤 대상이 생길 때까지 0.2초마다).
 
 #### CashView
@@ -1068,7 +1086,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 사무실 책상 팝업 — 두 책상이 같이 쓴다. **A책상 `고용 | 배치 | 스탯`**(스탯 = `upgradeTab` · `UpgradePanel`), **B책상 `설비 | 트럭 | 모듈`** (GDD 4.3, M16-2 2026-11-18). 열려 있는 동안 게임이 멈춘다. 고용 탭(`HirePanel`)은 고용해도 열린 채다.
 - **모양** (2026-11-19, UI 샘플 `ClipboardScene` 방식): `Panel` = 나무 판 + 위 가운데 `MetalClip`, 그 안 `PaperStack` = `PaperBack2` · `PaperBack1`(살짝 기움) · `TabsBehind` · `PaperFront`(페이지 6개 · `SheetTitle` · `SheetDesc` · 구분선) · `TabsFront`. 탭은 오른쪽 가장자리 인덱스 탭(왼쪽 12가 종이 밑, 탭마다 색 = 씬에 칠한 색). 둥근 모서리 = `UISprite` Sliced의 `pixelsPerUnitMultiplier`(판 0.15 · 종이 0.22 · 탭 0.5, 작을수록 둥긂). 스탯 · 트럭 페이지는 줄마다 테두리 칸 `RowNBox`. 씬에서 MCP로 만듦 (빌더 코드에 없음).
 - **동작**: `Open(deskB)` → `modulePage.Begin()`(지금 배치를 미니맵에) → 그 책상 탭 3개만 켜고 위에서부터 세 자리(`tabY` = 처음 고용 · 배치 · 스탯 자리, `Awake`에 저장)에 놓음 → 고용 / 설비 탭 → `GameManager.OpenPopup`. `SelectTab(Tab, instant)`이 페이지를 켜고 끄고 제목 · 설명을 바꾼다. 선택 탭은 `tabsFront`로 옮겨 앞으로 나오며 1.03배 · 밝게, 나머지는 `tabsBehind`에서 7 들어가 0.97배 · 어둡게(0.84). 탭을 바꾸면 새 페이지가 아래 16에서 떠오르며 페이드(`CanvasGroup`, 없으면 붙임), 앞 종이 셔플(들림 → 흔들림 → OutBack 착지) · 뒤 종이 흔들림, 제목 튐. 이미 선택된 탭을 누르면 탭만 튐. 셔플 동안(0.42초)은 앞 종이 안의 `RectMask2D`(명부 목록)를 끄고 끝나면 켠다 — RectMask2D는 회전을 지원하지 않아 종이가 기운 동안 가장자리가 잘리기 때문 (2026-11-26, 가로 · 세로 공통, 연달아 바꾸면 앞 마스크부터 되살림). 설비 · 트럭 페이지는 지금 '준비 중' 글자만 (M16-3 · M16-4, 씬에서 MCP로 만듦 — `FacilityTab` · `TruckTab` = `ModuleTab` 복제). 도장 · 안내 글자 묶음(`stampArea`)은 고용 탭에서만 보인다. `Close` → `modulePage.Apply()`(모듈 재배치 적용) → 닫힘 연출이 끝나면 `ClosePopup`. 트윈은 `SetUpdate(true)`.
-- **세로 배치** (2026-11-26, [UI/ContractPopup.Portrait.cs](../Scripts/UI/ContractPopup.Portrait.cs) partial, UI 시안 `office_clipboard_ui_mobile`): 씬 배치 = 가로. `Awake`의 `CaptureLandscape()`가 `body` 아래 RectTransform 전부 · TMP 글자 크기(자동 크기 포함) · 버튼 Image `pixelsPerUnitMultiplier` · 명부 `GridLayoutGroup` 칸 크기 · 열 수를 저장. 화면 방향 플래그(`Screen.height > Screen.width`)가 지금 배치와 다르면 `Open` 때(`body`를 켜기 전) · 열린 채 회전하면 `Update`에서 `SetLayout(portrait)` = 저장값으로 되돌린 뒤 세로면 `ApplyPortrait()`. 세로: 판 좌우 24, 높이 = (화면 − 위 280 − 아래 110) × 0.8 위아래 가운데, 종이 더미는 판 좌우 · 아래 가장자리 34 안(위는 집게 자리 52)까지라 판과 길이가 거의 같다, 종이 안쪽 여백 = 좌우 56(`ContentInset`: 제목 · 구분선 · 고용 머리 줄 · 카드 · 받침 · 행 · 명부 · 모듈이 같은 선) · 위 +12(`ContentDrop`), 탭은 가로 탭을 -90° 돌려 짧고 굵게(길이 130, 시안 하단 탭) 아래 가로 줄 — 보이는 탭 수로 종이 아래 너비를 나눠 채움(사이 12), 이미지는 세로에서만 Sliced(`Index` 스프라이트 테두리 L80 · B55 · R60 · T55, `pixelsPerUnitMultiplier` 1.4)라 늘려도 모서리 · 띠가 안 깨짐(가로로 돌아가면 Simple · 0.5로 복원). 탭 길이 · 사이 · 9슬라이스 배율 · 종이 밑 길이는 인스펙터 `세로 배치 · 인덱스 탭`(`tabLength` · `tabGap` · `tabRound` · `portraitTabTuck`), Play 중 바꾸면 `OnValidate`가 열린 팝업에 바로 반영 — 띠 쪽 윗변 20이 종이 밑, 아래는 판 밖으로 나옴, 안 고른 탭 +7, 글자는 +90°로 세워 자동 크기 22~36, 글자 28 이하는 1.2배 · 버튼 모서리 0.45, 고용 = `Candidates` 가로 레이아웃 끄고 가로로 긴 카드(너비 − 100, 높이 262~300) 세로 쌓기 — 받침 위까지 안 들어가면 카드 묶음을 줄임, 카드 아래쪽 **도장 받침**(`StampTray` 높이 240, 아래 = 종이 가장자리 + `portraitTabTuck` + 7 + 18이라 탭 윗변과 닿지 않음, 세로에서 처음 쓸 때 `stampArea` 맨 뒤에 만듦: 둥근 받침 + 제목 `고용 승인 도장` + 원래 `Hint`를 설명으로 + 오른쪽 둥근 칸 `Slot` 204(Outline) 위에 도장 168), 스탯 · 트럭 · 설비 = 칸 왼쪽 위 이름 · 왼쪽 아래 값(한 줄 자동 크기) | 오른쪽 구매, 명부 = 칸 한 열, 모듈 = 1500×900 그대로 축소(피벗을 위 바깥에 둬 `SelectTab`이 위치를 0으로 돌려도 종이 머리 아래). 가로로 돌아가면 받침은 끄고 `Hint` 정렬 · 색을 되돌린다. 세로에서는 탭을 바꿀 때 `stampArea`(받침 · 도장)도 앞 종이와 같은 셔플(`Shuffle`: 들림 → 흔들림 → OutBack 착지)로 흔들린다. 값은 모두 `임시`. 회전 중이면 현재 페이지를 껐다 켜 설비 줄을 새 배치로 다시 만든다.
+- **세로 배치** (2026-11-26, [UI/ContractPopup.Portrait.cs](../Scripts/UI/ContractPopup.Portrait.cs) partial, UI 시안 `office_clipboard_ui_mobile`): 씬 배치 = 가로. `Awake`의 `CaptureLandscape()`가 `body` 아래 RectTransform 전부 · TMP 글자 크기(자동 크기 포함) · 버튼 Image `pixelsPerUnitMultiplier` · 명부 `GridLayoutGroup` 칸 크기 · 열 수를 저장. 화면 방향 플래그(`ScreenLayout.Portrait`, M21-1)가 지금 배치와 다르면 `Open` 때(`body`를 켜기 전) · 열린 채 회전하면 `LateUpdate`에서(HUD CanvasScaler가 새 크기를 잡은 뒤) `SetLayout(portrait)` = 저장값으로 되돌린 뒤 세로면 `ApplyPortrait()`. 세로: 판 좌우 24, 높이 = (화면 − 위 280 − 아래 110) × 0.8 위아래 가운데, 종이 더미는 판 좌우 · 아래 가장자리 34 안(위는 집게 자리 52)까지라 판과 길이가 거의 같다, 종이 안쪽 여백 = 좌우 56(`ContentInset`: 제목 · 구분선 · 고용 머리 줄 · 카드 · 받침 · 행 · 명부 · 모듈이 같은 선) · 위 +12(`ContentDrop`), 탭은 가로 탭을 -90° 돌려 짧고 굵게(길이 130, 시안 하단 탭) 아래 가로 줄 — 보이는 탭 수로 종이 아래 너비를 나눠 채움(사이 12), 이미지는 세로에서만 Sliced(`Index` 스프라이트 테두리 L80 · B55 · R60 · T55, `pixelsPerUnitMultiplier` 1.4)라 늘려도 모서리 · 띠가 안 깨짐(가로로 돌아가면 Simple · 0.5로 복원). 탭 길이 · 사이 · 9슬라이스 배율 · 종이 밑 길이는 인스펙터 `세로 배치 · 인덱스 탭`(`tabLength` · `tabGap` · `tabRound` · `portraitTabTuck`), Play 중 바꾸면 `OnValidate`가 열린 팝업에 바로 반영 — 띠 쪽 윗변 20이 종이 밑, 아래는 판 밖으로 나옴, 안 고른 탭 +7, 글자는 +90°로 세워 자동 크기 22~36, 글자 28 이하는 1.2배 · 버튼 모서리 0.45, 고용 = `Candidates` 가로 레이아웃 끄고 가로로 긴 카드(너비 − 100, 높이 262~300) 세로 쌓기 — 받침 위까지 안 들어가면 카드 묶음을 줄임, 카드 아래쪽 **도장 받침**(`StampTray` 높이 240, 아래 = 종이 가장자리 + `portraitTabTuck` + 7 + 18이라 탭 윗변과 닿지 않음, 세로에서 처음 쓸 때 `stampArea` 맨 뒤에 만듦: 둥근 받침 + 제목 `고용 승인 도장` + 원래 `Hint`를 설명으로 + 오른쪽 둥근 칸 `Slot` 204(Outline) 위에 도장 168), 스탯 · 트럭 · 설비 = 칸 왼쪽 위 이름 · 왼쪽 아래 값(한 줄 자동 크기) | 오른쪽 구매, 명부 = 칸 한 열, 모듈 = 1500×900 그대로 축소(피벗을 위 바깥에 둬 `SelectTab`이 위치를 0으로 돌려도 종이 머리 아래). 가로로 돌아가면 받침은 끄고 `Hint` 정렬 · 색을 되돌린다. 세로에서는 탭을 바꿀 때 `stampArea`(받침 · 도장)도 앞 종이와 같은 셔플(`Shuffle`: 들림 → 흔들림 → OutBack 착지)로 흔들린다. 값은 모두 `임시`. 회전 중이면 현재 페이지를 껐다 켜 설비 줄을 새 배치로 다시 만든다.
 - **주의**: 루트 오브젝트는 항상 켜 두고 자식 `body`만 켜고 끈다 (꺼져 있으면 `Instance`가 등록되지 않음). 세로 배치는 자식을 이름(`Header` · `Candidates` · `Row0Box` · `RowTemplate` · `List/Content` · `BoardShadow` 등)으로 찾으므로 이름을 바꾸면 그 칸은 가로 값 그대로 남는다. Build Site가 UI를 통째로 다시 만든다 — 빌더 코드에는 설비 · 트럭 탭이 없어서 다시 만들면 빠진다 (shortcut: Build Site 금지 중이라 빌더는 안 고침).
 
 #### StampCard (추상)
@@ -1085,7 +1103,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### HireCard
 [UI/HireCard.cs](../Scripts/UI/HireCard.cs)
-- **역할**: 후보 이력서 1줄 (`StampCard`, 모양 = UI 샘플 `ClipboardScene` 이력서 2026-11-19): 왼쪽 직무 색 둥근 `avatar` + 직무 첫 글자(`avatarLabel`, 지게차는 그 안에 `roleIcon`) · 제목 `후보 N · 직무` · 상태(`statusLabel` 도장 대기중 / 재화 부족 / 채용 확정), 가운데 이동 속도 · 적재량 글자 + 게이지(`speedBar` · `carryBar`, 값/`StatMax`, 반품 · 지게차 적재는 `N개 고정` · 게이지 가득), 오른쪽 고용금(모자라면 빨강 + 바탕 `shortTint` 회색) · 시급. 고용되면 `[ 고용 ]` 자국 + 회색 필터. 세로 카드(338 × 600) 3장이 `Candidates`의 가로 레이아웃으로 나란히, 오른쪽은 도장 자리.
+- **역할**: 후보 이력서 1줄 (`StampCard`, 모양 = UI 샘플 `ClipboardScene` 이력서 2026-11-19): 왼쪽 직무 색 둥근 `avatar` + 직무 첫 글자(`avatarLabel`, 지게차는 그 안에 `roleIcon`) · 제목 `후보 N · 직무` · 상태(`statusLabel` 도장 대기중 / 재화 부족 / 채용 확정), 가운데 이동 속도 · 적재량 글자 + 게이지(`speedBar` · `carryBar`, 값/`StatMax`, 반품 · 지게차 적재는 `N개 고정` · 게이지 가득), 오른쪽 고용금(모자라면 빨강 + 바탕 `shortTint` 회색) · 시급. 고용되면 `[ 고용 ]` 자국 + 회색 필터. 세로 카드(338 × 600) 3장이 `Candidates`의 가로 레이아웃으로 나란히, 오른쪽은 도장 자리. 스탯 아이콘 (2026-11-26): `Speed` · `Carry` 글자의 자식 `Icon`(Resources `MoveSpeed` · `Stack`, 42, 글자 왼쪽 8 바깥 · 글자와 게이지 사이 높이) — 글자 · 게이지는 그만큼 오른쪽(가로 폭 242, 세로는 `LayoutCard`가 칸 폭 − 50).
 - **동작**: `Bind(번호, 후보, rules, canAfford)` — 같은 후보가 방금 고용됐으면 찍는 연출을 끊지 않는다. `TryStamp()` → 부모 `HirePanel.TryHire(this)`. 사유: 이미 고용함 / 최대 인원 / 보유 재화 부족.
 
 #### Stamp
@@ -1103,7 +1121,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### RosterCard
 [UI/RosterCard.cs](../Scripts/UI/RosterCard.cs)
-- **역할**: 명부 탭 알바 한 줄 (668 × 96): 직무 색 막대 · `알바 N`(미지급이면 붉은 `₩N 밀림`) · 이동 속도 · 적재 글자 + 게이지 · 시급 · [해고](`fireButton` → 부모 `RosterPanel.AskFire`).
+- **역할**: 명부 탭 알바 한 칸 (가로 645 × 180 = 직군 칸 안쪽 1306을 두 장이 채움, Grid `cellSize` · 가운데 정렬 `UpperCenter`, 2026-11-26. 세로는 `LayoutRoster`가 폭만 목록 폭으로): 윗줄 직무 색 막대 · `알바 N`(미지급이면 붉은 `₩N 밀림`) · 시급 · [해고](`fireButton` → 부모 `RosterPanel.AskFire`), 아래 두 줄 = 아이콘(`SpeedIcon` · `CarryIcon`, Resources `MoveSpeed` · `Stack`) + 이동 속도 · 적재 글자 + 게이지.
+- **주의**: [해고]는 오른쪽 끝 폭 110 · 위아래 여백 14로 카드 세로를 채움(글자 32), 시급은 그 왼쪽. 글자 · 게이지는 왼쪽 84 ~ 오른쪽 136 앞까지 가로로 늘어나고 [해고] · 시급은 오른쪽 끝 기준이라, 세로 배치(`LayoutRoster`가 칸 폭을 목록 폭으로)에서도 코드 없이 폭을 채운다.
 
 #### RosterColumn
 [UI/RosterColumn.cs](../Scripts/UI/RosterColumn.cs)
