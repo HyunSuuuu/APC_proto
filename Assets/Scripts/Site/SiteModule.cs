@@ -21,8 +21,6 @@ namespace APC.Site
         public float CellSize => cellSize;
         public ModuleKind Kind => kind;
 
-        void Awake() => gameObject.AddComponent<Visuals.StaticShadows>(); // 메인 라이트 그림자 대신 고정 물체 그림자 판 (2026-11-27)
-
         /// <summary>에디터 생성용.</summary>
         public void Configure(Vector2Int moduleSize, float moduleCellSize, ModuleKind moduleKind = ModuleKind.Fixed)
         {

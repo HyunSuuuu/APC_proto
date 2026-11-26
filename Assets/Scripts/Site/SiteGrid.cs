@@ -53,6 +53,7 @@ namespace APC.Site
             }
             Instance = this;
             layout = GameManager.Instance.Database.Site;
+            gameObject.AddComponent<Visuals.BakedShadows>(); // 메인 라이트 그림자 대신 부지가 바뀔 때만 굽는 그림자 (2026-11-27)
 
             foreach (var entry in entries)
             {

@@ -833,7 +833,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### SiteModule
 [Site/SiteModule.cs](../Scripts/Site/SiteModule.cs)
-- **역할**: 모듈 프리팹의 루트. 크기(칸 수, 회전 0° 기준)와 칸 크기를 가지고, Scene 뷰에 칸 경계를 그린다. 실행 중 `Awake`에서 `Visuals.StaticShadows`를 붙인다 (2026-11-27).
+- **역할**: 모듈 프리팹의 루트. 크기(칸 수, 회전 0° 기준)와 칸 크기를 가지고, Scene 뷰에 칸 경계를 그린다.
 - **구조**: `Module_이름` (SiteModule) → `Floor`(걷는 바닥, 충돌 있음) + `Content`(존 · 시설을 넣는 곳). 루트 위치 = 차지하는 칸들의 중심.
 - **`Kind`** (GDD 4.4): `Fixed`(사무실 · 쓰레기장 · 하차 · 상차) / `Empty`(빈 공간 `Module_Empty`) / `Movable`(보관 `Module_ShelfArea_A~D` · 반품 `Module_Returns`). M12-2 재배치가 쓴다. `StandardModules.Builders`가 정한다.
 
@@ -1174,13 +1174,13 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 캐릭터 발밑 원형 그림자. 메인 라이트 그림자(Mobile · PC 렌더 에셋 모두 끔)를 대신한다.
 - **동작**: 정적 `Attach(대상, 지름)` — 자식 `BlobShadow` 쿼드(내장 Quad, 바닥에 눕힘, 발 위 0.14m — 바닥 타일 윗면 0.117 위)를 만들거나 지름만 바꾼다. 셰이더는 곱하기 합성 + UV 가운데에서 멀수록 옅게(텍스처 없음), SRP Batcher.
 - **연결**: `PlayerSetup.Start`(1.1m), `StaffWorker.SetRole`(1.1m, 지게차 2.4m).
-- **주의**: 그림자 하나 = 드로 하나. GPU 인스턴싱(`Graphics.RenderMeshInstanced` · 재질 인스턴싱)으로는 이 프로젝트에서 그려지지 않아 뺐다(원인 미확인). 트럭(움직임)은 그림자가 없다. 셰이더 `_Rect` 1이면 사각 판(`StaticShadows`).
+- **주의**: 그림자 하나 = 드로 하나. GPU 인스턴싱(`Graphics.RenderMeshInstanced` · 재질 인스턴싱)으로는 이 프로젝트에서 그려지지 않아 뺐다(원인 미확인). 트럭(움직임)은 그림자가 없다. 정적 물체는 `BakedShadows`.
 
-#### StaticShadows (2026-11-27)
-[Visuals/StaticShadows.cs](../Scripts/Visuals/StaticShadows.cs) · 재질 `Resources/M_StaticShadow`(`APC/BlobShadow`, `_Rect` 1, 색 0.62)
-- **역할**: 고정 물체 그림자 판. 메인 라이트 그림자를 끈 뒤 선반 · 소품 · 기둥 아래가 비어 보여서 넣음. 모듈은 실행 중에 생기고 재배치로 움직이므로 라이트맵 대신 이 방식.
-- **동작**: `SiteModule.Awake`가 붙인다. 켜지고 2초 뒤(팝 연출 뒤) 한 번 — 그림자를 드리우던(`shadowCastingMode` ≠ Off) 켜진 `MeshRenderer` 중 높이 0.25m 이상인 것마다 바닥(모듈 y + 0.13)에 사각 판(바운드 + 빛 방향으로 높이 × 0.35, 최대 1.2m 밀림)을 깔고 모듈당 메시 하나(자식 `StaticShadows`)로 합친다 = 모듈당 드로 1. 빛 방향 = `RenderSettings.sun` 또는 첫 방향광.
-- **주의**: 2초 뒤에 생긴 것(나중에 놓인 상자 등)과 모듈 밖(부지 벽 `SiteWalls` · 시작 연출 물체)은 판이 없다. 판이 겹치면 더 진해진다.
+#### BakedShadows (2026-11-27)
+[Visuals/BakedShadows.cs](../Scripts/Visuals/BakedShadows.cs) · 셰이더 `Shaders/BakedShadow.shader`(`APC/BakedShadow`) · 재질 `Resources/M_BakedShadow`
+- **역할**: 구운 그림자. 메인 라이트 그림자를 끈 대신 정적 물체(벽 · 기둥 · 선반 · 소품)의 실제 그림자를 **부지가 바뀔 때만** 한 번 찍어 바닥에 깐다 — 프레임마다 계산하지 않음.
+- **동작**: `SiteGrid.Awake`가 붙인다. 시작 · `SiteGrid.OnUnlocked` · `OnMoved` · 레벨 변경(공사 울타리) 2초 뒤(팝 연출 뒤, 시간 멈춤이어도 `unscaledTime`) `Bake`: 그림자를 드리우던(`shadowCastingMode` ≠ Off) 켜진 `MeshRenderer` 중 높이 0.15m 이상만 남기고 나머지는 잠깐 `forceRenderingOff` → 방향광 회전의 직교 카메라(꺼진 채, `Camera.Render` 한 번, 그림자 · 후처리 · MSAA 끔, 벽 구멍 끔)가 물체 + 그림자가 닿는 바닥 범위를 0.06m/칸(최대 2048)으로 찍어 알파 = 실루엣 마스크 → 전역 `_BakedShadowMask` · `_BakedShadowVP`. 바닥 높이(0.13m) 판 `BakedShadowOverlay` 하나가 자기 위치를 그 행렬로 투영해 마스크(5점 평균) 만큼 곱하기로 어둡게(색 0.62). `LastBakeMs` 측정용.
+- **주의**: 그림자는 바닥(판 높이)에만 생기고 물체 옆면 · 윗면에는 없다. 캐릭터(스킨) · 상자 · 트럭(그림자 끔) · 바닥 타일 · 발판은 안 찍힌다. 마스크 RenderTexture 최대 2048² ARGB32(약 16MB). 에디터 TycoonTest: 첫 굽기 489ms(셰이더 준비 포함) · 다시 굽기 3.5ms, Game 씬 2.5ms. 부지 신호 없이 물체를 새로 놓는 코드를 추가하면 `Schedule()`을 부른다.
 
 #### CharacterToon
 [Visuals/CharacterToon.cs](../Scripts/Visuals/CharacterToon.cs)

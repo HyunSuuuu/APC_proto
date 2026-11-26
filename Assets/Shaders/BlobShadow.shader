@@ -5,7 +5,6 @@ Shader "APC/BlobShadow"
     Properties
     {
         _Color ("Shadow", Color) = (0.45, 0.45, 0.5, 1)
-        [Toggle] _Rect ("Rect (고정 물체 판)", Float) = 0
     }
     SubShader
     {
@@ -27,7 +26,6 @@ Shader "APC/BlobShadow"
 
             CBUFFER_START(UnityPerMaterial)
                 half4 _Color;
-                half _Rect;
             CBUFFER_END
 
             Varyings vert(Attributes input)
@@ -40,9 +38,8 @@ Shader "APC/BlobShadow"
 
             half4 frag(Varyings input) : SV_Target
             {
-                half2 p = abs(input.uv - 0.5h) * 2.0h;
-                half d = _Rect > 0.5h ? max(p.x, p.y) : length(p); // 사각(StaticShadows) · 원(BlobShadow)
-                half a = smoothstep(1.0h, _Rect > 0.5h ? 0.45h : 0.2h, d); // 가장자리 부드럽게
+                half d = length(input.uv - 0.5h) * 2.0h;
+                half a = smoothstep(1.0h, 0.2h, d); // 가장자리 부드럽게
                 return half4(lerp(half3(1, 1, 1), _Color.rgb, a), 1);
             }
             ENDHLSL

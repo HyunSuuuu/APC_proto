@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: M_StaticShadow
-  m_Shader: {fileID: 4800000, guid: da8500a9c60f4e7e9eed0609e97d334f, type: 3}
+  m_Name: M_BakedShadow
+  m_Shader: {fileID: 4800000, guid: 8c603fc640ea496086e8a176caff877f, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -24,8 +24,7 @@ Material:
     serializedVersion: 3
     m_TexEnvs: []
     m_Ints: []
-    m_Floats:
-    - _Rect: 1
+    m_Floats: []
     m_Colors:
     - _Color: {r: 0.62, g: 0.62, b: 0.68, a: 1}
   m_BuildTextureStacks: []
