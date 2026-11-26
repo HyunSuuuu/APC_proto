@@ -138,6 +138,7 @@ namespace APC.Staff
             budgetUsed = 0;
             thinksThisFrame = maxThinksPerFrame = 0;
             ThinkScale = 1f;
+            zoneListVersion = -1;
         }
 
         // 성능 측정용 (PerformanceHUD가 읽는다): 길 요청 수 · 길 없음 수 — A* 전환 비교 기준 (2026-11-23)
@@ -490,9 +491,12 @@ namespace APC.Staff
             var bestScore = float.MaxValue;
             var from = transform.position;
 
-            foreach (var candidate in InteractionZone.Active)
+            RefreshZoneLists();
+            var candidates = drop ? DropZones : RoleZones[(int)Role];
+            for (var i = 0; i < candidates.Count; i++)
             {
-                if (candidate is not CargoZone cargoZone || cargoZone.Slots.Length == 0 || !IsSettled(cargoZone)) continue;
+                var cargoZone = candidates[i];
+                if (!IsSettled(cargoZone)) continue;
                 var ok = drop ? cargoZone.CanReceiveAny(interactor) : IsRoleZone(cargoZone) && HasWork(cargoZone);
                 if (!ok) continue;
 
@@ -503,6 +507,39 @@ namespace APC.Staff
             }
             return bestZone != null;
         }
+
+        // 직무별로 볼 존을 미리 나눠 둔다 (2026-11-27). 판단마다 존 전체(TycoonTest 약 190개)를 돌며 직무와 상관없는 존까지 확인하던 것.
+        // 종류(타입 · 보관 종류)만으로 나누고, 지금 상태에 따른 조건(반품 focus · 랙 품목)은 IsRoleZone이 그대로 본다
+        static readonly List<CargoZone> DropZones = new();
+        static readonly List<CargoZone>[] RoleZones = { new(), new(), new(), new(), new() }; // StaffRole 순서
+        static int zoneListVersion = -1;
+
+        static void RefreshZoneLists()
+        {
+            if (zoneListVersion == InteractionZone.ListVersion) return;
+            zoneListVersion = InteractionZone.ListVersion;
+            DropZones.Clear();
+            foreach (var list in RoleZones) list.Clear();
+            var all = InteractionZone.Active;
+            for (var i = 0; i < all.Count; i++)
+            {
+                if (all[i] is not CargoZone zone || zone.Slots.Length == 0) continue;
+                DropZones.Add(zone);
+                for (var role = 0; role < RoleZones.Length; role++)
+                    if (CouldBeRoleZone((StaffRole)role, zone)) RoleZones[role].Add(zone);
+            }
+        }
+
+        /// <summary>IsRoleZone의 종류 부분 (상태와 무관). IsRoleZone을 바꾸면 같이 바꾼다.</summary>
+        static bool CouldBeRoleZone(StaffRole role, CargoZone zone) => role switch
+        {
+            StaffRole.Unload => zone is TruckPickupZone || (zone is StorageZone unload && unload.Storage.Kind == StorageKind.Pallet),
+            StaffRole.Sort => zone is StorageZone storage && storage.Storage.Kind is StorageKind.Scan or StorageKind.Repacked,
+            StaffRole.Pick => zone is ShelfZone,
+            StaffRole.Forklift => zone is TruckPickupZone || zone is ShelfZone,
+            StaffRole.Returns => zone is StorageZone returns && returns.Storage.Kind is StorageKind.Returns or StorageKind.Trash,
+            _ => false,
+        };
 
         static float NearestSlotDistance(InteractionZone target, Vector3 from)
         {

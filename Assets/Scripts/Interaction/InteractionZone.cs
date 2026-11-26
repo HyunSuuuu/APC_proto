@@ -46,6 +46,9 @@ namespace APC.Interaction
         static readonly List<Rect> Rects = new();
         static int rectsFrame = -1;
 
+        /// <summary>존이 켜지거나 꺼질 때마다 +1 (목록을 미리 나눠 두는 쪽이 다시 나눌 때를 안다, 2026-11-27).</summary>
+        public static int ListVersion { get; private set; }
+
         public static InteractionZone FindAt(Vector3 worldPosition)
         {
             if (rectsFrame != Time.frameCount)
@@ -107,6 +110,7 @@ namespace APC.Interaction
         protected virtual void OnEnable()
         {
             All.Add(this);
+            ListVersion++;
             rectsFrame = -1; // 목록이 바뀜 → FindAt 사각형 다시
             SetFloorColor(idleColor);
         }
@@ -114,6 +118,7 @@ namespace APC.Interaction
         protected virtual void OnDisable()
         {
             All.Remove(this);
+            ListVersion++;
             rectsFrame = -1;
             occupants.Clear();
         }
