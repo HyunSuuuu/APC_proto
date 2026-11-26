@@ -396,6 +396,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 조이스틱 입력으로 플레이어(CharacterController)를 움직인다.
 - **동작**: 속도 = 입력 크기 × `PlayerUpgrades.MoveSpeed`(기본 `PlayerConfig.moveSpeed`), 방향은 카메라 Yaw 기준. 이동 전에 `ClampToSite`가 다음 위치가 열린 칸 안인지 확인하고, 막히면 X축 또는 Z축 한쪽으로만 움직여 벽을 따라 미끄러진다. 중력 처리 포함.
 - **든 물건 벽 뚫림 막기** (2026-11-19): 빈손이면 반지름 = 몸(`controller.radius` 0.4). 상자를 들었거나 도구가 켜져 있으면 반지름 = `CarryReach()`(든 상자 · `PlayerSetup.ToolRenderers`의 렌더러 로컬 경계 꼭짓점 중 몸 중심에서 수평으로 가장 먼 거리 — 맨손 3개 0.78 · 구루마 1.52 · 롤테이너 1.32m) + `PlayerConfig.wallClearance`(0.25, 벽 조각이 경계 안쪽으로 들어온 두께). 방향 없는 원이라 벽 앞에서 돌아도 안 뚫린다. 이미 그 안쪽이면(벽 옆에서 집음 · 업그레이드) 0.05m씩 줄여 지금 여유를 찾고 그보다 더 다가가지 못하게만 막는다 (+0.01로 재서 프레임마다 밀려들지 않음).
+- **벽 거리 기반 (2026-11-27)**: 벽은 콜라이더 없이 이 거리 검사로만 막는다(물리 부하 없음). ① 맨손도 반지름 = 몸 0.4 + `wallClearance` 0.25 — 몸이 벽에 파묻히던 것. ② `KeepOffWalls(이동 전 위치)`: `controller.Move` 뒤 이번 프레임 벽 거리(`wallRadius`)를 어기면(이동 전엔 지켰을 때만) 수평 위치를 이동 전으로 되돌린다(CharacterController 껐다 켬) — 벽 근처 소품 BoxCollider(정수기 · 소파 등)에 비비면 CharacterController가 옆으로 밀어 벽을 넘던 것.
 - **주의**: 몸이 이미 칸 밖에 있으면(순간이동 등) 돌아올 수 있게 막지 않는다. 상자가 날아오는 중(점프 연출)에는 아직 몸 가까이에 있어 덜 막는다. 알바(네비메시)는 해당 없음. `MoveAmount` · `IsRunning`은 애니메이션용이다.
 
 #### PlayerSetup
