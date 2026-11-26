@@ -58,7 +58,8 @@ namespace APC.Data
         [SerializeField, Min(0.1f), Tooltip("대기하는 알바끼리 옆으로 벌려 서는 간격 (m) (임시)")] float waitSpacing = 0.6f;
 
         [Header("고용 (계약 PC 고용 탭)")]
-        [SerializeField, Min(1), Tooltip("고용 탭 후보 수. 파트마다 · [새로고침]으로 다시 뽑는다")] int candidateCount = 3;
+        [SerializeField, Min(1), Tooltip("고용 탭 후보 수. 자동 교체 · [새로고침]으로 다시 뽑는다")] int candidateCount = 3;
+        [SerializeField, Min(1f), Tooltip("후보 자동 교체 간격 (초, 임시). 파트와 따로 흐르고 팝업이 열려 있어도 멈추지 않는다 (일시정지에서만 멈춤)")] float candidateRefreshSeconds = 180f;
 
         [Header("비용")]
         [SerializeField, Min(0)] int hireCostPerStat = 15;
@@ -76,6 +77,7 @@ namespace APC.Data
         [SerializeField] Color forkliftColor = new(0.95f, 0.8f, 0.15f);
 
         public int CandidateCount => candidateCount;
+        public float CandidateRefreshSeconds => candidateRefreshSeconds;
         public int StatMin => statMin;
         public int StatMax => statMax;
         public float PickInterval => pickInterval;
