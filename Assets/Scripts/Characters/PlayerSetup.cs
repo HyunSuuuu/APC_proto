@@ -18,6 +18,7 @@ namespace APC.Characters
 
         void Start()
         {
+            Visuals.BlobShadow.Attach(gameObject, 1.1f); // 메인 라이트 그림자 대신 (2026-11-26)
             var config = GameManager.Instance.Database.Player;
             var stack = GetComponent<CarryStack>();
             var handAnchor = stack.Anchor;

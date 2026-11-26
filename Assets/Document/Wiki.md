@@ -1161,6 +1161,13 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **주의**: `SiteWalls` 반투명(`WallFadeConfig.enabled`)과 같이 켜면 같은 재질을 둘이 바꿔 충돌 — 하나만 켠다. 해금 · 레벨업 신호 없이 구조물을 새로 만드는 코드를 추가하면 그 벽에는 구멍이 안 난다 → 그 코드에서도 신호를 내거나 여기 구독을 더한다.
 - **해금 → 사무실 타일 구매 · 직접 배치로 바뀔 때 (예정, 2026-11-20 사용자)**: ① 권장 — 배치 순간 기존 `SiteGrid` 이벤트를 낸다(새 칸 `OnUnlocked`, 옮김 `OnMoved`). `SiteWalls` · `SiteUnlocker`도 같은 이벤트를 구독하므로 WallCutout은 고칠 것 없음. ② 새 이벤트(예: `OnTilePlaced`)를 만들면 `WallCutout.Start`에 `grid.OnTilePlaced.Subscribe(_ => dirty = true).AddTo(this);` 한 줄 추가(+ `SiteWalls` · `SiteUnlocker`에도). 신호는 배치 연출이 끝나 구조물이 **다 생긴 뒤** 낸다 — 벽 찾기는 신호가 온 프레임 끝에 한 번만 돈다. 드래그 미리보기(고스트)는 훑지 않아 구멍이 안 남(의도). 훑는 시간 · 바꾼 렌더러 수를 정적 `LastScanMs` · `MaxScanMs` · `ScanCount` · `TotalScanMs` · `SwappedCount`로 남김 → `PerformanceHUD`가 표시. 예전 0.5초 방식은 실기기 비교(1회 12.7ms, GC의 절반) 뒤 지움.
 
+#### BlobShadow (2026-11-26)
+[Visuals/BlobShadow.cs](../Scripts/Visuals/BlobShadow.cs) · 셰이더 `Shaders/BlobShadow.shader`(`APC/BlobShadow`) · 재질 `Resources/M_BlobShadow`
+- **역할**: 캐릭터 발밑 원형 그림자. 메인 라이트 그림자(Mobile · PC 렌더 에셋 모두 끔)를 대신한다.
+- **동작**: 정적 `Attach(대상, 지름)` — 자식 `BlobShadow` 쿼드(내장 Quad, 바닥에 눕힘, 발 위 0.14m — 바닥 타일 윗면 0.117 위)를 만들거나 지름만 바꾼다. 셰이더는 곱하기 합성 + UV 가운데에서 멀수록 옅게(텍스처 없음), SRP Batcher.
+- **연결**: `PlayerSetup.Start`(1.1m), `StaffWorker.SetRole`(1.1m, 지게차 2.4m).
+- **주의**: 그림자 하나 = 드로 하나. GPU 인스턴싱(`Graphics.RenderMeshInstanced` · 재질 인스턴싱)으로는 이 프로젝트에서 그려지지 않아 뺐다(원인 미확인). 트럭 · 선반 · 소품은 이제 그림자가 없다.
+
 #### CharacterToon
 [Visuals/CharacterToon.cs](../Scripts/Visuals/CharacterToon.cs)
 - **역할**: 캐릭터 툰 + 검정 외곽선. 켜지면 자식 `SkinnedMeshRenderer`(꺼진 코스튬 포함)의 URP Lit 재질을 "원래 재질 사본 + `M_Toon`(`APC/Toon`, `Shaders/Toon/APC_Toon.shader`) 셰이더"로 바꾼다. 외곽선은 같은 셰이더의 Outline 3패스라 슬롯을 붙이지 않는다(2026-11-24부터. 전엔 마지막 슬롯에 `M_Outline`을 붙여 마지막 서브메시에만 선이 생겼고, 지금은 서브메시마다 생김). Lit에 없는 값(그림자 · 외곽선)은 `M_Toon`에서 복사, 사본은 `OutlineOuter` 끔. `outline` 체크를 끄면 외곽선 패스도 끔. 끄면 되돌림. 들고 있는 상자(MeshRenderer)는 건드리지 않음.

@@ -294,6 +294,7 @@ namespace APC.Staff
             if (isForklift && forkliftAnchor != null) stack.UseAnchor(forkliftAnchor);
             if (TryGetComponent<Characters.CharacterAnimator>(out var animator)) animator.UseRiding = isForklift; // riding 애니
             SetColor(rules.GetRoleColor(role));
+            Visuals.BlobShadow.Attach(gameObject, isForklift ? 2.4f : 1.1f); // 메인 라이트 그림자 대신 (2026-11-26)
         }
 
         /// <summary>
