@@ -9,7 +9,7 @@ namespace APC.UI
     /// 책상 팝업 세로 배치 (UI 시안 office_clipboard_ui_mobile, 2026-11-26).
     /// 씬에 놓인 배치 = 가로. 화면 방향 플래그(세로 = 높이 > 너비)가 바뀌면 처음 값으로 되돌린 뒤 세로면 아래 값을 덮어쓴다.
     /// 세로: 위 HUD 아래 판(위아래 여백), 위 집게, 겹친 종이, 아래 가로 인덱스 탭(원래 비율, 윗부분이 종이 밑),
-    /// 고용 = 가로로 긴 이력서 카드 세로 쌓기 + 아래 도장 받침(설명 | 도장 칸), 스탯 · 트럭 · 설비 = 한 줄, 명부 = 한 열, 모듈 = 격자 축소.
+    /// 고용 = 가로로 긴 이력서 카드 세로 쌓기 + 아래 도장 받침(설명 | 도장 칸), 스탯 · 트럭 · 설비 = 한 줄, 명부 = 한 열, 모듈 = ModulePanel.Layout(세로 쌓기).
     /// 작은 글씨는 키우고, 버튼은 더 둥글게. 값은 모두 `임시`.
     /// </summary>
     public sealed partial class ContractPopup
@@ -152,6 +152,7 @@ namespace APC.UI
 
             portrait = toPortrait;
             if (portrait) ApplyPortrait();
+            else LayoutModules();
             if (stamp != null) stamp.SetHome(Rect(stamp).anchoredPosition);
         }
 
@@ -249,7 +250,7 @@ namespace APC.UI
             LayoutRows(truckPage.transform, "Row1", pageWidth);
             LayoutRows(facilityPage.transform.Find("RowTemplate"), "", pageWidth);
             LayoutRoster(pageWidth - PageEdge * 2f);
-            LayoutModules(pageWidth);
+            LayoutModules();
             LayoutStampTray();
         }
 
@@ -362,14 +363,14 @@ namespace APC.UI
             }
         }
 
-        /// <summary>모듈 격자는 가로 배치(1500×900) 그대로 줄여 종이 머리 아래에 맞춘다 (칸 위치는 ModulePanel이 계산).</summary>
-        void LayoutModules(float pageWidth)
+        /// <summary>
+        /// 모듈 탭 배치 (시안 module_placement_ui_mobile, 가로 · 세로 공통 부품) — 판정은 이 팝업의 방향 플래그 portrait.
+        /// 페이지(종이 크기 그대로) 안, 종이 머리 구분선 아래부터. 좌우 = 다른 탭 내용과 같은 선(PageEdge), 아래 = 세로는 종이 밑으로 들어간 탭을 피해(도장 받침과 같은 선).
+        /// </summary>
+        void LayoutModules()
         {
-            var page = (RectTransform)modulePage.transform;
-            var scale = Mathf.Min(1f, (pageWidth - PageEdge * 2f) / 1500f);
-            // 피벗을 위쪽 바깥에 두어 페이지가 (0,0)으로 돌아가도(SelectTab) 윗변이 종이 머리 아래 60에 온다
-            Place(page, TopCenter, Vector2.zero, new Vector2(1500f, 900f), new Vector2(0.5f, 1f + (60f + ContentDrop) / (900f * scale)));
-            page.localScale = Vector3.one * scale;
+            var bottom = portrait ? TrayBottom - (PaperInset - 22f) : 22f + 30f;
+            modulePage.Layout(portrait, paperFront.Find("HeaderLine") as RectTransform, bottom, PageEdge);
         }
 
         /// <summary>

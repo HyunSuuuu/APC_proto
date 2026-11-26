@@ -77,6 +77,15 @@ namespace APC.UI
         [SerializeField, Tooltip("영수증 마스크 최소 폭 — 기울어진 종이가 옆으로 잘리지 않게")] float viewportMinWidth = 1600f;
         [SerializeField, Tooltip("흔들 때 가장자리가 드러나지 않게 배경을 넓히는 여백")] float shakePadding = 80f;
 
+        [Header("영수증 폭 = 배출구 구멍")]
+        [SerializeField, Tooltip("배출구 이미지 (출력기 자식 Lip). 비우면 자동으로 찾음")] Image lip;
+        [SerializeField, Tooltip("배출구 스프라이트에서 검은 틈의 가로 범위 (px, Receipt_1 기준 89 ~ 447)")] Vector2 slotSpriteRange = new(89f, 447f);
+        [SerializeField, Min(0f), Tooltip("영수증 ↔ 틈 양쪽 가장자리 여백 `임시`")] float paperSlotGap = 14f;
+
+        [Header("세로 화면 (임시)")]
+        [SerializeField, Min(0f), Tooltip("세로: 출력기 + 영수증 묶음 ↔ 화면 가장자리 최소 여백")] float portraitMargin = 40f;
+        [SerializeField, Range(0f, 0.3f), Tooltip("세로: 묶음 가운데를 화면 가운데보다 이만큼(화면 높이 비율) 아래로")] float portraitDrop = 0.02f;
+
         Sequence sequence;
         Tween screenShake;
         RectTransform bodyRect;
@@ -105,6 +114,7 @@ namespace APC.UI
             // 어디를 눌러도 [확인] (출력 중이면 건너뛰기): 배경 · 종이 그래픽 · 그 밖은 OnPointerClick
             dim.onClick.AddListener(Confirm);
             foreach (var graphic in paper.GetComponentsInChildren<ReceiptPaperGraphic>(true)) graphic.Clicked += Confirm;
+            FitPaperToSlot();
             printerHome = printer.anchoredPosition;
             paperHome = paper.anchoredPosition;
 
@@ -112,6 +122,8 @@ namespace APC.UI
             if (paper.parent is RectTransform viewport && viewport.sizeDelta.x < viewportMinWidth)
                 viewport.sizeDelta = new Vector2(viewportMinWidth, viewport.sizeDelta.y);
             bodyRect = (RectTransform)body.transform;
+            viewportRect = (RectTransform)paper.parent;
+            landscape = (printer.anchoredPosition, printer.localScale, viewportRect.anchoredPosition, viewportRect.localScale);
             dim.image.rectTransform.offsetMin = -Vector2.one * shakePadding;
             dim.image.rectTransform.offsetMax = Vector2.one * shakePadding;
             body.SetActive(false);
@@ -119,6 +131,85 @@ namespace APC.UI
 
         /// <summary>처리기가 없는 그래픽(출력기 · 글씨 등)을 누르면 여기로 올라온다.</summary>
         public void OnPointerClick(PointerEventData eventData) => Confirm();
+
+        /// <summary>
+        /// 영수증을 배출구 구멍(배출구 스프라이트의 검은 틈)보다 양쪽 paperSlotGap만큼 좁게, 구멍 가운데에 맞춘다 (2026-11-26).
+        /// 구멍 = 스프라이트 px 범위(slotSpriteRange)를 9-slice(왼 · 오른 테두리 고정, 가운데 늘어남)로 화면 폭에 옮긴 것. 영수증 안 줄들은 좌우로 늘어난다.
+        /// </summary>
+        void FitPaperToSlot()
+        {
+            if (lip == null && printer.Find("Lip") is { } found) lip = found.GetComponent<Image>();
+            if (lip == null || lip.sprite == null || slotSpriteRange.y <= slotSpriteRange.x) return;
+            var left = SpriteToLipX(slotSpriteRange.x);
+            var right = SpriteToLipX(slotSpriteRange.y);
+            var viewport = (RectTransform)paper.parent;
+            var a = viewport.InverseTransformPoint(lip.rectTransform.TransformPoint(new Vector3(left, 0f, 0f)));
+            var b = viewport.InverseTransformPoint(lip.rectTransform.TransformPoint(new Vector3(right, 0f, 0f)));
+            paper.sizeDelta = new Vector2(Mathf.Abs(b.x - a.x) - paperSlotGap * 2f, paper.sizeDelta.y);
+            // 마스크 피벗 = 아래 가운데, 영수증 앵커 = 아래 가운데 → 가운데 기준 x
+            paper.anchoredPosition = new Vector2((a.x + b.x) * 0.5f - (0.5f - viewport.pivot.x) * viewport.rect.width, paper.anchoredPosition.y);
+        }
+
+        /// <summary>배출구 스프라이트 px x → 배출구 RectTransform 로컬 x (Sliced: 테두리는 그대로, 가운데만 늘어남).</summary>
+        float SpriteToLipX(float px)
+        {
+            var sprite = lip.sprite;
+            var ppu = lip.pixelsPerUnit; // 스프라이트 PPU ÷ 캔버스 기준 PPU × 배율
+            var width = sprite.rect.width;
+            var (borderL, borderR) = (sprite.border.x, sprite.border.z);
+            var rect = lip.rectTransform.rect;
+            if (lip.type != Image.Type.Sliced) return rect.xMin + px / width * rect.width;
+            if (px <= borderL) return rect.xMin + px / ppu;
+            if (px >= width - borderR) return rect.xMax - (width - px) / ppu;
+            var middle = rect.width - (borderL + borderR) / ppu;
+            return rect.xMin + borderL / ppu + (px - borderL) / (width - borderL - borderR) * middle;
+        }
+
+        RectTransform viewportRect;
+        (Vector2 printerPos, Vector3 printerScale, Vector2 viewportPos, Vector3 viewportScale) landscape; // 씬 배치 = 가로
+        bool? layoutPortrait; // 지금 적용된 배치 (null = 아직)
+
+        /// <summary>
+        /// 화면 방향 플래그(ScreenLayout.Portrait)에 맞춰 출력기 · 영수증 묶음 배치 (2026-11-26). 가로 = 씬 값 그대로.
+        /// 세로 = 묶음(출력기 바닥 ~ 다 나온 영수증 위 끝)을 화면 폭 · 높이에 여백(portraitMargin)만 남기고 최대로 키우고,
+        /// 묶음 가운데를 화면 가운데보다 portraitDrop만큼 아래에 둔다. 출력기 · 영수증 마스크는 둘 다 아래 가운데 기준이라 같은 배율 · 같은 원점으로 옮긴다.
+        /// </summary>
+        void ApplyLayout()
+        {
+            var portrait = ScreenLayout.Portrait;
+            layoutPortrait = portrait;
+            var (printerPos, printerScale, viewportPos, viewportScale) = landscape;
+            if (!portrait)
+            {
+                (printer.localScale, viewportRect.anchoredPosition, viewportRect.localScale) = (printerScale, viewportPos, viewportScale);
+                printerHome = printerPos;
+                return;
+            }
+
+            var screen = bodyRect.rect.size;
+            // 묶음 크기 (가로 배치 기준): 폭 = 출력기 폭, 높이 = 출력기 바닥 ↔ 영수증 마스크 바닥 + 영수증 길이
+            var width = printer.rect.width * printerScale.x;
+            var top = viewportPos.y - printerPos.y + (paper.rect.height + stubMargin) * viewportScale.y;
+            var height = Mathf.Max(top, printer.rect.height * printerScale.y);
+            var k = Mathf.Min((screen.x - portraitMargin * 2f) / width, (screen.y - portraitMargin * 2f) / height);
+            var bottom = Mathf.Clamp(screen.y * (0.5f - portraitDrop) - height * k * 0.5f, portraitMargin, screen.y - portraitMargin - height * k);
+
+            printer.localScale = printerScale * k;
+            printerHome = new Vector2(printerPos.x * k, bottom);
+            viewportRect.localScale = viewportScale * k;
+            viewportRect.anchoredPosition = new Vector2(viewportPos.x * k, bottom + (viewportPos.y - printerPos.y) * k);
+        }
+
+        /// <summary>출력기가 화면 아래로 완전히 숨는 자리 (올라오기 전 · 내려간 뒤).</summary>
+        Vector2 PrinterHidden => new(printerHome.x, -printer.rect.height * printer.localScale.y - 60f);
+
+        void LateUpdate()
+        {
+            // 열린 채 화면이 돌면 다시 배치 (LateUpdate = CanvasScaler가 새 크기를 잡은 뒤)
+            if (!open || layoutPortrait == ScreenLayout.Portrait) return;
+            ApplyLayout();
+            if (!printing) printer.anchoredPosition = printerHome;
+        }
 
         void Update()
         {
@@ -171,7 +262,8 @@ namespace APC.UI
             stamp.gameObject.SetActive(false);
             ResetConfirmButton();
             confirmButton.gameObject.SetActive(true); // 처음부터 보임 — 출력 중 누르면 바로 완료 (M17-2)
-            printer.anchoredPosition = printerHome + Vector2.down * 700f;
+            ApplyLayout();
+            printer.anchoredPosition = PrinterHidden;
             SetPrinting(false);
             statusLabel.text = "";
 
@@ -394,7 +486,7 @@ namespace APC.UI
             sequence = DOTween.Sequence().SetUpdate(true).SetLink(gameObject)
                 .Insert(0f, DOVirtual.Float(0f, tearCurlDegrees, 0.6f, v => tearCurl = v).SetEase(Ease.OutQuad))
                 .Insert(0f, tear.CreateSequence(SlotY(), OnTearStep, OnTearSnap))
-                .Append(printer.DOAnchorPos(printerHome + Vector2.down * 700f, 0.35f).SetEase(Ease.InBack))
+                .Append(printer.DOAnchorPos(PrinterHidden, 0.35f).SetEase(Ease.InBack))
                 .Join(dim.image.DOFade(0f, 0.35f))
                 .OnComplete(() =>
                 {
