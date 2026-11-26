@@ -82,7 +82,9 @@ namespace APC.Visuals
             foreach (var r in FindObjectsByType<Renderer>(FindObjectsSortMode.None))
             {
                 if (!r.enabled || r.forceRenderingOff || !r.gameObject.activeInHierarchy) continue;
-                var caster = r is MeshRenderer && r.shadowCastingMode != ShadowCastingMode.Off && r.bounds.size.y >= MinHeight;
+                // 캐릭터(CarryStack)에 붙은 것 = 도구 · 지게차 · 든 상자는 움직이므로 빼고 블롭 그림자로 (2026-11-27)
+                var caster = r is MeshRenderer && r.shadowCastingMode != ShadowCastingMode.Off && r.bounds.size.y >= MinHeight
+                             && r.GetComponentInParent<Logistics.CarryStack>() == null;
                 if (!caster)
                 {
                     r.forceRenderingOff = true;

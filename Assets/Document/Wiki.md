@@ -1176,14 +1176,14 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Visuals/BlobShadow.cs](../Scripts/Visuals/BlobShadow.cs) · 셰이더 `Shaders/BlobShadow.shader`(`APC/BlobShadow`) · 재질 `Resources/M_BlobShadow`
 - **역할**: 캐릭터 발밑 원형 그림자. 메인 라이트 그림자(Mobile · PC 렌더 에셋 모두 끔)를 대신한다.
 - **동작**: 정적 `Attach(대상, 지름)` — 자식 `BlobShadow` 쿼드(내장 Quad, 바닥에 눕힘, 발 위 0.14m — 바닥 타일 윗면 0.117 위)를 만들거나 지름만 바꾼다. 셰이더는 곱하기 합성 + UV 가운데에서 멀수록 옅게(텍스처 없음), SRP Batcher.
-- **연결**: `PlayerSetup.Start`(1.1m), `StaffWorker.SetRole`(1.1m, 지게차 2.4m).
+- **연결**: `PlayerSetup.Start`(1.1m), `StaffWorker.SetRole`(1.1m, 지게차 2.4m), `PlayerSetup.ToolShadow`(도구 구루마 · 롤테이너 — 플레이어 자식 `ToolShadow`, 도구 발자국 × 1.5 타원, 도구 없으면 끔, 2026-11-27). 겹이름 `Attach(대상, 이름, 가로·세로 지름, 로컬 중심)`. 도구 아래가 아니라 플레이어 자식인 이유: `ToolRenderers`(PlayerMover 벽 거리)에 섞이지 않게.
 - **주의**: 그림자 하나 = 드로 하나. GPU 인스턴싱(`Graphics.RenderMeshInstanced` · 재질 인스턴싱)으로는 이 프로젝트에서 그려지지 않아 뺐다(원인 미확인). 트럭(움직임)은 그림자가 없다. 정적 물체는 `BakedShadows`.
 
 #### BakedShadows (2026-11-27)
 [Visuals/BakedShadows.cs](../Scripts/Visuals/BakedShadows.cs) · 셰이더 `Shaders/BakedShadow.shader`(`APC/BakedShadow`) · 재질 `Resources/M_BakedShadow`
 - **역할**: 구운 그림자. 메인 라이트 그림자를 끈 대신 정적 물체(벽 · 기둥 · 선반 · 소품)의 실제 그림자를 **부지가 바뀔 때만** 한 번 찍어 바닥에 깐다 — 프레임마다 계산하지 않음.
 - **동작**: `SiteGrid.Awake`가 붙인다. 시작 · `SiteGrid.OnUnlocked` · `OnMoved` · 레벨 변경(공사 울타리) 때 **바로** 굽고 2초 동안 0.1초마다 다시(팝 연출 · 차례로 튀어나오는 선반을 따라감, 시간 멈춤이어도 `unscaledTime`. 2026-11-27 — 처음엔 2초 뒤 한 번이라 늦게 생겼다) `Bake`: 그림자를 드리우던(`shadowCastingMode` ≠ Off) 켜진 `MeshRenderer` 중 높이 0.15m 이상만 남기고 나머지는 잠깐 `forceRenderingOff` → 방향광 회전의 직교 카메라(꺼진 채, `Camera.Render` 한 번, 그림자 · 후처리 · MSAA 끔, 벽 구멍 끔)가 물체 + 그림자가 닿는 바닥 범위를 0.06m/칸(최대 2048)으로 찍어 알파 = 실루엣 마스크 → 전역 `_BakedShadowMask` · `_BakedShadowVP`. 바닥 높이(0.13m) 판 `BakedShadowOverlay` 하나가 자기 위치를 그 행렬로 투영해 마스크(5점 평균) 만큼 곱하기로 어둡게(색 0.62). `LastBakeMs` 측정용.
-- **주의**: 그림자는 바닥(판 높이)에만 생기고 물체 옆면 · 윗면에는 없다. 캐릭터(스킨) · 상자 · 트럭(그림자 끔) · 바닥 타일 · 발판은 안 찍힌다. 마스크 RenderTexture 최대 2048² ARGB32(약 16MB). 에디터 TycoonTest: 첫 굽기 489ms(셰이더 준비 포함, 씬 시작 때) · 다시 굽기 3.5ms, Game 씬 2.3~2.5ms. 물체마다 미리 구운 그림자를 프리팹에 넣는 방식은 안 씀 — 모듈이 회전 · 이동하면 그림자 방향이 빛과 어긋나고, 벽은 실행 중에 만들어지며, 옆 물체에 떨어지는 그림자를 담을 수 없다. 부지 신호 없이 물체를 새로 놓는 코드를 추가하면 `Schedule()`을 부른다.
+- **주의**: 그림자는 바닥(판 높이)에만 생기고 물체 옆면 · 윗면에는 없다. 캐릭터(스킨) · 캐릭터에 붙은 것(`CarryStack` 아래 = 도구 · 지게차 · 든 상자, 2026-11-27 — 구운 자리에 그림자가 남던 것, 블롭으로) · 상자 · 트럭(그림자 끔) · 바닥 타일 · 발판은 안 찍힌다. 즉 움직이지 않는 물체만 굽는다. 마스크 RenderTexture 최대 2048² ARGB32(약 16MB). 에디터 TycoonTest: 첫 굽기 489ms(셰이더 준비 포함, 씬 시작 때) · 다시 굽기 3.5ms, Game 씬 2.3~2.5ms. 물체마다 미리 구운 그림자를 프리팹에 넣는 방식은 안 씀 — 모듈이 회전 · 이동하면 그림자 방향이 빛과 어긋나고, 벽은 실행 중에 만들어지며, 옆 물체에 떨어지는 그림자를 담을 수 없다. 부지 신호 없이 물체를 새로 놓는 코드를 추가하면 `Schedule()`을 부른다.
 
 #### CharacterToon
 [Visuals/CharacterToon.cs](../Scripts/Visuals/CharacterToon.cs)

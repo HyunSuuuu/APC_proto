@@ -15,20 +15,25 @@ namespace APC.Visuals
         static Mesh quad;
 
         /// <summary>그림자를 붙이거나(이미 있으면) 지름(m)만 바꾼다.</summary>
-        public static void Attach(GameObject target, float diameter)
+        public static void Attach(GameObject target, float diameter) => Attach(target, ChildName, new Vector2(diameter, diameter), Vector3.zero);
+
+        /// <summary>
+        /// 이름이 다른 그림자를 붙인다 (2026-11-27 — 플레이어 도구 롤테이너 · 구루마). size = 가로(x) · 세로(z) 지름(m) = 타원,
+        /// localCenter = 대상 로컬 위치(x · z만 씀). 이미 있으면 크기 · 위치만 바꾼다.
+        /// </summary>
+        public static Transform Attach(GameObject target, string childName, Vector2 size, Vector3 localCenter)
         {
-            var shadow = target.transform.Find(ChildName);
+            var shadow = target.transform.Find(childName);
             if (shadow == null)
             {
                 if (material == null) material = Resources.Load<Material>("M_BlobShadow");
                 if (quad == null) quad = Resources.GetBuiltinResource<Mesh>("Quad.fbx");
-                if (material == null || quad == null) return;
+                if (material == null || quad == null) return null;
 
-                var go = new GameObject(ChildName);
+                var go = new GameObject(childName);
                 go.layer = target.layer;
                 shadow = go.transform;
                 shadow.SetParent(target.transform, false);
-                shadow.localPosition = new Vector3(0f, Lift, 0f);
                 shadow.localRotation = Quaternion.Euler(90f, 0f, 0f); // 쿼드(XY)를 바닥(XZ)에 눕힘
                 go.AddComponent<MeshFilter>().sharedMesh = quad;
                 var renderer = go.AddComponent<MeshRenderer>();
@@ -36,7 +41,9 @@ namespace APC.Visuals
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
             }
-            shadow.localScale = Vector3.one * diameter;
+            shadow.localPosition = new Vector3(localCenter.x, Lift, localCenter.z);
+            shadow.localScale = new Vector3(size.x, size.y, 1f); // 눕힌 쿼드: 로컬 x = 가로, y = 세로(z)
+            return shadow;
         }
     }
 }
