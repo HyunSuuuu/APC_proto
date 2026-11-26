@@ -1104,7 +1104,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### HireCard
 [UI/HireCard.cs](../Scripts/UI/HireCard.cs)
-- **역할**: 후보 이력서 1줄 (`StampCard`, 모양 = UI 샘플 `ClipboardScene` 이력서 2026-11-19): 왼쪽 직무 색 둥근 `avatar` + 직무 첫 글자(`avatarLabel`, 지게차는 그 안에 `roleIcon`) · 제목 `후보 N · 직무` · 상태(`statusLabel` 도장 대기중 / 재화 부족 / 채용 확정), 가운데 이동 속도 · 적재량 글자 + 게이지(`speedBar` · `carryBar`, 값/`StatMax`, 반품 · 지게차 적재는 `N개 고정` · 게이지 가득), 오른쪽 고용금(모자라면 빨강 + 바탕 `shortTint` 회색) · 시급. 고용되면 `[ 고용 ]` 자국 + 회색 필터. 세로 카드(338 × 600) 3장이 `Candidates`의 가로 레이아웃으로 나란히, 오른쪽은 도장 자리.
+- **역할**: 후보 이력서 1줄 (`StampCard`, 모양 = UI 샘플 `ClipboardScene` 이력서 2026-11-19): 왼쪽 직무 색 둥근 `avatar` + 직무 첫 글자(`avatarLabel`, 지게차는 그 안에 `roleIcon`) · 제목 `후보 N · 직무` · 상태(`statusLabel` 도장 대기중 / 재화 부족 / 채용 확정), 가운데 이동 속도 · 적재량 글자 + 게이지(`speedBar` · `carryBar`, 값/`StatMax`, 반품 · 지게차 적재는 `N개 고정` · 게이지 가득), 오른쪽 고용금(모자라면 빨강 + 바탕 `shortTint` 회색) · 시급. 고용되면 `[ 고용 ]` 자국 + 회색 필터. 세로 카드(338 × 600) 3장이 `Candidates`의 가로 레이아웃으로 나란히, 오른쪽은 도장 자리. 스탯 아이콘 (2026-11-26): `Speed` · `Carry` 글자의 자식 `Icon`(Resources `MoveSpeed` · `Stack`, 42, 글자 왼쪽 8 바깥 · 글자와 게이지 사이 높이) — 글자 · 게이지는 그만큼 오른쪽(가로 폭 242, 세로는 `LayoutCard`가 칸 폭 − 50).
 - **동작**: `Bind(번호, 후보, rules, canAfford)` — 같은 후보가 방금 고용됐으면 찍는 연출을 끊지 않는다. `TryStamp()` → 부모 `HirePanel.TryHire(this)`. 사유: 이미 고용함 / 최대 인원 / 보유 재화 부족.
 
 #### Stamp
@@ -1122,7 +1122,8 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### RosterCard
 [UI/RosterCard.cs](../Scripts/UI/RosterCard.cs)
-- **역할**: 명부 탭 알바 한 줄 (668 × 96): 직무 색 막대 · `알바 N`(미지급이면 붉은 `₩N 밀림`) · 이동 속도 · 적재 글자 + 게이지 · 시급 · [해고](`fireButton` → 부모 `RosterPanel.AskFire`).
+- **역할**: 명부 탭 알바 한 칸 (가로 645 × 180 = 직군 칸 안쪽 1306을 두 장이 채움, Grid `cellSize` · 가운데 정렬 `UpperCenter`, 2026-11-26. 세로는 `LayoutRoster`가 폭만 목록 폭으로): 윗줄 직무 색 막대 · `알바 N`(미지급이면 붉은 `₩N 밀림`) · 시급 · [해고](`fireButton` → 부모 `RosterPanel.AskFire`), 아래 두 줄 = 아이콘(`SpeedIcon` · `CarryIcon`, Resources `MoveSpeed` · `Stack`) + 이동 속도 · 적재 글자 + 게이지.
+- **주의**: [해고]는 오른쪽 끝 폭 110 · 위아래 여백 14로 카드 세로를 채움(글자 32), 시급은 그 왼쪽. 글자 · 게이지는 왼쪽 84 ~ 오른쪽 136 앞까지 가로로 늘어나고 [해고] · 시급은 오른쪽 끝 기준이라, 세로 배치(`LayoutRoster`가 칸 폭을 목록 폭으로)에서도 코드 없이 폭을 채운다.
 
 #### RosterColumn
 [UI/RosterColumn.cs](../Scripts/UI/RosterColumn.cs)
