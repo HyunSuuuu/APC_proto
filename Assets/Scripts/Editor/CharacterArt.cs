@@ -58,7 +58,7 @@ namespace APC.EditorTools
                 var shared = new Material[r.sharedMaterials.Length];
                 for (var i = 0; i < shared.Length; i++) shared[i] = material;
                 r.sharedMaterials = shared;
-                if (r is SkinnedMeshRenderer skinned) skinned.updateWhenOffscreen = true; // 뼈가 움직여도 잘리지 않게
+                if (r is SkinnedMeshRenderer skinned) skinned.updateWhenOffscreen = false; // 화면 밖이면 뼈 · 경계 계산 안 함 (알바 100명, 2026-11-26). 가장자리에서 팔이 잘려 보이면 메시 경계를 키운다
             }
 
             var animator = go.GetComponent<Animator>();

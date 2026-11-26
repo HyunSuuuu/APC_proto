@@ -5,7 +5,6 @@ using APC.Site;
 using APC.Economy;
 using R3;
 using UnityEngine;
-using UnityEngine.AI;
 
 namespace APC.Staff
 {
@@ -192,18 +191,19 @@ namespace APC.Staff
             return Spawn(role, rules.RollStats(), rules.RollCostume());
         }
 
-        /// <summary>사무실 생성 지점(PC 책상 건너편)에 알바 1명을 만든다. 네비메시가 없으면 null.</summary>
+        /// <summary>사무실 생성 지점(PC 책상 건너편)에 알바 1명을 만든다. 근처에 걸을 수 있는 A* 격자 칸이 없으면 null (2026-11-26, 예전 네비메시).</summary>
         public StaffWorker Spawn(StaffRole role, StaffStats stats, bool costume)
         {
             var spawn = StaffSpawnPoint.Current;
             var position = spawn != null ? spawn.transform.position : transform.position;
-            if (!NavMesh.SamplePosition(position, out var hit, 3f, NavMesh.AllAreas))
+            var nav = StaffNav.Ensure();
+            if (nav == null || !nav.TrySnap(position, out var snapped))
             {
-                Debug.LogWarning("[StaffService] 알바를 놓을 네비메시가 없습니다.", this);
+                Debug.LogWarning("[StaffService] 알바를 놓을 바닥(A* 격자)이 없습니다.", this);
                 return null;
             }
 
-            var worker = Instantiate(workerPrefab, hit.position, spawn != null ? spawn.transform.rotation : Quaternion.identity, transform);
+            var worker = Instantiate(workerPrefab, snapped, spawn != null ? spawn.transform.rotation : Quaternion.identity, transform);
             worker.Number = ++hireCount;
             worker.name = $"Staff_{worker.Number}";
             worker.Setup(role, stats, costume);

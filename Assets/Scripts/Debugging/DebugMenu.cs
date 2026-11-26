@@ -248,8 +248,9 @@ namespace APC.Debugging
             GUI.enabled = true;
             // 켜면 위 생성 · 고용 탭 새 후보가 모두 코스튬 (이미 뽑힌 후보는 [새로고침] 후)
             if (GUILayout.Button(StaffRules.ForceCostume ? "[Costume 100%]" : "Costume 100%", buttonStyle)) StaffRules.ForceCostume = !StaffRules.ForceCostume;
-            // 켜면 알바 길찾기 = 방 단위 A* (지금 알바 · 새 알바 모두), 끄면 NavMesh (2026-11-25)
-            if (GUILayout.Button(APC.Staff.StaffNav.UseAStar ? "[Path A*]" : "Path A*", buttonStyle)) APC.Staff.StaffNav.SetUseAStar(!APC.Staff.StaffNav.UseAStar);
+            // 성능 A/B (2026-11-26): 판단 간격 4배 — 실기기에서 알바 비용의 대부분이 일감 찾기임을 확인한 토글 (애니 · 그림자 · 해상도 토글은 효과 없어 지움)
+            var slowThink = APC.Staff.StaffWorker.ThinkScale > 1f;
+            if (GUILayout.Button(slowThink ? "[Think x4]" : "Think x4", buttonStyle)) APC.Staff.StaffWorker.ThinkScale = slowThink ? 1f : 4f;
             // 100명이면 줄마다 문자열 → OnGUI GC가 측정을 흐린다: 앞 12명만
             const int ListMax = 12;
             for (var i = 0; i < staff.Workers.Count && i < ListMax; i++)

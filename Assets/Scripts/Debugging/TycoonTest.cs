@@ -4,7 +4,6 @@ using APC.Data;
 using APC.Economy;
 using APC.Staff;
 using UnityEngine;
-using UnityEngine.AI;
 
 namespace APC.Debugging
 {
@@ -31,8 +30,8 @@ namespace APC.Debugging
             while (level.Level.CurrentValue < targetLevel) level.LevelUpNow();
             GameManager.Instance.Wallet.Add(startCash);
 
-            // 네비메시가 구워질 때까지 (SiteNavMesh)
-            yield return new WaitUntil(() => StaffService.Instance != null && NavMesh.SamplePosition(Vector3.zero, out _, 1000f, NavMesh.AllAreas));
+            // 알바 명단 · 부지가 생길 때까지 — 첫 생성이 A* 격자를 굽는다 (StaffNav.Ensure, 2026-11-26 NavMesh 삭제)
+            yield return new WaitUntil(() => StaffService.Instance != null && Site.SiteGrid.Instance != null);
             var wait = new WaitForSeconds(spawnInterval);
             foreach (var (role, count) in new[] { (StaffRole.Unload, unload), (StaffRole.Sort, sort), (StaffRole.Pick, pick), (StaffRole.Forklift, forklift) })
             {

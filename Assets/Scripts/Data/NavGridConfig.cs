@@ -3,8 +3,7 @@ using UnityEngine;
 namespace APC.Data
 {
     /// <summary>
-    /// 알바 길찾기 격자 (방 단위 2층 A*, 2026-11-24 측정용 · 알파 후보). `Assets/Data/NavGridConfig.asset`.
-    /// 지금은 측정 도구(`NavBenchmarkConfig`)만 쓴다 — 게임에 넣을 때 GameDatabase에 연결한다.
+    /// 알바 길찾기 격자 설정 (GameDatabase.NavGrid, 2026-11-26부터 알바는 A*만). 측정 도구(`NavBenchmarkConfig`)도 쓴다.
     /// </summary>
     [CreateAssetMenu(menuName = "APC/Data/Nav Grid Config", fileName = "NavGridConfig")]
     public sealed class NavGridConfig : ScriptableObject

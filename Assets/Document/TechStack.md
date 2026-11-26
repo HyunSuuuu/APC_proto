@@ -135,7 +135,9 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 - 테이블: 회사·품목, 레벨·해금, 비용, 주문 생성 규칙, 확장 칸, 알바 스탯 생성 규칙, 플레이어, 조작·카메라.
 - 진입점은 `Assets/Data/GameDatabase.asset` 하나. 새 테이블은 여기에 연결한다. (예외: 측정용 `NavGridConfig` · `NavBenchmarkConfig`는 메뉴가 에셋 경로로 읽음, 2026-11-24)
 - **어셈블리 정의는 `APC.Navigation` 하나** (`Assets/Scripts/Navigation/`, 2026-11-24): 길찾기 코어를 게임 코드와 떼어 알파로 옮기기 위함. 이 폴더 코드는 `APC.*` 게임 코드를 참조하지 않는다 (UnityEngine만). 나머지는 그대로 Assembly-CSharp. 테스트 프레임워크 대신 `NavSelfTest.Run()` 자기 검사.
+- Player Settings **Frame Timing Stats 켬** (2026-11-26): 성능 패널이 기기 GPU 시간을 `FrameTimingManager`로 읽는다. 기기 측정 APK는 Development 빌드(GC 할당 수치가 그때만 나옴).
 - 성능 측정은 **Deep Profile을 끄고** 한다 (켜면 C# 코드만 약 100배 느려짐). 메뉴 `APC > Test > Nav Benchmark`는 알아서 끄고 되돌린다.
+- **자주 도는 코드의 GC 규칙** (2026-11-26, 알바 판단 · 매 프레임): ① 목록은 `IReadOnlyList<T>`가 아니라 `List<T>` 그대로 내준다(읽기만, 주석으로 표시) — 인터페이스로 `foreach`하면 열거자가 박싱돼 40B씩 쌓인다. 남의 `IReadOnlyList`는 인덱스로 돈다. ② 바깥 변수를 잡는 람다를 판단마다 만들지 않는다(필드에 값을 두고 switch). ③ 결과용 `Dictionary` · `List`는 호출자가 넘겨 재사용(`Clear` 후 채움). ④ 반복될 수 있는 경고 로그는 `[Conditional("UNITY_EDITOR")]` 함수로 감싼다 — 빌드는 Stack Trace가 `ScriptOnly`라 한 줄마다 스택 수집 + logcat.
 
 ### 5.5 입력
 
@@ -167,7 +169,7 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 | `SiteGrid` (씬) | 붙은 모듈 목록 + 열린 칸 집합. `Unlock(id)` = 모듈을 팝 연출로 붙이고 칸을 엶, `OnUnlocked` 이벤트, `IsAreaWalkable` = 열린 칸 안인지 |
 | `SiteUnlocker` (SiteGrid 오브젝트) | 다음 해금 1곳에 공사장 울타리(`ConstructionFence`, `잠금해제 : LV N`). 레벨이 되면 울타리 옆에 **해금 발판**(`ExpansionPad`, `SiteLayout.cost`)이 나오고 돈을 다 채우면 해금 (레벨 자동 해금은 2026-11-14 삭제) |
 | 하차 · 상차장 모듈 (`Module_Lot*`) | 가장자리용. 주차장은 칸 **바깥 −x**, 회전으로 방향을 정한다 (0 = 서, 90 = 북, 180 = 동, 270 = 남). `_M`은 주차 칸을 반대로 비킨 판 |
-| `SiteNavMesh` (Site 루트, `NavMeshSurface`) | 열린 모듈 바닥 충돌체에만 네비메시를 굽고, 해금마다 다시 굽는다 (임시 Ground는 `NavMeshModifier`로 제외) |
+| `StaffNav` (첫 알바가 만듦) | 알바 길찾기 = 방 단위 A* 격자. 열린 칸 · 충돌체 장애물로 굽고 해금은 그 방만 · 재배치는 전체를 다시 굽는다 (2026-11-26 `SiteNavMesh` 삭제) |
 | `Build Site` (메뉴 `APC > Setup`) | config대로 시작 모듈을 **프리팹 인스턴스로** 씬에 굽는다. 잠긴 칸에는 아무것도 두지 않는다. HUD 자식 UI는 꺼진 채 저장하고 `UiBootstrap`이 켠다 |
 | `New Module` (메뉴 `APC > Module`) | 빈 n × m 모듈 틀(바닥 + `Content`)을 `Assets/Prefabs/Modules`에 만든다 |
 | `Rebuild Standard Modules` | 기본 모듈 프리팹을 코드 기준으로 다시 만든다 (덮어쓰기 — 프리팹에서 고친 내용은 사라짐) |
@@ -196,10 +198,10 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 - 모듈 내용은 씬이 아니라 **프리팹**에서 고친다. 씬의 모듈은 프리팹 인스턴스라 자동으로 반영된다.
 - 같은 모듈을 여러 칸에 재사용한다 (예: 하차 주차장 = R1C0 · E1, 상차 주차장 = 하차 주차장 모양을 180° 돌린 것).
 - 회전해서 붙는 모듈의 바닥 글자는 `FlatLabelAligner`가 카메라 쪽으로 돌려 놓는다.
-- 이동 제한은 물리 벽이 아니라 **칸 판정**(`SiteGrid.IsAreaWalkable`)으로 한다. 플레이어는 `PlayerMover`가 이동 전에 확인하고, 알바(M6)는 열린 모듈 바닥에만 네비메시를 구워 같은 효과를 낸다 (`SiteNavMesh`).
+- 이동 제한은 물리 벽이 아니라 **칸 판정**(`SiteGrid.IsAreaWalkable`)으로 한다. 플레이어는 `PlayerMover`가 이동 전에 확인하고, 알바는 A* 격자가 닫힌 방 칸을 막아 같은 효과를 낸다 (`StaffNav`, 2026-11-26 네비메시 대신).
 - 모듈 바닥(`Floor`)만 충돌체를 가진다. 네비메시가 바닥 충돌체로 구워지므로, 걸을 수 있는 면을 새로 만들면 충돌체를 남기고(`BuildKit.Cube(..., keepCollider: true)`), 장식에는 충돌체를 두지 않는다.
 - 선반 등 시설은 `BoxCollider` + `NavMeshObstacle`(carve)로 알바 경로에서 피한다. 바닥에 구워지지 않게 `NavMeshModifier`(ignoreFromBuild)를 붙인다. 플레이어도 선반 충돌체에 막힌다. 트럭은 장애물로 두지 않는다 (주차 칸이 부지 밖).
-- 알바 프리팹(`StaffWorker`)은 충돌체가 없고 NavMeshAgent 회피를 끈다 (플레이어 · 알바끼리 겹쳐 지나감).
+- 알바 프리팹(`StaffWorker`)은 충돌체 · NavMeshAgent가 없다. A* 이동(`NavCrowd`)은 회피가 없다 (플레이어 · 알바끼리 겹쳐 지나감).
 
 ### 5.7b 셰이더 · 렌더링
 

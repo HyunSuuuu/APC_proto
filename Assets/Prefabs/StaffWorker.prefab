@@ -114,7 +114,7 @@ SkinnedMeshRenderer:
   m_MaskInteraction: 0
   serializedVersion: 2
   m_Quality: 0
-  m_UpdateWhenOffscreen: 1
+  m_UpdateWhenOffscreen: 0
   m_SkinnedMotionVectors: 1
   m_Mesh: {fileID: -5017437812508297076, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
   m_Bones:
@@ -207,7 +207,7 @@ SkinnedMeshRenderer:
   m_MaskInteraction: 0
   serializedVersion: 2
   m_Quality: 0
-  m_UpdateWhenOffscreen: 1
+  m_UpdateWhenOffscreen: 0
   m_SkinnedMotionVectors: 1
   m_Mesh: {fileID: -7594439424760792946, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
   m_Bones:
@@ -494,7 +494,7 @@ SkinnedMeshRenderer:
   m_MaskInteraction: 0
   serializedVersion: 2
   m_Quality: 0
-  m_UpdateWhenOffscreen: 1
+  m_UpdateWhenOffscreen: 0
   m_SkinnedMotionVectors: 1
   m_Mesh: {fileID: -3309282863404026315, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
   m_Bones:
@@ -711,7 +711,7 @@ SkinnedMeshRenderer:
   m_MaskInteraction: 0
   serializedVersion: 2
   m_Quality: 0
-  m_UpdateWhenOffscreen: 1
+  m_UpdateWhenOffscreen: 0
   m_SkinnedMotionVectors: 1
   m_Mesh: {fileID: -199464624306438467, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
   m_Bones:
@@ -1195,7 +1195,7 @@ SkinnedMeshRenderer:
   m_MaskInteraction: 0
   serializedVersion: 2
   m_Quality: 0
-  m_UpdateWhenOffscreen: 1
+  m_UpdateWhenOffscreen: 0
   m_SkinnedMotionVectors: 1
   m_Mesh: {fileID: -5966198621110897880, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
   m_Bones:
@@ -1288,7 +1288,7 @@ SkinnedMeshRenderer:
   m_MaskInteraction: 0
   serializedVersion: 2
   m_Quality: 0
-  m_UpdateWhenOffscreen: 1
+  m_UpdateWhenOffscreen: 0
   m_SkinnedMotionVectors: 1
   m_Mesh: {fileID: 5690975394302024261, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
   m_Bones:
@@ -1581,7 +1581,7 @@ SkinnedMeshRenderer:
   m_MaskInteraction: 0
   serializedVersion: 2
   m_Quality: 0
-  m_UpdateWhenOffscreen: 1
+  m_UpdateWhenOffscreen: 0
   m_SkinnedMotionVectors: 1
   m_Mesh: {fileID: 8454713264063112511, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
   m_Bones:
@@ -1736,7 +1736,7 @@ SkinnedMeshRenderer:
   m_MaskInteraction: 0
   serializedVersion: 2
   m_Quality: 0
-  m_UpdateWhenOffscreen: 1
+  m_UpdateWhenOffscreen: 0
   m_SkinnedMotionVectors: 1
   m_Mesh: {fileID: -7270483802165800092, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
   m_Bones:
@@ -1892,7 +1892,7 @@ SkinnedMeshRenderer:
   m_MaskInteraction: 0
   serializedVersion: 2
   m_Quality: 0
-  m_UpdateWhenOffscreen: 1
+  m_UpdateWhenOffscreen: 0
   m_SkinnedMotionVectors: 1
   m_Mesh: {fileID: 6261824029412509175, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
   m_Bones:
@@ -1985,7 +1985,7 @@ SkinnedMeshRenderer:
   m_MaskInteraction: 0
   serializedVersion: 2
   m_Quality: 0
-  m_UpdateWhenOffscreen: 1
+  m_UpdateWhenOffscreen: 0
   m_SkinnedMotionVectors: 1
   m_Mesh: {fileID: 8201437419870775723, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
   m_Bones:
@@ -2149,7 +2149,7 @@ SkinnedMeshRenderer:
   m_MaskInteraction: 0
   serializedVersion: 2
   m_Quality: 0
-  m_UpdateWhenOffscreen: 1
+  m_UpdateWhenOffscreen: 0
   m_SkinnedMotionVectors: 1
   m_Mesh: {fileID: 6559932801383998556, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
   m_Bones:
@@ -2202,7 +2202,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2497568393200903898}
-  - component: {fileID: 1418430198001538413}
   - component: {fileID: 1259582803014862433}
   - component: {fileID: 3105084869925644494}
   - component: {fileID: 5668760779091188135}
@@ -2237,28 +2236,6 @@ Transform:
   - {fileID: 8642122293041409537}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!195 &1418430198001538413
-NavMeshAgent:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8398413423114849953}
-  m_Enabled: 1
-  m_AgentTypeID: 0
-  m_Radius: 0.3
-  m_Speed: 2.5
-  m_Acceleration: 20
-  avoidancePriority: 50
-  m_AngularSpeed: 720
-  m_StoppingDistance: 0.05
-  m_AutoTraverseOffMeshLink: 1
-  m_AutoBraking: 1
-  m_AutoRepath: 1
-  m_Height: 1.2
-  m_BaseOffset: 0
-  m_WalkableMask: 4294967295
-  m_ObstacleAvoidanceType: 0
 --- !u!114 &1259582803014862433
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2335,7 +2312,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.Visuals.CharacterToon
   toonMaterial: {fileID: 2100000, guid: b14117f3834305e4dbdcaa1605365475, type: 2}
-  outlineMaterial: {fileID: 2100000, guid: 4d61963479b072145b8d720ca1662ca5, type: 2}
+  outline: 1
 --- !u!114 &6605741634301348677
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2431,7 +2408,7 @@ SkinnedMeshRenderer:
   m_MaskInteraction: 0
   serializedVersion: 2
   m_Quality: 0
-  m_UpdateWhenOffscreen: 1
+  m_UpdateWhenOffscreen: 0
   m_SkinnedMotionVectors: 1
   m_Mesh: {fileID: -5978718778493925260, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
   m_Bones:
@@ -2558,7 +2535,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8743955908460740179, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8743955908460740179, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -2606,7 +2583,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -7478057965819248217, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -7478057965819248217, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -2614,7 +2591,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 088bc63fef3d20b4a96698401acb31a1, type: 2}
     - target: {fileID: -6268238552560437597, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -6268238552560437597, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -2622,7 +2599,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 088bc63fef3d20b4a96698401acb31a1, type: 2}
     - target: {fileID: -5264668697266451794, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -5264668697266451794, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -2630,7 +2607,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 088bc63fef3d20b4a96698401acb31a1, type: 2}
     - target: {fileID: -4660163756210440321, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -4660163756210440321, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -2638,7 +2615,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 088bc63fef3d20b4a96698401acb31a1, type: 2}
     - target: {fileID: -2610096740762865246, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -2610096740762865246, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -2650,7 +2627,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2425725778176284691, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2425725778176284691, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -2658,7 +2635,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 088bc63fef3d20b4a96698401acb31a1, type: 2}
     - target: {fileID: 2456845025427972734, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2456845025427972734, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -2666,7 +2643,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 088bc63fef3d20b4a96698401acb31a1, type: 2}
     - target: {fileID: 3445928694836303484, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3445928694836303484, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -2674,7 +2651,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 088bc63fef3d20b4a96698401acb31a1, type: 2}
     - target: {fileID: 4320098735860348617, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4320098735860348617, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -2682,7 +2659,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 088bc63fef3d20b4a96698401acb31a1, type: 2}
     - target: {fileID: 5847641545699572941, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5847641545699572941, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -2694,7 +2671,7 @@ PrefabInstance:
       objectReference: {fileID: 22100000, guid: e511ce0b3e443c74fb010c0360ba3b13, type: 2}
     - target: {fileID: 6677322510034477745, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6677322510034477745, guid: 71623141bb2d9314a90a6ac9ad531998, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -2765,7 +2742,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -3696948924378186077, guid: b6a3fcf59d4572343901a1f545b70acd, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -3696948924378186077, guid: b6a3fcf59d4572343901a1f545b70acd, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -2777,7 +2754,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1109076911123320812, guid: b6a3fcf59d4572343901a1f545b70acd, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1109076911123320812, guid: b6a3fcf59d4572343901a1f545b70acd, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -2785,7 +2762,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 7c2b1a597e2ad9e4f9cb928ff635176f, type: 2}
     - target: {fileID: 1790424977916772818, guid: b6a3fcf59d4572343901a1f545b70acd, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1790424977916772818, guid: b6a3fcf59d4572343901a1f545b70acd, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -2793,7 +2770,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 4ef94109105068348affe5f160518e64, type: 2}
     - target: {fileID: 4320098735860348617, guid: b6a3fcf59d4572343901a1f545b70acd, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4320098735860348617, guid: b6a3fcf59d4572343901a1f545b70acd, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -2805,7 +2782,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000, guid: e24e3748934c9e746aa1f462539271c3, type: 2}
     - target: {fileID: 6677322510034477745, guid: b6a3fcf59d4572343901a1f545b70acd, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6677322510034477745, guid: b6a3fcf59d4572343901a1f545b70acd, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -2813,7 +2790,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 7c2b1a597e2ad9e4f9cb928ff635176f, type: 2}
     - target: {fileID: 6801738708157864337, guid: b6a3fcf59d4572343901a1f545b70acd, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6801738708157864337, guid: b6a3fcf59d4572343901a1f545b70acd, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -3078,7 +3055,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -5264668697266451794, guid: e0f33a6057dd9e3458d47720f3d1b506, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -5264668697266451794, guid: e0f33a6057dd9e3458d47720f3d1b506, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -3086,7 +3063,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: b2cda1f7600aa4f47aa52b413efc12ec, type: 2}
     - target: {fileID: -1206874426333947015, guid: e0f33a6057dd9e3458d47720f3d1b506, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -1206874426333947015, guid: e0f33a6057dd9e3458d47720f3d1b506, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -3094,7 +3071,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: b2cda1f7600aa4f47aa52b413efc12ec, type: 2}
     - target: {fileID: 673623863570565911, guid: e0f33a6057dd9e3458d47720f3d1b506, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 673623863570565911, guid: e0f33a6057dd9e3458d47720f3d1b506, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -3106,7 +3083,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2236237030686087061, guid: e0f33a6057dd9e3458d47720f3d1b506, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2236237030686087061, guid: e0f33a6057dd9e3458d47720f3d1b506, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -3114,7 +3091,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: b2cda1f7600aa4f47aa52b413efc12ec, type: 2}
     - target: {fileID: 4320098735860348617, guid: e0f33a6057dd9e3458d47720f3d1b506, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4320098735860348617, guid: e0f33a6057dd9e3458d47720f3d1b506, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -3126,7 +3103,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000, guid: e24e3748934c9e746aa1f462539271c3, type: 2}
     - target: {fileID: 7566928282359292815, guid: e0f33a6057dd9e3458d47720f3d1b506, type: 3}
       propertyPath: m_UpdateWhenOffscreen
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7566928282359292815, guid: e0f33a6057dd9e3458d47720f3d1b506, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'

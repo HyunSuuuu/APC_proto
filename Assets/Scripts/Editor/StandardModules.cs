@@ -664,7 +664,7 @@ namespace APC.EditorTools
 
         /// <summary>
         /// 알바 (M6): 모델 uniformT(유니폼) · macaron · rabbit · SBS(코스튬) 중 하나(고용 때 정함, `Model` 아래) + 발밑 역할 색 원판 + 머리 위 운반 스택
-        /// + NavMeshAgent(회피 끔 = 겹쳐 지나감) + CharacterAnimator. 충돌체가 없어 플레이어와 부딪히지 않는다.
+        /// + CharacterAnimator (이동 = A* `StaffNav`, 2026-11-26 NavMeshAgent 뺌). 충돌체가 없어 플레이어와 부딪히지 않는다.
         /// </summary>
         public static StaffWorker StaffWorkerPrefab(bool overwrite = false)
         {
@@ -693,14 +693,7 @@ namespace APC.EditorTools
             anchor.SetParent(root.transform, false);
             anchor.localPosition = new Vector3(0f, 0.55f, 0.45f); // 맨손 = 손 바로 위, 큰 머리를 피해 앞으로 (GDD 5.3)
 
-            var agent = root.AddComponent<NavMeshAgent>();
-            agent.radius = 0.3f;
-            agent.height = 1.2f;
-            agent.speed = 2.5f;
-            agent.angularSpeed = 720f;
-            agent.acceleration = 20f;
-            agent.stoppingDistance = 0.05f;
-            agent.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance; // GDD 11.5 — 알바끼리 겹쳐 지나감
+            // 이동은 A* 격자(StaffNav · NavCrowd, 회피 없음 = 겹쳐 지나감 GDD 11.5) — NavMeshAgent 없음 (2026-11-26)
 
             var stack = root.AddComponent<CarryStack>();
             BuildKit.SetRef(stack, "anchor", anchor);

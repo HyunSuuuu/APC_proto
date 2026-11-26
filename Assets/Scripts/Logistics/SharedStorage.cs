@@ -48,11 +48,11 @@ namespace APC.Logistics
         int capacity;
 
         /// <summary>붙어 있는 모든 공용 보관소 (재고 집계용). 모듈 안에 있으므로 스스로 등록한다.</summary>
-        public static IReadOnlyList<SharedStorage> All => Registered;
+        public static List<SharedStorage> All => Registered; // 읽기만 한다 — 구체 타입은 foreach 박싱 방지 (2026-11-26)
 
         public ReadOnlyReactiveProperty<int> Count => count;
         public int Capacity => capacity;
-        public IReadOnlyList<Cargo> Items => pile.Items;
+        public List<Cargo> Items => pile.Items; // 읽기만 한다 — 구체 타입은 foreach 박싱 방지 (2026-11-26)
         public StorageKind Kind => kind;
 
         /// <summary>수량 글자 (떠오르는 알림 글자의 폰트 · 모양 원본으로도 쓴다).</summary>
@@ -235,11 +235,11 @@ namespace APC.Logistics
 
         /// <summary>
         /// 분류 알바 예약용: 지금 집으면 선반에 갈 화물을 품목별로 최대 max개까지 센다 (꺼내지 않음).
-        /// TakeForShelves와 같은 순서(최근 것부터) · 같은 조건.
+        /// TakeForShelves와 같은 순서(최근 것부터) · 같은 조건. 결과는 plan에 비우고 채운다 (알바가 재사용 — 판단마다 new 방지, 2026-11-26). 합계를 돌려준다.
         /// </summary>
-        public Dictionary<ItemDefinition, int> PlanForShelves(int max)
+        public int PlanForShelves(int max, Dictionary<ItemDefinition, int> plan)
         {
-            var plan = new Dictionary<ItemDefinition, int>();
+            plan.Clear();
             var total = 0;
             for (var i = pile.Count - 1; i >= 0 && total < max; i--)
             {
@@ -250,7 +250,7 @@ namespace APC.Logistics
                 plan[item] = taken + 1;
                 total++;
             }
-            return plan;
+            return total;
         }
 
         int FindForShelves()

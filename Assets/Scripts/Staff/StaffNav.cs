@@ -9,15 +9,13 @@ using UnityEngine;
 namespace APC.Staff
 {
     /// <summary>
-    /// 알바 길찾기 스위치 (2026-11-25): NavMesh(기본) ↔ 방 단위 A* (`Scripts/Navigation`). DEBUG 메뉴 Staff `Path A*`로 바꾼다 —
-    /// 켜져 있는 동안 고용되는 알바도 A*. 처음 켤 때 부지 격자를 굽고(`SiteNavGrid`), 해금은 그 방만 · 재배치는 전체를
-    /// 팝 연출이 끝난 뒤 다시 굽는다 (SiteNavMesh와 같은 지연). 다시 구운 방을 지나던 알바만 길을 다시 찾는다.
-    /// 이동은 NavCrowd 하나가 모든 A* 알바를 한 Update에서 움직인다. NavMesh는 끄지 않는다 (대기 위치 고르기 · 생성 위치는 NavMesh로 붙임).
+    /// 알바 길찾기 = 방 단위 A* (`Scripts/Navigation`) 하나 (2026-11-25 토글 → 2026-11-26 NavMesh 삭제, A*만).
+    /// 첫 알바가 <see cref="Ensure"/>로 만든다 — 부지 격자를 굽고(`SiteNavGrid`), 해금은 그 방만 · 재배치는 전체를
+    /// 팝 연출이 끝난 뒤 다시 굽는다. 다시 구운 방을 지나던 알바만 길을 다시 찾는다.
+    /// 이동은 NavCrowd 하나가 모든 알바를 한 Update에서 움직인다. 생성 위치 · 서는 · 대기 위치도 이 격자로 붙인다.
     /// </summary>
     public sealed class StaffNav : MonoBehaviour
     {
-        public static bool UseAStar { get; private set; }
-        /// <summary>만들어진 스위치 (꺼도 남는다 — 알바가 A*에서 빠질 때 쓴다).</summary>
         internal static StaffNav Shared { get; private set; }
 
         readonly NavCrowd crowd = new();
@@ -31,23 +29,13 @@ namespace APC.Staff
         public SiteNavGrid Site => site;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics()
-        {
-            UseAStar = false;
-            Shared = null;
-        }
+        static void ResetStatics() => Shared = null;
 
-        public static void SetUseAStar(bool on)
+        /// <summary>격자를 돌려준다. 없으면 만든다 (첫 알바 · 첫 생성). 부지(SiteGrid)가 없으면 null.</summary>
+        internal static StaffNav Ensure()
         {
-            if (on == UseAStar) return;
-            if (on && Shared == null)
-            {
-                if (SiteGrid.Instance == null) return;
-                Shared = new GameObject("StaffNav").AddComponent<StaffNav>();
-            }
-            UseAStar = on;
-            Debug.Log($"[StaffNav] 알바 길찾기 = {(on ? "A*" : "NavMesh")}");
-            foreach (var worker in StaffWorker.All) worker.ApplyNavMode();
+            if (Shared == null && SiteGrid.Instance != null) Shared = new GameObject("StaffNav").AddComponent<StaffNav>();
+            return Shared;
         }
 
         void Awake()
@@ -56,6 +44,26 @@ namespace APC.Staff
             var grid = SiteGrid.Instance;
             grid.OnUnlocked.Subscribe(id => Schedule(id)).AddTo(this);
             grid.OnMoved.Subscribe(_ => Schedule(null)).AddTo(this);
+            Schedule(null); // 시작 직후 해금 팝 연출 중(크기 0)인 모듈은 장애물이 작게 잡힌다 → 연출이 끝난 뒤 한 번 더 전체
+        }
+
+        void OnDestroy()
+        {
+            if (Shared == this) Shared = null;
+        }
+
+        /// <summary>
+        /// 점을 걸을 수 있는 가장 가까운 칸 가운데로 붙인다 (반경 `NavGridConfig.snapRadius`). 알바 생성 위치용 (예전 NavMesh.SamplePosition).
+        /// </summary>
+        internal bool TrySnap(Vector3 point, out Vector3 snapped)
+        {
+            snapped = point;
+            var grid = site.World.Grid;
+            var cell = grid.WorldToCell(point);
+            if (!grid.TryNearestWalkable(cell.x, cell.y, GameManager.Instance.Database.NavGrid.SnapCells, out var index)) return false;
+            var center = grid.CellCenter(index);
+            snapped = new Vector3(center.x, point.y, center.z);
+            return true;
         }
 
         static SiteNavGrid Build() => new(SiteGrid.Instance, SiteGrid.Instance.transform, GameManager.Instance.Database.NavGrid);

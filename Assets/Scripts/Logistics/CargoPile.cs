@@ -23,7 +23,7 @@ namespace APC.Logistics
             this.slotPosition = slotPosition;
         }
 
-        public IReadOnlyList<Cargo> Items => items;
+        public List<Cargo> Items => items; // 읽기만 한다 — 구체 타입은 foreach 열거자 박싱을 없애려고 (알바 판단마다, 2026-11-26)
         public int Count => items.Count;
 
         static CarryConfig Config => GameManager.Instance.Database.Carry;
