@@ -55,11 +55,10 @@ namespace APC.EditorTools
             ground.GetComponent<Renderer>().sharedMaterial = Mat("M_Ground", new Color(0.36f, 0.42f, 0.36f));
             ground.AddComponent<NavMeshModifier>().ignoreFromBuild = true; // 임시 바닥은 네비메시에서 뺀다
 
-            // 네비메시: 열린 모듈 바닥(충돌체)에만 굽는다 (M5-5)
+            // 네비메시 표면: 게임은 쓰지 않는다 (2026-11-26 알바 = A*만, SiteNavMesh 삭제). 길찾기 비교 측정(NavBenchmark)만 직접 굽는다
             var surface = site.gameObject.AddComponent<NavMeshSurface>();
             surface.collectObjects = CollectObjects.Children;
             surface.useGeometry = UnityEngine.AI.NavMeshCollectGeometry.PhysicsColliders;
-            site.gameObject.AddComponent<SiteNavMesh>();
 
             var services = new GameObject("Logistics").transform;
             services.SetParent(site, false);

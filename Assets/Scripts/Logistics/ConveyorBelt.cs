@@ -172,6 +172,7 @@ namespace APC.Logistics
             }
             for (var i = 1; i < belt.points.Count; i++) belt.length += Vector3.Distance(belt.points[i - 1], belt.points[i]);
             belt.BuildVisual();
+            Staff.StaffNav.NotifyObstacleChanged(belt.points, Width); // 알바 A* 격자에 막는 상자 반영
             return belt;
         }
 
@@ -189,6 +190,7 @@ namespace APC.Logistics
             cargos.Clear();
             distances.Clear();
             gameObject.SetActive(false); // 바로 목록에서 빠지게 (Destroy는 프레임 끝)
+            Staff.StaffNav.NotifyObstacleChanged(points, Width); // 꺼진 막는 상자는 물리에서 빠졌으므로 바로 다시 굽는다
             Destroy(gameObject);
         }
 

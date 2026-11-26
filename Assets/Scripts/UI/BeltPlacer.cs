@@ -920,10 +920,9 @@ namespace APC.UI
                 var p = who.transform.position;
                 if (!InsideAny(blockRects, p) || !TryFindFloor(p, r, out var floor)) continue;
                 floor.y = p.y;
-                var agent = who.GetComponent<UnityEngine.AI.NavMeshAgent>();
-                if (agent != null && agent.enabled)
+                if (who.TryGetComponent<Staff.StaffWorker>(out var worker)) // 알바는 A* 이동이 위치를 쥐고 있다 (2026-11-26)
                 {
-                    agent.Warp(floor);
+                    worker.Warp(floor);
                     continue;
                 }
                 var body = who.GetComponent<CharacterController>();

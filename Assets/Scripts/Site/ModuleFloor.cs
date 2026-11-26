@@ -24,6 +24,51 @@ namespace APC.Site
             var art = transform.Find(ArtName);
             if (art == null) return;
             foreach (var r in art.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            CombineTiles(art);
+        }
+
+        /// <summary>
+        /// 타일(머티리얼 하나짜리)을 머티리얼별로 한 메시로 합친다 (2026-11-26). TycoonTest 모듈 64개 = 타일 렌더러 약 3000개 → 배치 1000+.
+        /// 합친 메시는 FloorArt 자식(로컬 좌표)이라 모듈 재배치 · 팝 연출을 그대로 따라간다. 읽을 수 없는 메시(fbx Read/Write 꺼짐)는 그대로 둔다.
+        /// </summary>
+        static void CombineTiles(Transform art)
+        {
+            var groups = new System.Collections.Generic.Dictionary<Material, System.Collections.Generic.List<CombineInstance>>();
+            var sources = new System.Collections.Generic.Dictionary<Material, System.Collections.Generic.List<Renderer>>();
+            var toArt = art.worldToLocalMatrix;
+            foreach (var filter in art.GetComponentsInChildren<MeshFilter>())
+            {
+                var mesh = filter.sharedMesh;
+                if (mesh == null || !mesh.isReadable || mesh.subMeshCount != 1 || !filter.TryGetComponent<MeshRenderer>(out var renderer) || !renderer.enabled) continue;
+                var material = renderer.sharedMaterial;
+                if (material == null) continue;
+                if (!groups.TryGetValue(material, out var list))
+                {
+                    groups[material] = list = new();
+                    sources[material] = new();
+                }
+                list.Add(new CombineInstance { mesh = mesh, transform = toArt * filter.transform.localToWorldMatrix });
+                sources[material].Add(renderer);
+            }
+            foreach (var pair in groups)
+            {
+                if (pair.Value.Count < 2) continue;
+                var combined = new Mesh { name = $"{ArtName}_{pair.Key.name}" };
+                var vertices = 0;
+                foreach (var instance in pair.Value) vertices += instance.mesh.vertexCount;
+                if (vertices > 65000) combined.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+                combined.CombineMeshes(pair.Value.ToArray(), true, true);
+                var first = sources[pair.Key][0];
+                var go = new GameObject(combined.name);
+                go.layer = first.gameObject.layer;
+                go.transform.SetParent(art, false);
+                go.AddComponent<MeshFilter>().sharedMesh = combined;
+                var merged = go.AddComponent<MeshRenderer>();
+                merged.sharedMaterial = pair.Key;
+                merged.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                merged.receiveShadows = first.receiveShadows;
+                foreach (var r in sources[pair.Key]) r.enabled = false;
+            }
         }
 
         /// <summary>타일 칸 수 (x = 가로, y = 세로 = 로컬 z).</summary>

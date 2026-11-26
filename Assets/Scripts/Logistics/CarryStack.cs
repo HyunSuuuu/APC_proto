@@ -64,6 +64,12 @@ namespace APC.Logistics
         }
 
         /// <summary>최대 적재 수 (플레이어 = PlayerConfig, 알바 = 힘 스탯).</summary>
+        /// <summary>어느 스택이든 화물이 들어오거나 나가면 +1 (`CarriedIndex` 다시 세기, 2026-11-26).</summary>
+        public static int Version { get; private set; }
+
+        void OnEnable() => Version++;
+        void OnDisable() => Version++;
+
         public void SetCapacity(int value) => capacity.Value = Mathf.Max(1, value);
 
         /// <summary>맨 위에 올린다. 화물은 지금 위치에서 포물선을 그리며 날아온다.</summary>
@@ -72,6 +78,7 @@ namespace APC.Logistics
             if (cargo == null || (IsFull && !ignoreCapacity)) return false; // 쓰레기는 적재 수와 상관없이 존이 상한(5)을 정한다
 
             items.Add(cargo);
+            Version++;
             count.Value = items.Count;
 
             var t = cargo.transform;
@@ -94,6 +101,7 @@ namespace APC.Logistics
                 if (!predicate(cargo)) continue;
 
                 items.RemoveAt(i);
+                Version++;
                 count.Value = items.Count;
                 cargo.transform.DOKill();
                 cargo.Visual.localPosition = Vector3.zero;

@@ -789,6 +789,11 @@ MonoBehaviour:
   colorBar: {fileID: 268451713}
   nameLabel: {fileID: 1255688732}
   statsLabel: {fileID: 1222967609}
+  speedLabel: {fileID: 0}
+  speedBar: {fileID: 0}
+  carryLabel: {fileID: 0}
+  carryBar: {fileID: 0}
+  fireButton: {fileID: 0}
 --- !u!225 &100299077
 CanvasGroup:
   m_ObjectHideFlags: 0
@@ -1007,6 +1012,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::APC.Debugging.DebugMenu
   openOnStart: 0
   toggleKey: 94
+  releaseBuild: 1
 --- !u!4 &106071047
 Transform:
   m_ObjectHideFlags: 0
@@ -2097,6 +2103,7 @@ MonoBehaviour:
     moveSpeed: 1
     carry: 3
   finishDuration: 3
+  spotlightDelay: 1
 --- !u!1 &286772831
 GameObject:
   m_ObjectHideFlags: 0
@@ -4555,6 +4562,11 @@ MonoBehaviour:
   costLabel: {fileID: 1251329152}
   wageLabel: {fileID: 91061187}
   roleIcon: {fileID: 1352158318}
+  avatar: {fileID: 0}
+  avatarLabel: {fileID: 0}
+  speedBar: {fileID: 0}
+  carryBar: {fileID: 0}
+  statusLabel: {fileID: 0}
   costColor: {r: 0.25, g: 0.22, b: 0.2, a: 1}
   costShortColor: {r: 0.85, g: 0.2, b: 0.2, a: 1}
   shortTint: {r: 0.7, g: 0.7, b: 0.7, a: 1}
@@ -4911,6 +4923,11 @@ MonoBehaviour:
   costLabel: {fileID: 1613220577}
   wageLabel: {fileID: 1924544591}
   roleIcon: {fileID: 2013656706}
+  avatar: {fileID: 0}
+  avatarLabel: {fileID: 0}
+  speedBar: {fileID: 0}
+  carryBar: {fileID: 0}
+  statusLabel: {fileID: 0}
   costColor: {r: 0.25, g: 0.22, b: 0.2, a: 1}
   costShortColor: {r: 0.85, g: 0.2, b: 0.2, a: 1}
   shortTint: {r: 0.7, g: 0.7, b: 0.7, a: 1}
@@ -5602,7 +5619,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3720471aa5477d5458323a706c9f7b20, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.UI.RosterColumn
-  fire: 0
   role: 3
   titleLabel: {fileID: 1533007319}
   displayName: "\uBC18\uD488"
@@ -6289,7 +6305,13 @@ MonoBehaviour:
   highPillar: {fileID: 919132149155446097, guid: f41f2a5994776b74b83b80d45fcfc73d, type: 3}
   material: {fileID: 2100000, guid: c5e9eb1737ca8ec4186905aeab7a8c0c, type: 2}
   wallMaterial: {fileID: 2100000, guid: 0677853d41e54adf81545b0909b44e5e, type: 2}
+  gradientBottom: {r: 0.91764706, g: 0.7764706, b: 0.6039216, a: 1}
+  gradientTop: {r: 0.9490196, g: 0.92156863, b: 0.8, a: 1}
+  gradientStart: 0
+  gradientEnd: 3.4
   pieceLength: 1
+  windowPrefab: {fileID: 0}
+  windowStarts: 0200000006000000
 --- !u!114 &811996142
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6315,10 +6337,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.Logistics.InboundQueue
   truckPrefab: {fileID: 4984602761534617846, guid: 5e6d6f7a22b565742bca4191a21f5cc0, type: 3}
-  headPosition: {x: 0, y: 0, z: -21}
-  lineDirection: {x: 0, y: 0, z: 1}
   spacing: 7
-  truckYaw: 180
   markerMaterial: {fileID: 2100000, guid: 1b0e0ecd08924f145959ed18e5ea4dac, type: 2}
 --- !u!1 &822673191
 GameObject:
@@ -6581,9 +6600,6 @@ PrefabInstance:
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 4082215993412590095, guid: 3873f222ab25c7b40bb1dbad458046ac, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 0}
     - targetCorrespondingSourceObject: {fileID: 3810959800726662960, guid: 3873f222ab25c7b40bb1dbad458046ac, type: 3}
       insertIndex: -1
       addedObject: {fileID: 0}
@@ -6794,17 +6810,46 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.UI.SettlementPopup
   body: {fileID: 112407737}
-  group: {fileID: 112407739}
-  panel: {fileID: 200511385}
+  dim: {fileID: 0}
+  dimAlpha: 0.7
+  printer: {fileID: 0}
+  led: {fileID: 0}
+  ledGlow: {fileID: 0}
+  statusLabel: {fileID: 0}
+  printingColor: {r: 1, g: 0.72, b: 0.15, a: 1}
+  readyColor: {r: 0.25, g: 0.9, b: 0.45, a: 1}
+  paper: {fileID: 0}
+  paperGroup: {fileID: 0}
   titleLabel: {fileID: 1949854555}
+  rows: []
   outboundValue: {fileID: 1445765529}
   wageValue: {fileID: 687605150}
+  shippedValue: {fileID: 0}
+  returnsValue: {fileID: 0}
+  bonusValue: {fileID: 0}
   totalValue: {fileID: 1732854024}
   staffLabel: {fileID: 1199652442}
+  stamp: {fileID: 0}
   confirmButton: {fileID: 1481324623}
-  rowDuration: 0.35
-  totalColor: {r: 0.2, g: 0.55, b: 0.3, a: 1}
-  negativeColor: {r: 0.8, g: 0.2, b: 0.15, a: 1}
+  incomeColor: {r: 0.02, g: 0.59, b: 0.41, a: 1}
+  expenseColor: {r: 0.88, g: 0.11, b: 0.28, a: 1}
+  feedDuration: 0.34
+  rowInterval: 0.58
+  autoConfirmSeconds: 5
+  shakeInterval: 1
+  shakeDegrees: 12
+  curl: {fileID: 0}
+  curlMaxDegrees: 190
+  curlRampDistance: 560
+  feedFlutterDegrees: 18
+  tearCurlDegrees: 20
+  tear: {fileID: 0}
+  stubMargin: 40
+  stepShake: 5
+  snapShake: 16
+  snapPrinterKick: 10
+  viewportMinWidth: 1600
+  shakePadding: 80
 --- !u!1 &852920443
 GameObject:
   m_ObjectHideFlags: 0
@@ -7816,7 +7861,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3720471aa5477d5458323a706c9f7b20, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.UI.RosterColumn
-  fire: 0
   role: 0
   titleLabel: {fileID: 191797025}
   displayName: "\uD558\uCC28"
@@ -8183,6 +8227,11 @@ MonoBehaviour:
   costLabel: {fileID: 97048156}
   wageLabel: {fileID: 1056939854}
   roleIcon: {fileID: 2129150408}
+  avatar: {fileID: 0}
+  avatarLabel: {fileID: 0}
+  speedBar: {fileID: 0}
+  carryBar: {fileID: 0}
+  statusLabel: {fileID: 0}
   costColor: {r: 0.25, g: 0.22, b: 0.2, a: 1}
   costShortColor: {r: 0.85, g: 0.2, b: 0.2, a: 1}
   shortTint: {r: 0.7, g: 0.7, b: 0.7, a: 1}
@@ -8423,6 +8472,7 @@ MonoBehaviour:
     valueLabel: {fileID: 941458096}
     buyButton: {fileID: 1668186949}
     buyLabel: {fileID: 1979209141}
+  truckPage: 0
 --- !u!1 &1034737778
 GameObject:
   m_ObjectHideFlags: 0
@@ -8750,7 +8800,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3720471aa5477d5458323a706c9f7b20, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.UI.RosterColumn
-  fire: 0
   role: 4
   titleLabel: {fileID: 583237805}
   displayName: "\uC9C0\uAC8C\uCC28"
@@ -9959,7 +10008,6 @@ MonoBehaviour:
   softness: 0.4
   height: 1
   depthBias: 0.3
-  scanInterval: 0.5
 --- !u!1 &1161980082
 GameObject:
   m_ObjectHideFlags: 0
@@ -10161,7 +10209,6 @@ MonoBehaviour:
   - {fileID: 758879630}
   - {fileID: 1041826157}
   cardTemplate: {fileID: 100299076}
-  dragLayer: {fileID: 1710634100}
   headerLabel: {fileID: 1480384637}
   confirm: {fileID: 737661726}
   confirmLabel: {fileID: 777358686}
@@ -17414,7 +17461,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3720471aa5477d5458323a706c9f7b20, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.UI.RosterColumn
-  fire: 0
   role: 2
   titleLabel: {fileID: 568293264}
   displayName: "\uC0C1\uCC28"
@@ -19217,13 +19263,25 @@ MonoBehaviour:
   rosterTab: {fileID: 1003033949}
   upgradeTab: {fileID: 1301630925}
   moduleTab: {fileID: 286772833}
+  facilityTab: {fileID: 0}
+  truckTab: {fileID: 0}
+  beltTab: {fileID: 0}
   hirePage: {fileID: 1975537893}
   rosterPage: {fileID: 1165433483}
   upgradePage: {fileID: 1020891094}
+  facilityPage: {fileID: 0}
+  truckPage: {fileID: 0}
+  beltPage: {fileID: 0}
+  beltInstallButton: {fileID: 0}
   modulePage: {fileID: 2038777031}
   stampArea: {fileID: 2071310633}
-  tabOnColor: {r: 0.95, g: 0.6, b: 0.25, a: 1}
-  tabOffColor: {r: 0.75, g: 0.72, b: 0.68, a: 1}
+  paperFront: {fileID: 0}
+  paperBack1: {fileID: 0}
+  paperBack2: {fileID: 0}
+  tabsBehind: {fileID: 0}
+  tabsFront: {fileID: 0}
+  sheetTitle: {fileID: 0}
+  sheetDesc: {fileID: 0}
 --- !u!1 &1609974243
 GameObject:
   m_ObjectHideFlags: 0
@@ -20528,7 +20586,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1729456473}
   - component: {fileID: 1729456472}
-  - component: {fileID: 1729456471}
   m_Layer: 0
   m_Name: Site
   m_TagString: Untagged
@@ -20536,18 +20593,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1729456471
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1729456470}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 89f8ff920d7ed994d9c7347a65d62d40, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::APC.Site.SiteNavMesh
 --- !u!114 &1729456472
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -20923,11 +20968,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.UI.LevelUpBanner
   group: {fileID: 1756551228}
-  panel: {fileID: 1418437000}
+  popup: {fileID: 0}
+  banner: {fileID: 0}
   titleLabel: {fileID: 2116719626}
-  noteLabel: {fileID: 1536074453}
-  burst: {fileID: 1183086535}
+  chips: []
+  badge: {fileID: 0}
+  flash: {fileID: 0}
+  lockPivot: {fileID: 0}
+  shackle: {fileID: 0}
+  keyPos: {fileID: 0}
+  key: {fileID: 0}
+  rings: []
+  stars: {fileID: 0}
+  confetti: {fileID: 1183086535}
   holdDuration: 2
+  unit: 1.5
 --- !u!225 &1756551228
 CanvasGroup:
   m_ObjectHideFlags: 0
@@ -21609,7 +21664,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3720471aa5477d5458323a706c9f7b20, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.UI.RosterColumn
-  fire: 0
   role: 1
   titleLabel: {fileID: 1998888494}
   displayName: "\uBCF4\uAD00"
@@ -23035,12 +23089,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 4343118531187047217, guid: 4f7eac6a3c902d94e8fde7a217ab200f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 0}
-    - targetCorrespondingSourceObject: {fileID: 1742440081379866095, guid: 4f7eac6a3c902d94e8fde7a217ab200f, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 0}
-    - targetCorrespondingSourceObject: {fileID: 4257211053342456736, guid: 4f7eac6a3c902d94e8fde7a217ab200f, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 0}
   m_SourcePrefab: {fileID: 100100000, guid: 4f7eac6a3c902d94e8fde7a217ab200f, type: 3}
 --- !u!4 &2005635950 stripped
 Transform:
@@ -24026,7 +24074,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3720471aa5477d5458323a706c9f7b20, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.UI.RosterColumn
-  fire: 1
   role: 0
   titleLabel: {fileID: 0}
   displayName: "\uD574\uACE0"

@@ -41,10 +41,11 @@ namespace APC.Logistics
         public override bool HasCargoFor(Interactor who)
         {
             var truck = bay.DockedTruck;
-            if (truck == null || truck.Golden || truck.Available <= 0) return false;
+            var own = who.Reserved(this, null); // 자기 예약은 남의 것이 아니다
+            if (truck == null || truck.Golden || truck.Available + own <= 0) return false;
             var item = truck.Company != null ? truck.Company.Items[0] : null; // 일반 트럭 = 미분류 (GDD 7.2a)
             if (!Warehouse.CanHandle(who, item)) return false; // D 트럭 = 지게차 알바만 (M11-8)
-            return who.Forklift ? Warehouse.Instance.LargeRoom(item) > 0 : Room > 0;
+            return who.Forklift ? Warehouse.Instance.LargeRoom(item) > 0 : Room + own > 0;
         }
 
         protected override bool TryGive(Interactor who, out Cargo cargo)
@@ -61,7 +62,7 @@ namespace APC.Logistics
                 cargo = truck.TakeCargo();
                 return cargo != null;
             }
-            if (Room <= 0)
+            if (Room + who.Reserved(this, null) <= 0)
             {
                 Notice(who, bay.Storage.CountLabel, truck.transform.position + Vector3.up * 4.5f, "공간 가득"); // 트럭 남은 수 글자(3.5m) 한 줄 위
                 return false;
@@ -156,18 +157,6 @@ namespace APC.Logistics
         }
 
         /// <summary>트럭에서 꺼내 그 공간으로 들고 가는 중인 화물 수 (플레이어 · 알바).</summary>
-        static int CountHeadingTo(SharedStorage storage)
-        {
-            var n = 0;
-            foreach (var who in Interactor.All)
-            {
-                if (who.Stack == null) continue;
-                foreach (var cargo in who.Stack.Items)
-                {
-                    if (cargo.Origin == CargoOrigin.Truck && cargo.Home == storage) n++;
-                }
-            }
-            return n;
-        }
+        static int CountHeadingTo(SharedStorage storage) => CarriedIndex.TruckCargoHeadingTo(storage);
     }
 }

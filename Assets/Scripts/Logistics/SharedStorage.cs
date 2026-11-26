@@ -47,12 +47,16 @@ namespace APC.Logistics
         CargoPile pile;
         int capacity;
 
+        // 분류 알바가 집으러 오는 중인 스캔된 상자 수 (품목별, 2026-11-26). 다른 알바 · 플레이어는 이만큼 덜 본다 — 상자 3개에 여러 명이 몰려가던 것
+        readonly Dictionary<ItemDefinition, int> plannedBoxes = new();
+        static readonly Dictionary<ItemDefinition, int> SkipScratch = new(); // 메인 스레드 · 재진입 없음
+
         /// <summary>붙어 있는 모든 공용 보관소 (재고 집계용). 모듈 안에 있으므로 스스로 등록한다.</summary>
-        public static IReadOnlyList<SharedStorage> All => Registered;
+        public static List<SharedStorage> All => Registered; // 읽기만 한다 — 구체 타입은 foreach 박싱 방지 (2026-11-26)
 
         public ReadOnlyReactiveProperty<int> Count => count;
         public int Capacity => capacity;
-        public IReadOnlyList<Cargo> Items => pile.Items;
+        public List<Cargo> Items => pile.Items; // 읽기만 한다 — 구체 타입은 foreach 박싱 방지 (2026-11-26)
         public StorageKind Kind => kind;
 
         /// <summary>수량 글자 (떠오르는 알림 글자의 폰트 · 모양 원본으로도 쓴다).</summary>
@@ -216,9 +220,10 @@ namespace APC.Logistics
         /// 선반에 빈자리가 남은 품목만 꺼낸다 (선반 빈자리 − 이미 들고 가는 수, GDD 7.2 확정 규칙).
         /// 찌그러진 상자는 반품 팔레트에 빈자리가 남았을 때만 (GDD 7.7). 최근에 들어온 것부터 찾는다. 없으면 null.
         /// </summary>
-        public Cargo TakeForShelves()
+        /// <param name="who">집는 사람 — 그 사람이 at 존에 잡아 둔 예약은 빼지 않는다 (2026-11-26). 벨트 · 플레이어 확인은 null.</param>
+        public Cargo TakeForShelves(APC.Interaction.Interactor who = null, APC.Interaction.InteractionZone at = null)
         {
-            var i = FindForShelves();
+            var i = FindForShelves(who, at);
             if (i < 0) return null;
 
             var cargo = pile.RemoveAt(i);
@@ -231,35 +236,73 @@ namespace APC.Logistics
             : cargo.State == CargoState.Trash ? CargoOrigin.Trash : kind == StorageKind.Returns ? CargoOrigin.ReturnPallet : CargoOrigin.Storage;
 
         /// <summary>TakeForShelves로 꺼낼 화물이 있는가 (꺼내지 않음, 분류 알바용).</summary>
-        public bool HasCargoForShelves() => FindForShelves() >= 0;
+        public bool HasCargoForShelves(APC.Interaction.Interactor who = null, APC.Interaction.InteractionZone at = null) => FindForShelves(who, at) >= 0;
 
         /// <summary>
         /// 분류 알바 예약용: 지금 집으면 선반에 갈 화물을 품목별로 최대 max개까지 센다 (꺼내지 않음).
-        /// TakeForShelves와 같은 순서(최근 것부터) · 같은 조건.
+        /// TakeForShelves와 같은 순서(최근 것부터) · 같은 조건. 결과는 plan에 비우고 채운다 (알바가 재사용 — 판단마다 new 방지, 2026-11-26). 합계를 돌려준다.
         /// </summary>
-        public Dictionary<ItemDefinition, int> PlanForShelves(int max)
+        public int PlanForShelves(int max, Dictionary<ItemDefinition, int> plan)
         {
-            var plan = new Dictionary<ItemDefinition, int>();
+            plan.Clear();
+            FillSkip(null, null);
             var total = 0;
             for (var i = pile.Count - 1; i >= 0 && total < max; i--)
             {
                 var item = pile.Items[i].Item;
                 if (pile.Items[i].State != CargoState.Normal || pile.Items[i].Unsorted) continue; // 미분류는 스캔해야 집는다 (GDD 7.2a)
+                if (SkipPlanned(item)) continue; // 다른 분류 알바가 이미 계획한 상자
                 plan.TryGetValue(item, out var taken);
                 if (ShelfAllowance(item) - taken <= 0) continue;
                 plan[item] = taken + 1;
                 total++;
             }
-            return plan;
+            return total;
         }
 
-        int FindForShelves()
+        int FindForShelves(APC.Interaction.Interactor who, APC.Interaction.InteractionZone at)
         {
+            FillSkip(who, at);
             for (var i = pile.Count - 1; i >= 0; i--)
             {
-                if (CanGive(pile.Items[i])) return i;
+                var candidate = pile.Items[i];
+                if (candidate.State == CargoState.Normal && !candidate.Unsorted && SkipPlanned(candidate.Item)) continue;
+                if (CanGive(candidate, who, at)) return i;
             }
             return -1;
+        }
+
+        /// <summary>분류 알바가 이 더미에서 집을 상자를 예약한다 (출발할 때, 품목별).</summary>
+        public void ReserveBoxes(ItemDefinition item, int count)
+        {
+            plannedBoxes.TryGetValue(item, out var n);
+            plannedBoxes[item] = n + count;
+        }
+
+        public void UnreserveBoxes(ItemDefinition item, int count)
+        {
+            if (!plannedBoxes.TryGetValue(item, out var n)) return;
+            if (n - count > 0) plannedBoxes[item] = n - count;
+            else plannedBoxes.Remove(item);
+        }
+
+        /// <summary>품목별로 건너뛸 수 = 계획된 상자 − 집는 사람 자신의 예약 (같은 품목 상자는 서로 바꿔도 되므로 위에서부터 그만큼 남의 몫으로 본다).</summary>
+        void FillSkip(APC.Interaction.Interactor who, APC.Interaction.InteractionZone at)
+        {
+            SkipScratch.Clear();
+            foreach (var pair in plannedBoxes)
+            {
+                var skip = pair.Value - (who != null ? who.Reserved(at, pair.Key) : 0);
+                if (skip > 0) SkipScratch[pair.Key] = skip;
+            }
+        }
+
+        static bool SkipPlanned(ItemDefinition item)
+        {
+            if (item == null || !SkipScratch.TryGetValue(item, out var skip)) return false;
+            if (skip > 1) SkipScratch[item] = skip - 1;
+            else SkipScratch.Remove(item);
+            return true;
         }
 
         // ── 하차 스캔 (GDD 7.2a, M17-4) ─────────────────────────────
@@ -413,11 +456,11 @@ namespace APC.Logistics
         /// 이 화물을 지금 내줘도 되는가. 하차 칸 공간 = 미분류 상자만, 스캔 팔레트에 자리가 있을 때 (스캔은 스캔 모듈에서만, 2026-11-24).
         /// 그 밖 = 스캔된 상자만 (선반 · 반품 팔레트 · 재포장 입력 여유, 쓰레기는 쓰레기 출력에서만).
         /// </summary>
-        bool CanGive(Cargo candidate) => kind == StorageKind.Pallet
+        bool CanGive(Cargo candidate, APC.Interaction.Interactor who = null, APC.Interaction.InteractionZone at = null) => kind == StorageKind.Pallet
             ? candidate.Unsorted && ScanAllowance() > 0
             : !candidate.Unsorted && candidate.State switch
         {
-            CargoState.Normal => ShelfAllowance(candidate.Item) > 0,
+            CargoState.Normal => ShelfAllowance(candidate.Item) + (who != null ? who.Reserved(at, candidate.Item) : 0) > 0,
             CargoState.Return => kind switch
             {
                 StorageKind.Scan => Allowance(StorageKind.Returns, CargoOrigin.Storage) > 0, // 스캔 팔레트의 찌그러진 상자 → 반품 팔레트 (2026-11-27 버그: 옛 Pallet 기준이라 못 집음)
@@ -438,15 +481,7 @@ namespace APC.Logistics
             }
             if (free <= 0) return 0;
             free -= ConveyorBelt.CountOnBelts(_ => true, c => c.Unsorted);
-            foreach (var who in APC.Interaction.Interactor.All)
-            {
-                if (who.Stack == null) continue;
-                foreach (var cargo in who.Stack.Items)
-                {
-                    if (cargo.Unsorted) free--;
-                }
-            }
-            return free;
+            return free - CarriedIndex.Unsorted;
         }
 
         /// <summary>그 종류 더미에 더 보낼 수 있는 찌그러진 상자 수 = 빈자리 합 − 이미 꺼내 들고 가는(그 출처) 찌그러진 상자.</summary>
@@ -459,15 +494,7 @@ namespace APC.Logistics
             }
             if (free <= 0) return 0;
             free -= ConveyorBelt.CountOnBelts(_ => true, c => c.State == CargoState.Return && c.Origin == origin); // 벨트로 가는 중 (GDD 7.10)
-            foreach (var who in APC.Interaction.Interactor.All)
-            {
-                if (who.Stack == null) continue;
-                foreach (var cargo in who.Stack.Items)
-                {
-                    if (cargo.State == CargoState.Return && cargo.Origin == origin) free--;
-                }
-            }
-            return free;
+            return free - CarriedIndex.Returns(origin);
         }
 
         /// <summary>

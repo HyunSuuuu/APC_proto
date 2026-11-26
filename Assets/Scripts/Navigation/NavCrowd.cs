@@ -38,6 +38,16 @@ namespace APC.Navigation
             a.Next = Mathf.Min(1, a.Path.Count);
         }
 
+        /// <summary>순간 이동 — 길을 지우고 그 자리에 둔다 (벨트 설치에 밀려남 등).</summary>
+        public void Warp(int agent, Vector3 position)
+        {
+            var a = agents[agent];
+            a.Path.Clear();
+            a.Next = 0;
+            a.Position = position;
+            if (a.Body != null) a.Body.position = position;
+        }
+
         public void Stop(int agent)
         {
             var a = agents[agent];

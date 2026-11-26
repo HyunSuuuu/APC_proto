@@ -52,6 +52,14 @@ namespace APC.Interaction
         /// <summary>RestrictToTarget일 때 상호작용할 존 (작업 지점에 도착하면 알바가 정한다).</summary>
         public InteractionZone Target { get; set; }
 
+        /// <summary>
+        /// 알바가 그 존에서 집으려고 잡아 둔 예약 수 (품목별, 트럭 예약은 품목 무관). 존은 남의 예약만 빼고 보도록 이만큼 더한다 (2026-11-26).
+        /// 플레이어는 null → 0.
+        /// </summary>
+        public System.Func<InteractionZone, Data.ItemDefinition, int> OwnReservation { get; set; }
+
+        public int Reserved(InteractionZone at, Data.ItemDefinition item) => OwnReservation?.Invoke(at, item) ?? 0;
+
         /// <summary>내려놓기 / 집기 허용 (알바가 작업 종류에 맞춰 끈다 — 예: 하차 알바는 팔레트에서 집지 않음). 기본 둘 다 true.</summary>
         public bool AllowDrop { get; set; } = true;
 

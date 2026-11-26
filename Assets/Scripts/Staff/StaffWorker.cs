@@ -8,12 +8,11 @@ using APC.Site;
 using DG.Tweening;
 using R3;
 using UnityEngine;
-using UnityEngine.AI;
 
 namespace APC.Staff
 {
     /// <summary>
-    /// 알바 1명 (GDD 11). NavMeshAgent로 움직이고, 플레이어와 같은 Interactor + CarryStack으로 존과 상호작용한다.
+    /// 알바 1명 (GDD 11). 부지 A* 격자(StaffNav)로 움직이고 (2026-11-26 NavMesh 삭제), 플레이어와 같은 Interactor + CarryStack으로 존과 상호작용한다.
     /// 작업 상태 머신 (GDD 11.4): 대기 → 대상 탐색 · 예약 → 집으러 이동 → 집기 → 운반 → 내려놓기 → 대기.
     /// - 집는 곳은 역할로 정한다: 하차 = 트럭 픽업 존, 분류 = 팔레트 둘레 존, 피킹 = 선반 둘레 존.
     /// - 내려놓는 곳은 **들고 있는 화물**로 정한다 (그 화물을 받는 존). 그래서 역할을 바꿔도 들고 있던 화물은 원래 목적지로 간다.
@@ -23,7 +22,7 @@ namespace APC.Staff
     /// - 할 일이 없으면 마지막 일한 존 밖으로 비켜 선 곳(일한 적 없으면 생성 지점 근처)에서 기다린다 (Parked, 아무 존도 막지 않음).
     /// - 작업 고정 · 전환 쿨타임 · 가이드 화살표는 플레이어 전용이라 쓰지 않는다 (GDD 5.3).
     /// </summary>
-    [RequireComponent(typeof(NavMeshAgent), typeof(Interactor), typeof(CarryStack))]
+    [RequireComponent(typeof(Interactor), typeof(CarryStack))]
     public sealed class StaffWorker : MonoBehaviour
     {
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
@@ -37,8 +36,6 @@ namespace APC.Staff
         const float ArriveDistance = 0.2f;
         // 도착했는데 이만큼(초) 동안 상호작용이 시작되지 않으면 포기한다 (서는 위치가 존 밖에 있는 등 배치 오류 대비)
         const float StuckTimeout = 3f;
-        // 서는 · 대기 위치를 네비메시에 붙일 때 찾는 반경 (m)
-        const float NavSnapRadius = 0.3f;
         // 대기 위치는 어떤 존 사각형에서도 이만큼(m) 떨어진다 (몸이 존에 걸쳐 바닥 색이 켜지지 않게, 알바 반경 0.3 근처)
         const float WaitZoneClearance = 0.2f;
 
@@ -54,8 +51,8 @@ namespace APC.Staff
         [SerializeField, Tooltip("지게차 포크 팔레트 위 — 큰 상자가 한 줄로 쌓이는 바닥")] Transform forkliftAnchor;
         [SerializeField, Tooltip("퇴사할 때 깜빡이는 색")] Color angryColor = new(0.9f, 0.1f, 0.1f);
 
-        NavMeshAgent agent;
-        int crowdId = -1;   // A* 이동 번호 (StaffNav). −1 = NavMesh로 움직임
+        float speed;        // 이동 속도 (m/s, 스탯)
+        int crowdId = -1;   // A* 이동 번호 (StaffNav). −1 = 아직 격자 없음
         bool pathFailed;    // A*: 마지막 길찾기 실패
         Vector3 destination; // 마지막으로 가라고 한 곳 (두 방식 공용)
         Interactor interactor;
@@ -78,7 +75,15 @@ namespace APC.Staff
         bool parking;
         bool leaving;
         bool repathPending; // 모듈 재배치 알림을 받았고 팝 연출이 끝나기를 기다리는 중
-        System.Action releaseReservation; // 지금 잡고 있는 예약을 푸는 함수 (없으면 null)
+        // 지금 잡고 있는 예약 (2026-11-26: 람다 대신 필드 — StillValid가 판단마다 풀고 다시 잡아 클로저 · Dictionary가 쌓였다)
+        enum Reservation { None, Truck, ShelfSpace, Demand }
+        Reservation reserved;
+        InboundTruck reservedTruck;
+        SharedStorage reservedStorage; // 분류: 상자를 예약한 더미 (reservedPlan = 선반 빈자리 = 그 더미 상자, 품목별)
+        ItemDefinition reservedItem;
+        int reservedCount;
+        readonly Dictionary<ItemDefinition, int> reservedPlan = new(); // 선반 빈자리 예약 (품목별)
+        static readonly Dictionary<ItemDefinition, int> ScratchPlan = new(); // PickBudget 계산용 (메인 스레드 · 재진입 없음)
         float thinkTimer;
         float parkRetryAt; // 대기 위치 찾기 실패 뒤 다시 찾는 시각 (Park)
         float workTime;
@@ -129,56 +134,74 @@ namespace APC.Staff
         {
             AllWorkers.Clear();
             PathRequests = NoPathCount = 0;
+            thinkFrame = budgetFrame = -1;
+            budgetUsed = 0;
+            thinksThisFrame = maxThinksPerFrame = 0;
+            ThinkScale = 1f;
+            zoneListVersion = -1;
         }
 
         // 성능 측정용 (PerformanceHUD가 읽는다): 길 요청 수 · 길 없음 수 — A* 전환 비교 기준 (2026-11-23)
         public static int PathRequests { get; private set; }
         public static int NoPathCount { get; private set; }
 
+        // 성능 측정용 (PerformanceHUD, 2026-11-26): 한 프레임에 Think가 몇 번 몰렸나 — HUD가 읽고 0으로 되돌린다
+        static int thinkFrame = -1;
+        static int budgetFrame = -1;
+        static int budgetUsed;
+        static int thinksThisFrame;
+        static int maxThinksPerFrame;
+
+        /// <summary>HUD 측정 구간 동안 한 프레임 Think 최대 수를 돌려주고 0으로 되돌린다.</summary>
+        public static int TakeMaxThinksPerFrame()
+        {
+            var max = maxThinksPerFrame;
+            maxThinksPerFrame = 0;
+            return max;
+        }
+
+        /// <summary>판단 간격 배수 (DEBUG `Think x4`, 2026-11-26 성능 A/B). 1 = 설정 그대로.</summary>
+        public static float ThinkScale { get; set; } = 1f;
+
+        float ThinkInterval => rules.ThinkInterval * ThinkScale;
+
+        /// <summary>HUD 측정용: 할 일이 없어 대기 위치로 가는 중.</summary>
+        internal bool Parking => parking;
+
         internal static IReadOnlyList<StaffWorker> All => AllWorkers;
         internal int CrowdId => crowdId;
-        bool AStar => crowdId >= 0;
-        bool OnNav => AStar || agent.isOnNavMesh;
+        bool OnNav => crowdId >= 0;
 
         bool SetPath(Vector3 point)
         {
             PathRequests++;
             destination = point;
-            if (!AStar) return agent.SetDestination(point);
-            pathFailed = !StaffNav.Shared.SetPath(crowdId, point, agent.speed);
+            if (!OnNav && StaffNav.Ensure() is { } nav) crowdId = nav.Register(transform, speed); // 켜질 때 격자가 아직 없었으면 (열린 칸 없음) 지금 등록
+            if (!OnNav) return pathFailed = false; // 격자가 아직 없음 — 다음 판단 때 다시
+            pathFailed = !StaffNav.Shared.SetPath(crowdId, point, speed);
             return !pathFailed;
         }
 
         void StopPath()
         {
-            if (AStar) StaffNav.Shared.Stop(crowdId);
-            else if (agent.isOnNavMesh) agent.ResetPath();
+            if (OnNav) StaffNav.Shared.Stop(crowdId);
         }
 
         void PauseMove(bool paused)
         {
-            if (AStar) StaffNav.Shared.Pause(crowdId, paused);
-            else if (agent.isOnNavMesh) agent.isStopped = paused;
+            if (OnNav) StaffNav.Shared.Pause(crowdId, paused);
         }
 
-        /// <summary>StaffNav 스위치에 맞춘다: A*면 NavMeshAgent를 끄고 StaffNav에 등록, NavMesh면 되돌린다. 가는 중이면 같은 곳으로 다시 길을 찾는다.</summary>
-        internal void ApplyNavMode()
+        /// <summary>순간 이동 (벨트 설치에 밀려남, BeltPlacer). 가던 중이면 새 자리에서 같은 목적지로 다시 길을 찾는다.</summary>
+        internal void Warp(Vector3 position)
         {
-            if (StaffNav.UseAStar == AStar) return;
-            var moving = State == Phase.Moving;
-            if (StaffNav.UseAStar)
+            if (!OnNav)
             {
-                agent.enabled = false; // 켜 두면 NavMeshAgent가 위치를 되돌린다
-                crowdId = StaffNav.Shared.Register(transform, agent.speed);
+                transform.position = position;
+                return;
             }
-            else
-            {
-                StaffNav.Shared.Release(crowdId);
-                crowdId = -1;
-                agent.enabled = true;
-                agent.Warp(transform.position);
-            }
-            if (moving) SetPath(destination);
+            StaffNav.Shared.Warp(crowdId, position);
+            if (State == Phase.Moving) SetPath(destination);
         }
 
         /// <summary>A* 격자를 다시 구운 뒤 (StaffNav): 같은 목적지로 길을 다시 찾는다.</summary>
@@ -189,10 +212,10 @@ namespace APC.Staff
 
         void Awake()
         {
-            agent = GetComponent<NavMeshAgent>();
             interactor = GetComponent<Interactor>();
             stack = GetComponent<CarryStack>();
             interactor.RestrictToTarget = true; // 목표 존에서만 상호작용
+            interactor.OwnReservation = OwnReserved;
             interactor.AllowScan = false; // 하차 알바가 스캔하러 갔을 때만 켠다 (GDD 7.2a)
             if (unpaidIcon != null)
             {
@@ -204,7 +227,8 @@ namespace APC.Staff
         void OnEnable()
         {
             AllWorkers.Add(this);
-            if (rules != null) ApplyNavMode(); // 꺼졌다 켜진 알바 (처음은 Start에서)
+            var nav = StaffNav.Ensure(); // 첫 알바가 부지 A* 격자를 굽는다
+            if (nav != null) crowdId = nav.Register(transform, speed);
         }
 
         /// <summary>밀린 시급을 정한다 (정산 [확인] 때 StaffService가 부름). 0보다 크면 머리 위 ₩이 둥실거린다.</summary>
@@ -251,12 +275,13 @@ namespace APC.Staff
                 var pick = costume && models.Length > 1 ? Random.Range(1, models.Length) : 0;
                 for (var i = 0; i < models.Length; i++) models[i].SetActive(i == pick);
                 Costume = pick > 0;
+                Visuals.SkinnedCombine.Combine(models[pick]); // 스킨 메시 6개 → 재질별 하나 (드로 절반, 2026-11-27)
             }
             rules = GameManager.Instance.Database.Staff;
             Stats = stats;
-            agent.speed = rules.GetMoveSpeed(stats.moveSpeed);
+            speed = rules.GetMoveSpeed(stats.moveSpeed);
             interactor.Configure(rules.PickInterval, rules.InteractionDelay);
-            thinkTimer = Random.value * rules.ThinkInterval; // 같은 프레임에 고용한 알바가 매번 같은 프레임에 판단하지 않게 (100명 = 90ms 끊김, 2026-11-25)
+            thinkTimer = Random.value * ThinkInterval; // 같은 프레임에 고용한 알바가 매번 같은 프레임에 판단하지 않게 (100명 = 90ms 끊김, 2026-11-25)
             SetRole(role);
         }
 
@@ -271,6 +296,7 @@ namespace APC.Staff
             if (isForklift && forkliftAnchor != null) stack.UseAnchor(forkliftAnchor);
             if (TryGetComponent<Characters.CharacterAnimator>(out var animator)) animator.UseRiding = isForklift; // riding 애니
             SetColor(rules.GetRoleColor(role));
+            Visuals.BlobShadow.Attach(gameObject, isForklift ? 2.4f : 1.1f); // 메인 라이트 그림자 대신 (2026-11-26)
         }
 
         /// <summary>
@@ -288,7 +314,6 @@ namespace APC.Staff
         void Start()
         {
             if (SiteGrid.Instance != null) SiteGrid.Instance.OnMoved.Subscribe(_ => Repath()).AddTo(this);
-            ApplyNavMode();
         }
 
         /// <summary>모듈 재배치 알림 (GDD 4.4). 옮긴 모듈은 팝 연출(크기 0 → 1) 중이라 바로 계산하지 않고, 연출이 끝난 뒤 판단 때 <see cref="ApplyRepath"/>.</summary>
@@ -334,12 +359,8 @@ namespace APC.Staff
 
         void OnDisable()
         {
-            if (AStar)
-            {
-                StaffNav.Shared.Release(crowdId);
-                crowdId = -1;
-                agent.enabled = true; // 다시 켜지면 OnEnable이 스위치에 맞춘다
-            }
+            if (OnNav && StaffNav.Shared != null) StaffNav.Shared.Release(crowdId);
+            crowdId = -1;
             ReleaseAll();
             AllWorkers.Remove(this);
             if (StaffService.Instance != null) StaffService.Instance.Remove(this);
@@ -353,7 +374,13 @@ namespace APC.Staff
             thinkTimer -= deltaTime;
             var think = thinkTimer <= 0f;
             // 위상 유지: 긴 프레임(0.25초+) 한 번에 전원이 0 아래로 → '= 간격'이면 모두 같은 프레임에 판단하게 굳는다 (100명 = 80ms 끊김, 2026-11-25)
-            if (think) thinkTimer = rules.ThinkInterval - Mathf.Repeat(-thinkTimer, rules.ThinkInterval);
+            if (think) thinkTimer = ThinkInterval - Mathf.Repeat(-thinkTimer, ThinkInterval);
+            if (think && !TakeThinkBudget())
+            {
+                // shortcut: Update 순서가 앞인 알바가 먼저 예산을 쓴다 — 미룬 알바가 계속 밀리면 차례 큐로 바꾼다
+                thinkTimer = 0f; // 다음 프레임에 다시
+                think = false;
+            }
             if (think && repathPending) ApplyRepath();
 
             switch (State)
@@ -365,10 +392,17 @@ namespace APC.Staff
                     if (think) Think(); // 기다리러 가는 중에도 일이 생기면 바로 간다
                     if (State == Phase.Moving && parking && Arrived())
                     {
-                        // 길이 중간에 끊겨(부분 경로) 대기 위치에 못 갔으면 그 자리에서 멈췄다가 다시 고른다
-                        if (FlatDistance(transform.position, waitPoint) > rules.WaitSpacing) Hold();
+                        // 길이 중간에 끊겨(부분 경로) 대기 위치에 못 갔어도 존을 막지 않는 곳이면 거기서 기다린다 —
+                        // 예전엔 멈췄다가 다시 골라 또 걸어가서, 할 일 없는 알바가 돌아다니는 것처럼 보였다 (2026-11-26)
+                        var fellShort = FlatDistance(transform.position, waitPoint) > rules.WaitSpacing;
+                        if (fellShort && NearAnyZone(transform.position))
+                        {
+                            Hold();
+                            parkRetryAt = Time.time + ParkRetryDelay; // 바로 다시 고르지 않는다
+                        }
                         else
                         {
+                            if (fellShort) waitPoint = transform.position;
                             parking = false;
                             State = Phase.Parked;
                         }
@@ -393,6 +427,13 @@ namespace APC.Staff
 
         void Think()
         {
+            if (thinkFrame != Time.frameCount)
+            {
+                thinkFrame = Time.frameCount;
+                thinksThisFrame = 0;
+            }
+            maxThinksPerFrame = Mathf.Max(maxThinksPerFrame, ++thinksThisFrame);
+
             if (Fired && stack.Count.CurrentValue == 0)
             {
                 Leave();
@@ -402,7 +443,11 @@ namespace APC.Staff
             {
                 // 배달할 곳이 없으면 그 자리에서 기다린다
                 if (Find(drop: true, out var dropZone)) Go(dropZone, drop: true);
-                else Hold();
+                else
+                {
+                    Hold();
+                    IdleBackoff();
+                }
                 return;
             }
 
@@ -414,8 +459,27 @@ namespace APC.Staff
                 Go(pickZone, drop: false);
                 return;
             }
-            if (State == Phase.Parked || (State == Phase.Moving && parking)) return; // 이미 기다리는 중
+            if (State == Phase.Parked || (State == Phase.Moving && parking))
+            {
+                IdleBackoff(); // 이미 기다리는 중 — 일이 없으니 판단을 늦춘다
+                return;
+            }
             Park();
+        }
+
+        /// <summary>할 일이 없을 때 다음 판단을 `idleThinkMultiplier`배 뒤로 (2026-11-26). 대기 알바가 0.25초마다 존 전체를 훑던 것.</summary>
+        void IdleBackoff() => thinkTimer = ThinkInterval * rules.IdleThinkMultiplier * (0.75f + 0.5f * Random.value); // 흩어서 위상이 묶이지 않게
+
+        /// <summary>이번 프레임 판단 예산 (`maxThinksPerFrame`). 쓰면 true.</summary>
+        bool TakeThinkBudget()
+        {
+            var frame = Time.frameCount;
+            if (budgetFrame != frame)
+            {
+                budgetFrame = frame;
+                budgetUsed = 0;
+            }
+            return ++budgetUsed <= rules.MaxThinksPerFrame;
         }
 
         /// <summary>
@@ -428,9 +492,12 @@ namespace APC.Staff
             var bestScore = float.MaxValue;
             var from = transform.position;
 
-            foreach (var candidate in InteractionZone.Active)
+            RefreshZoneLists();
+            var candidates = drop ? DropZones : RoleZones[(int)Role];
+            for (var i = 0; i < candidates.Count; i++)
             {
-                if (candidate is not CargoZone cargoZone || cargoZone.Slots.Length == 0 || !IsSettled(cargoZone)) continue;
+                var cargoZone = candidates[i];
+                if (!IsSettled(cargoZone)) continue;
                 var ok = drop ? cargoZone.CanReceiveAny(interactor) : IsRoleZone(cargoZone) && HasWork(cargoZone);
                 if (!ok) continue;
 
@@ -441,6 +508,39 @@ namespace APC.Staff
             }
             return bestZone != null;
         }
+
+        // 직무별로 볼 존을 미리 나눠 둔다 (2026-11-27). 판단마다 존 전체(TycoonTest 약 190개)를 돌며 직무와 상관없는 존까지 확인하던 것.
+        // 종류(타입 · 보관 종류)만으로 나누고, 지금 상태에 따른 조건(반품 focus · 랙 품목)은 IsRoleZone이 그대로 본다
+        static readonly List<CargoZone> DropZones = new();
+        static readonly List<CargoZone>[] RoleZones = { new(), new(), new(), new(), new() }; // StaffRole 순서
+        static int zoneListVersion = -1;
+
+        static void RefreshZoneLists()
+        {
+            if (zoneListVersion == InteractionZone.ListVersion) return;
+            zoneListVersion = InteractionZone.ListVersion;
+            DropZones.Clear();
+            foreach (var list in RoleZones) list.Clear();
+            var all = InteractionZone.Active;
+            for (var i = 0; i < all.Count; i++)
+            {
+                if (all[i] is not CargoZone zone || zone.Slots.Length == 0) continue;
+                DropZones.Add(zone);
+                for (var role = 0; role < RoleZones.Length; role++)
+                    if (CouldBeRoleZone((StaffRole)role, zone)) RoleZones[role].Add(zone);
+            }
+        }
+
+        /// <summary>IsRoleZone의 종류 부분 (상태와 무관). IsRoleZone을 바꾸면 같이 바꾼다.</summary>
+        static bool CouldBeRoleZone(StaffRole role, CargoZone zone) => role switch
+        {
+            StaffRole.Unload => zone is TruckPickupZone || (zone is StorageZone unload && unload.Storage.Kind == StorageKind.Pallet),
+            StaffRole.Sort => zone is StorageZone storage && storage.Storage.Kind is StorageKind.Scan or StorageKind.Repacked,
+            StaffRole.Pick => zone is ShelfZone,
+            StaffRole.Forklift => zone is TruckPickupZone || zone is ShelfZone,
+            StaffRole.Returns => zone is StorageZone returns && returns.Storage.Kind is StorageKind.Returns or StorageKind.Trash,
+            _ => false,
+        };
 
         static float NearestSlotDistance(InteractionZone target, Vector3 from)
         {
@@ -598,8 +698,7 @@ namespace APC.Staff
         int PickBudget(SharedStorage storage)
         {
             var room = stack.Capacity.CurrentValue - stack.Count.CurrentValue;
-            var total = 0;
-            foreach (var pair in storage.PlanForShelves(room)) total += pair.Value;
+            var total = storage.PlanForShelves(room, ScratchPlan);
             foreach (var cargo in storage.Items)
             {
                 if (cargo.State == CargoState.Return && !cargo.Unsorted) total++;
@@ -678,25 +777,26 @@ namespace APC.Staff
             return t.TransformPoint(local);
         }
 
-        /// <summary>점을 존 안쪽으로 넣고 네비메시에 붙인다. 붙인 점이 여전히 존 안쪽(가장자리 여유 절반 이상)이면 true.</summary>
+        /// <summary>점을 존 안쪽으로 넣고 바닥에 붙인다. 붙인 점이 여전히 존 안쪽(가장자리 여유 절반 이상)이면 true. 격자 칸이라 소품 검사도 포함.</summary>
         bool TrySnapInside(InteractionZone target, Vector3 world, out Vector3 snapped)
         {
-            snapped = ClampInside(target, world);
-            if (!NavMesh.SamplePosition(snapped, out var hit, NavSnapRadius, NavMesh.AllAreas)) return false;
-            snapped = hit.position;
+            if (!TrySnapWalkable(ClampInside(target, world), out snapped)) return false;
             var local = target.transform.InverseTransformPoint(snapped);
             var margin = rules.ZoneEdgeMargin * 0.5f;
-            return Mathf.Abs(local.x) <= target.Size.x * 0.5f - margin && Mathf.Abs(local.z) <= target.Size.y * 0.5f - margin && IsClear(snapped);
+            return Mathf.Abs(local.x) <= target.Size.x * 0.5f - margin && Mathf.Abs(local.z) <= target.Size.y * 0.5f - margin;
         }
 
         /// <summary>
-        /// 그 자리에 소품(쓰레기통 · 선반 등 충돌체)이 없는가. 네비메시는 소품 밑에도 깔려 있어 네비메시만으로는 알 수 없다.
-        /// 바닥에 닿지 않게 발목 위부터 머리까지 알바 반경으로 본다 (트리거 무시).
+        /// 그 점이 걸을 수 있는 바닥인가 (2026-11-26): A* 격자 칸 하나만 본다 — 장애물을 알바 반경만큼 키워 구워 두었으니
+        /// 소품 검사까지 포함, 물리 · 네비 쿼리 없음. 닫힌 방 칸은 걸을 수 없다.
         /// </summary>
-        bool IsClear(Vector3 point)
+        bool TrySnapWalkable(Vector3 point, out Vector3 snapped)
         {
-            var radius = agent.radius;
-            return !Physics.CheckCapsule(point + Vector3.up * (radius + 0.1f), point + Vector3.up * 1.5f, radius, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            snapped = point;
+            if (!OnNav) return false;
+            var grid = StaffNav.Shared.Site.World.Grid;
+            var cell = grid.WorldToCell(point);
+            return grid.IsWalkable(cell.x, cell.y);
         }
 
         /// <summary>다른 알바(가는 · 일하는 · 대기 위치 포함, 나 빼고) 중 점에서 radius 안에 있는 수.</summary>
@@ -806,36 +906,40 @@ namespace APC.Staff
             return false;
         }
 
-        /// <summary>네비메시 위 · 어떤 존 사각형에서도 WaitZoneClearance 밖 · 다른 알바와 waitSpacing 이상 · 소품과 겹치지 않음.</summary>
+        /// <summary>걸을 수 있는 바닥 · 어떤 존 사각형에서도 WaitZoneClearance 밖 · 다른 알바와 waitSpacing 이상 · 소품과 겹치지 않음.</summary>
         bool IsGoodWaitPoint(Vector3 candidate, out Vector3 point)
         {
-            point = candidate;
-            if (!NavMesh.SamplePosition(candidate, out var hit, NavSnapRadius, NavMesh.AllAreas)) return false;
-            point = hit.position;
+            if (!TrySnapWalkable(candidate, out point)) return false;
             if (CountNear(point, rules.WaitSpacing * 0.95f) > 0) return false; // 붐벼서 실패가 가장 흔하다 → 존 193개보다 먼저 (결과는 같음)
+            return !NearAnyZone(point);
+        }
+
+        /// <summary>어떤 존 사각형에서 WaitZoneClearance 안에 있는가 (대기 자리가 존 바닥을 막지 않게).</summary>
+        static bool NearAnyZone(Vector3 point)
+        {
             foreach (var other in InteractionZone.Active)
             {
                 var local = other.transform.InverseTransformPoint(point);
-                if (Mathf.Abs(local.x) <= other.Size.x * 0.5f + WaitZoneClearance && Mathf.Abs(local.z) <= other.Size.y * 0.5f + WaitZoneClearance) return false;
+                if (Mathf.Abs(local.x) <= other.Size.x * 0.5f + WaitZoneClearance && Mathf.Abs(local.z) <= other.Size.y * 0.5f + WaitZoneClearance) return true;
             }
-            return IsClear(point);
+            return false;
         }
 
         bool Arrived()
         {
-            if (!AStar && agent.pathPending) return false;
-            if (AStar ? pathFailed : agent.pathStatus == NavMeshPathStatus.PathInvalid)
+            if (!OnNav) return false;
+            if (pathFailed)
             {
                 var target = TargetZone;
                 NoPathCount++;
-                Debug.LogWarning($"[StaffWorker] {name}: '{(leaving ? "출구" : target != null ? target.name : "대기 위치")}'까지 길이 없습니다.", this);
+                EditorWarning($"[StaffWorker] {name}: '{(leaving ? "출구" : target != null ? target.name : "대기 위치")}'까지 길이 없습니다.", this);
                 Hold();
                 return false;
             }
-            return (AStar ? StaffNav.Shared.Remaining(crowdId) : agent.remainingDistance) <= ArriveDistance;
+            return StaffNav.Shared.Remaining(crowdId) <= ArriveDistance;
         }
 
-        /// <summary>가는 중인 목표가 아직 유효한가. 예약은 잠깐 풀고 다시 확인해 다시 잡는다 (자기 예약 때문에 일이 없어 보이지 않게).</summary>
+        /// <summary>가는 중인 목표가 아직 유효한가. 존은 자기 예약을 더해서 보므로(OwnReserved) 풀지 않고 그대로 확인한다.</summary>
         bool StillValid()
         {
             if (gauge != null) return gauge.isActiveAndEnabled && gauge.HasWork;
@@ -843,15 +947,12 @@ namespace APC.Staff
             if (zone == null || !zone.isActiveAndEnabled) return false;
             if (dropping) return zone.CanReceiveAny(interactor);
 
-            ReleaseReservation();
-            var ok = IsRoleZone(zone) && HasWork(zone);
-            if (ok) Reserve();
-            return ok;
+            return IsRoleZone(zone) && HasWork(zone);
         }
 
         void BeginWork()
         {
-            ReleaseReservation(); // 도착하면 존이 실제 수요로 판단한다 (들고 있는 수가 예약을 대신함)
+            // 예약은 도착 뒤에도 유지한다 — 풀면 집기 전(InteractionDelay) 다른 알바가 가져가 둘 다 헛걸음했다 (2026-11-26). 집은 만큼 TickWork에서 줄인다
             interactor.AllowDrop = dropping && !scanning;
             interactor.AllowPick = !dropping && !scanning;
             interactor.AllowScan = scanning;
@@ -883,6 +984,7 @@ namespace APC.Staff
             var count = stack.Count.CurrentValue;
             if (count != lastCount)
             {
+                if (!dropping) ConsumeReservation(lastCount, count);
                 lastCount = count;
                 idleTime = 0f;
             }
@@ -893,7 +995,7 @@ namespace APC.Staff
 
             var done = dropping ? count == 0 : stack.IsFull || (pickBudget >= 0 && count >= pickBudget);
             var stuck = workTime >= rules.InteractionDelay + StuckTimeout && interactor.CurrentZone != zone && !repathPending; // 재배치 팝 연출 중엔 존이 잠깐 안 잡힌다
-            if (stuck) Debug.LogWarning($"[StaffWorker] {name}: 작업 지점 {OccupiedPosition}이 존 '{zone.name}' 밖에 있습니다.", zone);
+            if (stuck) EditorWarning($"[StaffWorker] {name}: 작업 지점 {OccupiedPosition}이 존 '{zone.name}' 밖에 있습니다.", zone);
             if (done || idleTime >= rules.WorkIdleTimeout || stuck) FinishWork();
         }
 
@@ -901,8 +1003,14 @@ namespace APC.Staff
         {
             ReleaseAll();
             State = Phase.Idle;
-            thinkTimer = 0f; // 다음 일을 바로 고른다
+            ScatterNextThink(); // 다음 일을 곧 고른다
         }
+
+        /// <summary>
+        /// 다음 판단을 곧(0 ~ 간격의 절반 뒤) 하게 한다 (2026-11-26). 0으로 두면 같은 프레임에 일을 끝낸 알바들(트럭이 빔 등)이
+        /// 다음 프레임에 함께 판단하고 그 뒤로도 위상이 묶여 한 프레임에 판단이 몰렸다.
+        /// </summary>
+        void ScatterNextThink() => thinkTimer = Random.value * ThinkInterval * 0.5f;
 
         /// <summary>해고 후 빈손: 생성 지점(사무실 PC 앞)으로 걸어가 사라진다.</summary>
         void Leave()
@@ -927,7 +1035,7 @@ namespace APC.Staff
             ReleaseAll();
             StopPath();
             State = Phase.Idle;
-            thinkTimer = 0f;
+            ScatterNextThink();
         }
 
         /// <summary>화물 예약 · 테이블 예약 · 서는 / 대기 위치 · 대상 존을 모두 푼다.</summary>
@@ -968,15 +1076,22 @@ namespace APC.Staff
                     var count = Mathf.Min(room, Mathf.Min(truck.Available, space)); // 그 칸 공간 빈자리까지 (GDD 8.4)
                     if (count <= 0) return;
                     truck.Reserve(count);
-                    releaseReservation = () => { if (truck != null) truck.Unreserve(count); };
+                    reserved = Reservation.Truck;
+                    reservedTruck = truck;
+                    reservedCount = count;
                     break;
                 }
                 case StorageZone storageZone when Warehouse.Instance != null:
                 {
                     var warehouse = Warehouse.Instance;
-                    var plan = storageZone.Storage.PlanForShelves(room);
-                    foreach (var pair in plan) warehouse.ReserveShelfSpace(pair.Key, pair.Value);
-                    releaseReservation = () => { foreach (var pair in plan) warehouse.UnreserveShelfSpace(pair.Key, pair.Value); };
+                    storageZone.Storage.PlanForShelves(room, reservedPlan);
+                    reservedStorage = storageZone.Storage;
+                    foreach (var pair in reservedPlan)
+                    {
+                        warehouse.ReserveShelfSpace(pair.Key, pair.Value);
+                        reservedStorage.ReserveBoxes(pair.Key, pair.Value); // 같은 상자에 여러 명이 몰려가지 않게 (2026-11-26)
+                    }
+                    reserved = Reservation.ShelfSpace;
                     break;
                 }
                 case ShelfZone shelfZone when OrderService.Instance != null && shelfZone.Shelf.Item != null:
@@ -986,18 +1101,89 @@ namespace APC.Staff
                     var count = Mathf.Min(room, orders.GetDemand(item));
                     if (count <= 0) return;
                     orders.Reserve(item, count);
-                    releaseReservation = () => orders.Unreserve(item, count);
+                    reserved = Reservation.Demand;
+                    reservedItem = item;
+                    reservedCount = count;
                     break;
+                }
+            }
+        }
+
+        /// <summary>존이 내줄 때 더해 볼 자기 예약 (Interactor.OwnReservation). 지금 대상 존이 아니면 0.</summary>
+        int OwnReserved(InteractionZone at, ItemDefinition item)
+        {
+            if (at == null || at != zone) return 0;
+            return reserved switch
+            {
+                Reservation.Truck => reservedCount,
+                Reservation.Demand => item == reservedItem ? reservedCount : 0,
+                Reservation.ShelfSpace => item != null && reservedPlan.TryGetValue(item, out var n) ? n : 0,
+                _ => 0,
+            };
+        }
+
+        /// <summary>새로 집은 상자(stack [from, to))만큼 예약을 줄인다 — 이제 들고 있는 수가 그 몫을 잡는다.</summary>
+        void ConsumeReservation(int from, int to)
+        {
+            if (reserved == Reservation.None || to <= from) return;
+            var items = stack.Items;
+            for (var i = from; i < to && i < items.Count; i++)
+            {
+                switch (reserved)
+                {
+                    case Reservation.Truck when reservedCount > 0:
+                        if (reservedTruck != null) reservedTruck.Unreserve(1);
+                        reservedCount--;
+                        break;
+                    case Reservation.Demand when reservedCount > 0 && items[i].Item == reservedItem:
+                        if (OrderService.Instance != null) OrderService.Instance.Unreserve(reservedItem, 1);
+                        reservedCount--;
+                        break;
+                    case Reservation.ShelfSpace when items[i].State == CargoState.Normal && items[i].Item != null && reservedPlan.TryGetValue(items[i].Item, out var n) && n > 0:
+                        if (Warehouse.Instance != null) Warehouse.Instance.UnreserveShelfSpace(items[i].Item, 1);
+                        if (reservedStorage != null) reservedStorage.UnreserveBoxes(items[i].Item, 1);
+                        reservedPlan[items[i].Item] = n - 1;
+                        break;
                 }
             }
         }
 
         void ReleaseReservation()
         {
-            var release = releaseReservation;
-            releaseReservation = null;
-            release?.Invoke();
+            var kind = reserved;
+            reserved = Reservation.None; // 먼저 비운다 (푸는 중 다시 불려도 두 번 풀지 않게)
+            switch (kind)
+            {
+                case Reservation.Truck:
+                    if (reservedTruck != null) reservedTruck.Unreserve(reservedCount);
+                    break;
+                case Reservation.ShelfSpace:
+                    var warehouse = Warehouse.Instance;
+                    if (warehouse != null)
+                    {
+                        foreach (var pair in reservedPlan) warehouse.UnreserveShelfSpace(pair.Key, pair.Value);
+                    }
+                    if (reservedStorage != null)
+                    {
+                        foreach (var pair in reservedPlan) reservedStorage.UnreserveBoxes(pair.Key, pair.Value);
+                    }
+                    reservedPlan.Clear();
+                    break;
+                case Reservation.Demand:
+                    if (OrderService.Instance != null) OrderService.Instance.Unreserve(reservedItem, reservedCount);
+                    break;
+            }
+            reservedTruck = null;
+            reservedStorage = null;
+            reservedItem = null;
         }
+
+        /// <summary>
+        /// 에디터에서만 경고 (2026-11-26). 빌드에서는 호출이 통째로 빠져 문자열도 만들지 않는다 —
+        /// 기기에서 같은 상황이 반복되면 판단마다 문자열 할당 + 스택트레이스 수집(Stack Trace = ScriptOnly) + logcat 쓰기가 들었다.
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        static void EditorWarning(string message, Object context) => Debug.LogWarning(message, context);
 
         void SetColor(Color color)
         {

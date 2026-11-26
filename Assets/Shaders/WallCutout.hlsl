@@ -35,8 +35,9 @@ void WallCutoutClip(float4 positionCS)
 
         // 이 픽셀이 있는 면(평면)이 대상 → 카메라 축과 만나는 지점으로 앞뒤를 정한다.
         // 픽셀마다 앞뒤를 재면 비스듬한 벽 위에서 판정이 갈려 구멍이 직선으로 잘린다.
-        float facing = dot(axis, normal);
-        float hit = abs(facing) > 1e-8 ? dot(offset, normal) / facing : along;
+        // 축과 거의 나란한 면(옆 벽 · 기둥 옆면)은 평면 교점이 멀리 튀어 가리지 않는 면까지 지웠다 → 픽셀 자신의 앞뒤로 (2026-11-27)
+        float facing = dot(axis, normal) * rsqrt(max(dot(normal, normal), 1e-12));
+        float hit = abs(facing) > 0.25 ? dot(offset, normal) / dot(axis, normal) : along;
         if (hit > -_WallCutoutParams.z) continue; // 대상보다 뒤에 있는 면은 그대로
 
         float distance = length(offset - axis * along);

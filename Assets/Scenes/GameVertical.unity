@@ -2443,6 +2443,11 @@ MonoBehaviour:
   cameraDuration: 0.5
   dragThreshold: 12
   costOffset: {x: 70, y: 40}
+  beltModeButton: {fileID: 0}
+  scanModeButton: {fileID: 0}
+  scanRemoveButton: {fileID: 0}
+  scanZoneColor: {r: 0.25, g: 0.85, b: 0.35, a: 0.45}
+  selectedColor: {r: 1, g: 0.85, b: 0.2, a: 0.95}
   gridColor: {r: 1, g: 1, b: 1, a: 0.3}
   blockedColor: {r: 1, g: 0.15, b: 0.15, a: 0.55}
   startColor: {r: 0.2, g: 0.5, b: 1, a: 0.65}
@@ -4991,7 +4996,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4299629fac5d61b48a14e2cc99e1659f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.Logistics.Warehouse
-  shelfPrefab: {fileID: 3671193564190701847, guid: 2eccd8cc828b4b54f9f3a19afcf8114b, type: 3}
 --- !u!114 &281971196
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -14567,10 +14571,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::APC.Logistics.InboundQueue
   truckPrefab: {fileID: 4984602761534617846, guid: 5e6d6f7a22b565742bca4191a21f5cc0, type: 3}
-  headPosition: {x: 0, y: 0, z: -21}
-  lineDirection: {x: 0, y: 0, z: 1}
   spacing: 7
-  truckYaw: 180
   markerMaterial: {fileID: 2100000, guid: 1b0e0ecd08924f145959ed18e5ea4dac, type: 2}
 --- !u!114 &811996144
 MonoBehaviour:
@@ -30659,7 +30660,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1729456473}
   - component: {fileID: 1729456472}
-  - component: {fileID: 1729456471}
   m_Layer: 0
   m_Name: Site
   m_TagString: Untagged
@@ -30667,18 +30667,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1729456471
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1729456470}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 89f8ff920d7ed994d9c7347a65d62d40, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::APC.Site.SiteNavMesh
 --- !u!114 &1729456472
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -31736,6 +31724,9 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 2783558332974603286, guid: dce0a5745f7d609498d2c3c29d485dbf, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 8423553975628435302, guid: dce0a5745f7d609498d2c3c29d485dbf, type: 3}
       insertIndex: -1
       addedObject: {fileID: 0}
   m_SourcePrefab: {fileID: 100100000, guid: dce0a5745f7d609498d2c3c29d485dbf, type: 3}
@@ -35947,12 +35938,18 @@ MonoBehaviour:
   cellTemplate: {fileID: 1933905319}
   cellStep: {x: 210, y: 160}
   resetButton: {fileID: 1673804028}
+  rotateButton: {fileID: 0}
   reasonLabel: {fileID: 1072080263}
   emptyColor: {r: 0.96, g: 0.95, b: 0.92, a: 1}
   fixedColor: {r: 0.38, g: 0.35, b: 0.33, a: 1}
   returnsColor: {r: 0.55, g: 0.62, b: 0.8, a: 1}
+  inboundColor: {r: 0.85, g: 0.62, b: 0.35, a: 1}
+  scanColor: {r: 0.45, g: 0.7, b: 0.62, a: 1}
   lockedColor: {r: 0.55, g: 0.55, b: 0.55, a: 0.45}
   darkText: {r: 0.25, g: 0.22, b: 0.2, a: 1}
+  selectedScale: 1.08
+  truckBarColor: {r: 0.85, g: 0.2, b: 0.18, a: 1}
+  truckBarThickness: 14
 --- !u!1 &2048232718
 GameObject:
   m_ObjectHideFlags: 0

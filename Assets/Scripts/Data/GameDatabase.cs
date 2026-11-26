@@ -21,7 +21,7 @@ namespace APC.Data
         [SerializeField, Tooltip("벽 반투명 (플레이어를 가린 벽 · 주차장). 비면 안 함")] WallFadeConfig wallFade;
         [SerializeField, Tooltip("알바 A* 길찾기 격자 (DEBUG `Path A*`일 때). 비면 기본값")] NavGridConfig navGrid;
 
-        public IReadOnlyList<CompanyDefinition> Companies => companies;
+        public List<CompanyDefinition> Companies => companies; // 읽기만 한다 — 구체 타입은 foreach 박싱 방지 (스캔 색 찾기, 2026-11-26)
         public LogisticsConfig Logistics => logistics;
         public GoldenTruckConfig GoldenTruck => GoldenTruckConfig.OrDefault(goldenTruck);
         public PlayerConfig Player => player;

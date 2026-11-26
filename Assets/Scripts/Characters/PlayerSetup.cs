@@ -16,8 +16,41 @@ namespace APC.Characters
         /// <summary>지금 켜진 적재 도구의 렌더러 (맨손이면 빈 배열). PlayerMover가 벽에 닿지 않게 쓴다.</summary>
         public Renderer[] ToolRenderers { get; private set; } = new Renderer[0];
 
+        /// <summary>
+        /// 도구(구루마 · 롤테이너) 발밑 타원 그림자 (2026-11-27). 도구는 플레이어와 같이 움직이므로 구운 그림자(BakedShadows) 대신 블롭.
+        /// 플레이어 자식으로 둔다 — 도구 아래에 두면 ToolRenderers(벽 거리 계산)에 섞인다.
+        /// </summary>
+        void ToolShadow()
+        {
+            var shadow = transform.Find(ToolShadowName);
+            if (ToolRenderers.Length == 0)
+            {
+                if (shadow != null) shadow.gameObject.SetActive(false);
+                return;
+            }
+            var min = new Vector2(float.MaxValue, float.MaxValue);
+            var max = new Vector2(float.MinValue, float.MinValue);
+            foreach (var r in ToolRenderers)
+            {
+                var b = r.localBounds;
+                for (var i = 0; i < 8; i++)
+                {
+                    var corner = b.center + Vector3.Scale(b.extents, new Vector3((i & 1) == 0 ? -1f : 1f, (i & 2) == 0 ? -1f : 1f, (i & 4) == 0 ? -1f : 1f));
+                    var p = transform.InverseTransformPoint(r.transform.TransformPoint(corner));
+                    min = Vector2.Min(min, new Vector2(p.x, p.z));
+                    max = Vector2.Max(max, new Vector2(p.x, p.z));
+                }
+            }
+            var center = (min + max) * 0.5f;
+            shadow = Visuals.BlobShadow.Attach(gameObject, ToolShadowName, (max - min) * 1.5f, new Vector3(center.x, 0f, center.y)); // 도구 바닥판이 덮으므로 크게 — 가장자리가 밖으로 보이게
+            if (shadow != null) shadow.gameObject.SetActive(true);
+        }
+
+        const string ToolShadowName = "ToolShadow";
+
         void Start()
         {
+            Visuals.BlobShadow.Attach(gameObject, 1.1f); // 메인 라이트 그림자 대신 (2026-11-26)
             var config = GameManager.Instance.Database.Player;
             var stack = GetComponent<CarryStack>();
             var handAnchor = stack.Anchor;
@@ -38,6 +71,7 @@ namespace APC.Characters
                     ToolRenderers = tools[i].GetComponentsInChildren<Renderer>();
                 }
                 stack.UseAnchor(toolAnchor != null ? toolAnchor : handAnchor);
+                ToolShadow();
             }).AddTo(this);
             var interactor = GetComponent<Interactor>();
             interactor.Configure(config.PickInterval, config.InteractionDelay);
