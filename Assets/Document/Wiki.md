@@ -1297,6 +1297,12 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 `Assets/Scripts/Editor/`는 빌드에 포함되지 않는다. 씬 · 프리팹 · 데이터를 **코드로 만들어** 같은 결과를 언제든 다시 얻을 수 있게 한다.
 
+#### AndroidBuilds (2026-11-27)
+[Editor/AndroidBuilds.cs](../Scripts/Editor/AndroidBuilds.cs)
+- **역할**: 메뉴 `APC > Build > Android — Game + Tycoon (APK 2개)` — Game 씬 · TycoonTest 씬을 따로 빌드해 한 기기에 같이 설치할 수 있게.
+- **동작**: 메뉴는 바로 끝나고 다음 에디터 틱(`delayCall`)에 빌드. Game = 지금 패키지 ID · 이름 그대로, Tycoon = ID + `.tycoon` · 이름 + ` Tycoon`. 씬은 빌드 설정 목록과 상관없이 하나씩 넘긴다. 끝나면 ID · 이름을 되돌린다. 결과 `Builds/Android/APC_Game.apk` · `APC_Tycoon.apk`(git 제외), 콘솔 `[AndroidBuilds]` 줄.
+- **주의**: TycoonTest 씬은 커밋하지 않으므로 먼저 `APC > Test > Build Tycoon 8x8`로 만든다(Game 씬을 복사하므로 Game의 UI가 그대로 들어간다). 활성 대상이 Android가 아니면 처음 한 번 전환 · 재임포트로 오래 걸린다(2026-11-27: Game 515초 · Tycoon 85초, APK 각 약 56MB).
+
 | 메뉴 | 스크립트 | 하는 일 |
 |---|---|---|
 | `APC > Art > Background Layout` | [BackgroundLayoutWindow](../Scripts/Editor/BackgroundLayoutWindow.cs) | 배경 모듈 배치 격자 창 (2026-11-19). `SiteLayout.background`를 칸 클릭으로 고친다(놓기 · 돌리기 · 지우기, 부지 바깥 칸 수 조절), 씬 미리보기 `[BackgroundPreview]`(DontSave, Play · 창 닫기 때 지움) |

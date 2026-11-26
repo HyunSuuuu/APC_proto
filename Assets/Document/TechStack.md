@@ -99,6 +99,7 @@ Git UPM 패키지는 모두 **태그로 버전을 고정**했다 (`Packages/mani
 - 임시 프리미티브 프리팹 생성, 부지 그리드(GDD 4.2) 배치
 - 콘솔 에러 확인, 플레이 모드 실행 확인
 - 빌드에는 영향 없음 (에디터 전용 패키지)
+- **Android 빌드** (2026-11-27): 메뉴 `APC > Build > Android — Game + Tycoon (APK 2개)` — Game · TycoonTest를 패키지 ID를 달리해(`.tycoon`) 따로 빌드, 같이 설치 가능. 결과 `Builds/Android/`. TycoonTest는 먼저 `APC > Test > Build Tycoon 8x8`
 - **Claude Code 연결**: 프로젝트 루트 `.mcp.json`에 서버 `UnityMCP`(`http://localhost:8080/mcp`)가 등록돼 있다. Unity에서 `Window > MCP for Unity` 서버를 먼저 켠 뒤 Claude Code를 (재)시작하고, 프로젝트 MCP 서버 사용을 승인한다. 포트가 바뀌면 `.mcp.json`의 url을 고친다.
 
 ## 5. 사용 규칙
