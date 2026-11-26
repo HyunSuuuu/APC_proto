@@ -29,20 +29,35 @@ namespace APC.Interaction
         protected void SetSize(Vector2 value) => size = value;
         public IReadOnlyList<Interactor> Occupants => occupants;
 
-        /// <summary>켜져 있는 모든 존 (알바가 작업 대상을 찾을 때).</summary>
-        public static IReadOnlyList<InteractionZone> Active => All;
+        /// <summary>켜져 있는 모든 존 (알바가 작업 대상을 찾을 때). 읽기만 한다 — 구체 타입은 foreach 열거자 박싱을 없애려고 (알바 100명 GC, 2026-11-25).</summary>
+        public static List<InteractionZone> Active => All;
 
-        /// <summary>알바 작업 지점 (자식 WorkSlot). 없으면 알바는 이 존을 쓰지 않는다.</summary>
-        public IReadOnlyList<WorkSlot> Slots => slots ??= GetComponentsInChildren<WorkSlot>(true);
+        /// <summary>알바 작업 지점 (자식 WorkSlot). 없으면 알바는 이 존을 쓰지 않는다. 읽기만 한다 (배열 = foreach 할당 없음).</summary>
+        public WorkSlot[] Slots => slots ??= GetComponentsInChildren<WorkSlot>(true);
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() => All.Clear();
+        static void ResetStatics()
+        {
+            All.Clear();
+            rectsFrame = -1;
+        }
+
+        // 존 바닥 사각형을 프레임마다 한 번만 계산 — 사람마다 존마다 InverseTransformPoint면 알바 100명 × 존 193개 = 프레임당 5ms (2026-11-25)
+        static readonly List<Rect> Rects = new();
+        static int rectsFrame = -1;
 
         public static InteractionZone FindAt(Vector3 worldPosition)
         {
-            foreach (var zone in All)
+            if (rectsFrame != Time.frameCount)
             {
-                if (zone.Contains(worldPosition)) return zone;
+                rectsFrame = Time.frameCount;
+                Rects.Clear();
+                foreach (var zone in All) Rects.Add(zone.WorldRect); // = Contains (회전은 90° 단위)
+            }
+            var point = new Vector2(worldPosition.x, worldPosition.z);
+            for (var i = 0; i < All.Count; i++)
+            {
+                if (Rects[i].Contains(point)) return All[i];
             }
             return null;
         }
@@ -92,12 +107,14 @@ namespace APC.Interaction
         protected virtual void OnEnable()
         {
             All.Add(this);
+            rectsFrame = -1; // 목록이 바뀜 → FindAt 사각형 다시
             SetFloorColor(idleColor);
         }
 
         protected virtual void OnDisable()
         {
             All.Remove(this);
+            rectsFrame = -1;
             occupants.Clear();
         }
 

@@ -26,6 +26,7 @@ namespace APC.Debugging
         IEnumerator Start()
         {
             PartService.AlwaysOpen = true;
+            Logistics.InboundQueue.FillAtOnce = true; // 줄(칸마다 5대)을 바로 채우고 빠지면 바로 보충 (2026-11-25)
             var level = GameManager.Instance.Level;
             while (level.Level.CurrentValue < targetLevel) level.LevelUpNow();
             GameManager.Instance.Wallet.Add(startCash);

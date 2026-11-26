@@ -540,6 +540,32 @@ namespace APC.Navigation
                 }
             });
 
+            Case("CrowdPauseRemainingRemove", () =>
+            {
+                var body = TempBody(Vector3.zero);
+                try
+                {
+                    var crowd = new NavCrowd();
+                    var agent = crowd.Add(body, 2f);
+                    crowd.SetPath(agent, new List<Vector3> { Vector3.zero, new(4f, 0f, 0f), new(4f, 0f, 4f) });
+                    var full = crowd.RemainingDistance(agent); // 8m
+                    crowd.SetPaused(agent, true);
+                    crowd.Tick(1f);
+                    var paused = crowd.Position(agent) == Vector3.zero;
+                    crowd.SetPaused(agent, false);
+                    crowd.SetSpeed(agent, 4f);
+                    crowd.Tick(0.5f); // 2m
+                    var left = crowd.RemainingDistance(agent); // 6m
+                    crowd.Remove(agent);
+                    crowd.Tick(1f);
+                    return Mathf.Abs(full - 8f) < 0.01f && paused && Mathf.Abs(left - 6f) < 0.01f && !crowd.IsMoving(agent) && crowd.RemainingDistance(agent) == 0f;
+                }
+                finally
+                {
+                    UnityEngine.Object.DestroyImmediate(body.gameObject);
+                }
+            });
+
             Case("RepathOnlyTouching", () =>
             {
                 var g = Grid(3, 1);

@@ -137,8 +137,10 @@ namespace APC.Logistics
             }
             if (scanner == null)
             {
-                foreach (var who in Occupants)
+                var occupants = Occupants;
+                for (var i = 0; i < occupants.Count; i++) // foreach는 IReadOnlyList 열거자 박싱 — 팔레트마다 매 프레임 (2026-11-25 GC)
                 {
+                    var who = occupants[i];
                     if (who.StillTime < config.ScanStartDelay || !CanScanBy(who)) continue;
                     scanner = who;
                     scanProgress = 0f;

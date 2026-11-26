@@ -55,6 +55,10 @@
 - M13-18 통플레이(Lv.1 → 5, XP · 비용 · 월급 조정), M15 모델 2차 계획, M10 2순위 남은 것.
 - 파라미터 정리([ParameterList.md](ParameterList.md)) 총책임자 답 4가지 대기, 성능(알바 일감 찾기 GC · 렌더링) 조사 계획 `docs/superpowers/plans/`.
 - 원격 브랜치 `UI-develop` · `astar-toggle` · `work-1125`는 이번 대화에서 보지 않음.
+- **main 머지 때 옮김 (2026-11-26, main 쪽 11-25 인수인계)**:
+  - 타이쿤 시험 6건 + 스트레스 버튼 (`work-1125`): 스캔 칸 벽 · 트럭 풀(최대 64) · 하차 칸마다 칸 앞 대기 줄 · 알바 100명 끊김/CPU/GC · A* 토글(DEBUG Staff `Path A*`) · `Hire 100 mixed`. MCP Play · 프로파일 끝, 사람 손 테스트 아직 (커밋 19252e4 · 68c2830 · b6f594d · cacaf0e · 528b66f · c8d5110)
+  - 레벨업 연출 v2 (자물쇠 해금): M5-6 메모. Game 씬만 새 배너, TycoonTest · ShaderTestScene은 옛 배너라 레벨업 연출이 꺼짐(경고) → 필요하면 다시 빌드. 사람 손 테스트 아직
+  - 벽 그라데이션: Game 씬 `SiteWalls.wallMaterial` 참조 되살림(7c7428a). UI: 클립보드 2D 리소스(8c5c8cf) · UI 프레임 드랍 최적화(e2167ec)
 
 ## 진행 순서
 
@@ -231,6 +235,7 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
   - `SiteNavMesh`: Site 루트의 `NavMeshSurface`(자식 충돌체) — 열린 모듈 바닥에만, 초록 Ground는 제외. 해금 팝 연출이 끝난 뒤 다시 굽는다. 시설(선반 등)은 충돌체가 없어 아직 장애물이 아님 → M6에서 처리
 - [x] **M5-6 레벨업 연출 v1** — 축하 이펙트 + 간단한 해금 안내 (팝업 디자인은 M10)
   - 중앙 배너 `LEVEL UP! Lv.N` + 해금 한 줄, 약 2초, 게임 안 멈춤 + 플레이어 위 파티클 (GDD 10.2 확정). 여러 레벨이 한꺼번에 오르면 차례로 (`LevelUpBanner`)
+  - **바뀜 (2026-11-25, 사용자 요청 · HTML 샘플)**: 자물쇠 해금 연출 v2 — 열쇠 꽂기 · 흔들림 · 90° 돌림(두께) · 고리 뽑힘 · 별 버스트 · 해금 칩, DOTween Sequence, 약 4.4초 `임시`. 그림은 정점 도형(`UIShape` · `LevelUpKeyGraphic` · `LevelUpShackleGraphic` · `LevelUpBurst`, 스프라이트 없음), 별 26개는 메시 하나, 루트 하위 Canvas (GDD 10.2 확정). Game 씬만 다시 만듦(`BuildLevelUpBanner`). Play(MCP): 단계별 스크린샷 · 연속 레벨업 차례 재생, 에러 0. 사람 손 테스트 아직
 - [x] **M5-7 사무실 구역** — 시작 부지에 사무실 배치 (계약 PC 이동, 고용 데스크·배치 현황판 자리 확보)
   - 모듈 작업 때 사무실 모듈(R2C1) + 계약 PC 배치 완료. 고용 데스크 · 배치 현황판은 M6에서 계약 PC 팝업의 고용 · 배치 탭으로 바뀌어 따로 두지 않음
 
