@@ -833,7 +833,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### SiteModule
 [Site/SiteModule.cs](../Scripts/Site/SiteModule.cs)
-- **역할**: 모듈 프리팹의 루트. 크기(칸 수, 회전 0° 기준)와 칸 크기를 가지고, Scene 뷰에 칸 경계를 그린다.
+- **역할**: 모듈 프리팹의 루트. 크기(칸 수, 회전 0° 기준)와 칸 크기를 가지고, Scene 뷰에 칸 경계를 그린다. 실행 중 `Awake`에서 `Visuals.StaticShadows`를 붙인다 (2026-11-27).
 - **구조**: `Module_이름` (SiteModule) → `Floor`(걷는 바닥, 충돌 있음) + `Content`(존 · 시설을 넣는 곳). 루트 위치 = 차지하는 칸들의 중심.
 - **`Kind`** (GDD 4.4): `Fixed`(사무실 · 쓰레기장 · 하차 · 상차) / `Empty`(빈 공간 `Module_Empty`) / `Movable`(보관 `Module_ShelfArea_A~D` · 반품 `Module_Returns`). M12-2 재배치가 쓴다. `StandardModules.Builders`가 정한다.
 
@@ -1165,6 +1165,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Visuals/WallCutout.cs](../Scripts/Visuals/WallCutout.cs)
 - **역할**: 플레이어를 가리는 구조물 · 배경에 원형 구멍 (셰이더 `APC/WallCutout`, `Shaders/WallCutout.shader` · `.hlsl`, 재질 `M_WallCutout`). Game 씬 · ShaderTestScene의 Player에 붙음. 같은 셰이더의 `_WALL_GRADIENT` 키워드(forward 패스만, `M_Wall`)는 `SiteWalls` 안쪽 면 그라데이션 — URP `LitPassFragment` 복사본이라 URP를 올리면 맞춰 볼 것. `M_Wall`은 Lit이 아니라 이 스크립트가 사본을 만들지 않고 그대로 씀.
 - **동작**: 매 프레임 구멍 대상 배열 `_WallCutoutCenters`(최대 8 = `MaxTargets` = hlsl `WALL_CUTOUT_MAX`, [0] = 플레이어 발 + `height` · `radius`만 씀 — 트럭 대상 `WallCutoutTarget`은 2026-11-23 삭제) · `_WallCutoutCount`(= 1) · 디더 폭 · `depthBias`를 전역 셰이더 값으로 (2026-11-20 배열로 바뀜). 픽셀마다 대상 수만큼 반복해 가장 많이 버리는 값을 씀. 부지가 바뀔 때만(켜질 때 · `SiteGrid.OnUnlocked` · `OnMoved` · 레벨 변경 = 공사 울타리, 2026-11-20 — 전에는 0.5초마다) 그 프레임 LateUpdate에서 씬 렌더러를 한 번 훑어, 이름이 `structurePrefixes`(wall_ · pillar_ · window_ · parking · tree_ 등)로 시작하는 렌더러(또는 부모)와 `extraWalls` 아래 렌더러의 URP Lit 재질을 사본 + 컷아웃 셰이더로 바꿈. 지워진 옛 벽 조각은 그때 목록에서 뺌. 끄면 되돌림.
+- **바뀜 (2026-11-27)**: ① 구멍 대상 [1..7] = 켜진 해금 발판(`ExpansionPad`, `InteractionZone.Active`에서 매 프레임) 위 `padHeight` 0.3m · `padRadius` 1.6m `임시` — 벽이 발판을 가려 진행이 막히던 것(어떻게 할지는 나중에 정함). ② fbx 내장 재질(M22 `Shader Graphs/PhysicalMaterial3DsMax`, `_BASE_COLOR_MAP` = 팔레트)도 바꾼다 — `M_WallCutout` 사본에 `_BaseMap` · `_BaseColor`만 옮김. 하차 · 상차 주차장 `pillar_L` · `truck_parking1` · `truck_exit`가 안 뚫리던 것. ③ hlsl: 원기둥 축과 거의 나란한 면(정규화 `|facing|` ≤ 0.25)은 평면 교점 대신 픽셀 자신의 앞뒤(`along`)로 판정 — 옆 벽 · 기둥 옆면이 가리지 않는데도 지워지던 것.
 - **주의**: `SiteWalls` 반투명(`WallFadeConfig.enabled`)과 같이 켜면 같은 재질을 둘이 바꿔 충돌 — 하나만 켠다. 해금 · 레벨업 신호 없이 구조물을 새로 만드는 코드를 추가하면 그 벽에는 구멍이 안 난다 → 그 코드에서도 신호를 내거나 여기 구독을 더한다.
 - **해금 → 사무실 타일 구매 · 직접 배치로 바뀔 때 (예정, 2026-11-20 사용자)**: ① 권장 — 배치 순간 기존 `SiteGrid` 이벤트를 낸다(새 칸 `OnUnlocked`, 옮김 `OnMoved`). `SiteWalls` · `SiteUnlocker`도 같은 이벤트를 구독하므로 WallCutout은 고칠 것 없음. ② 새 이벤트(예: `OnTilePlaced`)를 만들면 `WallCutout.Start`에 `grid.OnTilePlaced.Subscribe(_ => dirty = true).AddTo(this);` 한 줄 추가(+ `SiteWalls` · `SiteUnlocker`에도). 신호는 배치 연출이 끝나 구조물이 **다 생긴 뒤** 낸다 — 벽 찾기는 신호가 온 프레임 끝에 한 번만 돈다. 드래그 미리보기(고스트)는 훑지 않아 구멍이 안 남(의도). 훑는 시간 · 바꾼 렌더러 수를 정적 `LastScanMs` · `MaxScanMs` · `ScanCount` · `TotalScanMs` · `SwappedCount`로 남김 → `PerformanceHUD`가 표시. 예전 0.5초 방식은 실기기 비교(1회 12.7ms, GC의 절반) 뒤 지움.
 
@@ -1173,7 +1174,13 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 캐릭터 발밑 원형 그림자. 메인 라이트 그림자(Mobile · PC 렌더 에셋 모두 끔)를 대신한다.
 - **동작**: 정적 `Attach(대상, 지름)` — 자식 `BlobShadow` 쿼드(내장 Quad, 바닥에 눕힘, 발 위 0.14m — 바닥 타일 윗면 0.117 위)를 만들거나 지름만 바꾼다. 셰이더는 곱하기 합성 + UV 가운데에서 멀수록 옅게(텍스처 없음), SRP Batcher.
 - **연결**: `PlayerSetup.Start`(1.1m), `StaffWorker.SetRole`(1.1m, 지게차 2.4m).
-- **주의**: 그림자 하나 = 드로 하나. GPU 인스턴싱(`Graphics.RenderMeshInstanced` · 재질 인스턴싱)으로는 이 프로젝트에서 그려지지 않아 뺐다(원인 미확인). 트럭 · 선반 · 소품은 이제 그림자가 없다.
+- **주의**: 그림자 하나 = 드로 하나. GPU 인스턴싱(`Graphics.RenderMeshInstanced` · 재질 인스턴싱)으로는 이 프로젝트에서 그려지지 않아 뺐다(원인 미확인). 트럭(움직임)은 그림자가 없다. 셰이더 `_Rect` 1이면 사각 판(`StaticShadows`).
+
+#### StaticShadows (2026-11-27)
+[Visuals/StaticShadows.cs](../Scripts/Visuals/StaticShadows.cs) · 재질 `Resources/M_StaticShadow`(`APC/BlobShadow`, `_Rect` 1, 색 0.62)
+- **역할**: 고정 물체 그림자 판. 메인 라이트 그림자를 끈 뒤 선반 · 소품 · 기둥 아래가 비어 보여서 넣음. 모듈은 실행 중에 생기고 재배치로 움직이므로 라이트맵 대신 이 방식.
+- **동작**: `SiteModule.Awake`가 붙인다. 켜지고 2초 뒤(팝 연출 뒤) 한 번 — 그림자를 드리우던(`shadowCastingMode` ≠ Off) 켜진 `MeshRenderer` 중 높이 0.25m 이상인 것마다 바닥(모듈 y + 0.13)에 사각 판(바운드 + 빛 방향으로 높이 × 0.35, 최대 1.2m 밀림)을 깔고 모듈당 메시 하나(자식 `StaticShadows`)로 합친다 = 모듈당 드로 1. 빛 방향 = `RenderSettings.sun` 또는 첫 방향광.
+- **주의**: 2초 뒤에 생긴 것(나중에 놓인 상자 등)과 모듈 밖(부지 벽 `SiteWalls` · 시작 연출 물체)은 판이 없다. 판이 겹치면 더 진해진다.
 
 #### CharacterToon
 [Visuals/CharacterToon.cs](../Scripts/Visuals/CharacterToon.cs)

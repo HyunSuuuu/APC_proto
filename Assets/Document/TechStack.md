@@ -219,7 +219,7 @@ GDD상 팝업이 열리면 게임이 멈추고 하루 타이머도 멈춘다.
 - 외곽선 스텐실 그룹: 일반 1~126(16의 배수 피함), 관찰 255. 새 외곽선 재질(`APC/OutlineStencil` · `APC/Toon`)을 만들면 `APC/Art/Validate Outline Materials`를 실행한다 (관찰 그룹만 `OutlineOuter` 켬).
 - 캐릭터 툰은 손으로 쓴 HLSL `APC/Toon`(2026-11-24, Shader Graph에서 옮김 — 변형 17,492 → 9). 외곽선 3패스가 같은 셰이더에 있어 외곽선 슬롯을 따로 붙이지 않는다. 툰 그래프를 다시 만들지 않는다.
 - 렌더러: Mobile = Forward, PC = Forward+ (Deferred 아님).
-- 그림자 (2026-11-26): 메인 라이트 그림자는 **끈다**(`Mobile_RPAsset` · `PC_RPAsset` `Main Light > Cast Shadows` 끔). 캐릭터는 `Visuals/BlobShadow` 원형 그림자. 새 캐릭터 · 탈것은 `BlobShadow.Attach`로 붙인다.
+- 그림자 (2026-11-26): 메인 라이트 그림자는 **끈다**(`Mobile_RPAsset` · `PC_RPAsset` `Main Light > Cast Shadows` 끔). 캐릭터는 `Visuals/BlobShadow` 원형 그림자. 새 캐릭터 · 탈것은 `BlobShadow.Attach`로 붙인다. 모듈 안 고정 물체는 `Visuals/StaticShadows` 사각 그림자 판(2026-11-27, `SiteModule`이 붙임) — 새 소품은 `Cast Shadows`를 켜 두면 판이 생긴다.
 - 모듈 바닥 타일은 실행 중 `ModuleFloor.CombineTiles`가 머티리얼별 한 메시로 합친다 (2026-11-26, 배치 줄이기). **바닥 타일 fbx는 Import 설정 Read/Write를 켠다** — 꺼져 있으면 기기에서 합치지 못하고 타일마다 따로 그린다. 모듈은 재배치로 움직이므로 에디터 Static · 정적 배칭은 쓰지 않는다.
 - 전역 셰이더 색(`Shader.SetGlobalColor`)은 `color.linear`로 넘긴다 (Linear 색 공간). `Material.SetColor`와 달리 sRGB → 선형 변환을 안 해 색이 밝고 흐려진다 (`SiteWalls.ApplyGradient`, 2026-11-24).
 - 흰 배경 이미지를 배경 따기 없이 겹칠 땐 곱하기 스프라이트 셰이더 `APC/SpriteMultiply`(`Shaders/SpriteMultiply.shader`, 재질 `M_SpriteMultiply`, `Blend DstColor Zero`)를 쓴다 — 흰색은 빠지고 회색 · 선만 남는다. **밝은 배경 위에서만** 의도대로 보이고, 뒤에 그린 것은 이미지 색만큼 어두워진다 (BrokeCash 유리 저금통, 2026-11-20). 예외: BrokeCash R&D의 `BrokeCashArt.SpriteMaterial`은 `Shader.Find("Sprites/Default")`(항상 포함되는 기본 셰이더).

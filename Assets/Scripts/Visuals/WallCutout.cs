@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using APC.Core;
+using APC.Interaction;
 using APC.Site;
 using R3;
 using UnityEngine;
@@ -21,6 +22,11 @@ namespace APC.Visuals
         static readonly int CentersId = Shader.PropertyToID("_WallCutoutCenters");
         static readonly int CountId = Shader.PropertyToID("_WallCutoutCount");
         static readonly int ParamsId = Shader.PropertyToID("_WallCutoutParams");
+        // M22 fbx 내장 재질(Shader Graphs/PhysicalMaterial3DsMax) — 팔레트 텍스처가 여기 들어 있다
+        static readonly int BaseColorMapId = Shader.PropertyToID("_BASE_COLOR_MAP");
+        static readonly int BaseColor3DsMaxId = Shader.PropertyToID("_BASE_COLOR");
+        static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
+        static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         readonly Vector4[] centers = new Vector4[MaxTargets];
 
         [SerializeField, Tooltip("M_WallCutout — 셰이더(APC/WallCutout)만 쓴다. 빌드에 셰이더가 들어가도록 참조로 둔다")] Material cutoutMaterial;
@@ -38,6 +44,8 @@ namespace APC.Visuals
         [SerializeField, Min(0f), Tooltip("가장자리 디더 폭 (m)")] float softness = 0.4f;
         [SerializeField, Tooltip("구멍 중심 높이 (발밑에서 m)")] float height = 1f;
         [SerializeField, Min(0f), Tooltip("플레이어보다 이만큼(m) 카메라 쪽에 있는 벽부터 뚫는다")] float depthBias = 0.3f;
+        [SerializeField, Min(0f), Tooltip("해금 발판(ExpansionPad) 구멍 반지름 (m). 0이면 발판은 뚫지 않는다 (2026-11-27 임시 — 발판을 벽이 가림)")] float padRadius = 1.6f;
+        [SerializeField, Tooltip("해금 발판 구멍 중심 높이 (발판에서 m)")] float padHeight = 0.3f;
 
         readonly Dictionary<Renderer, Material[]> originals = new();
         readonly Dictionary<Material, Material> copies = new();
@@ -75,11 +83,22 @@ namespace APC.Visuals
 
         void LateUpdate()
         {
-            // [0] = 플레이어만 (트럭 대상은 2026-11-23 삭제, 셰이더 배열은 그대로)
+            // [0] = 플레이어, [1..] = 해금 발판 (트럭 대상은 2026-11-23 삭제)
             var center = transform.position + Vector3.up * height;
             centers[0] = new Vector4(center.x, center.y, center.z, radius);
+            var count = 1;
+            if (padRadius > 0f)
+            {
+                var zones = InteractionZone.Active;
+                for (var i = 0; i < zones.Count && count < MaxTargets; i++)
+                {
+                    if (zones[i] is not ExpansionPad pad) continue;
+                    var p = pad.transform.position + Vector3.up * padHeight;
+                    centers[count++] = new Vector4(p.x, p.y, p.z, padRadius);
+                }
+            }
             Shader.SetGlobalVectorArray(CentersId, centers);
-            Shader.SetGlobalFloat(CountId, 1);
+            Shader.SetGlobalFloat(CountId, count);
             Shader.SetGlobalVector(ParamsId, new Vector4(0f, softness, depthBias, 0f));
 
             // 예전엔 0.5초마다 훑었다 — 실기기 TycoonTest에서 1회 12.7ms · GC 절반이라 바꿈 (2026-11-20)
@@ -132,11 +151,25 @@ namespace APC.Visuals
             r.sharedMaterials = swapped;
         }
 
-        /// <summary>URP Lit 재질만 사본을 만들어 셰이더를 바꾼다 (속성 이름이 같아 색 · 텍스처가 그대로 옮겨진다). 그 밖의 셰이더는 그대로 둔다.</summary>
+        /// <summary>
+        /// URP Lit 재질은 사본을 만들어 셰이더를 바꾼다 (속성 이름이 같아 색 · 텍스처가 그대로 옮겨진다).
+        /// fbx 내장 재질(3ds Max 물리 재질, `_BASE_COLOR_MAP`)은 컷아웃 재질 사본에 팔레트 텍스처 · 색만 옮긴다 (2026-11-27 — 하차 · 상차 주차장 기둥이 안 뚫리던 것).
+        /// 그 밖의 셰이더는 그대로 둔다.
+        /// </summary>
         Material CutoutCopy(Material original)
         {
-            if (original == null || original.shader == null || original.shader.name != LitShaderName) return original;
+            if (original == null || original.shader == null) return original;
+            var lit = original.shader.name == LitShaderName;
+            if (!lit && !original.HasProperty(BaseColorMapId)) return original;
             if (copies.TryGetValue(original, out var copy)) return copy;
+            if (!lit)
+            {
+                copy = new Material(cutoutMaterial) { name = original.name + " (Cutout)" };
+                copy.SetTexture(BaseMapId, original.GetTexture(BaseColorMapId));
+                if (original.HasProperty(BaseColor3DsMaxId)) copy.SetColor(BaseColorId, original.GetColor(BaseColor3DsMaxId));
+                copies[original] = copy;
+                return copy;
+            }
             copy = new Material(original) { name = original.name + " (Cutout)", shader = cutoutMaterial.shader };
             copies[original] = copy;
             return copy;
