@@ -47,6 +47,10 @@ namespace APC.Logistics
         CargoPile pile;
         int capacity;
 
+        // 분류 알바가 집으러 오는 중인 스캔된 상자 수 (품목별, 2026-11-26). 다른 알바 · 플레이어는 이만큼 덜 본다 — 상자 3개에 여러 명이 몰려가던 것
+        readonly Dictionary<ItemDefinition, int> plannedBoxes = new();
+        static readonly Dictionary<ItemDefinition, int> SkipScratch = new(); // 메인 스레드 · 재진입 없음
+
         /// <summary>붙어 있는 모든 공용 보관소 (재고 집계용). 모듈 안에 있으므로 스스로 등록한다.</summary>
         public static List<SharedStorage> All => Registered; // 읽기만 한다 — 구체 타입은 foreach 박싱 방지 (2026-11-26)
 
@@ -241,11 +245,13 @@ namespace APC.Logistics
         public int PlanForShelves(int max, Dictionary<ItemDefinition, int> plan)
         {
             plan.Clear();
+            FillSkip(null, null);
             var total = 0;
             for (var i = pile.Count - 1; i >= 0 && total < max; i--)
             {
                 var item = pile.Items[i].Item;
                 if (pile.Items[i].State != CargoState.Normal || pile.Items[i].Unsorted) continue; // 미분류는 스캔해야 집는다 (GDD 7.2a)
+                if (SkipPlanned(item)) continue; // 다른 분류 알바가 이미 계획한 상자
                 plan.TryGetValue(item, out var taken);
                 if (ShelfAllowance(item) - taken <= 0) continue;
                 plan[item] = taken + 1;
@@ -256,11 +262,47 @@ namespace APC.Logistics
 
         int FindForShelves(APC.Interaction.Interactor who, APC.Interaction.InteractionZone at)
         {
+            FillSkip(who, at);
             for (var i = pile.Count - 1; i >= 0; i--)
             {
-                if (CanGive(pile.Items[i], who, at)) return i;
+                var candidate = pile.Items[i];
+                if (candidate.State == CargoState.Normal && !candidate.Unsorted && SkipPlanned(candidate.Item)) continue;
+                if (CanGive(candidate, who, at)) return i;
             }
             return -1;
+        }
+
+        /// <summary>분류 알바가 이 더미에서 집을 상자를 예약한다 (출발할 때, 품목별).</summary>
+        public void ReserveBoxes(ItemDefinition item, int count)
+        {
+            plannedBoxes.TryGetValue(item, out var n);
+            plannedBoxes[item] = n + count;
+        }
+
+        public void UnreserveBoxes(ItemDefinition item, int count)
+        {
+            if (!plannedBoxes.TryGetValue(item, out var n)) return;
+            if (n - count > 0) plannedBoxes[item] = n - count;
+            else plannedBoxes.Remove(item);
+        }
+
+        /// <summary>품목별로 건너뛸 수 = 계획된 상자 − 집는 사람 자신의 예약 (같은 품목 상자는 서로 바꿔도 되므로 위에서부터 그만큼 남의 몫으로 본다).</summary>
+        void FillSkip(APC.Interaction.Interactor who, APC.Interaction.InteractionZone at)
+        {
+            SkipScratch.Clear();
+            foreach (var pair in plannedBoxes)
+            {
+                var skip = pair.Value - (who != null ? who.Reserved(at, pair.Key) : 0);
+                if (skip > 0) SkipScratch[pair.Key] = skip;
+            }
+        }
+
+        static bool SkipPlanned(ItemDefinition item)
+        {
+            if (item == null || !SkipScratch.TryGetValue(item, out var skip)) return false;
+            if (skip > 1) SkipScratch[item] = skip - 1;
+            else SkipScratch.Remove(item);
+            return true;
         }
 
         // ── 하차 스캔 (GDD 7.2a, M17-4) ─────────────────────────────

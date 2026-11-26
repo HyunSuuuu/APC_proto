@@ -79,6 +79,7 @@ namespace APC.Staff
         enum Reservation { None, Truck, ShelfSpace, Demand }
         Reservation reserved;
         InboundTruck reservedTruck;
+        SharedStorage reservedStorage; // 분류: 상자를 예약한 더미 (reservedPlan = 선반 빈자리 = 그 더미 상자, 품목별)
         ItemDefinition reservedItem;
         int reservedCount;
         readonly Dictionary<ItemDefinition, int> reservedPlan = new(); // 선반 빈자리 예약 (품목별)
@@ -1013,7 +1014,12 @@ namespace APC.Staff
                 {
                     var warehouse = Warehouse.Instance;
                     storageZone.Storage.PlanForShelves(room, reservedPlan);
-                    foreach (var pair in reservedPlan) warehouse.ReserveShelfSpace(pair.Key, pair.Value);
+                    reservedStorage = storageZone.Storage;
+                    foreach (var pair in reservedPlan)
+                    {
+                        warehouse.ReserveShelfSpace(pair.Key, pair.Value);
+                        reservedStorage.ReserveBoxes(pair.Key, pair.Value); // 같은 상자에 여러 명이 몰려가지 않게 (2026-11-26)
+                    }
                     reserved = Reservation.ShelfSpace;
                     break;
                 }
@@ -1064,6 +1070,7 @@ namespace APC.Staff
                         break;
                     case Reservation.ShelfSpace when items[i].State == CargoState.Normal && items[i].Item != null && reservedPlan.TryGetValue(items[i].Item, out var n) && n > 0:
                         if (Warehouse.Instance != null) Warehouse.Instance.UnreserveShelfSpace(items[i].Item, 1);
+                        if (reservedStorage != null) reservedStorage.UnreserveBoxes(items[i].Item, 1);
                         reservedPlan[items[i].Item] = n - 1;
                         break;
                 }
@@ -1085,6 +1092,10 @@ namespace APC.Staff
                     {
                         foreach (var pair in reservedPlan) warehouse.UnreserveShelfSpace(pair.Key, pair.Value);
                     }
+                    if (reservedStorage != null)
+                    {
+                        foreach (var pair in reservedPlan) reservedStorage.UnreserveBoxes(pair.Key, pair.Value);
+                    }
                     reservedPlan.Clear();
                     break;
                 case Reservation.Demand:
@@ -1092,6 +1103,7 @@ namespace APC.Staff
                     break;
             }
             reservedTruck = null;
+            reservedStorage = null;
             reservedItem = null;
         }
 
