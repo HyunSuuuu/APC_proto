@@ -373,7 +373,7 @@ namespace APC.UI
             bannerRoot.SetActive(false);
         }
 
-        static bool IsPortrait() => Screen.height > Screen.width;
+        static bool IsPortrait() => ScreenLayout.Portrait; // 화면 방향 플래그 (M21-1)
 
         /// <summary>
         /// 가로: 1920×1080 높이 기준, 가운데 고정 너비 1100.

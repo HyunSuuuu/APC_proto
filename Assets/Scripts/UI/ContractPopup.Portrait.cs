@@ -82,7 +82,7 @@ namespace APC.UI
         bool portrait;   // 지금 적용된 배치 (세로 = true)
         float portraitStackWidth;
 
-        static bool IsPortrait() => Screen.height > Screen.width;
+        static bool IsPortrait() => ScreenLayout.Portrait; // 화면 방향 플래그 (M21-1)
 
         void CaptureLandscape()
         {
