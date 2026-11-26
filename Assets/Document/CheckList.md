@@ -12,6 +12,7 @@
 - 커밋 안 한 것: `.claude/settings.json`(로컬 설정). 폰트 `LiberationSans SDF - Fallback.asset`은 늘 되돌림.
 - main에는 컨베이어 벨트 축소판 + 스캔 모듈이 들어가 있다 (`263dbaf`). 벨트 연결은 **하차 칸 공간 → 스캔 모듈 팔레트** 하나뿐 (GDD 7.10).
 - 진행: **127 / 136**. M19 1/1, M20 5/5, **M21 1/1** (화면 방향 플래그 · 씬 통합, 2026-11-26). 사용자 손 테스트: M20-1 끝, M20-2 · M20-3은 아직.
+- 작업 목록 밖 (2026-11-26): **모듈 탭 세로 UI** (시안 module_placement_ui_mobile) — 좌우 스크롤 도면 · 설명 카드 · 큰 [되돌리기] [적용], **[적용]으로 반영 · 적용 안 하고 닫으면 확인창** (GDD 4.4 바뀜). `ModulePanel` · `ModuleCell` · `ContractPopup(.Portrait)`. Unity 컴파일 · Play 테스트 **아직**.
 
 ### 2. 다음 작업 = M20-4 → M20-5 (CL [M20](#m20-배치-자유도--벨트-스캔--선반-통합-2026-11-25))
 사용자는 "시작"이라고 하면 하나씩 진행시킨다. 시작 전 질문은 아래 "아직 물을 것"만.
@@ -69,6 +70,7 @@
   - **Think 비용 줄이기 (2026-11-26, 사용자 요청 — 실기기 A/B "알바 비용 대부분 = 일감 찾기")**: ① 손에 든 화물 집계 캐시 `Logistics/CarriedIndex`(새) — `CountCarried` · `ScanAllowance` · `Allowance` · 하차 칸 `CountHeadingTo`가 매번 `Interactor.All` × 스택을 돌던 것, `CarryStack.Version`(넣기 · 빼기 · 켜기 · 끄기) 또는 프레임이 바뀔 때만 다시 셈 ② 프레임당 판단 수 상한 `StaffRules.maxThinksPerFrame` 15 `임시`(넘으면 다음 프레임) ③ 할 일 없으면 판단 간격 × `idleThinkMultiplier` 4 `임시`(`StaffWorker.IdleBackoff`). Play(MCP, TycoonTest 4배속, 알바 200명): 캐시 값 = 직접 센 값(키 28개 불일치 0), 같은 순간 비교 존 71개 일감 확인 1회 알바 1명당 0.25ms → 0.04ms(PC 에디터), 게임 시간 904초 상차 계속 · 에러 0. 프레임 시간은 에디터가 백그라운드라 못 잼 — **실기기 측정 아직**(이미지 기준 200명 줌아웃 CPU 407ms · Think max 146/f와 비교). 직무별 존 목록 미리 나누기는 안 함(캐시 뒤 효과 작을 것으로 봄)
   - **배치 줄이기 — 바닥 타일 합치기 (2026-11-26, 사용자 요청 "드로우콜 · 배치 2000")**: 조사(에디터 TycoonTest, 모듈 64): 렌더러 4277개 중 바닥 타일 약 3000개(모두 `M_Prop`, 타일마다 렌더러), 배치 1066 · SetPass 94(SRP Batcher는 이미 켬). **바뀜**: `ModuleFloor.CombineTiles` — `Awake`에서 타일을 머티리얼별 한 메시로(FloorArt 자식이라 재배치를 따라감), 바닥 fbx 30개 Read/Write 켬. 결과: 렌더러 1536 · 배치 689(같은 화면), 따로 남은 타일 0, 스크린샷으로 바닥 모양 확인. 남은 큰 것: 선반 240(988정점 · 그림자), 랙 프레임 · 테이프 큐브 각 160, 벽 156, 튤립 72(1110정점 · 그림자), TMP 글자 168, 트럭 47(5417정점). 실기기 · Game 씬 배치 수 아직
   - **그림자 → 블롭 그림자 (2026-11-26, 사용자 결정 "블롭 그림자로 교체")**: 메인 라이트 그림자 끔(Mobile · PC 렌더 에셋), 플레이어 · 알바 발밑 원형 그림자 `Visuals/BlobShadow`(새, 자식 쿼드 · 곱하기 셰이더 `APC/BlobShadow` · `Resources/M_BlobShadow`, 지름 1.1m · 지게차 2.4m). Play(MCP HTTP, TycoonTest, 알바 20 · 60명): 그림자 캐스터 385 → 0, 게임 화면 확대로 발밑 그림자 확인, 에러 0. **바뀜**: 처음엔 `Graphics.RenderMeshInstanced` 한 번으로 모두 그리려 했으나 안 그려짐(재질 GPU 인스턴싱도 같음, 원인 미확인) → 그림자마다 드로 하나(SRP Batcher). 트럭 · 선반 · 소품 그림자 없음. 실기기 FPS 아직
+  - **main 머지 (2026-11-27, 사용자 요청 — M22 모델 · 모듈 수정 · UI 세로)**: 충돌 = `floor_basic_green2/3.fbx.meta`(우리 Read/Write 켬 ↔ main 삭제) → 삭제를 따름. 문서 · 씬 · `StaffWorker.prefab`은 자동 병합. 머지 뒤 바닥 fbx 전부 Read/Write 켜짐 확인. Play(MCP HTTP): Game 씬 — 컴파일 에러 0, 바닥 합친 메시 75 · 따로 남은 타일 0, 플레이어 발밑 그림자, 그림자 캐스터 0. TycoonTest 다시 빌드 · 알바 100명 4배속 게임 시간 477초 — 운반 진행, 배치 418, 에러 0
 - **main 머지 때 옮김 (2026-11-26, main 쪽 11-25 인수인계)**:
   - 타이쿤 시험 6건 + 스트레스 버튼 (`work-1125`): 스캔 칸 벽 · 트럭 풀(최대 64) · 하차 칸마다 칸 앞 대기 줄 · 알바 100명 끊김/CPU/GC · A* 토글(DEBUG Staff `Path A*`) · `Hire 100 mixed`. MCP Play · 프로파일 끝, 사람 손 테스트 아직 (커밋 19252e4 · 68c2830 · b6f594d · cacaf0e · 528b66f · c8d5110)
   - 레벨업 연출 v2 (자물쇠 해금): M5-6 메모. Game 씬만 새 배너, TycoonTest · ShaderTestScene은 옛 배너라 레벨업 연출이 꺼짐(경고) → 필요하면 다시 빌드. 사람 손 테스트 아직
@@ -782,6 +784,29 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
 
 ---
 
+## M22. 모델 업데이트 (2026-11-26)
+
+> 사용자 할 일 (2026-11-26). 새 Prop 모델을 `Art/Model/Prop`에 넣고 옛 모델은 `Art/Model/Prop_old`로 폴더 이름을 바꿈. GUID는 `Prop_old`의 옛 파일에 붙어 있어 지금은 모든 프리팹 · 씬 · 데이터가 옛 모델을 씀 → 연결을 새 모델로 옮긴다.
+> 방법: 새 파일 `.meta`에 옛 GUID를 넣고 옛 파일은 `Prop_old`에서 지움 (참조 수정 없이 저절로 바뀜). 조건 = 모델 안 메시 이름이 같아야 함 → Unity에서 확인, 다르면 프리팹마다 다시 연결.
+> 정함 (2026-11-26, 사용자): 팔레트 **용도별**(D 랙 · 지게차 = `Purple_Pallet`, 쓰레기장 장식 = `Blue_Pallet`) · 보관 바닥 `floor_basic_green1~3` → `floor_green1~3` · 사무실 바닥 `floor1_basic` → `floor_basic1` · 부지 벽 `wall_S/L` → `wall_outside_S/L`(안쪽 면은 셰이더 그라데이션 그대로) · **색 선반 적용**(A `Brown_Shelf` · B `Green_Shelf` · C `Blue_Shelf`, `Purple_Shelf`는 D가 팔레트 랙이라 보류) · 새 모델 없는 옛 모델은 **`Prop_old`에서 계속 사용** · 프리팹 배율(상자 1.667 · 쓰레기 2.5 · 금 등) **유지**, 눈에 띄게 다르면 알림.
+
+- [x] **M22-1 이름 같은 모델 교체** — 상자 4색 · `Purple_Big_Box` · `Box_Interaction` · `Hand_Pallet_Truck` · `Forklift` · `Wagon` · `Rolltainer` · `Discarded` · `Trash` · 사무실 소품(`Clip_Board` · `Document_Dummy` · `Employment_Desk` · `Office_Computer/Desk/Shelf` · `Papper_Money` · `Piggy_Bank` · `Plant_Pot` · `Sofa` · `Sofa_Table` · `Trash_Bin` · `Water_Purifier` · `vending_machine`) · `floor_basic1~6` · `floor_road1~7` · `street_lamp` · `tree_L` · `tulip` · `pillar_L/S` · `window_outside` · `Purple_Small/Middle_Truck`
+- [x] **M22-2 이름 바뀐 모델 교체** — 트럭 `*_Truck_Open` → `*_Truck`(갈색 · 초록 · 파랑 · 금 Small/Middle/Big, `Purple_Big`; `Brown _Middle_Truck.fbx` 이름 공백 주의) · `Offiice_Chair` → `Office_Chair` · `tree_s` → `tree_S` · `crosswalk_floor1/3` → `floor_crosswalk1/3` · 팔레트(용도별) · 바닥(`floor_green1~3`, `floor_basic1`) · 벽 `wall_outside_S/L`
+- [x] **M22-3 색 선반** — A~C 구역 선반을 구역 색 선반으로 (`Shelf.prefab`을 색별로 나누거나 모델만 바꿈, 중첩 프리팹 · `ShelfSlot` 유지 — M19-1)
+  - 완료 (2026-11-26): GUID 옮겨 심기 대신 **참조 글자 바꾸기**(옛 GUID → 새 GUID, 37개 파일 — 팔레트가 하나 → 둘이라 meta 교체로는 안 됨). 모델 안 ID는 루트 · 메시 이름이 같아 그대로, 예외 `Office_Computer` 메시 · fbx 안 재질 ID만 따로 맞춤
+  - **바뀜**: 새 모델은 **색 팔레트 텍스처가 다름**(`Prop/color_pallet.png` 1024², 옛 `Prop_old/Color_Pallet.png` 2048×1024 배치 전혀 다름) → `M_Prop` · `M_PropFade` · `M_Wall` · `M_WallCutout`을 새 팔레트로, 옛 모델용 `M_Prop_Old` 새로 만들어 옛 모델 렌더러 22곳에 연결. 실행 중 모델 갈아 끼우기(`Cargo` · `RepackTable` · `InboundTruck`)는 새 `Visuals/PropPalette`가 fbx 원래 재질 텍스처로 옛 모델을 알아보고 `LogisticsConfig.legacyPropMaterial`(M_Prop_Old)을 입힘
+  - 바닥: 사용자가 새 바닥 fbx 배율을 2로 맞춤(1m → 2m). 옛 `floor_basic_green*` · `crosswalk_floor*` · `floor1_basic`은 피벗이 모서리라 타일 자리에 보정이 들어 있었음 → 타일마다 옛 모델이 놓였을 자리와 새 모델 자리 차이만큼 옮김(259장, 손으로 고친 배치 유지)
+  - 색 선반: `Shelf_A/B/C.prefab` = `Shelf.prefab` 변형(옛 모델 끄고 `Brown/Green/Blue_Shelf` 같은 자리 · 1.2배), A~C 구역 선반 4개씩 `ReplacePrefabAssetOfPrefabInstance`, 참조 끊김 0
+  - 예전부터 깨진 것: 하차 · 상차 모듈 주차장 조각 4개(`parking` · `pillar_l` · `truck_exit`)가 지워진 `background_test.fbx`를 가리킴 (이번 작업 전부터)
+- [x] **M22-4 화면 점검 · 정리** — 모듈마다 크기 · 피벗 · 방향, 충돌체, 쌓이는 자리, 들고 쌓는 높이(`CarryConfig`), 트럭 글자 위치, 벽 그라데이션 확인. 새 모델로 바뀐 옛 파일만 `Prop_old`에서 삭제. TechStack · Wiki에 모델 폴더 규칙
+  - 정함 (2026-11-26, 사용자): 벽 · 기둥 · 창문 fbx 배율 **2**(`truck_parking1`과 맞춤) · `Box_Interaction` 배율 **3**(옛 2.67m) · 지게차 = 프리팹에서 방향 맞춤 · 의자 = 사용자가 직접 손봄 · 트럭 = Play로 보고 어긋난 것만
+  - 완료: `SiteWalls` `pieceLength` 2 · `windowStarts` {0,3} `임시` · `gradientEnd` 6.8, 셰이더 띠 판정 높이 → UV(`WALL_FACE_UV_MAX`). `StaffWorker` 지게차 모델 (270,180) → (270,0)(메시 무게중심으로 옛 방향과 같음 확인). 트럭: 3단계 모델 뒷면 맞춤 · 숫자 위치 그대로 이상 없음. 옛 파일 71개 `Prop_old`에서 삭제(참조 0 확인, 옛 버전은 git `Prop/` 기록에 있음) → 남은 옛 모델 68개
+  - 추가 (2026-11-26, 사용자): **맨 아래(남쪽) 벽만 낮은 벽**, 나머지는 높은 벽(`SiteWalls.IsBottomEdge`, 옛 규칙 = 카메라 쪽 낮은 벽). **바뀜**: '더 아래 열린 칸 없음' → '더 아래 부지 칸(잠긴 칸 포함) 없음' (하차장 열기 전 사무실 아래 벽이 낮던 버그, MCP: 사무실만 연 상태에서 사무실 아래 = 높은 벽 · 맨 아래 줄만 낮은 벽). **새 알바 코스튬 2종** `oceansunfish`(조개 메시 `M` = `oceansunfishM_P` 텍스처) · `takoyaki` → `StaffWorker` `models` [4] · [5], fbx 아바타 켬. MCP: 두 모델 툰 · 텍스처 · 애니메이터 정상, 벽 화면 확인
+  - 테스트 (MCP Play): 바닥 빈틈 없음 · 벽 8m / 3.6m · 창문 · 트럭 주차 화면 확인, 프리팹 빈 메시 · 빈 재질 · 깨진 프리팹 0, 에러 0. 사람 손 테스트 아직
+- 테스트 결과: 아직
+
+---
+
 ## 진행 현황
 
 | 마일스톤 | 작업 수 | 완료 |
@@ -809,6 +834,7 @@ M5 성장·확장 ─▶ (M7 배치 개편 v0.3 ✓) ─▶ M5b 저금통·파�
 | M19 구조 정리 | 1 | 1 |
 | M20 배치 자유도 · 벨트 스캔 · 선반 통합 | 5 | 5 |
 | M21 화면 방향 | 1 | 1 |
-| **합계** | **136** | **127** |
+| M22 모델 업데이트 | 4 | 4 |
+| **합계** | **140** | **131** |
 
 > 2026-11-15: M10 11 → 4 (삭제 3 · M13으로 옮김 4), M11 11 → 6 (M12 · M13이 대신한 5), M13 18 추가.

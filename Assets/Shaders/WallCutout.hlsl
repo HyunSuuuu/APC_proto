@@ -53,7 +53,9 @@ half4 _WallGradientBottom;  // 바닥 쪽 색
 half4 _WallGradientTop;     // 위쪽 색
 float _WallGradientStart;   // 조각 피벗(바닥)에서 잰 월드 높이(m) — 이 아래는 전부 아래 색
 float _WallGradientEnd;     // 이 위는 전부 위 색. 사이는 높이에 비례 (참고 이미지가 직선 그라데이션)
-#define WALL_BAND_BOTTOM 3.6955 // wall_L · wall_S 위쪽 갈색 띠가 시작하는 높이(m, fbx 369.55cm). 그 위는 원래 색
+// 위쪽 갈색 띠는 높이 대신 UV로 가린다 (M22, 2026-11-26): 새 wall_outside_L · _S는 띠 높이가 달라(3.696 · 1.552m × 배율 2) 높이 하나로 못 맞춤.
+// 안쪽 면 = 팔레트 u ≈ 0.05, 띠 = u ≈ 0.30 (Prop/color_pallet.png). 모델 UV가 바뀌면 다시 잴 것
+#define WALL_FACE_UV_MAX 0.2
 
 // LitPassFragment(URP LitForwardPass.hlsl) 복사본 + 안쪽 면 albedo 바꾸기. URP를 올리면 원본과 맞춰 볼 것.
 void WallGradientLitFragment(Varyings input, out half4 outColor
@@ -71,7 +73,7 @@ void WallGradientLitFragment(Varyings input, out half4 outColor
     // wall_L · wall_S (Z-up fbx): 로컬 +y = 부지 안쪽을 보는 큰 면, 로컬 z = 높이. SiteWalls가 로컬 +z(회전 후)를 바깥으로 세운다
     float3 normalOS = TransformWorldToObjectDir(input.normalWS);
     float height = input.positionWS.y - UNITY_MATRIX_M._m13;
-    if (normalOS.y > 0.5 && height < WALL_BAND_BOTTOM)
+    if (normalOS.y > 0.5 && input.uv.x < WALL_FACE_UV_MAX)
     {
         float t = saturate((height - _WallGradientStart) / max(_WallGradientEnd - _WallGradientStart, 1e-3));
         surfaceData.albedo = lerp(_WallGradientBottom.rgb, _WallGradientTop.rgb, t);

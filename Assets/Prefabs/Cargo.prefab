@@ -85,7 +85,7 @@ MonoBehaviour:
   returnBoxColor: {r: 0.55, g: 0.55, b: 0.58, a: 1}
   trashColor: {r: 0.55, g: 0.47, b: 0.38, a: 1}
   goldModel: {fileID: 5892083702108212959}
-  trashModel: {fileID: 919132149155446097, guid: e4f1c492c5d411945923715b2897ef68, type: 3}
+  trashModel: {fileID: 919132149155446097, guid: d7bb2b7198026a84b931c069427a3795, type: 3}
   modelMaterial: {fileID: 2100000, guid: c5e9eb1737ca8ec4186905aeab7a8c0c, type: 2}
 --- !u!1 &8229089097521795062
 GameObject:
@@ -330,7 +330,7 @@ PrefabInstance:
     - target: {fileID: -7511558181221131132, guid: 42ed7e4d4937eee488cd38ebc50a269f, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: c5e9eb1737ca8ec4186905aeab7a8c0c, type: 2}
+      objectReference: {fileID: 2100000, guid: 2ac7f5c151b81d14baf51e5544ee48b9, type: 2}
     - target: {fileID: 919132149155446097, guid: 42ed7e4d4937eee488cd38ebc50a269f, type: 3}
       propertyPath: m_Name
       value: Gold

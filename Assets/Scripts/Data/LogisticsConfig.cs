@@ -76,6 +76,9 @@ namespace APC.Data
         public float ScanSecondsPerBox => scanSecondsPerBox;
         public float ScanRevealInterval => scanRevealInterval;
         public GameObject UnsortedBoxModel => unsortedBoxModel;
+
+        [SerializeField, Tooltip("옛 모델(Art/Model/Prop_old)에 입힐 옛 팔레트 재질 (M_Prop_Old, M22). 비우면 모두 M_Prop")] Material legacyPropMaterial;
+        public Material LegacyPropMaterial => legacyPropMaterial;
         public float UnsortedBoxScale => unsortedBoxScale;
         public TMPro.TMP_FontAsset ScanFont => scanFont;
         public Sprite ScanRingSprite => scanRingSprite;

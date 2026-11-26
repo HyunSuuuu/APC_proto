@@ -11,7 +11,7 @@ namespace APC.UI
     /// A책상 = `고용 | 배치 | 스탯`(스탯 = 옛 업그레이드 탭), B책상 = `설비 | 트럭 | 모듈 | 벨트` (Open(deskB), 2026-11-18 · 벨트 2026-11-24). 열려 있는 동안 게임이 멈춘다.
     /// 모양은 클립보드 (UI 샘플 ClipboardScene 방식, 2026-11-19): 나무 판 위 종이 더미, 오른쪽 인덱스 탭(선택 탭은 앞 종이 위로),
     /// 탭을 바꾸면 종이가 흔들리고(셔플) 새 페이지가 아래에서 떠오르며 제목이 튄다.
-    /// 모듈 탭(ModulePanel)의 재배치는 닫을 때 부지에 적용한다.
+    /// 모듈 탭(ModulePanel)의 재배치는 [적용]으로 부지에 반영하고, 적용하지 않고 닫으면 확인창을 띄운다.
     /// 고용 탭(HirePanel)은 오른쪽 아래 도장(Stamp)을 후보 카드에 찍어 고용한다 (고용해도 열린 채). 배치 탭(RosterPanel)은 알바 카드를 끌어 역할 변경 · 해고.
     /// 계약 탭은 계약 시스템 삭제로 없앴다 (2026-11-13, GDD 6.3). 열면 고용 탭.
     /// 이 오브젝트는 항상 켜 두고, 자식 body만 켜고 끈다.
@@ -23,6 +23,7 @@ namespace APC.UI
         [SerializeField] CanvasGroup group;
         [SerializeField] RectTransform panel;
         [SerializeField] Button closeButton;
+        [SerializeField, Min(0.5f), Tooltip("닫기(X) 버튼 배율 (씬 크기 × 이 값, 2026-11-26 1.5배 → 다시 × 1.25)")] float closeButtonScale = 1.875f;
 
         [Header("탭")]
         [SerializeField] Button hireTab;
@@ -39,7 +40,7 @@ namespace APC.UI
         [SerializeField] GameObject truckPage;
         [SerializeField] GameObject beltPage;
         [SerializeField, Tooltip("벨트 탭 [설치] → 팝업 닫고 설치 상태 (BeltPlacer)")] Button beltInstallButton;
-        [SerializeField, Tooltip("모듈 재배치 미니맵 (GDD 4.4). 열 때 Begin, 닫을 때 Apply")] ModulePanel modulePage;
+        [SerializeField, Tooltip("모듈 재배치 미니맵 (GDD 4.4). 열 때 Begin, 닫을 때 적용 안 한 변경이 있으면 확인창")] ModulePanel modulePage;
         [SerializeField, Tooltip("도장 + 안내 글자 (고용 탭에서만 보임)")] GameObject stampArea;
 
         [Header("클립보드")]
@@ -58,7 +59,7 @@ namespace APC.UI
             "도장을 끌어 이력서 카드에 찍으면 고용됩니다.",
             "직군별로 알바 상태를 확인하고, 필요하면 해고합니다.",
             "적재 도구와 이동 속도를 올립니다.",
-            "보관 · 반품 칸을 끌어 자리를 바꿉니다. 닫으면 적용됩니다.",
+            "칸을 끌어 자리를 바꾸고 [적용]을 누르면 반영됩니다.",
             "보관 모듈 선반 단계를 올립니다.",
             "하차 트럭 단계를 올립니다.",
             "물건을 옮길 곳을 벨트로 잇습니다. 1m당 ₩{0}, 철거하면 절반을 돌려받습니다.",
@@ -93,11 +94,10 @@ namespace APC.UI
             closeButton.onClick.AddListener(Close);
             tabs = new[] { hireTab, rosterTab, upgradeTab, moduleTab, facilityTab, truckTab, beltTab };
             pages = new[] { hirePage, rosterPage, upgradePage, modulePage.gameObject, facilityPage, truckPage, beltPage };
-            beltInstallButton.onClick.AddListener(() =>
+            beltInstallButton.onClick.AddListener(() => CloseThen(() =>
             {
-                Close();
                 if (BeltPlacer.Instance != null) BeltPlacer.Instance.Begin();
-            });
+            }));
             tabColors = new Color[tabs.Length];
             for (var i = 0; i < tabs.Length; i++)
             {
@@ -109,6 +109,8 @@ namespace APC.UI
             var step = Rect(rosterTab).anchoredPosition.y - y0;
             tabY = new[] { y0, y0 + step, y0 + step * 2f, y0 + step * 3f }; // 4번째 = B책상 `벨트`
             tabX = Rect(hireTab).anchoredPosition.x;
+            modulePage.Build(); // 모듈 탭이 만드는 버튼 · 세로 UI도 가로 배치로 기억되게 먼저
+            Rect(closeButton).localScale *= closeButtonScale; // 기억 전에 — 방향이 바뀌어도 이 크기로 되돌아감
             CaptureLandscape();
             body.SetActive(false);
         }
@@ -133,6 +135,7 @@ namespace APC.UI
             if (IsOpen) return;
             IsOpen = true;
             if (IsPortrait() != portrait) SetLayout(IsPortrait()); // 켜기 전에 — 도장이 처음 켜질 때 자리를 기억한다
+            else LayoutModules(); // 방향 그대로(처음 가로 포함)여도 모듈 탭은 지금 페이지 크기로 배치
             body.SetActive(true);
             modulePage.Begin();
             shownTabs = deskB ? new[] { facilityTab, truckTab, moduleTab, beltTab } : new[] { hireTab, rosterTab, upgradeTab };
@@ -152,11 +155,19 @@ namespace APC.UI
                 .SetLink(gameObject);
         }
 
-        public void Close()
+        public void Close() => CloseThen(null);
+
+        /// <summary>닫고 나서 then. 모듈 탭에 [적용]하지 않은 배치가 있으면 확인창 → [확인]이면 버리고 닫음, [취소]면 열린 채 (GDD 4.4, 2026-11-26).</summary>
+        void CloseThen(System.Action then)
         {
             if (!IsOpen) return;
+            if (modulePage.HasChanges)
+            {
+                modulePage.ConfirmDiscard(() => CloseThen(then));
+                return;
+            }
             IsOpen = false;
-            modulePage.Apply(); // 모듈 재배치는 닫을 때 한꺼번에 (GDD 4.4)
+            then?.Invoke();
 
             transition?.Kill();
             transition = DOTween.Sequence()
@@ -240,14 +251,14 @@ namespace APC.UI
 
         /// <summary>
         /// 앞 종이가 들렸다 흔들리며 내려앉고, 뒤 종이 두 장이 따라 흔들림.
-        /// RectMask2D는 회전을 지원하지 않아 종이가 기운 동안 목록 가장자리가 잘리므로, 셔플 동안만 앞 종이 안의 마스크를 끈다 (2026-11-26).
+        /// RectMask2D는 회전을 지원하지 않아 종이가 기운 동안 목록 가장자리가 잘리므로, 셔플 동안만 앞 종이 안의 마스크를 스텐실 Mask로 바꾼다 (2026-11-26).
         /// </summary>
         void ShufflePaper(float duration)
         {
             maskRestore?.Kill(); // 연달아 바꾸면 앞 셔플의 마스크부터 되살린다
             RestoreShuffleMasks();
             shuffleMasks = paperFront.GetComponentsInChildren<RectMask2D>(false);
-            foreach (var mask in shuffleMasks) mask.enabled = false;
+            foreach (var mask in shuffleMasks) SwapToStencil(mask, true);
             maskRestore = DOVirtual.DelayedCall(duration, RestoreShuffleMasks).SetUpdate(true).SetLink(gameObject);
 
             Shuffle(paperFront, duration);
@@ -264,10 +275,35 @@ namespace APC.UI
             if (shuffleMasks == null) return;
             foreach (var mask in shuffleMasks)
             {
-                if (mask != null) mask.enabled = true;
+                if (mask != null) SwapToStencil(mask, false);
             }
             shuffleMasks = null;
         }
+
+        /// <summary>
+        /// 셔플 동안 RectMask2D(회전 미지원) 대신 스텐실 Mask(회전 지원)로 자른다 — 끄기만 하면 스크롤 영역 바깥 내용이 잠깐 보였다 (2026-11-26).
+        /// 그래픽이 없는 마스크는 보이지 않는 Image(StencilShape)를 붙여 모양으로 쓴다 (셔플 때만 켬).
+        /// </summary>
+        void SwapToStencil(RectMask2D mask, bool on)
+        {
+            var go = mask.gameObject;
+            if (!go.TryGetComponent(out Mask stencil))
+            {
+                if (!on) return;
+                if (!go.TryGetComponent(out Graphic _))
+                {
+                    go.AddComponent<Image>(); // 모양용 (Mask가 그리지 않음)
+                    stencilShapes.Add(go);
+                }
+                stencil = go.AddComponent<Mask>();
+                stencil.showMaskGraphic = !stencilShapes.Contains(go); // 원래 있던 그래픽(도면 판 등)은 그대로 보임
+            }
+            if (stencilShapes.Contains(go)) go.GetComponent<Image>().enabled = on; // 붙인 모양은 셔플 때만
+            stencil.enabled = on;
+            mask.enabled = !on;
+        }
+
+        readonly System.Collections.Generic.HashSet<GameObject> stencilShapes = new(); // 마스크 모양용으로 붙인 Image가 있는 오브젝트
 
         /// <summary>들림(-1.2° · 위 8) → 흔들림(0.8° · 아래 3) → OutBack 착지. 위치는 (·, 0) 기준.</summary>
         static void Shuffle(RectTransform target, float duration)
