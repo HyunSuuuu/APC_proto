@@ -15,42 +15,43 @@ namespace APC.UI
     /// 고용 탭(HirePanel)은 오른쪽 아래 도장(Stamp)을 후보 카드에 찍어 고용한다 (고용해도 열린 채). 배치 탭(RosterPanel)은 알바 카드를 끌어 역할 변경 · 해고.
     /// 계약 탭은 계약 시스템 삭제로 없앴다 (2026-11-13, GDD 6.3). 열면 고용 탭.
     /// 이 오브젝트는 항상 켜 두고, 자식 body만 켜고 끈다.
-    /// 세로 화면이면 세로 배치(ContractPopup.Portrait.cs)로 바꾼다 — 씬에 놓인 배치가 가로 기준.
+    /// 화면은 가로(`Body`) · 세로(`BodyPortrait`) 두 벌(ContractPopupView)을 씬에 따로 만들고, 방향에 맞는 한 벌만 켠다 (ContractPopup.Portrait.cs, 2026-11-27).
     /// </summary>
     public sealed partial class ContractPopup : MonoBehaviour
     {
-        [SerializeField] GameObject body;
-        [SerializeField] CanvasGroup group;
-        [SerializeField] RectTransform panel;
-        [SerializeField] Button closeButton;
+        [SerializeField, Tooltip("가로 화면 한 벌 (판 · 탭 · 페이지, 2026-11-27). 화면 참조는 모두 여기에")] ContractPopupView landscapeView;
+        [SerializeField, Tooltip("세로 화면 한 벌 (모양은 씬에서 따로). 비우면 세로에서도 가로 화면을 그대로 쓴다")] ContractPopupView portraitView;
         [SerializeField, Min(0.5f), Tooltip("닫기(X) 버튼 배율 (씬 크기 × 이 값, 2026-11-26 1.5배 → 다시 × 1.25)")] float closeButtonScale = 1.875f;
 
-        [Header("탭")]
-        [SerializeField] Button hireTab;
-        [SerializeField] Button rosterTab;
-        [SerializeField, Tooltip("A책상 `스탯` (적재 도구 · 이동 속도)")] Button upgradeTab;
-        [SerializeField] Button moduleTab;
-        [SerializeField, Tooltip("B책상 `설비` (선반 단계, M16-3)")] Button facilityTab;
-        [SerializeField, Tooltip("B책상 `트럭` (트럭 단계, M16-4)")] Button truckTab;
-        [SerializeField, Tooltip("B책상 `벨트` (컨베이어 벨트 설치, GDD 7.10)")] Button beltTab;
-        [SerializeField] GameObject hirePage;
-        [SerializeField] GameObject rosterPage;
-        [SerializeField] GameObject upgradePage;
-        [SerializeField] GameObject facilityPage;
-        [SerializeField] GameObject truckPage;
-        [SerializeField] GameObject beltPage;
-        [SerializeField, Tooltip("벨트 탭 [설치] → 팝업 닫고 설치 상태 (BeltPlacer)")] Button beltInstallButton;
-        [SerializeField, Tooltip("모듈 재배치 미니맵 (GDD 4.4). 열 때 Begin, 닫을 때 적용 안 한 변경이 있으면 확인창")] ModulePanel modulePage;
-        [SerializeField, Tooltip("도장 + 안내 글자 (고용 탭에서만 보임)")] GameObject stampArea;
-
-        [Header("클립보드")]
-        [SerializeField] RectTransform paperFront;
-        [SerializeField] RectTransform paperBack1;
-        [SerializeField] RectTransform paperBack2;
-        [SerializeField, Tooltip("선택 안 된 탭이 들어가는 층 (앞 종이 아래)")] RectTransform tabsBehind;
-        [SerializeField, Tooltip("선택된 탭이 들어가는 층 (앞 종이 위)")] RectTransform tabsFront;
-        [SerializeField] TMP_Text sheetTitle;
-        [SerializeField] TMP_Text sheetDesc;
+        // 지금 쓰는 화면 한 벌. 아래 이름들은 예전 필드 이름 그대로 (세로 배치 코드가 같이 씀)
+        ContractPopupView view;
+        GameObject body => view.gameObject;
+        CanvasGroup group => view.Group;
+        RectTransform panel => view.Panel;
+        Button closeButton => view.CloseButton;
+        Button hireTab => view.HireTab;
+        Button rosterTab => view.RosterTab;
+        Button upgradeTab => view.UpgradeTab;
+        Button moduleTab => view.ModuleTab;
+        Button facilityTab => view.FacilityTab;
+        Button truckTab => view.TruckTab;
+        Button beltTab => view.BeltTab;
+        GameObject hirePage => view.HirePage;
+        GameObject rosterPage => view.RosterPage;
+        GameObject upgradePage => view.UpgradePage;
+        GameObject facilityPage => view.FacilityPage;
+        GameObject truckPage => view.TruckPage;
+        GameObject beltPage => view.BeltPage;
+        Button beltInstallButton => view.BeltInstallButton;
+        ModulePanel modulePage => view.ModulePage;
+        GameObject stampArea => view.StampArea;
+        RectTransform paperFront => view.PaperFront;
+        RectTransform paperBack1 => view.PaperBack1;
+        RectTransform paperBack2 => view.PaperBack2;
+        RectTransform tabsBehind => view.TabsBehind;
+        RectTransform tabsFront => view.TabsFront;
+        TMP_Text sheetTitle => view.SheetTitle;
+        TMP_Text sheetDesc => view.SheetDesc;
 
         // 순서 = Tab
         static readonly string[] Titles = { "알바 고용", "알바 명부", "스탯 강화", "모듈 배치", "설비 강화", "트럭 강화", "벨트 설치" };
@@ -91,40 +92,76 @@ namespace APC.UI
         void Awake()
         {
             Instance = this;
+            if (portraitView != null)
+            {
+                view = portraitView;
+                Wire();
+                body.SetActive(false);
+            }
+            view = landscapeView;
+            Wire();
+            body.SetActive(false);
+        }
+
+        /// <summary>지금 화면(view) 한 벌의 버튼을 연결하고 탭 색 · 자리를 기억한다 (Awake에서 화면마다 한 번).</summary>
+        void Wire()
+        {
+            SetViewArrays();
             closeButton.onClick.AddListener(Close);
-            tabs = new[] { hireTab, rosterTab, upgradeTab, moduleTab, facilityTab, truckTab, beltTab };
-            pages = new[] { hirePage, rosterPage, upgradePage, modulePage.gameObject, facilityPage, truckPage, beltPage };
             beltInstallButton.onClick.AddListener(() => CloseThen(() =>
             {
                 if (BeltPlacer.Instance != null) BeltPlacer.Instance.Begin();
             }));
-            tabColors = new Color[tabs.Length];
+            view.TabColors = new Color[tabs.Length];
             for (var i = 0; i < tabs.Length; i++)
             {
                 var index = (Tab)i;
                 tabs[i].onClick.AddListener(() => SelectTab(index, false));
-                tabColors[i] = tabs[i].image.color;
+                view.TabColors[i] = tabs[i].image.color;
             }
             var y0 = Rect(hireTab).anchoredPosition.y;
             var step = Rect(rosterTab).anchoredPosition.y - y0;
-            tabY = new[] { y0, y0 + step, y0 + step * 2f, y0 + step * 3f }; // 4번째 = B책상 `벨트`
-            tabX = Rect(hireTab).anchoredPosition.x;
-            modulePage.Build(); // 모듈 탭이 만드는 버튼 · 세로 UI도 가로 배치로 기억되게 먼저
-            Rect(closeButton).localScale *= closeButtonScale; // 기억 전에 — 방향이 바뀌어도 이 크기로 되돌아감
-            CaptureLandscape();
-            body.SetActive(false);
+            view.TabY = new[] { y0, y0 + step, y0 + step * 2f, y0 + step * 3f }; // 4번째 = B책상 `벨트`
+            view.TabX = Rect(hireTab).anchoredPosition.x;
+            modulePage.Build(); // 모듈 탭이 만드는 버튼 · 세로 UI
+            Rect(closeButton).localScale *= closeButtonScale;
+            SetViewArrays();
         }
 
-        // 열려 있는 동안 화면이 돌면 배치를 다시 잡는다.
-        // LateUpdate = HUD CanvasScaler(OrientationCanvasScaler가 기준 해상도를 바꿈)가 Update에서 크기를 다시 잡은 뒤 → 세로 배치가 새 캔버스 크기를 읽는다
+        void SetViewArrays()
+        {
+            tabs = new[] { hireTab, rosterTab, upgradeTab, moduleTab, facilityTab, truckTab, beltTab };
+            pages = new[] { hirePage, rosterPage, upgradePage, modulePage.gameObject, facilityPage, truckPage, beltPage };
+            tabColors = view.TabColors;
+            tabY = view.TabY;
+            tabX = view.TabX;
+        }
+
+        int lastScreenW, lastScreenH;
+
+        // 열려 있는 동안 화면이 돌거나 해상도가 바뀌면 가로 · 세로 화면을 바꿔 켜거나(같은 책상 · 같은 탭) 탭 · 모듈 배치를 다시 잡는다.
+        // LateUpdate = HUD CanvasScaler(OrientationCanvasScaler가 기준 해상도를 바꿈)가 Update에서 크기를 다시 잡은 뒤
         void LateUpdate()
         {
-            if (!IsOpen || IsPortrait() == portrait) return;
-            SetLayout(IsPortrait());
-            PlaceTabs();
-            for (var i = 0; i < tabs.Length; i++) SetTabLook(i, i == current, true);
-            pages[current].SetActive(false); // 설비 줄처럼 템플릿에서 만드는 줄을 새 배치로 다시 만든다
-            pages[current].SetActive(true);
+            if (!IsOpen) return;
+            if (portraitView != null && IsPortrait() != portrait)
+            {
+                lastScreenW = Screen.width;
+                lastScreenH = Screen.height;
+                var previous = view;
+                SetView(IsPortrait());
+                previous.gameObject.SetActive(false);
+                ShowView(current);
+                return;
+            }
+            if (Screen.width != lastScreenW || Screen.height != lastScreenH)
+            {
+                lastScreenW = Screen.width;
+                lastScreenH = Screen.height;
+                Canvas.ForceUpdateCanvases();
+                LayoutModules();
+                PlaceTabs();
+            }
         }
 
         static RectTransform Rect(Component c) => (RectTransform)c.transform;
@@ -134,15 +171,9 @@ namespace APC.UI
         {
             if (IsOpen) return;
             IsOpen = true;
-            if (IsPortrait() != portrait) SetLayout(IsPortrait()); // 켜기 전에 — 도장이 처음 켜질 때 자리를 기억한다
-            else LayoutModules(); // 방향 그대로(처음 가로 포함)여도 모듈 탭은 지금 페이지 크기로 배치
-            body.SetActive(true);
-            modulePage.Begin();
-            shownTabs = deskB ? new[] { facilityTab, truckTab, moduleTab, beltTab } : new[] { hireTab, rosterTab, upgradeTab };
-            foreach (var tab in tabs) tab.gameObject.SetActive(System.Array.IndexOf(shownTabs, tab) >= 0);
-            PlaceTabs();
-            current = -1;
-            SelectTab(deskB ? Tab.Facility : Tab.Hire, true);
+            SetView(IsPortrait());
+            openDeskB = deskB;
+            ShowView((int)(deskB ? Tab.Facility : Tab.Hire));
             GameManager.Instance.OpenPopup();
 
             transition?.Kill();
@@ -153,6 +184,26 @@ namespace APC.UI
                 .Join(panel.DOScale(1f, 0.25f).SetEase(Ease.OutBack))
                 .SetUpdate(true)
                 .SetLink(gameObject);
+        }
+
+        bool openDeskB;
+
+        /// <summary>지금 화면을 켜고 연 책상의 탭만 놓은 뒤 tab 페이지를 바로 보인다 (열 때 · 열린 채 화면을 바꿀 때).</summary>
+        void ShowView(int tab)
+        {
+            lastScreenW = Screen.width;
+            lastScreenH = Screen.height;
+            body.SetActive(true);
+            group.alpha = 1f;
+            panel.localScale = Vector3.one;
+            Canvas.ForceUpdateCanvases(); // 모듈 탭은 아직 코드 배치 — 켠 뒤에 새 캔버스 크기로 (세로 UI 분리 5단계에서 없앰)
+            LayoutModules();
+            modulePage.Begin();
+            shownTabs = openDeskB ? new[] { facilityTab, truckTab, moduleTab, beltTab } : new[] { hireTab, rosterTab, upgradeTab };
+            foreach (var t in tabs) t.gameObject.SetActive(System.Array.IndexOf(shownTabs, t) >= 0);
+            PlaceTabs();
+            current = -1;
+            SelectTab((Tab)tab, true);
         }
 
         public void Close() => CloseThen(null);

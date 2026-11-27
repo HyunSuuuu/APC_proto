@@ -83,7 +83,7 @@ namespace APC.UI
         void Awake() => Build();
 
         /// <summary>
-        /// [배치 적용] · 화면 구성 UI를 만든다 (한 번만). ContractPopup.Awake가 배치를 기억(CaptureLandscape)하기 전에 부른다.
+        /// [배치 적용] · 화면 구성 UI를 만든다 (한 번만). ContractPopup.Awake가 화면(가로 · 세로)마다 부른다.
         /// </summary>
         public void Build()
         {

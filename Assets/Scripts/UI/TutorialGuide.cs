@@ -402,7 +402,7 @@ namespace APC.UI
             if (portrait)
             {
                 bannerScaler.referenceResolution = new Vector2(1080f, 2340f);
-                bannerScaler.matchWidthOrHeight = 0f;
+                bannerScaler.matchWidthOrHeight = OrientationCanvasScaler.ComputeMatch(Screen.width, Screen.height, bannerScaler.referenceResolution);
                 r.anchorMin = new Vector2(0f, 0.8f); // 화면 위에서 1/5 지점 (기기 비율과 상관없이)
                 r.anchorMax = new Vector2(1f, 0.8f);
                 r.pivot = new Vector2(0.5f, 0.5f);
@@ -412,7 +412,7 @@ namespace APC.UI
             else
             {
                 bannerScaler.referenceResolution = new Vector2(1920f, 1080f);
-                bannerScaler.matchWidthOrHeight = 1f;
+                bannerScaler.matchWidthOrHeight = OrientationCanvasScaler.ComputeMatch(Screen.width, Screen.height, bannerScaler.referenceResolution);
                 r.anchorMin = r.anchorMax = new Vector2(0.5f, 1f);
                 r.pivot = new Vector2(0.5f, 1f);
                 r.anchoredPosition = new Vector2(0f, -110f); // HUD 돈 · 저금통 줄 아래

@@ -18,7 +18,7 @@ namespace APC.UI
     public sealed class RosterPanel : MonoBehaviour
     {
         [SerializeField, Tooltip("직군 칸 (하차 · 보관 · 상차 · 반품 · 지게차)")] RosterColumn[] columns;
-        [SerializeField] RosterCard cardTemplate;
+        [SerializeField, Tooltip("카드 템플릿 (가로 · 세로 화면이 각자 다른 모양으로 씬에 둔다)")] RosterCard cardTemplate;
         [SerializeField, Tooltip("알바 n/최대")] TMP_Text headerLabel;
 
         [Header("해고 확인")]
