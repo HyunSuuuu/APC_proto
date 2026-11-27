@@ -968,8 +968,9 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### OrientationCanvasScaler
 [UI/OrientationCanvasScaler.cs](../Scripts/UI/OrientationCanvasScaler.cs)
-- **역할**: 같은 오브젝트 CanvasScaler의 기준 해상도 · Match를 화면 방향에 따라 바꾼다. `HUD Canvas`: 가로 1920×1080 · 1(높이) / 세로 1080×2340 · 0(너비) (옛 `GameVertical` 씬 값).
-- **주의**: 실행 중에는 씬의 CanvasScaler 값 대신 이 값이 쓰인다. Play 중 인스펙터 값을 바꾸면 바로 반영.
+- **역할**: 같은 오브젝트 CanvasScaler의 기준 해상도 · Match를 화면 방향과 비율에 따라 바꾼다. `HUD Canvas`: 가로 1920×1080 / 세로 1080×2340. 기본 `dynamicMatch = true`로 `ComputeMatch(w, h, ref)`를 써서 화면비가 기준보다 좁으면 `0`(너비), 넓거나 같으면 `1`(높이)로 맞춰 어느 기기에서도 기준 해상도 영역이 잘리지 않게 한다 (2026-11-27).
+- **동작**: Play 중 = `ScreenLayout.IsPortrait` 구독 + `Update`에서 `Screen.width/height` 변화 감지. 에디터(Play 아님, `[ExecuteAlways]` + `EditorApplication.update`) = Game 뷰 해상도 크기(`Handles.GetMainGameViewSize`)를 따라감 → Game 뷰를 `mobile (1080x2340)`나 `720x1600` 등 임의 비율로 두면 실제 배율로 보며 고친다. 값이 같으면 다시 넣지 않는다.
+- **주의**: 씬의 CanvasScaler 값은 이 컴포넌트가 덮어쓰므로 의미 없음(에디터에서 Game 뷰 방향에 따라 바뀐 채 저장될 수 있음). Play 중 인스펙터 값을 바꾸면 바로 반영. `TutorialGuide` 배너 스케일러도 `ComputeMatch`를 공유한다.
 
 #### OrientationRect
 [UI/OrientationRect.cs](../Scripts/UI/OrientationRect.cs)
@@ -1097,7 +1098,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [UI/ModuleCell.cs](../Scripts/UI/ModuleCell.cs)
 - **역할**: 미니맵 칸 1개. `Cell`(열, 행) · `Draggable`(보관 · 반품 · 하차장). 누르기만 하면(끌기 없음) `ModulePanel.Select` (M20-3). 끌면 맨 위로 올라가 손가락을 따라가고, 놓으면 레이캐스트로 아래 칸을 찾아 `ModulePanel.Drop`.
 - **동작**: 끌기 시작하면 자기 복제본을 원래 자리에 반투명 자리 표시(`_Ghost`, `ModuleCell` 꺼짐, `ghostAlpha`)로 남기고, 놓으면 지운다. 자리 표시 위에 놓으면 제자리.
-  - 세로 도면 (2026-11-26): 못 끄는 칸을 끌면 끌기 이벤트를 부모 `ScrollRect`로 넘김(좌우 스크롤). 끄는 칸은 패널 밑으로 꺼내 마스크에 안 잘리고, 화면 좌표를 `ModulePanel.SetDragPoint`로 알려 자동 스크롤. `Resize(size)` = 칸 + 글자 칸 크기. `SetMarks(border, width, pulse, changed)` = 바탕 `Outline` 테두리(pulse = 알파 깜박임) + 오른쪽 위 초록 점. 끌기 시작하면 `ModulePanel.BeginDrag`.
+  - 세로 도면 (2026-11-26): 못 끄는 칸을 끌면 끌기 이벤트를 부모 `ScrollRect`로 넘김(좌우 스크롤). 끄는 칸은 패널 밑으로 꺼내 마스크에 안 잘리고, 화면 좌표를 `ModulePanel.SetDragPoint`로 알려 자동 스크롤. `Resize(size)` = 칸 + 글자 칸 크기. `SetMarks(border, width, pulse, changed)` = 테두리(pulse = 알파 깜박임) + 오른쪽 위 초록 점. 테두리 = 첫 자식 `Ring`(칸과 같은 `UISprite` 9슬라이스, 가운데 비움 `fillCenter` 끔) — 칸 밖 width + 안쪽 1.5(둥근 모서리 틈 깊이 = 반지름 5 × (1 − 1/√2)), 두께는 `pixelsPerUnitMultiplier` = 스프라이트 테두리 10 × (캔버스 PPU 100 ÷ 스프라이트 PPU 200) ÷ 두께 (2026-11-27 — 예전 UI `Outline`은 칸을 대각선 4방향으로 밀어 복사해 고른 칸 7 · 놓을 칸 6 두께에서 겹친 사각형 선이 격자처럼 보이고 모서리가 깨졌음). 끌기 시작하면 `ModulePanel.BeginDrag`.
 - **주의**: 놓을 칸은 **레이캐스트를 다시 켜기 전에** 찾는다 (켜면 맨 위에 있는 끌던 칸 자신이 잡혀 늘 제자리로 돌아가던 버그, 2026-11-16).
 
 #### ContractPopup
@@ -1105,8 +1106,17 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: 사무실 책상 팝업 — 두 책상이 같이 쓴다. **A책상 `고용 | 배치 | 스탯`**(스탯 = `upgradeTab` · `UpgradePanel`), **B책상 `설비 | 트럭 | 모듈`** (GDD 4.3, M16-2 2026-11-18). 열려 있는 동안 게임이 멈춘다. 고용 탭(`HirePanel`)은 고용해도 열린 채다.
 - **모양** (2026-11-19, UI 샘플 `ClipboardScene` 방식): `Panel` = 나무 판 + 위 가운데 `MetalClip`, 그 안 `PaperStack` = `PaperBack2` · `PaperBack1`(살짝 기움) · `TabsBehind` · `PaperFront`(페이지 6개 · `SheetTitle` · `SheetDesc` · 구분선) · `TabsFront`. 탭은 오른쪽 가장자리 인덱스 탭(왼쪽 12가 종이 밑, 탭마다 색 = 씬에 칠한 색). 둥근 모서리 = `UISprite` Sliced의 `pixelsPerUnitMultiplier`(판 0.15 · 종이 0.22 · 탭 0.5, 작을수록 둥긂). 스탯 · 트럭 페이지는 줄마다 테두리 칸 `RowNBox`. 씬에서 MCP로 만듦 (빌더 코드에 없음).
 - **동작**: `Open(deskB)` → `modulePage.Begin()`(지금 배치를 미니맵에) → 그 책상 탭 3개만 켜고 위에서부터 세 자리(`tabY` = 처음 고용 · 배치 · 스탯 자리, `Awake`에 저장)에 놓음 → 고용 / 설비 탭 → `GameManager.OpenPopup`. `SelectTab(Tab, instant)`이 페이지를 켜고 끄고 제목 · 설명을 바꾼다. 선택 탭은 `tabsFront`로 옮겨 앞으로 나오며 1.03배 · 밝게, 나머지는 `tabsBehind`에서 7 들어가 0.97배 · 어둡게(0.84). 탭을 바꾸면 새 페이지가 아래 16에서 떠오르며 페이드(`CanvasGroup`, 없으면 붙임), 앞 종이 셔플(들림 → 흔들림 → OutBack 착지) · 뒤 종이 흔들림, 제목 튐. 이미 선택된 탭을 누르면 탭만 튐. 셔플 동안(0.42초)은 앞 종이 안의 `RectMask2D`(명부 목록 · 모듈 도면)를 스텐실 `Mask`로 바꿔 끼우고 끝나면 되돌린다(`SwapToStencil`, 그래픽 없는 마스크는 보이지 않는 모양 Image를 붙임) — RectMask2D는 회전을 지원하지 않고, 끄기만 하면 스크롤 영역 바깥 내용이 잠깐 보였다 (2026-11-26, 가로 · 세로 공통, 연달아 바꾸면 앞 마스크부터 되살림). 닫기(X) 버튼은 `Awake`에서 `closeButtonScale` 1.875배(1.5 → × 1.25, 배치 기억 전). 설비 · 트럭 페이지는 지금 '준비 중' 글자만 (M16-3 · M16-4, 씬에서 MCP로 만듦 — `FacilityTab` · `TruckTab` = `ModuleTab` 복제). 도장 · 안내 글자 묶음(`stampArea`)은 고용 탭에서만 보인다. `Close` → `modulePage.Apply()`(모듈 재배치 적용) → 닫힘 연출이 끝나면 `ClosePopup`. 트윈은 `SetUpdate(true)`.
-- **세로 배치** (2026-11-26, [UI/ContractPopup.Portrait.cs](../Scripts/UI/ContractPopup.Portrait.cs) partial, UI 시안 `office_clipboard_ui_mobile`): 씬 배치 = 가로. `Awake`의 `CaptureLandscape()`가 `body` 아래 RectTransform 전부 · TMP 글자 크기(자동 크기 포함) · 버튼 Image `pixelsPerUnitMultiplier` · 명부 `GridLayoutGroup` 칸 크기 · 열 수를 저장. 화면 방향 플래그(`ScreenLayout.Portrait`, M21-1)가 지금 배치와 다르면 `Open` 때(`body`를 켜기 전) · 열린 채 회전하면 `LateUpdate`에서(HUD CanvasScaler가 새 크기를 잡은 뒤) `SetLayout(portrait)` = 저장값으로 되돌린 뒤 세로면 `ApplyPortrait()`. 세로: 판 좌우 24, 높이 = (화면 − 위 280 − 아래 110) × 0.8 위아래 가운데, 종이 더미는 판 좌우 · 아래 가장자리 34 안(위는 집게 자리 52)까지라 판과 길이가 거의 같다, 종이 안쪽 여백 = 좌우 56(`ContentInset`: 제목 · 구분선 · 고용 머리 줄 · 카드 · 받침 · 행 · 명부 · 모듈이 같은 선) · 위 +12(`ContentDrop`), 탭은 가로 탭을 -90° 돌려 짧고 굵게(길이 130, 시안 하단 탭) 아래 가로 줄 — 보이는 탭 수로 종이 아래 너비를 나눠 채움(사이 12), 이미지는 세로에서만 Sliced(`Index` 스프라이트 테두리 L80 · B55 · R60 · T55, `pixelsPerUnitMultiplier` 1.4)라 늘려도 모서리 · 띠가 안 깨짐(가로로 돌아가면 Simple · 0.5로 복원). 탭 길이 · 사이 · 9슬라이스 배율 · 종이 밑 길이는 인스펙터 `세로 배치 · 인덱스 탭`(`tabLength` · `tabGap` · `tabRound` · `portraitTabTuck`), Play 중 바꾸면 `OnValidate`가 열린 팝업에 바로 반영 — 띠 쪽 윗변 20이 종이 밑, 아래는 판 밖으로 나옴, 안 고른 탭 +7, 글자는 +90°로 세워 자동 크기 22~36, 글자 28 이하는 1.2배 · 버튼 모서리 0.45, 고용 = `Candidates` 가로 레이아웃 끄고 가로로 긴 카드(너비 − 100, 높이 262~300) 세로 쌓기 — 받침 위까지 안 들어가면 카드 묶음을 줄임, 카드 아래쪽 **도장 받침**(`StampTray` 높이 240, 아래 = 종이 가장자리 + `portraitTabTuck` + 7 + 18이라 탭 윗변과 닿지 않음, 세로에서 처음 쓸 때 `stampArea` 맨 뒤에 만듦: 둥근 받침 + 제목 `고용 승인 도장` + 원래 `Hint`를 설명으로 + 오른쪽 둥근 칸 `Slot` 204(Outline) 위에 도장 168), 스탯 · 트럭 · 설비 = 칸 왼쪽 위 이름 · 왼쪽 아래 값(한 줄 자동 크기) | 오른쪽 구매, 명부 = 칸 한 열, 모듈 = `ModulePanel.Layout(portrait, …)` (가로도 같은 함수, `LayoutModules`). 가로로 돌아가면 받침은 끄고 `Hint` 정렬 · 색을 되돌린다. 세로에서는 탭을 바꿀 때 `stampArea`(받침 · 도장)도 앞 종이와 같은 셔플(`Shuffle`: 들림 → 흔들림 → OutBack 착지)로 흔들린다. 값은 모두 `임시`. 회전 중이면 현재 페이지를 껐다 켜 설비 줄을 새 배치로 다시 만든다.
-- **주의**: 루트 오브젝트는 항상 켜 두고 자식 `body`만 켜고 끈다 (꺼져 있으면 `Instance`가 등록되지 않음). 세로 배치는 자식을 이름(`Header` · `Candidates` · `Row0Box` · `RowTemplate` · `List/Content` · `BoardShadow` 등)으로 찾으므로 이름을 바꾸면 그 칸은 가로 값 그대로 남는다. Build Site가 UI를 통째로 다시 만든다 — 빌더 코드에는 설비 · 트럭 탭이 없어서 다시 만들면 빠진다 (shortcut: Build Site 금지 중이라 빌더는 안 고침).
+- **세로 화면** (2026-11-26 코드 배치 → 2026-11-27 씬 `BodyPortrait`, UI 시안 `office_clipboard_ui_mobile`): 판 · 종이 · 고용 카드 · 도장 받침 · 스탯/트럭/설비 줄 · 명부(카드 398×230, 2열)는 모두 `BodyPortrait` 씬 값 — 바꾸려면 `BodyPortrait`를 켜고 직접 고친 뒤 다시 끈다. 아직 코드([UI/ContractPopup.Portrait.cs](../Scripts/UI/ContractPopup.Portrait.cs)): 아래 가로 인덱스 탭(`PlaceTabs`: 가로 탭을 -90° 돌려 길이 `tabLength` 130, 보이는 탭 수로 종이 더미 폭을 나눠 채움(사이 `tabGap` 12), 세로에서만 Sliced(`Index` 스프라이트 테두리, `tabRound` 1.4), 윗변이 종이 밑으로 `portraitTabTuck` 28(안 고른 탭 +7), 글자 +90° 자동 크기 22~38 — 인스펙터 `세로 인덱스 탭`, Play 중 바꾸면 `OnValidate`로 바로 반영) · 모듈 탭(`LayoutModules` → `ModulePanel.Layout(portrait, …)`, 가로도 같은 함수). 세로에서는 탭을 바꿀 때 `stampArea`(받침 · 도장)도 앞 종이와 같이 셔플된다. 값은 모두 `임시`.
+- **화면 한 벌 분리** (2026-11-27, 세로 UI 분리 1단계): 판 · 탭 · 페이지 · 종이 · 도장 참조 26개는 `Body`의 `ContractPopupView`로 옮겼다. ContractPopup은 `landscapeView`(`Body`) · `portraitView`(`BodyPortrait`, 2단계)를 들고 지금 화면 `view`를 거쳐 읽는다(옛 필드 이름 = 속성). `Awake`가 화면마다 `Wire()`(닫기 · 탭 · 벨트 버튼 연결, 탭 색 · 가로 탭 자리는 `ContractPopupView.TabColors` · `TabY` · `TabX`에 기억, `ModulePanel.Build`, 닫기 버튼 배율). `portraitView`가 있으면 `SetLayout`은 코드 배치 대신 `view`만 바꾸고, `Open` · 열린 채 회전(`LateUpdate`)은 `ShowView(tab)` = 그 화면을 켜고 같은 책상 탭 · 같은 탭 페이지를 바로 보인다(이전 화면은 끔). 모듈 탭(`LayoutModules`)과 세로 탭 자리(`PlaceTabs`, 책상마다 탭 3 · 4개)는 아직 코드 — 둘 다 **화면을 켠 뒤** `Canvas.ForceUpdateCanvases` 하고 읽는다(꺼진 화면의 RectTransform 크기는 회전 전 값이라 탭이 1108로 넓어지고 모듈 도면이 삐져나갔음).
+- **`BodyPortrait`** (2026-11-27 2단계): `Body` 복제에 그때의 세로 배치 코드를 에디터에서 한 번 적용해 씬 값으로 굽기(`BakePortrait`, 캔버스 1080×2340 기준, 도장 받침 `StampTray`도 씬 오브젝트로). 명부 카드 템플릿 = 세로 카드(398×230, 2열). 씬에서는 꺼 둠.
+- **화면 비율** (2026-11-27): 판 `Panel` · `BoardShadow`는 가운데 고정 크기(가로 1500×900 · 세로 1032×1560, 그림자 +20 × +8 · y −14) — `OrientationCanvasScaler` 동적 Match가 기준 해상도(1920×1080 · 1080×2340)를 늘 화면 안에 넣으므로, 남는 곳은 판 바깥 여백이 되고 판 안 모양은 모든 비율에서 같다. **판에 비율 Anchor를 쓰지 않는다** — 넓은 화면에서 판만 늘어나 안쪽 고정 크기 칸과 어긋남(트럭 [구매]가 줄 상자 밖으로 나갔음).
+- **가로 도장 받침** (2026-11-27, 씬 값): `Body/.../StampArea/StampTray` = 세로 받침 복제를 오른쪽 세로 칸으로 — 판 왼쪽 아래 기준 (1143, 88) 300×532(카드 아래선과 맞춤, [새로고침] 아래), 위에서부터 제목 `고용 승인 도장`(36, 가운데) · `Hint` `끌어서 카드에 찍기`(26) · 둥근 칸 `Slot` 240 위에 도장 200(중심 1293, 294). 가로에서는 탭을 바꿀 때 받침이 종이와 같이 흔들리지 않는다(`ShufflePaper`가 세로에서만 `stampArea`를 흔듦).
+- **주의**: 루트 오브젝트는 항상 켜 두고 자식 `body`만 켜고 끈다 (꺼져 있으면 `Instance`가 등록되지 않음). Build Site(`SiteBuilder.BuildContractPopup`)는 옛 필드 이름(`body` · `hireTab` 등)으로 ContractPopup에 참조를 넣으므로 지금 구조와 안 맞는다. Build Site가 UI를 통째로 다시 만든다 — 빌더 코드에는 설비 · 트럭 탭이 없어서 다시 만들면 빠진다 (shortcut: Build Site 금지 중이라 빌더는 안 고침).
+
+#### ContractPopupView (2026-11-27)
+[UI/ContractPopupView.cs](../Scripts/UI/ContractPopupView.cs)
+- **역할**: 책상 팝업 화면 한 벌의 참조 묶음 (판 `Panel` · `CanvasGroup` · 닫기 · 탭 7개 · 페이지 7개(`ModulePanel` 포함) · 벨트 [설치] · `StampArea` · 종이 3장 · 탭 층 2개 · 제목 · 설명). 이 오브젝트 = 켜고 끄는 body. 로직은 없음.
+- **연결**: `ContractPopup.landscapeView`(`Body`) · `portraitView`(`BodyPortrait`). 모양은 씬에서 각각 잡는다. 실행 중 값 `TabColors` · `TabY` · `TabX`는 ContractPopup이 채운다.
 
 #### StampCard (추상)
 [UI/StampCard.cs](../Scripts/UI/StampCard.cs)
@@ -1134,14 +1144,15 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### RosterPanel
 [UI/RosterPanel.cs](../Scripts/UI/RosterPanel.cs)
 - **역할**: 클립보드 책상 팝업의 `명부` 탭 (GDD 11.3, UI 샘플 직원 명부 방식 2026-11-19 — 끌어서 옮기기 · 해고 칸 삭제). 위 왼쪽 `알바 n/최대`, 아래 세로 스크롤 `List`에 직군 칸 5개(`RosterColumn` 하차 · 보관 · 상차 · 반품 · 지게차, 둥근 상자, 제목에 인원 수, 열리지 않은 칸은 어둡게 `(잠김)`) + 해고 확인 창.
-- **동작**: `StaffService.OnWorkersChanged` · `OnEnable`마다 `Refresh` — 줄(`RosterCard`)을 명단 수만큼 만들어 두고 `Workers[i]`에 묶어 그 직군 칸 `Content`(2열 격자)로 옮긴다. 줄의 [해고] → `AskFire` → 확인 창 → [해고] `StaffService.Fire` / [취소].
-- **연결**: `RosterColumn` × 5, `RosterCard` 템플릿(하차 칸 `Content` 안, 꺼진 채). 씬에서 MCP로 바꿈 — `SiteBuilder.BuildRosterPage`는 옛 열 · 해고 칸 · `dragLayer`를 만들어 지금 코드와 안 맞는다 (shortcut: Build Site 금지 중이라 빌더는 안 고침).
+- **동작**: `StaffService.OnWorkersChanged` · `OnEnable`마다 `Refresh` — 줄(`RosterCard`)을 명단 수만큼 만들어 두고 `Workers[i]`에 묶어 그 직군 칸 `Content`(2열 격자)로 옮긴다. 줄의 [해고] → `AskFire` → 확인 창 → [해고] `StaffService.Fire` / [취소]. 가로(`Body`) · 세로(`BodyPortrait`) 화면에 하나씩 있고 각자 자기 카드 템플릿을 쓴다 (2026-11-27).
+- **연결**: `RosterColumn` × 5, `RosterCard` 템플릿 `CardTemplate`(하차 칸 `Content` 안, 꺼진 채 — 가로 645×180 · 세로 398×230 2열, 격자 칸 크기 · 열 수는 각 화면의 `GridLayoutGroup` 씬 값). 씬에서 MCP로 바꿈 — `SiteBuilder.BuildRosterPage`는 옛 열 · 해고 칸 · `dragLayer`를 만들어 지금 코드와 안 맞는다 (shortcut: Build Site 금지 중이라 빌더는 안 고침).
 - **주의**: 탭이 꺼지면 확인 창도 닫힌다.
 
 #### RosterCard
 [UI/RosterCard.cs](../Scripts/UI/RosterCard.cs)
-- **역할**: 명부 탭 알바 한 칸 (가로 645 × 180 = 직군 칸 안쪽 1306을 두 장이 채움, Grid `cellSize` · 가운데 정렬 `UpperCenter`, 2026-11-26. 세로는 `LayoutRoster`가 폭만 목록 폭으로): 윗줄 직무 색 막대 · `알바 N`(미지급이면 붉은 `₩N 밀림`) · 시급 · [해고](`fireButton` → 부모 `RosterPanel.AskFire`), 아래 두 줄 = 아이콘(`SpeedIcon` · `CarryIcon`, Resources `MoveSpeed` · `Stack`) + 이동 속도 · 적재 글자 + 게이지.
-- **주의**: [해고]는 오른쪽 끝 폭 110 · 위아래 여백 14로 카드 세로를 채움(글자 32), 시급은 그 왼쪽. 글자 · 게이지는 왼쪽 84 ~ 오른쪽 136 앞까지 가로로 늘어나고 [해고] · 시급은 오른쪽 끝 기준이라, 세로 배치(`LayoutRoster`가 칸 폭을 목록 폭으로)에서도 코드 없이 폭을 채운다.
+- **역할**: 명부 탭 알바 한 칸 (가로 645 × 180 = 직군 칸 안쪽 1306을 두 장이 채움, Grid `cellSize` · 가운데 정렬 `UpperCenter`, 2026-11-26): 윗줄 직무 색 막대 · `알바 N`(미지급이면 붉은 `₩N 밀림`) · 시급 · [해고](`fireButton` → 부모 `RosterPanel.AskFire`), 아래 두 줄 = 아이콘(`SpeedIcon` · `CarryIcon`, Resources `MoveSpeed` · `Stack`) + 이동 속도 · 적재 글자 + 게이지.
+- **주의**: [해고]는 오른쪽 끝 폭 110 · 위아래 여백 14로 카드 세로를 채움(글자 32), 시급은 그 왼쪽. 글자 · 게이지는 왼쪽 84 ~ 오른쪽 136 앞까지 가로로 늘어나고 [해고] · 시급은 오른쪽 끝 기준.
+- **세로 카드** (2026-11-27, `BodyPortrait` 명부의 `CardTemplate`): 398 × 230(한 줄 2장 = 812), 캐릭터 이미지 자리 `Avatar`(직무 색 + 첫 글자 `Initial`, 고용 카드 Avatar 복제), 이름 · 시급, 아이콘 + 수치만(`valuesOnly`) · [해고]. 게이지 · 색 막대 없음(필드 비움 = null 허용). 자식은 카드 왼쪽 아래 기준이라 높이를 줄이면 위가 넘친다. 카드 크기를 바꾸면 그 화면 직군 칸 `Content`의 Grid `cellSize`도 같이 바꾼다.
 
 #### RosterColumn
 [UI/RosterColumn.cs](../Scripts/UI/RosterColumn.cs)

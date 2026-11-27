@@ -39,28 +39,53 @@ namespace APC.UI
             background.color = color;
         }
 
-        Outline ring;
+        Image ring;
         Tween ringPulse;
         Image changedDot;
+
+        // 테두리가 칸 안쪽으로 덮는 폭 — 칸 둥근 모서리(반지름 5)와 네모난 테두리 안쪽 사이 틈의 깊이 = 5 × (1 − 1/√2) ≈ 1.5.
+        // 더 크면 얇은 테두리(2)가 예전보다 두꺼워 보인다
+        const float RingInset = 1.5f;
 
         /// <summary>
         /// 칸 테두리 (시안 module_placement_ui_mobile): 종류별 얇은 테두리, 고른 칸 = 굵은 호박색, 놓을 수 있는 칸 = 깜박이는 호박색 (pulse).
         /// changed = 적용 전 자리 · 방향이 바뀐 모듈 (오른쪽 위 초록 점). width 0 = 테두리 없음.
+        /// 테두리 = 칸과 같은 둥근 스프라이트를 가운데를 비운 9슬라이스(fillCenter 끔)로 칸 밖 width만큼 크게 (2026-11-27).
+        /// 예전 UI Outline은 칸을 대각선 4방향으로 밀어 복사하는 방식이라 6~7 두께에서 겹친 사각형 선(격자처럼)과 깨진 모서리가 보였다.
         /// </summary>
         public void SetMarks(Color border, float width, bool pulse, bool changed)
         {
             if (ring == null)
             {
-                if (!background.TryGetComponent(out ring)) ring = background.gameObject.AddComponent<Outline>(); // ?? 는 에디터 가짜 null에 걸림
-                ring.useGraphicAlpha = false;
+                ring = new GameObject("Ring", typeof(RectTransform)).AddComponent<Image>();
+                ring.transform.SetParent(transform, false);
+                ring.transform.SetAsFirstSibling(); // 글자 아래
+                ring.sprite = background.sprite;
+                ring.type = Image.Type.Sliced;
+                ring.fillCenter = false;
+                ring.raycastTarget = false;
+                var rect = ring.rectTransform;
+                rect.anchorMin = Vector2.zero;
+                rect.anchorMax = Vector2.one;
+                rect.pivot = new Vector2(0.5f, 0.5f);
             }
             ringPulse?.Kill();
-            ring.enabled = width > 0f;
-            ring.effectColor = border;
-            ring.effectDistance = new Vector2(width, -width);
+            ring.gameObject.SetActive(width > 0f);
+            ring.color = border;
+            if (width > 0f)
+            {
+                ring.rectTransform.offsetMin = new Vector2(-width, -width);
+                ring.rectTransform.offsetMax = new Vector2(width, width);
+                // 9슬라이스 테두리 두께(캔버스 단위) = 스프라이트 테두리 픽셀 × (캔버스 기준 PPU ÷ 스프라이트 PPU) ÷ 배율
+                // → 배율로 두께(칸 밖 width + 안쪽 RingInset)를 맞춘다 (UISprite: 테두리 10, PPU 200)
+                var sprite = ring.sprite;
+                var canvasPpu = ring.canvas != null ? ring.canvas.referencePixelsPerUnit : 100f;
+                var borderUnits = sprite != null ? Mathf.Max(1f, sprite.border.x) * canvasPpu / sprite.pixelsPerUnit : 5f;
+                ring.pixelsPerUnitMultiplier = borderUnits / (width + RingInset);
+            }
             if (pulse)
             {
-                ringPulse = DOTween.To(() => ring.effectColor.a, a => ring.effectColor = new Color(border.r, border.g, border.b, a), border.a * 0.2f, 0.65f)
+                ringPulse = DOTween.To(() => ring.color.a, a => ring.color = new Color(border.r, border.g, border.b, a), border.a * 0.2f, 0.65f)
                     .SetEase(Ease.InOutSine).SetLoops(-1, LoopType.Yoyo).SetUpdate(true).SetLink(gameObject);
             }
 
