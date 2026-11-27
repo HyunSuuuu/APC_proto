@@ -18,7 +18,12 @@ namespace APC.EditorTools
         [MenuItem("APC/Build/Android — Game + Tycoon (APK 2개)")]
         static void BuildBoth() => EditorApplication.delayCall += Run; // 메뉴를 바로 끝내고 다음 에디터 틱에 빌드 (MCP 호출이 빌드 시간 동안 막히지 않게)
 
-        static void Run()
+        [MenuItem("APC/Build/Android — GameVertical")]
+        static void BuildVertical() => EditorApplication.delayCall += () => Run(vertical: true);
+
+        static void Run() => Run(vertical: false);
+
+        static void Run(bool vertical)
         {
             var target = NamedBuildTarget.Android;
             var originalId = PlayerSettings.GetApplicationIdentifier(target);
@@ -26,8 +31,12 @@ namespace APC.EditorTools
             Directory.CreateDirectory(OutputFolder);
             try
             {
-                Build("Game", new[] { "Assets/Scenes/Game.unity" }, originalId, originalName);
-                Build("Tycoon", new[] { "Assets/Scenes/TycoonTest.unity" }, originalId + ".tycoon", originalName + " Tycoon");
+                if (vertical) Build("Vertical", new[] { "Assets/Scenes/GameVertical.unity" }, originalId + ".vertical", originalName + " Vertical");
+                else
+                {
+                    Build("Game", new[] { "Assets/Scenes/Game.unity" }, originalId, originalName);
+                    Build("Tycoon", new[] { "Assets/Scenes/TycoonTest.unity" }, originalId + ".tycoon", originalName + " Tycoon");
+                }
             }
             finally
             {

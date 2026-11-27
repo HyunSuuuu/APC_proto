@@ -1189,7 +1189,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Visuals/SkinnedCombine.cs](../Scripts/Visuals/SkinnedCombine.cs)
 - **역할**: 알바 스킨 메시 합치기 — 드로 줄이기. 알바 1명 = 스킨 메시 6개 × (툰 + 외곽선 2패스 + PC는 깊이 · 노멀) 드로라 100명이면 배치 2000 가까이 됐다.
 - **동작**: 정적 `Combine(코스튬 루트)` — `StaffWorker.Setup`이 고른 코스튬에 부른다(CharacterToon이 이미 재질을 바꾼 뒤). 켜진 SkinnedMeshRenderer들의 정점 · 노멀 · 탄젠트 · UV · 색 · 뼈 가중치를 이어 붙이고(정점은 원래 메시 공간, bindpose 그대로 — 스킨 결과는 렌더러 위치와 무관), 뼈 배열은 부품 순서대로 이어 붙인다(중복 허용). 재질별 서브메시 → 새 자식 `CombinedSkin` 렌더러 하나, 원래 부품은 끈다(남겨 둠). 재질 2~4개가 셰이더 · 값 · 켜진 패스가 같고 텍스처만 다르면(유니폼 피부 · 옷 · 머리) `Graphics.CopyTexture`로 2×2 아틀라스(GPU만, 기기 압축 형식 그대로, 밉은 압축 블록 크기까지) + UV를 칸으로 옮겨 **서브메시 1개 · 공유 재질 1개**. 합친 메시 · 아틀라스는 코스튬(메시 · 재질 묶음)마다 한 번 만들어 캐시.
-- **주의**: 메시 fbx는 Read/Write 켬(`Art/Model/Worker` 알바 fbx 5개, 꺼져 있으면 합치지 않음). UV가 0~1 밖이면 아틀라스가 깨진다(유니폼 0.014~0.987 확인). 플레이어는 합치지 않음. 결과(TycoonTest 알바 100명): PC 기본 화면 배치 2323 → 1376(합치기만), 줌아웃 추정 알바 1명 스킨 드로 8.2 → 3.2(아틀라스 포함), 유니폼 95명 서브메시 1 · 코스튬 5명은 재질 1~2라 그대로.
+- **주의**: 메시 fbx는 Read/Write 켬(`Art/Model/Worker` 알바 fbx 5개, 꺼져 있으면 합치지 않음). UV가 0~1 밖이면 아틀라스가 깨진다(유니폼 0.014~0.987 확인). 플레이어는 합치지 않음. 결과(TycoonTest 알바 100명): PC 기본 화면 배치 2323 → 1376(합치기만), 줌아웃 추정 알바 1명 스킨 드로 8.2 → 3.2(아틀라스 포함), 유니폼 95명 서브메시 1 · 코스튬 5명은 재질 1~2라 그대로. 아틀라스 텍스처 형식(Android 빌드 설정이면 ASTC)을 이 기기가 못 쓰면(`SystemInfo.IsFormatSupported`, PC 에디터) 아틀라스 없이 합친다 (2026-11-27 — 전에는 `new Texture2D` 실패 NRE로 TycoonTest 알바 뽑기가 첫 명에서 멈춤). 텍스처 크기(밉마다)가 압축 블록(ASTC 6×6 등)으로 나누어떨어지지 않으면 아틀라스를 안 만든다 — 512²는 Android에서 아틀라스 없음(깨짐 방지, 2026-11-27). 합친 뒤 `Animator.Rebind()` — 알바 Animator가 CullUpdateTransforms라 묶을 때 본 렌더러(합치며 끈 것)만 알면 늘 안 보임으로 판단해 뼈가 멈춘다 (2026-11-27).
 
 #### CharacterToon
 [Visuals/CharacterToon.cs](../Scripts/Visuals/CharacterToon.cs)
@@ -1300,7 +1300,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### AndroidBuilds (2026-11-27)
 [Editor/AndroidBuilds.cs](../Scripts/Editor/AndroidBuilds.cs)
 - **역할**: 메뉴 `APC > Build > Android — Game + Tycoon (APK 2개)` — Game 씬 · TycoonTest 씬을 따로 빌드해 한 기기에 같이 설치할 수 있게.
-- **동작**: 메뉴는 바로 끝나고 다음 에디터 틱(`delayCall`)에 빌드. Game = 지금 패키지 ID · 이름 그대로, Tycoon = ID + `.tycoon` · 이름 + ` Tycoon`. 씬은 빌드 설정 목록과 상관없이 하나씩 넘긴다. 끝나면 ID · 이름을 되돌린다. 결과 `Builds/Android/APC_Game.apk` · `APC_Tycoon.apk`(git 제외), 콘솔 `[AndroidBuilds]` 줄.
+- **동작**: 메뉴는 바로 끝나고 다음 에디터 틱(`delayCall`)에 빌드. Game = 지금 패키지 ID · 이름 그대로, Tycoon = ID + `.tycoon` · 이름 + ` Tycoon`. 씬은 빌드 설정 목록과 상관없이 하나씩 넘긴다. 끝나면 ID · 이름을 되돌린다. 결과 `Builds/Android/APC_Game.apk` · `APC_Tycoon.apk`(git 제외), 콘솔 `[AndroidBuilds]` 줄. 메뉴 `APC > Build > Android — GameVertical` = GameVertical 씬 하나만 `APC_Vertical.apk`(ID + `.vertical`, 이름 + ` Vertical`) (2026-11-27).
 - **주의**: TycoonTest 씬은 커밋하지 않으므로 먼저 `APC > Test > Build Tycoon 8x8`로 만든다(Game 씬을 복사하므로 Game의 UI가 그대로 들어간다). 활성 대상이 Android가 아니면 처음 한 번 전환 · 재임포트로 오래 걸린다(2026-11-27: Game 515초 · Tycoon 85초, APK 각 약 56MB).
 
 | 메뉴 | 스크립트 | 하는 일 |

@@ -81,6 +81,10 @@ namespace APC.Visuals
 
             foreach (var part in Parts) part.enabled = false;
             Parts.Clear();
+            // Animator(CullUpdateTransforms)는 묶을 때 본 렌더러로 보임을 판단한다 — 꺼진 원래 렌더러만 알면 늘 안 보임 → 뼈가 멈춤 (2026-11-27)
+            var animator = root.GetComponentInChildren<Animator>();
+            if (animator == null) animator = root.GetComponentInParent<Animator>();
+            if (animator != null) animator.Rebind();
             return combined;
         }
 
@@ -228,9 +232,11 @@ namespace APC.Visuals
 
             var size = firstMap.width;
             if (firstMap.height != size) return false;
+            if (!SystemInfo.IsFormatSupported(firstMap.graphicsFormat, UnityEngine.Experimental.Rendering.GraphicsFormatUsage.Sample)) return false; // PC 에디터는 Android용 ASTC를 못 만든다 → 아틀라스 없이
             var block = (int)Mathf.Max(UnityEngine.Experimental.Rendering.GraphicsFormatUtility.GetBlockWidth(firstMap.graphicsFormat), UnityEngine.Experimental.Rendering.GraphicsFormatUtility.GetBlockHeight(firstMap.graphicsFormat));
+            if (size % block != 0) return false; // ASTC 6x6(Android) + 512 텍스처는 블록 경계가 안 맞아 CopyTexture가 깨진다 (2026-11-27 실기기)
             var mips = 1;
-            while (mips < firstMap.mipmapCount && (size >> mips) >= block) mips++;
+            while (mips < firstMap.mipmapCount && (size >> mips) >= block && (size >> mips) % block == 0) mips++;
 
             var atlas = new Texture2D(size * 2, size * 2, firstMap.graphicsFormat, mips, UnityEngine.Experimental.Rendering.TextureCreationFlags.MipChain)
             {
