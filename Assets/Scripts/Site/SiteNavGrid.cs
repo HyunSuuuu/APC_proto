@@ -83,6 +83,8 @@ namespace APC.Site
             for (var i = 0; i < count; i++)
             {
                 var hit = hits[i];
+                // 존 팔레트(StorageZone 아래)는 플레이어만 막는다 — 알바 작업 자리(1.8m)가 장애물 키우기(0.5m)에 덮이므로 (2026-11-27)
+                if (hit.GetComponentInParent<Logistics.StorageZone>() != null) continue;
                 // 벨트는 부지 밖(씬 루트)에 생기지만 사람 · 알바가 못 지나간다 (M20-4, 2026-11-26 A*만 이동)
                 if (hit.enabled && (hit.transform.IsChildOf(siteRoot) || hit.GetComponentInParent<Logistics.ConveyorBelt>() != null)) output.Add(ToBox(hit));
             }

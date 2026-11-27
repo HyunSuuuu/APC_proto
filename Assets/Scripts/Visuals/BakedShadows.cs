@@ -84,7 +84,8 @@ namespace APC.Visuals
                 if (!r.enabled || r.forceRenderingOff || !r.gameObject.activeInHierarchy) continue;
                 // 캐릭터(CarryStack)에 붙은 것 = 도구 · 지게차 · 든 상자는 움직이므로 빼고 블롭 그림자로 (2026-11-27)
                 var caster = r is MeshRenderer && r.shadowCastingMode != ShadowCastingMode.Off && r.bounds.size.y >= MinHeight
-                             && r.GetComponentInParent<Logistics.CarryStack>() == null;
+                             && r.GetComponentInParent<Logistics.CarryStack>() == null
+                             && r.GetComponentInParent<Site.ExpansionPad>() == null; // 해금 타일은 그림자 없음 (2026-11-27, 사용자)
                 if (!caster)
                 {
                     r.forceRenderingOff = true;

@@ -42,6 +42,9 @@ namespace APC.Core
 
         void Awake()
         {
+            // 30 고정 — 저사양 기기가 20~50fps로 흔들려 60 목표면 끊김이 더 보임. 성능 패널(빌드에서 빠짐)이 먼저 정했으면 그 값을 둔다
+            if (Application.targetFrameRate <= 0) Application.targetFrameRate = 30;
+
             if (Instance != null)
             {
                 Debug.LogError("[GameManager] 씬에 GameManager가 두 개 있습니다. 나중 것을 삭제합니다.", this);

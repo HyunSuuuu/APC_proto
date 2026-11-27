@@ -36,6 +36,7 @@ Git UPM 패키지는 모두 **태그로 버전을 고정**했다 (`Packages/mani
 |---|---|---|
 | `NuGet.config`, `packages.config` | `Assets/` | R3 코어와 의존 DLL 6개를 `Assets/Packages/`에 복원 |
 | `.mcp.json` | 프로젝트 루트 | Claude Code에 UnityMCP 서버 등록 (`http://localhost:8080/mcp`). 연결 방법은 [4.4](#44-unitymcp--개발-보조) |
+| 모바일 최적화 (2026-11-27) | `Mobile_RPAsset` · `QualitySettings` Mobile · `TimeManager` · `GameManager` | HDR · Terrain Holes · LOD Cross Fade 끔(포스트 · LOD 그룹 · 지형 없음), 추가 광원 물체당 4 → 1(황금 트럭 점광원뿐), 이방성 끔, Fixed Timestep 0.02 → 1/30(Rigidbody · 트리거 없음), 빌드 프레임 **30 고정**. 그래픽 API는 Vulkan → GLES3 순서 유지, A/B는 `APC > Build > Android — Tycoon GLES3`. 텍스처 오버라이드는 안 함(빌드에 들어가는 1024 넘는 것은 UI 그림 4장뿐) |
 
 ## 3. 처음 열 때 확인할 것
 

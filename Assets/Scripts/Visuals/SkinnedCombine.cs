@@ -81,6 +81,9 @@ namespace APC.Visuals
 
             foreach (var part in Parts) part.enabled = false;
             Parts.Clear();
+            // Animator는 처음 찾은 렌더러로 보임을 판단한다 — 부품을 껐으니 다시 묶지 않으면 CullUpdateTransforms가 늘 '안 보임'으로 보고 뼈를 안 움직임 (애니 멈춤)
+            var animator = root.GetComponentInChildren<Animator>();
+            if (animator != null) animator.Rebind();
             return combined;
         }
 
@@ -226,6 +229,8 @@ namespace APC.Visuals
                 if (!SameValues(first, m)) return false;
             }
 
+            // 에디터(PC GPU)에서 Android 플랫폼이면 _BaseMap이 ASTC라 만들 수 없음 → 아틀라스 없이 재질 따로
+            if (!SystemInfo.IsFormatSupported(firstMap.graphicsFormat, UnityEngine.Experimental.Rendering.GraphicsFormatUsage.Sample)) return false;
             var size = firstMap.width;
             if (firstMap.height != size) return false;
             var block = (int)Mathf.Max(UnityEngine.Experimental.Rendering.GraphicsFormatUtility.GetBlockWidth(firstMap.graphicsFormat), UnityEngine.Experimental.Rendering.GraphicsFormatUtility.GetBlockHeight(firstMap.graphicsFormat));

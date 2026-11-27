@@ -282,7 +282,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### GameManager
 [Core/GameManager.cs](../Scripts/Core/GameManager.cs)
 - **역할**: 게임 상태와 `Time.timeScale`을 한곳에서 관리하고, `GameDatabase` · `Wallet` · `LevelProgress`를 다른 스크립트에 제공한다.
-- **동작**: `Awake`에서 `GameDatabase.Validate`로 빠진 참조가 없는지 확인하고, 있으면 오류를 띄우고 꺼진다. 팝업 · 연출은 열린 **개수를 세므로** `OpenPopup`/`ClosePopup`, `BeginCutscene`/`EndCutscene`은 반드시 짝으로 부른다. 상태 우선순위는 Popup > Paused > Cutscene > Playing이고, Popup · Paused면 timeScale 0, 아니면 배속 값이다.
+- **동작**: `Awake` 맨 앞에서 `targetFrameRate`가 아직 안 정해졌으면 **30 고정**(저사양 기기 20~50fps 흔들림 대신 고른 간격, 2026-11-27 사용자 결정. 에디터는 성능 패널이 120으로 먼저 정함). 이어서 `GameDatabase.Validate`로 빠진 참조가 없는지 확인하고, 있으면 오류를 띄우고 꺼진다. 팝업 · 연출은 열린 **개수를 세므로** `OpenPopup`/`ClosePopup`, `BeginCutscene`/`EndCutscene`은 반드시 짝으로 부른다. 상태 우선순위는 Popup > Paused > Cutscene > Playing이고, Popup · Paused면 timeScale 0, 아니면 배속 값이다.
 - **연결**: 거의 모든 스크립트가 `GameManager.Instance`로 접근한다.
 - **주의**: 실행 순서 −1000. 씬에 하나만 둔다.
 
@@ -562,7 +562,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 
 #### StorageZone
 [Logistics/StorageZone.cs](../Scripts/Logistics/StorageZone.cs)
-- **역할**: 팔레트 둘레 존 (4.2 × 3.8m). **트럭 화물 내려놓기 먼저**(`CanAccept`/`Store`), 내려놓을 것이 없으면 선반에 갈 화물을 집는다(`TakeForShelves`). `ShelfZone`과 같은 구조. `HasCargoFor`(분류 알바가 집기 전에 확인)를 구현한다.
+- **역할**: 팔레트 둘레 존 (4.2 × 3.8m). 팔레트 모델 `Box_Interaction`(2.67m)에 BoxCollider 높이 1m — 플레이어가 못 올라감(`Module_LotInbound` · `_M` · `Module_Scan`, 2026-11-27). 알바 A*에는 안 들어감. **트럭 화물 내려놓기 먼저**(`CanAccept`/`Store`), 내려놓을 것이 없으면 선반에 갈 화물을 집는다(`TakeForShelves`). `ShelfZone`과 같은 구조. `HasCargoFor`(분류 알바가 집기 전에 확인)를 구현한다.
 - **쓰레기 출력** (`Trash`, M13-11): `GiveOrigin` = Trash, 적재 수 무시 · 쓰레기 `trashCarryMax`(12)개까지 (`CanCarryMoreTrash`). 반품 팔레트(`Returns`)는 `GiveOrigin` = ReturnPallet.
 - **스캔** (스캔 팔레트만, GDD 7.2a): 멈추고 `scanStartDelay` 뒤 한 사람이 스캔(`Scanner` · `ScanProgress`). 시간 = 시작 때 미분류 수 × `scanSecondsPerBox`(1초), 스캔 중 미분류가 늘면 그만큼 늘어 게이지가 줄었다 다시 참 (M20-1). `StaffScanWanted` = `CanScan`(미분류 1개 이상 · 남은 빈자리) — 최소 개수 규칙 없음. 다 차면 `RevealUnsorted`.
 - **알림** (M13-3, 플레이어만): 팔레트에 상자는 있는데 하나도 못 집으면(그 색 선반이 다 참) '선반 가득'. 반품 팔레트 · 재포장 입력에서 하나도 못 넣으면 찌그러진 상자면 '가득', 아니면 '넣을 수 없음' (선반에서 꺼낸 상자는 안 셈).
@@ -922,7 +922,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### SiteNavGrid
 [Site/SiteNavGrid.cs](../Scripts/Site/SiteNavGrid.cs)
 - **역할**: 게임 → A* 코어 어댑터 (2026-11-24, 측정용 · 알파 후보). `SiteGrid` 열린 칸 = 방, Site 아래 충돌체 = 장애물(`INavObstacleSource`).
-- **동작**: 만들 때 열린 칸 범위로 격자를 잡고 전체 굽기(`BuildMs`). 방 (rx, rz) = (열 − 최소 열, 최대 행 − 행). `Collect` = `OverlapBox`(높이 띠, 트리거 제외) → 위가 수직인 BoxCollider는 회전 상자, 나머지는 경계 상자.
+- **동작**: 만들 때 열린 칸 범위로 격자를 잡고 전체 굽기(`BuildMs`). 방 (rx, rz) = (열 − 최소 열, 최대 행 − 행). `Collect` = `OverlapBox`(높이 띠, 트리거 제외, **`StorageZone` 아래 팔레트 충돌체 제외** — 플레이어만 막음, 알바 작업 자리 1.8m가 장애물 키우기에 덮이므로, 2026-11-27) → 위가 수직인 BoxCollider는 회전 상자, 나머지는 경계 상자.
 - **주의**: 게임에는 아직 안 붙임(알바는 NavMesh). 격자 범위는 만들 때 열린 칸 기준 — 범위 밖 해금은 다시 만들어야 한다.
 
 ### 4.8b Navigation — 방 단위 2층 A* (2026-11-24)
@@ -958,6 +958,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **역할**: HUD 초기화. `HUD Canvas`에 붙는다. 씬에는 HUD 자식 UI를 모두 **꺼진 채** 저장하고(Build Site), 실행하면 이것이 차례대로 켜서 각 UI의 `Awake`가 초기 상태를 잡게 한다. 켜 둔 채 저장된 팝업 딤이 클릭을 가로채는 일을 막는다.
 - **동작**: `[DefaultExecutionOrder(-900)]`. `Awake`에서 자식을 모두 끈 뒤 순서대로 다시 켠다. 팝업의 `Instance`는 다른 스크립트의 `Start` 전에 등록된다.
 - **주의**: 팝업은 루트가 켜진 뒤 `Awake`에서 자기 `body`를 숨긴다 (4.9 팝업 규칙 그대로).
+- **주의**: 켜 주는 것은 HUD **바로 아래 자식만**. 손자 UI(다른 캔버스 안에 넣은 것)는 꺼진 채 저장하면 영영 안 켜진다 (가이드 화살표, 2026-11-27).
 
 #### ScreenLayout
 [UI/ScreenLayout.cs](../Scripts/UI/ScreenLayout.cs)
@@ -1016,6 +1017,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 - **동작**: 0.2초마다 목표를 다시 찾는다. 화면 안 = 목표 위 4m에서 아래를 가리키며 통통, 화면 밖 = 화면 가장자리에서 목표 쪽으로 돌아 길이가 늘었다 줄었다. 삼각형 스프라이트는 코드로 만든 임시.
 - **튜토리얼** (M13-17): 손이 비었으면 static `TutorialTarget`(TutorialGuide가 넣는 단계 대상)을 가리킨다.
 - **연결**: HUD `GuideArrow/Arrow` (Build Site), Player의 `CarryStack`.
+- **주의 (2026-11-27)**: Game · GameVertical은 `HUD Canvas / GuideArrowCanvas / GuideArrow`(8c5c8cf에서 한 단계 들어감) — `UiBootstrap`은 HUD **바로 아래 자식만** 켜므로 `GuideArrow`는 **켜진 채 저장**한다(꺼진 채면 끝까지 안 켜져 화살표가 안 나왔다). 화살표 표시는 스크립트가 안쪽 `Arrow`를 켜고 끈다.
 
 #### TutorialGuide
 [UI/TutorialGuide.cs](../Scripts/UI/TutorialGuide.cs)
@@ -1183,13 +1185,13 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 [Visuals/BakedShadows.cs](../Scripts/Visuals/BakedShadows.cs) · 셰이더 `Shaders/BakedShadow.shader`(`APC/BakedShadow`) · 재질 `Resources/M_BakedShadow`
 - **역할**: 구운 그림자. 메인 라이트 그림자를 끈 대신 정적 물체(벽 · 기둥 · 선반 · 소품)의 실제 그림자를 **부지가 바뀔 때만** 한 번 찍어 바닥에 깐다 — 프레임마다 계산하지 않음.
 - **동작**: `SiteGrid.Awake`가 붙인다. 시작 · `SiteGrid.OnUnlocked` · `OnMoved` · 레벨 변경(공사 울타리) 때 **바로** 굽고 2초 동안 0.1초마다 다시(팝 연출 · 차례로 튀어나오는 선반을 따라감, 시간 멈춤이어도 `unscaledTime`. 2026-11-27 — 처음엔 2초 뒤 한 번이라 늦게 생겼다) `Bake`: 그림자를 드리우던(`shadowCastingMode` ≠ Off) 켜진 `MeshRenderer` 중 높이 0.15m 이상만 남기고 나머지는 잠깐 `forceRenderingOff` → 방향광 회전의 직교 카메라(꺼진 채, `Camera.Render` 한 번, 그림자 · 후처리 · MSAA 끔, 벽 구멍 끔)가 물체 + 그림자가 닿는 바닥 범위를 0.06m/칸(최대 2048)으로 찍어 알파 = 실루엣 마스크 → 전역 `_BakedShadowMask` · `_BakedShadowVP`. 바닥 높이(0.13m) 판 `BakedShadowOverlay` 하나가 자기 위치를 그 행렬로 투영해 마스크(5점 평균) 만큼 곱하기로 어둡게(색 0.62). `LastBakeMs` 측정용.
-- **주의**: 그림자는 바닥(판 높이)에만 생기고 물체 옆면 · 윗면에는 없다. 캐릭터(스킨) · 캐릭터에 붙은 것(`CarryStack` 아래 = 도구 · 지게차 · 든 상자, 2026-11-27 — 구운 자리에 그림자가 남던 것, 블롭으로) · 상자 · 트럭(그림자 끔) · 바닥 타일 · 발판은 안 찍힌다. 즉 움직이지 않는 물체만 굽는다. 마스크 RenderTexture 최대 2048² ARGB32(약 16MB). 에디터 TycoonTest: 첫 굽기 489ms(셰이더 준비 포함, 씬 시작 때) · 다시 굽기 3.5ms, Game 씬 2.3~2.5ms. 물체마다 미리 구운 그림자를 프리팹에 넣는 방식은 안 씀 — 모듈이 회전 · 이동하면 그림자 방향이 빛과 어긋나고, 벽은 실행 중에 만들어지며, 옆 물체에 떨어지는 그림자를 담을 수 없다. 부지 신호 없이 물체를 새로 놓는 코드를 추가하면 `Schedule()`을 부른다.
+- **주의**: 그림자는 바닥(판 높이)에만 생기고 물체 옆면 · 윗면에는 없다. 캐릭터(스킨) · 캐릭터에 붙은 것(`CarryStack` 아래 = 도구 · 지게차 · 든 상자, 2026-11-27 — 구운 자리에 그림자가 남던 것, 블롭으로) · 상자 · 트럭(그림자 끔) · 바닥 타일 · 발판 · 해금 타일(`ExpansionPad` 아래, 2026-11-27 사용자)은 안 찍힌다. 즉 움직이지 않는 물체만 굽는다. 마스크 RenderTexture 최대 2048² ARGB32(약 16MB). 에디터 TycoonTest: 첫 굽기 489ms(셰이더 준비 포함, 씬 시작 때) · 다시 굽기 3.5ms, Game 씬 2.3~2.5ms. 물체마다 미리 구운 그림자를 프리팹에 넣는 방식은 안 씀 — 모듈이 회전 · 이동하면 그림자 방향이 빛과 어긋나고, 벽은 실행 중에 만들어지며, 옆 물체에 떨어지는 그림자를 담을 수 없다. 부지 신호 없이 물체를 새로 놓는 코드를 추가하면 `Schedule()`을 부른다.
 
 #### SkinnedCombine (2026-11-27)
 [Visuals/SkinnedCombine.cs](../Scripts/Visuals/SkinnedCombine.cs)
 - **역할**: 알바 스킨 메시 합치기 — 드로 줄이기. 알바 1명 = 스킨 메시 6개 × (툰 + 외곽선 2패스 + PC는 깊이 · 노멀) 드로라 100명이면 배치 2000 가까이 됐다.
-- **동작**: 정적 `Combine(코스튬 루트)` — `StaffWorker.Setup`이 고른 코스튬에 부른다(CharacterToon이 이미 재질을 바꾼 뒤). 켜진 SkinnedMeshRenderer들의 정점 · 노멀 · 탄젠트 · UV · 색 · 뼈 가중치를 이어 붙이고(정점은 원래 메시 공간, bindpose 그대로 — 스킨 결과는 렌더러 위치와 무관), 뼈 배열은 부품 순서대로 이어 붙인다(중복 허용). 재질별 서브메시 → 새 자식 `CombinedSkin` 렌더러 하나, 원래 부품은 끈다(남겨 둠). 재질 2~4개가 셰이더 · 값 · 켜진 패스가 같고 텍스처만 다르면(유니폼 피부 · 옷 · 머리) `Graphics.CopyTexture`로 2×2 아틀라스(GPU만, 기기 압축 형식 그대로, 밉은 압축 블록 크기까지) + UV를 칸으로 옮겨 **서브메시 1개 · 공유 재질 1개**. 합친 메시 · 아틀라스는 코스튬(메시 · 재질 묶음)마다 한 번 만들어 캐시.
-- **주의**: 메시 fbx는 Read/Write 켬(`Art/Model/Worker` 알바 fbx 5개, 꺼져 있으면 합치지 않음). UV가 0~1 밖이면 아틀라스가 깨진다(유니폼 0.014~0.987 확인). 플레이어는 합치지 않음. 결과(TycoonTest 알바 100명): PC 기본 화면 배치 2323 → 1376(합치기만), 줌아웃 추정 알바 1명 스킨 드로 8.2 → 3.2(아틀라스 포함), 유니폼 95명 서브메시 1 · 코스튬 5명은 재질 1~2라 그대로.
+- **동작**: 정적 `Combine(코스튬 루트)` — `StaffWorker.Setup`이 고른 코스튬에 부른다(CharacterToon이 이미 재질을 바꾼 뒤). 켜진 SkinnedMeshRenderer들의 정점 · 노멀 · 탄젠트 · UV · 색 · 뼈 가중치를 이어 붙이고(정점은 원래 메시 공간, bindpose 그대로 — 스킨 결과는 렌더러 위치와 무관), 뼈 배열은 부품 순서대로 이어 붙인다(중복 허용). 재질별 서브메시 → 새 자식 `CombinedSkin` 렌더러 하나, 원래 부품은 끈다(남겨 둠). 끈 뒤 **`Animator.Rebind()`** — Animator는 처음 찾은 렌더러로 보임을 판단해, 안 하면 `CullUpdateTransforms`가 늘 '안 보임'으로 보고 뼈를 안 움직인다(애니 멈춤, 2026-11-27 고침). 재질 2~4개가 셰이더 · 값 · 켜진 패스가 같고 텍스처만 다르면(유니폼 피부 · 옷 · 머리) `Graphics.CopyTexture`로 2×2 아틀라스(GPU만, 기기 압축 형식 그대로, 밉은 압축 블록 크기까지) + UV를 칸으로 옮겨 **서브메시 1개 · 공유 재질 1개**. 합친 메시 · 아틀라스는 코스튬(메시 · 재질 묶음)마다 한 번 만들어 캐시.
+- **주의**: 메시 fbx는 Read/Write 켬(`Art/Model/Worker` 알바 fbx 5개, 꺼져 있으면 합치지 않음). UV가 0~1 밖이면 아틀라스가 깨진다(유니폼 0.014~0.987 확인). 플레이어는 합치지 않음. 텍스처 형식을 이 GPU가 못 만들면(에디터 Android 플랫폼 = ASTC) 아틀라스 없이 재질 따로(2026-11-27 — 'RGBA_ASTC6X6_SRGB is not supported' 에러 고침). 결과(TycoonTest 알바 100명): PC 기본 화면 배치 2323 → 1376(합치기만), 줌아웃 추정 알바 1명 스킨 드로 8.2 → 3.2(아틀라스 포함), 유니폼 95명 서브메시 1 · 코스튬 5명은 재질 1~2라 그대로.
 
 #### CharacterToon
 [Visuals/CharacterToon.cs](../Scripts/Visuals/CharacterToon.cs)
@@ -1300,7 +1302,7 @@ StaffWorker (thinkInterval 0.25초마다 판단)
 #### AndroidBuilds (2026-11-27)
 [Editor/AndroidBuilds.cs](../Scripts/Editor/AndroidBuilds.cs)
 - **역할**: 메뉴 `APC > Build > Android — Game + Tycoon (APK 2개)` — Game 씬 · TycoonTest 씬을 따로 빌드해 한 기기에 같이 설치할 수 있게.
-- **동작**: 메뉴는 바로 끝나고 다음 에디터 틱(`delayCall`)에 빌드. **Android 빌드에서는(이 메뉴든 Build Settings든) `DebugMenu` · `PerformanceHUD` 오브젝트를 빌드 결과에서 뺀다**(`StripDebugInBuild`, 저사양 기기 부하 — 에디터 · 씬 파일은 그대로, 2026-11-27). Game = 지금 패키지 ID · 이름 그대로, Tycoon = ID + `.tycoon` · 이름 + ` Tycoon`. 씬은 빌드 설정 목록과 상관없이 하나씩 넘긴다. 끝나면 ID · 이름을 되돌린다. 결과 `Builds/Android/APC_Game.apk` · `APC_Tycoon.apk`(git 제외), 콘솔 `[AndroidBuilds]` 줄.
+- **동작**: 메뉴는 바로 끝나고 다음 에디터 틱(`delayCall`)에 빌드. **Android 빌드에서는(이 메뉴든 Build Settings든) `DebugMenu` · `PerformanceHUD` 오브젝트를 빌드 결과에서 뺀다**(`StripDebugInBuild`, 저사양 기기 부하 — 에디터 · 씬 파일은 그대로, 2026-11-27). Game = 지금 패키지 ID · 이름 그대로, Tycoon = ID + `.tycoon` · 이름 + ` Tycoon`. 씬은 빌드 설정 목록과 상관없이 하나씩 넘긴다. 끝나면 ID · 이름을 되돌린다. 결과 `Builds/Android/APC_Game.apk` · `APC_Tycoon.apk`(git 제외), 콘솔 `[AndroidBuilds]` 줄. 메뉴 `Android — Tycoon GLES3`(그래픽 API A/B): 그래픽 API를 OpenGL ES 3 하나로 바꿔 `APC_Tycoon_GLES.apk`(ID + `.tycoon.gles`, 이름 + ` GLES`) 빌드 뒤 API · ID · 이름을 되돌린다.
 - **주의**: TycoonTest 씬은 커밋하지 않으므로 먼저 `APC > Test > Build Tycoon 8x8`로 만든다(Game 씬을 복사하므로 Game의 UI가 그대로 들어간다). 활성 대상이 Android가 아니면 처음 한 번 전환 · 재임포트로 오래 걸린다(2026-11-27: Game 515초 · Tycoon 85초, APK 각 약 56MB).
 
 | 메뉴 | 스크립트 | 하는 일 |

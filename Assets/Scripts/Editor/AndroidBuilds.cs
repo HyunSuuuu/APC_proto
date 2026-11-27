@@ -40,6 +40,35 @@ namespace APC.EditorTools
             Debug.Log("[AndroidBuilds] 끝");
         }
 
+        /// <summary>그래픽 API A/B — Tycoon을 OpenGL ES 3만으로 (기본은 Vulkan 먼저). 결과 APC_Tycoon_GLES.apk, ID + ".tycoon.gles"라 기존 Tycoon과 같이 설치됨.</summary>
+        [MenuItem("APC/Build/Android — Tycoon GLES3 (그래픽 API A/B)")]
+        static void BuildGles() => EditorApplication.delayCall += RunGles;
+
+        static void RunGles()
+        {
+            var target = NamedBuildTarget.Android;
+            var originalId = PlayerSettings.GetApplicationIdentifier(target);
+            var originalName = PlayerSettings.productName;
+            var originalApis = PlayerSettings.GetGraphicsAPIs(BuildTarget.Android);
+            var originalAuto = PlayerSettings.GetUseDefaultGraphicsAPIs(BuildTarget.Android);
+            Directory.CreateDirectory(OutputFolder);
+            try
+            {
+                PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
+                PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { UnityEngine.Rendering.GraphicsDeviceType.OpenGLES3 });
+                Build("Tycoon_GLES", new[] { "Assets/Scenes/TycoonTest.unity" }, originalId + ".tycoon.gles", originalName + " GLES");
+            }
+            finally
+            {
+                PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, originalApis);
+                PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, originalAuto);
+                PlayerSettings.SetApplicationIdentifier(target, originalId);
+                PlayerSettings.productName = originalName;
+                AssetDatabase.SaveAssets();
+            }
+            Debug.Log("[AndroidBuilds] GLES 끝");
+        }
+
         static void Build(string label, string[] scenes, string id, string productName)
         {
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, id);
